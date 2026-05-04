@@ -1,0 +1,43 @@
+{
+  "name": "meristem-vnext",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "bun run scripts/no-any-check.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests/contracts tests/failure-modes",
+    "test:contracts": "bun test tests/contracts",
+    "test:failure-modes": "bun test tests/failure-modes",
+    "db:migrate": "bun run packages/db/src/migrate.ts",
+    "db:seed": "bun run packages/db/src/seed.ts",
+    "dev:core": "bun run apps/core/src/index.ts",
+    "dev:m-policy": "bun run services/m-policy/src/index.ts",
+    "dev:m-log": "bun run services/m-log/src/index.ts",
+    "dev:m-eventbus": "bun run services/m-eventbus/src/index.ts",
+    "dev:m-net": "bun run services/m-net/src/index.ts",
+    "dev:all": "bun run scripts/dev-all.ts",
+    "token:mint": "bun run packages/auth/src/mint-token.ts",
+    "meristem": "bun run apps/m-cli/src/index.ts"
+  },
+  "dependencies": {
+    "@elysiajs/openapi": "latest",
+    "@nats-io/nats-core": "latest",
+    "@nats-io/transport-node": "latest",
+    "@scalar/types": "latest",
+    "drizzle-orm": "latest",
+    "elysia": "1.4.28",
+    "jose": "latest",
+    "postgres": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "drizzle-kit": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,53 @@
+import { err, ok, type Result } from '../../common/src/result.ts'
+
+export type MEventEnvelope = {
+  id: string
+  type: string
+  version: string
+  source: string
+  timestamp: string
+  correlationId?: string
+  causationId?: string
+  subject?: string
+  payload: unknown
+}
+
+export type CreateEventInput = {
+  type: string
+  source: string
+  payload: unknown
+  correlationId?: string
+  causationId?: string
+  subject?: string
+}
+
+export function createEventEnvelope(input: CreateEventInput): MEventEnvelope {
+  const event: MEventEnvelope = {
+    id: crypto.randomUUID(),
+    type: input.type,
+    version: 'v0',
+    source: input.source,
+    timestamp: new Date().toISOString(),
+    payload: input.payload
+  }
+  if (input.correlationId) event.correlationId = input.correlationId
+  if (input.causationId) event.causationId = input.causationId
+  if (input.subject) event.subject = input.subject
+  return event
+}
+
+export function validateEventEnvelope(value: unknown): Result<MEventEnvelope, string[]> {
+  if (typeof value !== 'object' || value === null) return err(['event_not_object'])
+
+  const event = value as Partial<MEventEnvelope>
+  const errors: string[] = []
+
+  if (typeof event.id !== 'string' || event.id.length === 0) errors.push('missing_id')
+  if (typeof event.type !== 'string' || event.type.length === 0) errors.push('missing_type')
+  if (typeof event.version !== 'string' || event.version.length === 0) errors.push('missing_version')
+  if (typeof event.source !== 'string' || event.source.length === 0) errors.push('missing_source')
+  if (typeof event.timestamp !== 'string' || Number.isNaN(Date.parse(event.timestamp))) errors.push('invalid_timestamp')
+  if (!('payload' in event)) errors.push('missing_payload')
+
+  return errors.length > 0 ? err(errors) : ok(event as MEventEnvelope)
+}
