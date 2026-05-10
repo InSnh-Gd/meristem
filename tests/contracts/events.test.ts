@@ -7,12 +7,14 @@ describe('MEventEnvelope', () => {
       type: 'node.registration.accepted',
       source: 'meristem-core',
       payload: { nodeId: 'node-1' },
-      correlationId: 'corr-1'
+      correlationId: 'corr-1',
+      traceId: '0123456789abcdef0123456789abcdef'
     })
 
     expect(event.id.length).toBeGreaterThan(10)
     expect(event.version).toBe('v0')
     expect(event.correlationId).toBe('corr-1')
+    expect(event.traceId).toBe('0123456789abcdef0123456789abcdef')
     expect(validateEventEnvelope(event).ok).toBe(true)
   })
 

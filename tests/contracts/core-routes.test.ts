@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
+import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 
 describe('Core REST MVP routes', () => {
+  it('reports readiness across postgres, nats, and internal services', async () => {
+    const deps = createInMemoryCoreDeps()
+    deps.storage.readiness = async () => ({
+      postgres: 'ready',
+      nats: 'ready',
+      'm-policy': 'ready',
+      'm-log': 'ready',
+      'm-eventbus': 'unavailable',
+      'm-net': 'ready'
+    })
+    const app = createCoreApp(deps)
+
+    const response = await app.handle(new Request('http://localhost/api/v0/ready'))
+
+    expect(response.status).toBe(200)
+    const body = await response.json() as {
+      ready: boolean
+      dependencies: Record<string, string>
+    }
+    expect(body.ready).toBe(false)
+    expect(body.dependencies['m-policy']).toBe('ready')
+    expect(body.dependencies['m-eventbus']).toBe('unavailable')
+    expect(body.dependencies['m-net']).toBe('ready')
+  })
+
   it('returns 401 for protected routes without bearer token', async () => {
     const app = createCoreApp(createInMemoryCoreDeps())
     const response = await app.handle(new Request('http://localhost/api/v0/status'))
@@ -10,12 +36,18 @@ describe('Core REST MVP routes', () => {
     expect(response.status).toBe(401)
   })
 
-  it('registers a leaf node for an authorized operator token', async () => {
+  it('creates a join ticket for an authorized operator token', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const published: Array<{ subject: string; event: MEventEnvelope }> = []
+    const publish = deps.events.publish
+    deps.events.publish = async (subject, event) => {
+      published.push({ subject, event })
+      return publish(subject, event)
+    }
     const app = createCoreApp(deps)
 
     const response = await app.handle(
-      new Request('http://localhost/api/v0/nodes', {
+      new Request('http://localhost/api/v0/node-tickets', {
         method: 'POST',
         headers: {
           authorization: 'Bearer operator-token',
@@ -26,9 +58,104 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as { node: { kind: string; status: string } }
+    const body = await response.json() as {
+      ticketId: string
+      ticket: string
+      expiresAt: string
+      joinUrl: string
+    }
+    expect(body.ticketId.length).toBeGreaterThan(10)
+    expect(body.ticket.startsWith('mjt_')).toBe(true)
+    expect(body.expiresAt.length).toBeGreaterThan(10)
+    expect(body.joinUrl).toBe('wss://localhost:8443/join/v0/session')
+    expect(published.map((entry) => entry.subject)).toEqual([
+      'node.registration.requested.v0',
+      'node.join-ticket.created.v0'
+    ])
+  })
+
+  it('registers a simulated leaf node for an authorized operator token', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const app = createCoreApp(deps)
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'sim-leaf' })
+      })
+    )
+
+    const body = await response.json() as {
+      node: { kind: string; status: string; mode: string; reachability: string }
+    }
+    expect(response.status).toBe(200)
     expect(body.node.kind).toBe('leaf')
     expect(body.node.status).toBe('healthy')
+    expect(body.node.mode).toBe('simulated')
+    expect(body.node.reachability).toBe('reachable')
+  })
+
+  it('rejects agent mode on the public node registration route', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const app = createCoreApp(deps)
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'agent-leaf', mode: 'agent' })
+      })
+    )
+
+    expect(response.status).toBe(409)
+    const body = await response.json() as { error: { code: string; message: string } }
+    expect(body.error.code).toBe('node.agent_join_ticket_required')
+    expect(body.error.message).toContain('node ticket')
+  })
+
+  it('issues a node credential for an operator and returns the token once', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const app = createCoreApp(deps)
+
+    const register = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'sim-leaf' })
+      })
+    )
+    const registered = await register.json() as { node: { id: string } }
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/v0/nodes/${registered.node.id}/credentials`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token'
+        }
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json() as {
+      nodeId: string
+      token: string
+      issuedAt: string
+      policyDecisionId: string
+      correlationId: string
+    }
+    expect(body.nodeId).toBe(registered.node.id)
+    expect(body.token.length).toBeGreaterThan(20)
+    expect(body.issuedAt.length).toBeGreaterThan(10)
   })
 
   it('fails closed when audit write is unavailable for node registration', async () => {
@@ -42,7 +169,7 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf' })
+        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
 
@@ -71,8 +198,142 @@ describe('Core REST MVP routes', () => {
         headers: { authorization: 'Bearer admin-token' }
       })
     )
-    const body = await list.json() as { services: unknown[] }
-    expect(body.services.length).toBe(1)
+    const body = await list.json() as { services: Array<{ id: string }> }
+    expect(body.services.some((service) => service.id === 'sample-service')).toBe(true)
+    expect(body.services.some((service) => service.id === 'm-log')).toBe(true)
+  })
+
+  it('lists built-in service runtime and reloads m-log for an operator', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const published: Array<{ subject: string; event: MEventEnvelope }> = []
+    const publish = deps.events.publish
+    deps.events.publish = async (subject, event) => {
+      published.push({ subject, event })
+      return publish(subject, event)
+    }
+    const app = createCoreApp(deps)
+
+    const list = await app.handle(
+      new Request('http://localhost/api/v0/services', {
+        headers: { authorization: 'Bearer operator-token' }
+      })
+    )
+
+    expect(list.status).toBe(200)
+    const servicesBody = await list.json() as {
+      services: Array<{ id: string; lifecycle: { reloadable: boolean }; runtime?: { mode: string } }>
+    }
+    const mLog = servicesBody.services.find((service) => service.id === 'm-log')
+    expect(mLog?.lifecycle.reloadable).toBe(true)
+    expect(mLog?.runtime?.mode).toBe('normal')
+
+    const reload = await app.handle(
+      new Request('http://localhost/api/v0/services/m-log/reload', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ reason: 'test reload' })
+      })
+    )
+
+    expect(reload.status).toBe(200)
+    const reloadBody = await reload.json() as { serviceId: string; accepted: boolean }
+    expect(reloadBody.serviceId).toBe('m-log')
+    expect(reloadBody.accepted).toBe(true)
+    expect(published.map((entry) => entry.subject)).toContain('service.lifecycle.reload.requested.v0')
+  })
+
+  it('publishes requested and completed task events for noop assignment', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const published: Array<{ subject: string; event: MEventEnvelope }> = []
+    const publish = deps.events.publish
+    deps.events.publish = async (subject, event) => {
+      published.push({ subject, event })
+      return publish(subject, event)
+    }
+    const app = createCoreApp(deps)
+
+    const register = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
+      })
+    )
+    const registered = await register.json() as { node: { id: string } }
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/tasks', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ leafNodeId: registered.node.id, type: 'noop' })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(published.map((entry) => entry.subject)).toContain('task.assignment.requested.v0')
+    expect(published.map((entry) => entry.subject)).toContain('task.assignment.completed.v0')
+  })
+
+  it('assigns noop tasks to reachable agent nodes after issuing a node token', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' }) as ReturnType<typeof createInMemoryCoreDeps> & {
+      __testing: {
+        setNodeRuntime(nodeId: string, patch: { status?: string; reachability?: string; lastSeenAt?: string; agentVersion?: string }): void
+      }
+    }
+    const app = createCoreApp(deps)
+
+    const register = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'agent-worker', mode: 'simulated' })
+      })
+    )
+    const registered = await register.json() as { node: { id: string } }
+
+    const issued = await app.handle(
+      new Request(`http://localhost/api/v0/nodes/${registered.node.id}/credentials`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token'
+        }
+      })
+    )
+    expect(issued.status).toBe(200)
+
+    deps.__testing.setNodeRuntime(registered.node.id, {
+      status: 'healthy',
+      reachability: 'reachable',
+      lastSeenAt: new Date().toISOString(),
+      agentVersion: '0.1.0-test'
+    })
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/tasks', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ leafNodeId: registered.node.id, type: 'noop' })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json() as { task: { status: string } }
+    expect(body.task.status).toBe('completed')
   })
 
   it('returns full logs for operators', async () => {
@@ -102,7 +363,7 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf' })
+        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
     const registered = await register.json() as { policyDecisionId: string }
@@ -130,7 +391,7 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'stem', name: 'local-stem' })
+        body: JSON.stringify({ kind: 'stem', name: 'local-stem', mode: 'simulated' })
       })
     )
     const stemBody = await stemResponse.json() as { node: { id: string } }
@@ -142,7 +403,7 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf' })
+        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
     const leafBody = await leafResponse.json() as { node: { id: string } }
