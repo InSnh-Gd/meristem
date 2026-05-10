@@ -16,7 +16,8 @@
 4. `MERISTEM-DEV.md` - 理解工程规范、模块边界、数据结构和冻结条款
 5. `MERISTEM-ROADMAP.md` - 理解分阶段实现顺序和 v0.1 护栏
 6. `docs/README.md` - 查找细分契约文档
-7. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
+7. `meristem_v_next_developer_document_v_0_1.md` - 理解原始 Bun-only、Eden-first、注释与 FIXME 约束
+8. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
 
 不要跳过意图文档直接按开发文档写代码。Meristem 的实现必须服务于微内核、轻量微服务、可审计 M 网络这三个上游意图。
 
@@ -62,7 +63,36 @@ export type MServiceDefinition = { ... };
 
 不要给显而易见的赋值写注释。注释用于解释边界、契约、故障处理和安全原因。
 
-### 3.3 禁止列表是硬约束
+必须补齐并维持以下注释要求，见 `meristem_v_next_developer_document_v_0_1.md §26.2` 与 `MERISTEM-DEV.md §8.2`：
+
+- 非平凡逻辑必须有代码块级注释
+- 导出函数、边界函数、校验函数、状态转换函数必须有函数注释
+- Elysia 方法链必须有特别注释，解释鉴权、策略、生命周期、日志和错误映射
+- 注释优先解释边界和原因，不重复语法本身
+
+`FIXME` 只能用于以下场景，见 `meristem_v_next_developer_document_v_0_1.md §26.3` 与 `MERISTEM-DEV.md §8.3`：
+
+- 临时方案
+- 已知技术债
+- 未完成安全边界
+- 临时降级路径
+- 尚未处理的异常情况
+- 未来必须修复的问题
+
+不得用无说明的 `TODO`、`NOTE` 或 `HACK` 代替这些边界性标记。
+
+### 3.3 Bun-Only 与 Node.js 禁令
+
+Meristem vNext 当前仓库执行 **Bun-only** 规则：
+
+- 包管理、脚本执行、测试执行、服务运行统一使用 Bun
+- 禁止使用 `node` 运行时执行仓库代码
+- 禁止引入 `node:*` 标准库 API
+- 禁止让 Node.js 成为本地开发、测试、运行或联调前提
+
+领域里的 `Core Node`、`Stem Node`、`Leaf Node` 不是禁词；禁令只针对 Node.js 运行时和 Node.js API。
+
+### 3.4 禁止列表是硬约束
 
 如果文档明确放弃或暂不采用某方案，不要在代码中引入它。当前硬性禁止包括：
 
@@ -83,6 +113,49 @@ export type MServiceDefinition = { ... };
 - 让 LLM 成为授权根或审计事实来源
 
 如果用户要求违反上述约束，先说明冲突章节和风险，再给出符合文档的替代方案。
+
+### 3.5 Multi-Agent 默认协作
+
+Meristem 的非平凡任务默认要求使用 **multi-agent**，避免把探索、实现、契约校验、测试和审查全部堆在主模型里。
+
+- 单文件文案修正、纯说明问答、极小范围只读定位可以例外，但涉及代码、契约、服务、配置、测试或文档联动时，默认进入 multi-agent。
+- 主模型负责：读取上游意图文档、判断边界、拆解任务、分配子任务、合并结果、处理子代理冲突、做最终结论。
+- 子代理负责：在明确边界内完成单一职责工作，默认不跨职责扩张。
+- 默认优先把子任务分发给小模型 `gpt-5.4-mini`。只有在以下情况才提升到更强模型或由主模型亲自处理：
+  - 产品意图与工程规范存在冲突
+  - 涉及跨服务架构调整或大范围集成
+  - 高风险安全、授权、审计或数据边界存在不确定性
+  - 多个小模型输出相互矛盾，无法直接合并
+- 默认拆解方式：
+  - `code-mapper`：只读定位代码路径、符号、依赖和最小修改面
+  - `task-decomposer`：把任务切成可并行的小块并定义 ownership
+  - `contract-guardian`：核对文档章节、契约版本、事件边界、安全边界和文档漂移
+  - `backend-developer`：通用后端实现兜底，只在没有更专门 coding 角色时使用
+  - `elysia-developer`：处理 Elysia 路由、插件、OpenAPI、Eden 集成和相关测试
+  - `contract-implementer`：处理 schema、共享类型、契约版本、事件 envelope 和 validator
+  - `domain-logic-developer`：处理纯 TypeScript 领域逻辑、状态转换、策略判断、解析和校验
+  - `cli-developer`：处理 M-CLI、参数解析、输出映射和 CLI 契约联动
+  - `bug-fixer`：针对明确缺陷做最小修复和失败路径补洞
+  - `refactor-worker`：处理低风险重构、提取复用、命名和模块切分，不改变既有契约语义
+  - `test-runner`：运行最小必要的 Bun 测试、类型检查和失败路径验证
+  - `reviewer`：做回归、边界和风险审查
+- 非复杂 coding 任务默认分发策略：
+  - 能匹配专职 coding 角色时，优先派给专职角色，不先派给主模型
+  - 默认使用 `gpt-5.4-mini`
+  - 只有在任务跨越多个专职角色且强耦合时，才由主模型做更高层协调
+- 默认 coding 路由：
+  - Elysia / Eden / OpenAPI / route test -> `elysia-developer`
+  - schema / contract / events / validator -> `contract-implementer`
+  - parser / policy / pure function / state transition -> `domain-logic-developer`
+  - CLI / command / terminal output / CLI contract -> `cli-developer`
+  - 明确 defect fix -> `bug-fixer`
+  - 低风险整理与抽取 -> `refactor-worker`
+  - 无法明确归类的普通后端任务 -> `backend-developer`
+- 默认至少满足以下拆分粒度之一：
+  - 跨两个及以上模块或目录的改动：至少拆给 2 个子代理
+  - 同时涉及代码与文档 / 契约：至少拆给 2 个子代理
+  - 涉及实现、测试、审查三个不同环节：至少拆给 3 个子代理
+- 子代理仍然必须遵守本文档的文档阅读顺序、Bun-only 约束、无 `any` 约束和文档同步责任。
 
 ---
 
@@ -142,6 +215,8 @@ Core 是微内核，不是大而全业务单体。Core 负责 bootstrap、基础
 - 必要时有 OpenTelemetry trace
 - 契约已版本化
 - 文档已更新
+- 无 Node.js 运行时依赖
+- 无 `node:*` API 依赖
 
 微服务、高权限能力和跨节点契约还必须满足 `MERISTEM-DEV.md` 与 `MERISTEM-ROADMAP.md` 的专项完成标准。
 

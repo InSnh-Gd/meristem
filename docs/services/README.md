@@ -11,11 +11,11 @@
 | Service Definition Template | `SERVICE-DEFINITION-TEMPLATE.md` | required template |
 | Core | `core.md` | MVP orchestrator |
 | M-CLI | `m-cli.md` | MVP operator entrypoint |
-| M-EventBus | `m-eventbus.md` | MVP NATS boundary |
+| M-EventBus | `m-eventbus.md` | MVP internal loopback HTTP + Eden publisher to NATS |
 | M-Log | `m-log.md` | MVP Timeline / Full / Audit |
 | M-Policy | `m-policy.md` | MVP RBAC |
 | M-Net | `m-net.md` | logical network orchestration now; future real transport later |
-| Node Agent | `node-agent.md` | future agent; MVP simulated by Core |
+| Node Agent | `node-agent.md` | agent heartbeat, noop execution, and forwarded logs |
 | M-UI BFF | `m-ui-bff.md` | out of MVP |
 
 ---

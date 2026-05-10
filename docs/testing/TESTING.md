@@ -40,10 +40,19 @@ bun run lint
 bun run typecheck
 bun run test
 bun run test:contracts
+bun run test:cli
 bun run test:failure-modes
+bun run test:integration
+bun run test:e2e
 ```
 
 No core capability is complete until these pass or an explicit documented exception exists.
+
+Additional hard gates:
+
+- repository code must remain Bun-only
+- repository code must not import `node:*`
+- source comments must satisfy `MERISTEM-DEV.md §8.2` and `meristem_v_next_developer_document_v_0_1.md §26.2`
 
 ---
 
@@ -56,6 +65,7 @@ Must cover:
 - service definition required fields
 - REST/OpenAPI route versioning
 - Eden contract sample compatibility
+- internal loopback HTTP + Eden compatibility for `M-Policy`, `M-Log`, and `M-EventBus`
 - config schema versioning
 - M-Policy decision result shape
 - Audit Log required fields
@@ -65,8 +75,13 @@ MVP-specific contract tests:
 - REST route schemas match `docs/contracts/REST-API-MVP.md`.
 - CLI command outputs match `docs/contracts/CLI-COMMANDS.md`.
 - Eden status client returns the same shape as REST status.
+- internal service Eden clients return the same shapes as their HTTP routes.
 - PostgreSQL logical schema matches `docs/data/POSTGRES-SCHEMA-MVP.md`.
 - logical network create/join/member routes enforce documented `stem` / `leaf` rules.
+- lifecycle prototype routes and CLI match `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
+- node registration default mode and node credential issuance match the Phase 8 contract.
+- heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
+- join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
 
 ---
 
@@ -88,14 +103,20 @@ MVP failure-mode tests:
 - Audit Log write failure blocks node registration and task assignment.
 - Audit Log write failure blocks network creation and network join.
 - viewer cannot register node.
+- viewer cannot issue node tokens.
 - viewer cannot create logical networks.
 - operator cannot read Audit Log.
 - security-admin can read Audit Log.
 - missing or invalid JWT returns `401`.
 - valid JWT with insufficient permission returns `403`.
-- M-Policy NATS request timeout fails protected operations closed.
+- missing or invalid internal token makes the target service unavailable.
+- M-Policy HTTP timeout fails protected operations closed.
 - M-Log Audit write timeout fails protected mutating operations closed.
 - M-Net unavailable fails network routes closed with `503`.
+- viewer cannot reload a service.
+- non-reloadable service returns `409`.
+- reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
+- agent task assignment without an active token returns `409`.
 
 ---
 
@@ -122,18 +143,27 @@ bun run lint
 bun run typecheck
 bun run test
 bun run test:contracts
+bun run test:cli
 bun run test:failure-modes
+bun run test:integration
+bun run test:e2e
+bun run nodejs-ban
 docker compose up -d postgres nats
 bun run db:migrate
 bun run db:seed
+export MERISTEM_INTERNAL_TOKEN=change-me-internal-shared-token
+bun run scripts/certs-dev.ts
 bun run dev:all
 MERISTEM_TOKEN=<operator-token> bun run meristem status
 MERISTEM_TOKEN=<operator-token> bun run meristem node register --kind stem --name local-stem
 MERISTEM_TOKEN=<operator-token> bun run meristem node register --kind leaf --name local-leaf
+MERISTEM_TOKEN=<operator-token> bun run meristem node ticket create --kind leaf --name remote-leaf
 MERISTEM_TOKEN=<operator-token> bun run meristem node list
 MERISTEM_TOKEN=<operator-token> bun run meristem network create --name lab-mesh
 MERISTEM_TOKEN=<operator-token> bun run meristem network join --network <network-id> --node <stem-node-id>
 MERISTEM_TOKEN=<operator-token> bun run meristem network members --network <network-id>
+MERISTEM_TOKEN=<operator-token> bun run meristem service list
+MERISTEM_TOKEN=<operator-token> bun run meristem service reload --service m-log --reason smoke-test
 MERISTEM_TOKEN=<operator-token> bun run meristem task assign --leaf <leaf-node-id> --type noop
 MERISTEM_TOKEN=<operator-token> bun run meristem log timeline
 MERISTEM_TOKEN=<security-admin-token> bun run meristem audit list

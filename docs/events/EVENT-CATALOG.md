@@ -16,6 +16,7 @@ type MEventEnvelope = {
   source: string;
   timestamp: string;
   correlationId?: string;
+  traceId?: string;
   causationId?: string;
   subject?: string;
   payload: unknown;
@@ -65,7 +66,8 @@ Rules:
 | `service.lifecycle.reload.failed.v0` | event | service | Core, M-Log | `ServiceReloadFailedPayload` | at-least-once |
 | `node.registration.requested.v0` | command | Core | M-Policy | `NodeRegistrationRequestedPayload` | at-least-once |
 | `node.registration.accepted.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeRegistrationAcceptedPayload` | at-least-once |
-| `node.status.changed.v0` | event | Core / node agent | M-Log, M-Net, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
+| `node.join-ticket.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeJoinTicketCreatedPayload` | at-least-once |
+| `node.status.changed.v0` | event | Core / M-Net | M-Log, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
 | `mnet.network.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
 | `mnet.membership.joined.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
 | `task.assignment.requested.v0` | command | Core / CLI | Core, M-Log | `TaskAssignmentRequestedPayload` | at-least-once |
@@ -80,23 +82,15 @@ Rules:
 | `audit.lock.required.v0` | event | M-Policy / M-Log | Core, M-UI BFF | `AuditLockRequiredPayload` | at-least-once |
 | `audit.entry.created.v0` | event | M-Log | Core, M-UI BFF | `AuditEntryCreatedPayload` | at-least-once |
 
-MVP service request/reply subjects:
+MVP sync HTTP/Eden boundaries:
 
-| Subject | Type | Requester | Responder | Payload Schema | Timeout |
-|---------|------|-----------|-----------|----------------|---------|
-| `mpolicy.authorize.v0` | request/reply | Core | M-Policy | `PolicyAuthorizeRequest` / `PolicyAuthorizeResponse` | 1000ms |
-| `mpolicy.decision.get.v0` | request/reply | Core | M-Policy | `PolicyDecisionGetRequest` / `PolicyDecisionGetResponse` | 1000ms |
-| `mlog.timeline.write.v0` | request/reply | Core | M-Log | `TimelineWriteRequest` / `TimelineWriteResponse` | 1000ms |
-| `mlog.full.write.v0` | request/reply | Core | M-Log | `FullLogWriteRequest` / `FullLogWriteResponse` | 1000ms |
-| `mlog.audit.write.v0` | request/reply | Core | M-Log | `AuditWriteRequest` / `AuditWriteResponse` | 1000ms |
-| `mlog.timeline.list.v0` | request/reply | Core | M-Log | `LogListRequest` / `TimelineListResponse` | 1000ms |
-| `mlog.full.list.v0` | request/reply | Core | M-Log | `LogListRequest` / `FullLogListResponse` | 1000ms |
-| `mlog.audit.list.v0` | request/reply | Core | M-Log | `LogListRequest` / `AuditListResponse` | 1000ms |
-| `meventbus.publish.v0` | request/reply | Core | M-EventBus | `EventPublishRequest` / `EventPublishResponse` | 1000ms |
-| `mnet.network.create.v0` | request/reply | Core | M-Net | `CreateNetworkRequest` / `CreateNetworkResponse` | 1000ms |
-| `mnet.network.list.v0` | request/reply | Core | M-Net | `EmptyRequest` / `NetworkListResponse` | 1000ms |
-| `mnet.network.join.v0` | request/reply | Core | M-Net | `JoinNetworkRequest` / `JoinNetworkResponse` | 1000ms |
-| `mnet.network.members.list.v0` | request/reply | Core | M-Net | `NetworkMembersListRequest` / `NetworkMembersListResponse` | 1000ms |
+| Boundary | Transport | Notes |
+|----------|-----------|-------|
+| Core -> M-Policy | loopback HTTP + Eden + internal token | `/internal/v0/authorize`, `/internal/v0/decisions/:id` |
+| Core -> M-Log | loopback HTTP + Eden + internal token | `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit` |
+| Core -> M-EventBus | loopback HTTP + Eden + internal token | `/internal/v0/publish` |
+| Core -> M-Net | loopback HTTP + Eden + internal token | `/internal/v0/networks`, `/internal/v0/networks/:id/members`, `/internal/v0/tasks/noop` |
+| node-agent -> M-Net | public TLS + WebSocket session protocol | `/join/v0/session` with `join.redeem`, `session.resume`, `heartbeat`, `log.forward`, `task.result` |
 
 ---
 
@@ -109,11 +103,51 @@ type CoreLifecyclePayload = {
   version: string;
 };
 
+type ServiceRegisteredPayload = {
+  serviceId: string;
+  version: string;
+  domain: string;
+  kind: string;
+};
+
+type ServiceReloadRequestedPayload = {
+  serviceId: string;
+  actor: string;
+  reason?: string;
+};
+
+type ServiceReloadFailedPayload = {
+  serviceId: string;
+  actor: string;
+  reason?: string;
+  errorCode: string;
+  errorMessage: string;
+};
+
 type NodeStatusChangedPayload = {
   nodeId: string;
   previousStatus: "joining" | "healthy" | "degraded" | "offline" | "revoked";
   nextStatus: "joining" | "healthy" | "degraded" | "offline" | "revoked";
   reason?: string;
+};
+
+type NodeAgentHeartbeatPayload = {
+  nodeId: string;
+  token: string;
+  agentVersion: string;
+  reportedStatus: "healthy" | "degraded";
+  timestamp: string;
+};
+
+type NodeAgentLogPayload = {
+  nodeId: string;
+  token: string;
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  timestamp: string;
+  correlationId?: string;
+  traceId?: string;
+  payload?: unknown;
 };
 
 type MNetNetworkCreatedPayload = {

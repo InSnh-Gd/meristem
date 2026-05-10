@@ -2,6 +2,8 @@
 
 > Hot reload is only safe when configuration changes are versioned, validated, published, acknowledged, and rollbackable.
 
+This document applies to authoritative configuration changes. The current service reload prototype is a narrower runtime control path and does not replace this state machine; see `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
+
 ---
 
 ## 1. State Machine

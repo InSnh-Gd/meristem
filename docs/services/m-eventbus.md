@@ -20,8 +20,10 @@ Owns:
 - NATS connection management
 - event envelope validation
 - event schema version enforcement
+- internal loopback HTTP + Eden publish API for Core and internal services
 - command / event subject conventions
 - correlationId and causationId propagation
+- traceId propagation
 - service lifecycle event routing
 - node state event routing
 - M-Net interconnect information events
@@ -41,7 +43,7 @@ Must not own:
 |----------|----------------|---------|-------|
 | Event envelope | `MEventEnvelope` | `v0` | Defined in `MERISTEM-DEV.md §二.2.3` |
 | NATS subjects | `docs/events/EVENT-CATALOG.md` | `v0` | All published subjects must be listed |
-| Eden | `@meristem/contracts/m-eventbus` | `0.1.0` | Internal management APIs |
+| Eden | internal loopback HTTP + Eden client | `0.1.0` | `/internal/v0/publish` |
 
 ---
 
@@ -61,5 +63,11 @@ Must not own:
 - Core can publish an event.
 - Example service can subscribe to an event.
 - Events include `id`, `type`, `version`, `source`, `timestamp`, and `payload`.
-- `correlationId` is propagated where available.
+- `correlationId` and `traceId` are propagated where available.
 - Event schema tests cover valid, invalid, and version-mismatch payloads.
+
+Current MVP boundary:
+
+- listens on `http://127.0.0.1:3103`
+- requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
+- exposes `/health`, `/ready`, `/internal/v0/publish`
