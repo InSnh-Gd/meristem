@@ -25,6 +25,7 @@
 | Role | M-Policy | RBAC baseline |
 | Permission | M-Policy | resource/action/scope based |
 | Node | Core / M-Net | Core registers; M-Net updates reachability |
+| NodeCredential | Core | hashed per-node agent credentials |
 | Network | M-Net | logical node network owned by M-Net |
 | NetworkMembership | M-Net | logical node-to-network membership; real path state remains separate |
 | ServiceDefinition | Core | service contract entrypoint |

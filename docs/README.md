@@ -51,10 +51,19 @@ The current implementation target is the Core + Stem/Leaf node MVP:
 | `roadmap/PHASE-4.md` | Timeline / Full / Audit minimum logs |
 | `roadmap/PHASE-5.md` | M-Policy RBAC MVP |
 | `roadmap/PHASE-6.md` | logical node networks and M-Net orchestration |
+| `roadmap/PHASE-7.md` | service lifecycle and reload prototype |
+| `roadmap/PHASE-8.md` | real node-agent runtime prototype |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
 | `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |
+| `contracts/SERVICE-LIFECYCLE-PROTOTYPE.md` | service list and reload prototype contract |
 | `data/POSTGRES-SCHEMA-MVP.md` | authoritative PostgreSQL schema |
+
+Phase numbering note:
+
+- `roadmap/PHASE-6.md` is the inserted logical-network execution phase.
+- root `MERISTEM-ROADMAP.md` phase names continue from the original sequence.
+- use the mapping table in `MERISTEM-ROADMAP.md` when matching root phases to executable docs.
 
 ---
 

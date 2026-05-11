@@ -23,6 +23,7 @@ Owns:
 - log schema versioning
 - event-to-log correlation
 - trace ID correlation
+- internal loopback HTTP + Eden log write/query API for Core
 - OpenSearch projection for query and analysis
 
 Must not own:
@@ -64,3 +65,11 @@ Audit Log is not a category inside Full Log. It is a separate high-trust fact st
 - Privileged placeholder action writes Audit Log.
 - Full Log can store raw context with `traceId` or `correlationId`.
 - Audit Log cannot be silently skipped for high-risk actions.
+
+Current MVP boundary:
+
+- listens on `http://127.0.0.1:3102`
+- requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
+- exposes `/health`, `/ready`, `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`, `/internal/v0/lifecycle/reload`
+- is the only reloadable internal service in the current lifecycle prototype
+- publishes `audit.entry.created.v0` through M-EventBus after successful Audit writes

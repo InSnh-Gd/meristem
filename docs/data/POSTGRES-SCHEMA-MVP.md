@@ -20,7 +20,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 
 | Owner | Tables |
 |-------|--------|
-| Core | `nodes`, `service_definitions`, `tasks` |
+| Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` |
 | M-Net | `networks`, `network_memberships` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs` |
@@ -68,11 +68,43 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `id` | text primary key | node ID |
 | `kind` | text | `core`, `stem`, `leaf` |
 | `name` | text | display name |
+| `mode` | text | `agent` or `simulated` |
 | `status` | text | `joining`, `healthy`, `degraded`, `offline`, `revoked` |
+| `reachability` | text | `unknown`, `reachable`, `unreachable` |
+| `last_seen_at` | timestamptz nullable | last accepted heartbeat |
+| `agent_version` | text nullable | latest reported node-agent version |
 | `capabilities` | jsonb | string array |
 | `scope` | jsonb | string array |
 | `created_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
+
+### `node_credentials`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | credential row ID |
+| `node_id` | text | references `nodes.id` |
+| `token_hash` | text | opaque token hash only |
+| `status` | text | `active` or `revoked` |
+| `issued_at` | timestamptz | UTC |
+| `revoked_at` | timestamptz nullable | UTC |
+| `last_used_at` | timestamptz nullable | UTC |
+
+### `node_join_tickets`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | ticket row ID |
+| `ticket_hash` | text | opaque Join Ticket hash only |
+| `kind` | text | `stem` or `leaf` |
+| `name` | text | fixed join-time node name |
+| `capabilities` | jsonb | requested capability list |
+| `status` | text | `active`, `redeemed`, `expired`, `revoked` |
+| `expires_at` | timestamptz | UTC |
+| `created_by` | text | issuing actor ID |
+| `created_at` | timestamptz | UTC |
+| `redeemed_at` | timestamptz nullable | UTC |
+| `redeemed_node_id` | text nullable | references `nodes.id` |
 
 ### `service_definitions`
 
@@ -187,6 +219,7 @@ MVP seed permissions:
 ```text
 core:read
 node:register
+node:issue-token
 network:read
 network:create
 network:join
@@ -204,6 +237,7 @@ service:register
 - Audit payloads must not contain secrets.
 - Full Log payloads must not contain secrets.
 - Leaf nodes must be stored with restricted defaults.
+- node credential plaintext must never be stored.
 - Logical network names must be unique.
 - A network membership must be unique per `network_id` + `node_id`.
 - Core node records are system-managed.

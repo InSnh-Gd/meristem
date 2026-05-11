@@ -1,7 +1,5 @@
 # Node Agent Service Definition
 
-> Node agent is not fully implemented in MVP. This document reserves the boundary so Phase 3 does not accidentally overbuild networking or remote execution.
-
 ## 1. Identity
 
 | Field | Value |
@@ -13,36 +11,51 @@
 
 ---
 
-## 2. MVP Boundary
+## 2. Current Runtime Scope
 
-MVP does not require a real node agent process. Core simulates the smallest node state and noop task flow.
+Current implemented responsibilities:
 
-Allowed in MVP:
+- connect to the public `M-Net` join ingress over `wss://.../join/v0/session`
+- redeem a one-time Join Ticket on first join
+- resume with the runtime token returned by `join.accepted`
+- keep the current session lease id returned by `join.accepted` / `session.resumed`
+- send `heartbeat` and `log.forward` frames over the M-Net session protocol with that `sessionId`
+- answer `task.execute` with `task.result` for `noop`, again echoing the current `sessionId`
+- identify itself with one per-node opaque runtime token after join
 
-- register Stem / Leaf node records
-- mark Leaf node as restricted by metadata
-- assign and complete noop task synchronously
-- publish node and task events
+Current non-goals:
 
-Not allowed in MVP:
+- no public HTTP API
+- no DERP / TCP / UDP transport
+- no node-to-node mesh data plane
+- no local privilege expansion beyond the registered node scope
 
-- remote task execution
-- persistent agent process
-- DERP / UDP / TCP implementation
-- real node-to-node connectivity
-- Leaf permission expansion beyond metadata
+## 3. Required Environment
 
----
+- `MERISTEM_JOIN_URL` - defaults to `wss://localhost:8443/join/v0/session`
+- either `MERISTEM_JOIN_TICKET` for first join or `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` for resume
+- `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS`
+- `MERISTEM_AGENT_VERSION`
 
-## 3. Future Responsibility
+Deployment note:
 
-Later phases may make node-agent responsible for:
+- public remote agents now connect only through the single M-Net join ingress
+- raw NATS WebSocket access is no longer the target public runtime path
 
-- node heartbeat
-- readiness/liveness reporting
-- task execution
-- network reachability reporting
-- local policy scope enforcement
-- log forwarding
+## 4. Security Rules
 
-Any future implementation must preserve the Leaf default-minimum rule.
+- first-join ticket plaintext must come from Core ticket issuance
+- runtime token plaintext comes from `join.accepted` and must be used for `session.resume`
+- heartbeat, forwarded log, and task reply frames rely on the authenticated session plus the current `sessionId`; they do not repeat the runtime token in every payload
+- token must not be printed in stdout, Timeline, Full Log, or Audit payloads
+- reissued tokens immediately invalidate the previous runtime
+- a successful `session.resume` rotates the active session lease and supersedes the previous live socket
+
+## 5. Runtime Contract
+
+- `join.accepted` creates the agent node in `joining` / `unknown`
+- `join.accepted` and `session.resumed` both return the current `sessionId`
+- first accepted heartbeat moves the node toward `healthy` / `reachable`
+- stopping heartbeat or disconnecting the active socket allows M-Net to mark the node `offline` / `unreachable`
+- `noop` task execution returns `completed` with `taskId` and `nodeId`
+- forwarded logs enter M-Net first, then M-Log as Full Log entries

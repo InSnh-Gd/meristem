@@ -1,5 +1,6 @@
 import { createSqlClient } from './client.ts'
 
+// 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
 const now = new Date()
 
@@ -20,11 +21,13 @@ const roles = [
 const permissions = [
   ['core:read', 'read core status'],
   ['node:register', 'register stem and leaf nodes'],
+  ['node:issue-token', 'issue node agent tokens'],
   ['task:assign', 'assign noop tasks'],
   ['timeline:read', 'read timeline log'],
   ['log:read-full', 'read full log'],
   ['audit:read', 'read audit log'],
   ['service:register', 'register service definitions'],
+  ['service:reload', 'reload internal services'],
   ['network:read', 'read logical network state'],
   ['network:create', 'create logical networks'],
   ['network:join', 'join nodes to logical networks']
@@ -32,16 +35,18 @@ const permissions = [
 
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'task:assign', 'timeline:read', 'log:read-full', 'network:read', 'network:create', 'network:join'],
-  admin: ['core:read', 'node:register', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'network:read', 'network:create', 'network:join'],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join'],
   'security-admin': [
     'core:read',
     'node:register',
+    'node:issue-token',
     'task:assign',
     'timeline:read',
     'log:read-full',
     'audit:read',
     'service:register',
+    'service:reload',
     'network:read',
     'network:create',
     'network:join'
@@ -49,6 +54,7 @@ const rolePermissions: Record<string, readonly string[]> = {
 }
 
 await sql.begin(async (tx) => {
+  // 用户、角色、权限三类基础数据分别 upsert，保证反复 seed 仍是幂等操作。
   for (const [id, displayName] of users) {
     await tx`
       insert into users (id, display_name, created_at)
@@ -81,6 +87,7 @@ await sql.begin(async (tx) => {
     `
   }
 
+  // 角色授权矩阵是 RBAC 的权威基础，测试与 CLI token 都依赖这里的初始状态。
   for (const [roleId, grantedPermissions] of Object.entries(rolePermissions)) {
     for (const permissionId of grantedPermissions) {
       await tx`

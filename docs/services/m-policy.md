@@ -21,6 +21,8 @@ v0 owns:
 - user, role, permission, resource, action, node scope, service scope primitives
 - protected REST and CLI permission checks
 - Audit Log integration for permission changes and denials
+- internal loopback HTTP + Eden authorization API for Core
+- `policy.decision.created.v0` publication through M-EventBus
 
 Later phases add:
 
@@ -69,3 +71,9 @@ type MPolicyDecisionResult =
 - CLI command can call policy check.
 - Permission denial writes Full Log and Audit Log where required.
 - Policy tests cover allow, deny, missing role, missing resource, and failure-closed behavior.
+
+Current MVP boundary:
+
+- listens on `http://127.0.0.1:3101`
+- requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
+- exposes `/health`, `/ready`, `/internal/v0/authorize`, `/internal/v0/decisions/:id`

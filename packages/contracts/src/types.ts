@@ -1,18 +1,33 @@
+// ActorId 固定为 MVP 文档定义的四类操作者身份，避免运行时冒出未建模角色。
 export type ActorId = 'viewer' | 'operator' | 'admin' | 'security-admin'
 
+// Permission 是 Core 和 M-Policy 共享的最小授权词表，所有高权限操作都必须落到这里。
 export type Permission =
   | 'core:read'
   | 'node:register'
+  | 'node:issue-token'
   | 'task:assign'
   | 'timeline:read'
   | 'log:read-full'
   | 'audit:read'
   | 'service:register'
+  | 'service:reload'
   | 'network:read'
   | 'network:create'
   | 'network:join'
 
 export type DependencyState = 'ready' | 'unavailable'
+
+// ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。
+export type CoreDependencyName =
+  | 'postgres'
+  | 'nats'
+  | 'm-policy'
+  | 'm-log'
+  | 'm-eventbus'
+  | 'm-net'
+
+export type CoreDependencies = Record<CoreDependencyName, DependencyState>
 
 export type ApiError = {
   error: {
@@ -22,7 +37,31 @@ export type ApiError = {
   }
 }
 
+// 服务摘要用于 service list、reload 和运行态聚合，不等同于完整 service definition。
 export type CoreMode = 'normal' | 'degraded' | 'safe'
+export type ServiceDomain = 'core' | 'm-net' | 'm-eventbus' | 'm-log' | 'm-policy' | 'm-ui' | 'm-cli' | 'm-extension'
+export type ServiceKind = 'core' | 'internal' | 'node' | 'task' | 'extension' | 'bff'
+export type ServiceRuntimeMode = 'normal' | 'degraded'
+export type ServiceLifecycle = {
+  reloadable: boolean
+  rollbackable: boolean
+  degradable: boolean
+}
+export type ServiceRuntime = {
+  liveness: boolean
+  readiness: boolean
+  mode: ServiceRuntimeMode
+  lastError?: string
+  lastReloadedAt?: string
+}
+export type ServiceSummary = {
+  id: string
+  version: string
+  domain: ServiceDomain
+  kind: ServiceKind
+  lifecycle: ServiceLifecycle
+  runtime?: ServiceRuntime
+}
 
 export type HealthResponse = {
   ok: true
@@ -31,12 +70,10 @@ export type HealthResponse = {
   uptimeMs: number
 }
 
+// Ready 与 Health 明确分离：前者表示依赖可用性，后者只表示进程存活。
 export type ReadyResponse = {
   ready: boolean
-  dependencies: {
-    postgres: DependencyState
-    nats: DependencyState
-  }
+  dependencies: CoreDependencies
 }
 
 export type StatusResponse = {
@@ -53,12 +90,33 @@ export type StatusResponse = {
   }
 }
 
+export type ServiceListResponse = {
+  services: ServiceSummary[]
+}
+
+export type ServiceReloadRequest = {
+  reason?: string
+}
+
+export type ServiceReloadResponse = {
+  serviceId: string
+  accepted: true
+  reloadedAt: string
+  policyDecisionId: string
+  correlationId: string
+}
+
+// 节点运行态从 Phase 8 开始同时表达部署模式、可达性和生命周期状态。
 export type NodeKind = 'stem' | 'leaf'
+export type NodeMode = 'agent' | 'simulated'
+export type NodeReachability = 'unknown' | 'reachable' | 'unreachable'
 export type NodeStatus = 'joining' | 'healthy' | 'degraded' | 'offline' | 'revoked'
+export type NodeJoinTicketStatus = 'active' | 'redeemed' | 'expired' | 'revoked'
 
 export type RegisterNodeRequest = {
   kind: NodeKind
   name: string
+  mode?: Extract<NodeMode, 'simulated'>
   capabilities?: string[]
 }
 
@@ -66,7 +124,11 @@ export type MNode = {
   id: string
   kind: NodeKind
   name: string
+  mode: NodeMode
   status: NodeStatus
+  reachability: NodeReachability
+  lastSeenAt?: string
+  agentVersion?: string
   capabilities: string[]
   createdAt: string
 }
@@ -77,6 +139,31 @@ export type RegisterNodeResponse = {
   correlationId: string
 }
 
+export type CreateNodeTicketRequest = {
+  kind: NodeKind
+  name: string
+  capabilities?: string[]
+  expiresInSeconds?: number
+}
+
+export type CreateNodeTicketResponse = {
+  ticketId: string
+  ticket: string
+  expiresAt: string
+  joinUrl: string
+  policyDecisionId: string
+  correlationId: string
+}
+
+export type IssueNodeCredentialResponse = {
+  nodeId: string
+  token: string
+  issuedAt: string
+  policyDecisionId: string
+  correlationId: string
+}
+
+// 当前任务模型刻意收敛为 noop，用来验证控制面和 agent bus 的最小闭环。
 export type AssignTaskRequest = {
   leafNodeId: string
   type: 'noop'
@@ -97,6 +184,120 @@ export type AssignTaskResponse = {
   correlationId: string
 }
 
+export type NodeAgentHeartbeatPayload = {
+  nodeId: string
+  token: string
+  agentVersion: string
+  reportedStatus: 'healthy' | 'degraded'
+  timestamp: string
+}
+
+// agent payload 都携带节点 token，由上游服务在应用层做校验而不是信任总线本身。
+export type NodeAgentLogPayload = {
+  nodeId: string
+  token: string
+  level: FullLog['level']
+  message: string
+  timestamp: string
+  correlationId?: string
+  traceId?: string
+  payload?: unknown
+}
+
+export type NodeAgentTaskExecuteRequest = {
+  nodeId: string
+  taskId: string
+  type: 'noop'
+  correlationId?: string
+}
+
+export type NodeAgentTaskExecuteResponse = {
+  nodeId: string
+  taskId: string
+  result: 'completed'
+  completedAt: string
+}
+
+export type JoinRedeemMessage = {
+  type: 'join.redeem'
+  ticket: string
+}
+
+export type SessionResumeMessage = {
+  type: 'session.resume'
+  nodeId: string
+  token: string
+}
+
+export type SessionHeartbeatMessage = {
+  type: 'heartbeat'
+  sessionId: string
+  agentVersion: string
+  reportedStatus: 'healthy' | 'degraded'
+  timestamp: string
+}
+
+export type SessionLogForwardMessage = {
+  type: 'log.forward'
+  sessionId: string
+  level: FullLog['level']
+  message: string
+  timestamp: string
+  correlationId?: string
+  traceId?: string
+  payload?: unknown
+}
+
+export type SessionTaskResultMessage = {
+  type: 'task.result'
+  sessionId: string
+  taskId: string
+  result: 'completed'
+  completedAt: string
+}
+
+export type MNetSessionClientMessage =
+  | JoinRedeemMessage
+  | SessionResumeMessage
+  | SessionHeartbeatMessage
+  | SessionLogForwardMessage
+  | SessionTaskResultMessage
+
+export type JoinAcceptedMessage = {
+  type: 'join.accepted'
+  sessionId: string
+  node: MNode
+  runtimeToken: string
+  issuedAt: string
+}
+
+export type SessionResumedMessage = {
+  type: 'session.resumed'
+  sessionId: string
+  node: MNode
+}
+
+export type SessionTaskExecuteMessage = {
+  type: 'task.execute'
+  nodeId: string
+  taskId: string
+  taskType: 'noop'
+  correlationId: string
+}
+
+export type SessionErrorMessage = {
+  type: 'error'
+  code: string
+  message: string
+}
+
+export type MNetSessionServerMessage =
+  | JoinAcceptedMessage
+  | SessionResumedMessage
+  | SessionTaskExecuteMessage
+  | SessionErrorMessage
+
+// 逻辑网络阶段只表达成员关系，不宣称真实传输路径或 P2P 能力。
 export type NetworkStatus = 'active'
 export type NetworkMembershipMode = 'full' | 'restricted'
 export type NetworkMembershipStatus = 'joined'
@@ -155,6 +356,7 @@ export type PolicyDecision = {
   createdAt: string
 }
 
+// 三层日志事实共享同一组基础字段，但语义和权限要求完全不同。
 export type TimelineLog = {
   id: string
   timestamp: string

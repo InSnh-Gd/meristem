@@ -1,34 +1,37 @@
-import { connect } from '@nats-io/transport-node'
-import { createEventEnvelope, validateEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
-import { serveJsonRequests, subjects } from '../../../packages/nats-rpc/src/index.ts'
+import { internalServicePorts, serveHttpApp } from '../../../packages/internal-http/src/index.ts'
+import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
+import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
+import { createEventBusApp } from './app.ts'
 
-type PublishRequest = {
-  subject: string
-  event: MEventEnvelope
-}
+initTelemetry('m-eventbus')
 
-type PublishResponse =
-  | { ok: true; eventId: string }
-  | { ok: false; errors: string[] }
+// M-EventBus 进程自己持有 NATS 连接，对内暴露校验后的 HTTP 发布入口。
+const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
 
-const nc = await connect({ servers: process.env.NATS_URL ?? 'nats://localhost:4222' })
-
-await serveJsonRequests<PublishRequest, PublishResponse>(nc, subjects.eventPublish, async (request) => {
-  const validation = validateEventEnvelope(request.event)
-  if (!validation.ok) return { ok: false, errors: validation.error }
-
-  nc.publish(request.subject, JSON.stringify(request.event))
-  return { ok: true, eventId: request.event.id }
+const app = createEventBusApp({
+  async readiness() {
+    try {
+      await nc.flush()
+      return { ready: true }
+    } catch {
+      return { ready: false }
+    }
+  },
+  async publish(subject, event) {
+    // 事件进总线前已经过 internal auth 和 envelope 校验，这里只做最薄的 publish 适配。
+    nc.publish(subject, JSON.stringify(event))
+    return { eventId: event.id }
+  }
 })
 
-nc.publish(
-  'core.lifecycle.started.v0',
-  JSON.stringify(createEventEnvelope({ type: 'm-eventbus.started', source: 'm-eventbus', payload: {} }))
-)
+const server = serveHttpApp('m-eventbus', app.fetch)
 
 process.on('SIGINT', () => {
-  void nc.drain().then(() => process.exit(0))
+  void nc
+    .drain()
+    .then(() => server.stop())
+    .then(() => shutdownTelemetry())
+    .then(() => process.exit(0))
 })
 
-console.log(`m-eventbus listening on ${subjects.eventPublish}`)
-
+console.log(`m-eventbus listening on http://127.0.0.1:${internalServicePorts['m-eventbus']}`)

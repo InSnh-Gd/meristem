@@ -17,8 +17,11 @@ services:
     image: nats:2-alpine
     ports:
       - "4222:4222"
+      - "4223:4223"
       - "8222:8222"
-    command: ["-js", "-m", "8222"]
+    volumes:
+      - ./ops/nats/nats.conf:/etc/nats/nats.conf:ro
+    command: ["-c", "/etc/nats/nats.conf"]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8222/healthz"]
       interval: 5s

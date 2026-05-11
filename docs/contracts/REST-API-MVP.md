@@ -49,6 +49,10 @@ type ReadyResponse = {
   dependencies: {
     postgres: "ready" | "unavailable";
     nats: "ready" | "unavailable";
+    "m-policy": "ready" | "unavailable";
+    "m-log": "ready" | "unavailable";
+    "m-eventbus": "ready" | "unavailable";
+    "m-net": "ready" | "unavailable";
   };
 };
 ```
@@ -87,11 +91,42 @@ Registers a service definition that conforms to `docs/services/SERVICE-DEFINITIO
 
 Protected by `core:read`.
 
-Returns registered service definitions.
+Returns service summaries. Built-in services include live runtime data; registered service definitions may appear without runtime details.
+
+Service reload is defined in `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
 ---
 
 ## 4. Nodes
+
+### `POST /api/v0/node-tickets`
+
+Protected by `node:register`.
+
+```ts
+type CreateNodeTicketRequest = {
+  kind: "stem" | "leaf";
+  name: string;
+  capabilities?: string[];
+  expiresInSeconds?: number;
+};
+
+type CreateNodeTicketResponse = {
+  ticketId: string;
+  ticket: string;
+  expiresAt: string;
+  joinUrl: string;
+  policyDecisionId: string;
+  correlationId: string;
+};
+```
+
+Rules:
+
+- Join Ticket is the public agent join entrypoint for MVP.
+- `joinUrl` points to `wss://<host>:8443/join/v0/session`.
+- ticket plaintext is returned once and must not be logged.
+- successful ticket creation publishes `node.registration.requested.v0` and `node.join-ticket.created.v0`.
 
 ### `POST /api/v0/nodes`
 
@@ -101,6 +136,7 @@ Protected by `node:register`.
 type RegisterNodeRequest = {
   kind: "stem" | "leaf";
   name: string;
+  mode?: "simulated";
   capabilities?: string[];
 };
 
@@ -109,7 +145,11 @@ type RegisterNodeResponse = {
     id: string;
     kind: "stem" | "leaf";
     name: string;
-    status: "healthy";
+    mode: "agent" | "simulated";
+    status: "joining" | "healthy" | "degraded" | "offline" | "revoked";
+    reachability: "unknown" | "reachable" | "unreachable";
+    lastSeenAt?: string;
+    agentVersion?: string;
     capabilities: string[];
     createdAt: string;
   };
@@ -121,8 +161,32 @@ type RegisterNodeResponse = {
 Rules:
 
 - Leaf nodes default to low permission, restricted API, and restricted interconnect metadata.
+- default mode is `simulated`.
+- `agent` mode is rejected with `409 node.agent_join_ticket_required`; use `POST /api/v0/node-tickets` instead.
+- `simulated` mode preserves the legacy synchronous MVP path.
 - Core node registration is not exposed through this MVP endpoint.
-- Successful registration publishes `node.registration.accepted.v0`.
+- successful registration publishes `node.registration.requested.v0` and `node.registration.accepted.v0`.
+
+### `POST /api/v0/nodes/:id/credentials`
+
+Protected by `node:issue-token`.
+
+```ts
+type IssueNodeCredentialResponse = {
+  nodeId: string;
+  token: string;
+  issuedAt: string;
+  policyDecisionId: string;
+  correlationId: string;
+};
+```
+
+Rules:
+
+- token plaintext is returned once.
+- Core stores only the token hash.
+- re-issuing revokes the previous active token for the same node.
+- this route remains an internal compatibility path for tests or operators; it is no longer the primary public agent join flow.
 
 ### `GET /api/v0/nodes`
 
@@ -246,7 +310,9 @@ Rules:
 
 - MVP supports only `noop`.
 - Target must be an existing Leaf node.
-- The task completes synchronously for MVP.
+- `simulated` nodes complete synchronously in Core.
+- `agent` nodes require `reachable` state, `healthy` or `degraded` status, and one active node credential.
+- `agent` completion goes Core -> M-Net internal HTTP -> active join session `task.execute`.
 - Successful assignment publishes requested and completed events.
 
 ### `GET /api/v0/tasks/:id`

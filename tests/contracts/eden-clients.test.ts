@@ -1,0 +1,237 @@
+import { describe, expect, it } from 'bun:test'
+import { treaty } from '@elysiajs/eden'
+import { createCoreApp } from '../../apps/core/src/app.ts'
+import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
+import { createLogApp, type LogApp } from '../../services/m-log/src/app.ts'
+import { createPolicyApp, type PolicyApp } from '../../services/m-policy/src/app.ts'
+import { createEventBusApp, type EventBusApp } from '../../services/m-eventbus/src/app.ts'
+import { createEventEnvelope } from '../../packages/events/src/index.ts'
+import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
+
+const internalToken = 'internal-test-token'
+
+function internalHeaders(): Record<string, string> {
+  return { [internalTokenHeaderName]: internalToken }
+}
+
+type LocalFetchApp = {
+  handle(request: Request): Response | Promise<Response>
+}
+
+function localFetcher(app: LocalFetchApp): typeof fetch {
+  const fetcher = (input: URL | RequestInfo, init?: RequestInit) => {
+    const request = new Request(typeof input === 'string' || input instanceof URL ? input.toString() : input, {
+      ...init,
+      headers: new Headers({
+        ...Object.fromEntries(new Headers(init?.headers).entries()),
+        ...internalHeaders()
+      })
+    })
+    return app.handle(request)
+  }
+
+  return Object.assign(fetcher, { preconnect: fetch.preconnect }) as typeof fetch
+}
+
+describe('Eden clients', () => {
+  process.env.MERISTEM_INTERNAL_TOKEN = internalToken
+
+  it('supports typed Core status calls through Eden', async () => {
+    const app = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
+    const client = treaty<typeof app>(app)
+
+    const response = await client.api.v0.status.get({
+      headers: {
+        authorization: 'Bearer operator-token'
+      }
+    })
+
+    expect(response.error).toBeNull()
+    const data = response.data as { core: { id: string }; counts: { nodes: number } } | null
+    expect(data?.core.id).toBe('meristem-core')
+    expect(data?.counts.nodes).toBe(0)
+  })
+
+  it('supports typed internal policy authorization calls through Eden', async () => {
+    const app = createPolicyApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async authorize(input) {
+        return {
+          id: 'decision-1',
+          actor: input.actor,
+          action: input.action,
+          resource: input.resource,
+          result: 'allow',
+          reasons: ['role match'],
+          createdAt: new Date().toISOString()
+        }
+      },
+      async getDecision(id) {
+        return {
+          id,
+          actor: 'operator',
+          action: 'core:read',
+          resource: 'core',
+          result: 'allow',
+          reasons: ['role match'],
+          createdAt: new Date().toISOString()
+        }
+      }
+    })
+    const client = treaty<PolicyApp>('http://internal.test', { fetcher: localFetcher(app) })
+
+    const response = await client.internal.v0.authorize.post({
+      actor: 'operator',
+      action: 'core:read',
+      resource: 'core'
+    })
+
+    expect(response.error).toBeNull()
+    expect(response.data?.decision.result).toBe('allow')
+  })
+
+  it('supports typed internal log writes through Eden', async () => {
+    const writes: Array<{ action: string; traceId?: string }> = []
+    const app = createLogApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async writeTimeline(input) {
+        writes.push({ action: input.summary })
+        return { id: 'timeline-1', timestamp: new Date().toISOString(), ...input }
+      },
+      async writeFull(input) {
+        writes.push(input.traceId ? { action: input.message, traceId: input.traceId } : { action: input.message })
+        return { id: 'full-1', timestamp: new Date().toISOString(), ...input }
+      },
+      async writeAudit(input) {
+        writes.push(input.traceId ? { action: input.action, traceId: input.traceId } : { action: input.action })
+        return { id: 'audit-1', timestamp: new Date().toISOString(), ...input }
+      },
+      async listTimeline() {
+        return []
+      },
+      async listFull() {
+        return []
+      },
+      async listAudit() {
+        return []
+      },
+      async reload() {
+        return {
+          serviceId: 'm-log',
+          reloadedAt: new Date().toISOString()
+        }
+      }
+    })
+    const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })
+
+    const response = await client.internal.v0.audit.post({
+      actor: 'operator',
+      action: 'node:register',
+      resource: 'node:leaf:test',
+      result: 'allow',
+      traceId: '0123456789abcdef0123456789abcdef'
+    })
+
+    expect(response.error).toBeNull()
+    expect(response.data?.entry.traceId).toBe('0123456789abcdef0123456789abcdef')
+    expect(writes[0]?.action).toBe('node:register')
+  })
+
+  it('supports typed internal log reload calls through Eden', async () => {
+    const app = createLogApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async writeTimeline() {
+        throw new Error('not used')
+      },
+      async writeFull() {
+        throw new Error('not used')
+      },
+      async writeAudit() {
+        throw new Error('not used')
+      },
+      async listTimeline() {
+        return []
+      },
+      async listFull() {
+        return []
+      },
+      async listAudit() {
+        return []
+      },
+      async reload() {
+        return {
+          serviceId: 'm-log',
+          reloadedAt: new Date().toISOString()
+        }
+      }
+    })
+    const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })
+
+    const response = await client.internal.v0.lifecycle.reload.post({
+      reason: 'typed reload test'
+    })
+
+    expect(response.error).toBeNull()
+    expect(response.data?.serviceId).toBe('m-log')
+  })
+
+  it('supports typed event publish calls through Eden', async () => {
+    const published: string[] = []
+    const app = createEventBusApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async publish(subject, event) {
+        published.push(subject)
+        return { eventId: event.id }
+      }
+    })
+    const client = treaty<EventBusApp>('http://internal.test', { fetcher: localFetcher(app) })
+
+    const response = await client.internal.v0.publish.post({
+      subject: 'node.registration.accepted.v0',
+      event: createEventEnvelope({
+        type: 'node.registration.accepted',
+        source: 'meristem-core',
+        payload: { nodeId: 'node-1' },
+        correlationId: 'corr-1'
+      })
+    })
+
+    expect(response.error).toBeNull()
+    expect(response.data?.eventId).toBeDefined()
+    expect(published).toEqual(['node.registration.accepted.v0'])
+  })
+
+  it('rejects internal requests without the shared token', async () => {
+    const app = createPolicyApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async authorize() {
+        throw new Error('should not run')
+      },
+      async getDecision() {
+        return null
+      }
+    })
+    const client = treaty<PolicyApp>(app)
+
+    const response = await client.internal.v0.authorize.post({
+      actor: 'operator',
+      action: 'core:read',
+      resource: 'core'
+    })
+
+    expect(response.status).toBe(401)
+    expect(response.error?.value).toEqual({
+      error: { code: 'internal.unauthorized', message: 'invalid internal token' }
+    })
+  })
+})

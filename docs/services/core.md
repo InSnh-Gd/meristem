@@ -48,7 +48,7 @@ Core must not own:
 
 | Contract | Path / Subject | Version | Notes |
 |----------|----------------|---------|-------|
-| REST | `/api/core/*` | `v0` | External stable entrypoint |
+| REST | `/api/v0/*` | `v0` | External stable entrypoint |
 | OpenAPI | `/openapi.json` | `v0` | Must update with REST changes |
 | Eden | `@meristem/contracts/core` | `0.1.0` | Internal TS-first contract |
 | Events | `core.lifecycle.*`, `node.registration.*` | `v0` | See `docs/events/EVENT-CATALOG.md` |
@@ -60,10 +60,10 @@ Core must not own:
 | Permission | Required For | Risk |
 |------------|--------------|------|
 | `core:read` | read Core status | low |
-| `core:admin` | mutate Core-level configuration | critical |
-| `node:register` | register Core / Stem / Leaf node | high |
+| `node:register` | register simulated nodes or create agent Join Tickets | high |
+| `node:issue-token` | issue or rotate per-node runtime token | high |
 | `service:register` | register service definition | high |
-| `secret:reference` | create or rotate secretRef | critical |
+| `service:reload` | request reload for a reloadable internal service | high |
 
 ---
 
@@ -116,8 +116,9 @@ Core must not own:
 For MVP, Core also owns orchestration for:
 
 - Stem / Leaf node registration.
+- per-node agent credential issuance.
 - logical network API aggregation through M-Net.
-- noop Leaf task assignment.
+- noop Leaf task assignment, including `node-agent` request/reply dispatch for agent-mode nodes.
 - PostgreSQL authoritative writes.
 - NATS event publication.
 - M-Policy checks for protected operations.

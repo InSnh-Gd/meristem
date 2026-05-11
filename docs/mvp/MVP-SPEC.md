@@ -27,16 +27,19 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 
 - Core bootstrap and health/readiness endpoints.
 - REST + OpenAPI v0.
-- One internal Eden contract sample for Core.
+- Eden typed clients for CLI -> Core and Core -> M-Policy / M-Log / M-EventBus.
 - M-CLI commands for status, node registration/listing, task assignment, timeline logs, and audit logs using JWT bearer auth.
+- per-node token issuance and agent-mode node runtime through `node-agent`.
 - PostgreSQL authoritative state for users, roles, permissions, nodes, service definitions, tasks, policy decisions, timeline logs, full logs, and audit logs.
 - NATS event publishing for Core lifecycle, node registration/status, task assignment/completion, policy decisions, and audit entries.
 - Minimal RBAC with `viewer`, `operator`, `admin`, and `security-admin`.
 - Timeline Log, Full Log, and Audit Log minimal implementations.
-- OpenTelemetry minimal trace/correlation fields where available.
+- OpenTelemetry SDK with real trace/correlation propagation across HTTP, internal loopback HTTP, logs, and events.
 - Service Definition registration for Core and a sample service.
 - Independent Bun processes for Core, M-Policy, M-Log, and M-EventBus.
-- NATS request/reply for Core -> M-Policy, Core -> M-Log, and Core -> M-EventBus internal calls.
+- Internal loopback HTTP + Eden + shared token for Core -> M-Policy, Core -> M-Log, and Core -> M-EventBus sync calls.
+- Internal loopback HTTP + Eden + shared token for Core -> M-Net sync network and agent-task calls.
+- public TLS + WebSocket join ingress on `8443` for Join Ticket redemption, session resume, heartbeat, and noop task delivery.
 
 ---
 
@@ -70,9 +73,10 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 
 1. As a local developer, I can start Core and see health/readiness status.
 2. As an operator, I can register one Stem node and one Leaf node.
-3. As an operator, I can list registered nodes and see their statuses.
-4. As an operator, I can assign a noop task to a Leaf node.
-5. As an operator, I can see the task completion event and Timeline entry.
+3. As an operator, I can issue one active token for an agent node.
+4. As an operator, I can list registered nodes and see their statuses.
+5. As an operator, I can assign a noop task to a Leaf node.
+6. As an operator, I can see the task completion event and Timeline entry.
 6. As a security reviewer, I can verify protected operations require RBAC permission.
 7. As a security reviewer, I can verify node registration, task assignment, and permission denial produce Audit or Full Log entries according to risk.
 
@@ -86,6 +90,7 @@ Target CLI sequence:
 meristem status
 meristem node register --kind stem --name local-stem
 meristem node register --kind leaf --name local-leaf
+meristem node ticket create --kind leaf --name remote-leaf
 meristem node list
 meristem task assign --leaf <leaf-node-id> --type noop
 meristem log timeline
@@ -95,7 +100,9 @@ meristem audit list
 Expected result:
 
 - `status` reports Core healthy and dependencies ready.
-- node commands create and list Stem / Leaf records.
+- node commands create and list simulated Stem / Leaf records.
+- Join Ticket issuance succeeds and points agents at the M-Net join ingress.
+- a real `node-agent` can redeem that ticket, become `healthy` / `reachable`, complete `noop`, and transition back to `offline` after shutdown.
 - noop task moves to completed.
 - NATS events are published for lifecycle, registration, status, assignment, completion, policy decision, and audit entry.
 - Timeline shows human-readable Core/node/task events.
@@ -110,7 +117,7 @@ Expected result:
 | Core | starts locally, exposes health/readiness/status, generates OpenAPI |
 | CLI | supports required MVP commands with non-zero exit on failure |
 | REST | implements v0 endpoints in `docs/contracts/REST-API-MVP.md` |
-| Eden | exposes one typed Core status call |
+| Eden | exposes typed Core and internal-service clients over HTTP/HTTPS |
 | PostgreSQL | stores authoritative MVP entities listed in `docs/data/POSTGRES-SCHEMA-MVP.md` |
 | NATS | publishes MVP subjects listed in `docs/events/EVENT-CATALOG.md` |
 | RBAC | blocks protected operations without permission |
@@ -127,7 +134,7 @@ Expected result:
 - If NATS is unavailable, event-dependent commands fail or degrade explicitly; state must not be silently considered propagated.
 - If Audit Log write fails for protected operations, the operation fails closed.
 - If M-Policy is unavailable, protected operations fail closed.
-- If OpenTelemetry is unavailable, operations continue and trace fields are omitted or marked unavailable.
+- If the OpenTelemetry exporter is unavailable, operations continue and traces fall back to local SDK output instead of disappearing.
 
 ---
 
