@@ -52,7 +52,7 @@ Additional hard gates:
 
 - repository code must remain Bun-only
 - repository code must not import `node:*`
-- source comments must satisfy `MERISTEM-DEV.md §8.2` and `meristem_v_next_developer_document_v_0_1.md §26.2`
+- source comments must satisfy `MERISTEM-DEV.md §8.2`
 
 Timeout rule:
 

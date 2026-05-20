@@ -16,8 +16,9 @@
 4. `MERISTEM-DEV.md` - 理解工程规范、模块边界、数据结构和冻结条款
 5. `MERISTEM-ROADMAP.md` - 理解分阶段实现顺序和 v0.1 护栏
 6. `docs/README.md` - 查找细分契约文档
-7. `meristem_v_next_developer_document_v_0_1.md` - 理解原始 Bun-only、Eden-first、注释与 FIXME 约束
-8. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
+7. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
+
+`meristem_v_next_developer_document_v_0_1.md` 是历史开发草案，仅用于追溯早期决策背景，不再作为当前实现规范来源。
 
 不要跳过意图文档直接按开发文档写代码。Meristem 的实现必须服务于微内核、轻量微服务、可审计 M 网络这三个上游意图。
 
@@ -63,14 +64,14 @@ export type MServiceDefinition = { ... };
 
 不要给显而易见的赋值写注释。注释用于解释边界、契约、故障处理和安全原因。
 
-必须补齐并维持以下注释要求，见 `meristem_v_next_developer_document_v_0_1.md §26.2` 与 `MERISTEM-DEV.md §8.2`：
+必须补齐并维持以下注释要求，见 `MERISTEM-DEV.md §8.2`：
 
 - 非平凡逻辑必须有代码块级注释
 - 导出函数、边界函数、校验函数、状态转换函数必须有函数注释
 - Elysia 方法链必须有特别注释，解释鉴权、策略、生命周期、日志和错误映射
 - 注释优先解释边界和原因，不重复语法本身
 
-`FIXME` 只能用于以下场景，见 `meristem_v_next_developer_document_v_0_1.md §26.3` 与 `MERISTEM-DEV.md §8.3`：
+`FIXME` 只能用于以下场景，见 `MERISTEM-DEV.md §8.3`：
 
 - 临时方案
 - 已知技术债
