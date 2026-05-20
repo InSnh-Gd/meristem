@@ -277,3 +277,19 @@ Core 是微内核，不是大而全业务单体。Core 负责 bootstrap、基础
 | 修改 TypeScript 领域逻辑、策略、验证器、事件或状态转换 | `docs/skills/functional-programming/SKILL.md` |
 | 修改 Svelte / SvelteKit UI | `docs/references/svelte-latest.md` 和 `docs/ui/SDUI-SCHEMA.md` |
 | 引入 Wasm3 / WASI / WebAssembly 扩展运行时 | `docs/references/wasm3-latest.md` 和新增 ADR |
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/m-vnext`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo: read root `CONTEXT.md` and relevant ADRs under `docs/adr/`. See `docs/agents/domain.md`.
