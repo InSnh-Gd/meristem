@@ -92,6 +92,22 @@ Meristem vNext 当前仓库执行 **Bun-only** 规则：
 
 领域里的 `Core Node`、`Stem Node`、`Leaf Node` 不是禁词；禁令只针对 Node.js 运行时和 Node.js API。
 
+### 3.3.1 Effect 使用默认规则
+
+Meristem 采用 `ADR-016: Effect Without Effect Everywhere`：
+
+- 复杂副作用、生命周期、重试、超时、取消、资源释放、内部服务编排、事件消费者、策略流程、日志 pipeline 默认优先考虑 **Effect**
+- 纯数据映射、简单 CRUD、短小同步规则、无需资源语义的轻量函数，不要为了形式统一强行改成 Effect
+- Elysia handler 默认负责 orchestration；当 orchestration 已经涉及多个外部依赖、失败分支、时序要求或资源边界时，应优先抽到 Effect 工作流中
+- 不允许把 “先全仓库 Promise，后续再看情况” 当成复杂流程的默认路径；如果复杂性已经足以 justify Effect，就应在当前改动里落地
+- 同时禁止把简单逻辑过度 Effect 化；仓库目标是 **Effect-first for complex workflows, not Effect-everywhere**
+
+如果任务触及 Effect 边界，至少同时检查：
+
+- `docs/adr/ADR-016-effect-without-effect-everywhere.md`
+- `docs/skills/functional-programming/SKILL.md`
+- 对应服务文档、契约文档与测试门禁
+
 ### 3.4 禁止列表是硬约束
 
 如果文档明确放弃或暂不采用某方案，不要在代码中引入它。当前硬性禁止包括：

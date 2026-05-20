@@ -54,7 +54,7 @@
 | UI | SvelteKit + SDUI | M-UI 基础；与 Elysia 路由级深度集成 |
 | CLI | TypeScript CLI | Core 直接提供官方命令行入口，优先 Eden 契约 |
 | 可观测性 | OpenTelemetry | traces / metrics / logs 的采集与关联层 |
-| 副作用建模 | Effect | 用于复杂副作用、生命周期、事件消费者、策略流程、日志 pipeline；不强制 Effect-everywhere |
+| 副作用建模 | Effect | 复杂副作用、生命周期、事件消费者、策略流程、日志 pipeline、重试/超时/取消与多服务编排默认优先使用；不强制 Effect-everywhere |
 | 扩展 | M-Extension | 原 M-Plugin 已废弃；扩展是补充机制，不是主功能承载层 |
 | 可选网关 | APISIX | 可选部署组件，不进入 Core 默认依赖 |
 | 可选运行时 | Wasm3 / Wasmtime / WasmGC / Zig | 仅用于隔离、可移植、高级运行时或性能增强 |

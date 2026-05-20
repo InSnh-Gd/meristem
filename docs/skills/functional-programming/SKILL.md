@@ -18,7 +18,7 @@ description: Use when designing or implementing TypeScript domain logic, policy 
 
 - Policy decisions, event envelope validation, config lifecycle, service definition validation, and log classification should be pure-first.
 - Elysia handlers should orchestrate: parse input, call pure logic, persist/publish/log through adapters.
-- Effect is appropriate for complex resource/lifecycle/event workflows, not for every simple function.
+- Effect is the default choice for complex resource/lifecycle/event workflows, retries, timeout/cancellation, and multi-service orchestration; it is not for every simple function.
 - `unknown` plus schema/type guards is preferred over `any`.
 
 ## Result Pattern
