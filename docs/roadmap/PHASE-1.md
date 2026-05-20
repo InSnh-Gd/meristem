@@ -85,12 +85,12 @@ meristem status
 ## 6. Verification Checklist
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:contracts
-pnpm dev:core
-meristem status
+bun run lint
+bun run typecheck
+bun run test
+bun run test:contracts
+bun run dev:core
+bun run meristem status
 ```
 
 Manual checks:

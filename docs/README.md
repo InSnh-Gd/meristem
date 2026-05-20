@@ -37,9 +37,9 @@
 
 ---
 
-## 3. MVP Document Set
+## 3. MVP and Follow-on Phase Document Set
 
-The current implementation target is the Core + Stem/Leaf node MVP:
+The current implementation target starts with the Core + Stem/Leaf node MVP and continues into bounded follow-on phase specs:
 
 | Document | Purpose |
 |----------|---------|
@@ -53,6 +53,8 @@ The current implementation target is the Core + Stem/Leaf node MVP:
 | `roadmap/PHASE-6.md` | logical node networks and M-Net orchestration |
 | `roadmap/PHASE-7.md` | service lifecycle and reload prototype |
 | `roadmap/PHASE-8.md` | real node-agent runtime prototype |
+| `roadmap/PHASE-9.md` | M-UI functional demo shell and control-room flow |
+| `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
 | `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |
@@ -62,7 +64,8 @@ The current implementation target is the Core + Stem/Leaf node MVP:
 Phase numbering note:
 
 - `roadmap/PHASE-6.md` is the inserted logical-network execution phase.
-- root `MERISTEM-ROADMAP.md` phase names continue from the original sequence.
+- `roadmap/PHASE-9.md` is the inserted M-UI functional demo phase after the real node-agent runtime prototype.
+- root `MERISTEM-ROADMAP.md` contains mapping notes for historical phase numbering.
 - use the mapping table in `MERISTEM-ROADMAP.md` when matching root phases to executable docs.
 
 ---

@@ -54,6 +54,12 @@ Additional hard gates:
 - repository code must not import `node:*`
 - source comments must satisfy `MERISTEM-DEV.md §8.2` and `meristem_v_next_developer_document_v_0_1.md §26.2`
 
+Timeout rule:
+
+- keep the default `bun test` per-test timeout at `5000ms`
+- only real TLS / WebSocket / subprocess integration tests may opt into a longer per-test timeout
+- prefer the test-level timeout parameter over widening the whole suite or script timeout
+
 ---
 
 ## 4. Contract Tests
@@ -65,7 +71,7 @@ Must cover:
 - service definition required fields
 - REST/OpenAPI route versioning
 - Eden contract sample compatibility
-- internal loopback HTTP + Eden compatibility for `M-Policy`, `M-Log`, and `M-EventBus`
+- internal loopback HTTP + Eden compatibility for `M-Policy`, `M-Log`, `M-EventBus`, and `M-Net`
 - config schema versioning
 - M-Policy decision result shape
 - Audit Log required fields
@@ -82,6 +88,7 @@ MVP-specific contract tests:
 - node registration default mode and node credential issuance match the Phase 8 contract.
 - heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
+- Phase 9 UI contract tests prove M-UI BFF route schema, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
 
 ---
 
@@ -117,6 +124,7 @@ MVP failure-mode tests:
 - non-reloadable service returns `409`.
 - reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
 - agent task assignment without an active token returns `409`.
+- Phase 9 browser tests cover operator -> security-admin token switching and a mobile usability smoke.
 
 ---
 
@@ -131,6 +139,14 @@ Must cover:
 - Audit / Policy / Log / Node state components display traceable source
 
 UI contract tests are not MVP blockers because M-UI is out of scope for MVP, but the schema remains the future UI boundary.
+
+Phase 9 additions:
+
+- M-UI BFF must expose minimal OpenAPI for UI-facing endpoints.
+- M-UI must call M-UI BFF only, not Core REST directly.
+- BFF must not cache Core data or permission context across requests.
+- Phase 9 acceptance data must come from real Core REST v0; mock data is limited to empty-state rendering and contract-test stubs.
+- Playwright coverage must include operator happy path, missing-permission path, operator -> security-admin token switch, and one mobile viewport smoke.
 
 ---
 

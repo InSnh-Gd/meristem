@@ -63,8 +63,8 @@ Defined in `docs/events/EVENT-CATALOG.md`:
 ## 5. Verification Checklist
 
 ```bash
-pnpm test:contracts
-pnpm test -- events
+bun run test:contracts
+bun test tests/contracts/events.test.ts
 ```
 
 Manual checks:

@@ -13,7 +13,7 @@ Phase 6 includes:
 - Core REST routes for network create/list/join/member list.
 - CLI network commands.
 - Audit and Timeline behavior for network create/join.
-- NATS request/reply between Core and M-Net.
+- loopback HTTP + Eden + internal token between Core and M-Net.
 - logical leaf/stem membership rules.
 
 Phase 6 excludes:
@@ -50,6 +50,8 @@ meristem network members --network <network-id>
 
 - `mnet.network.created.v0`
 - `mnet.membership.joined.v0`
+
+Synchronous Core -> M-Net calls must use the internal HTTP boundary. NATS is reserved for published events and must not become the network command request/reply transport.
 
 ---
 

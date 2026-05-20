@@ -39,7 +39,7 @@ Exact paths may change after scaffold, but the first implementation should creat
 
 ```text
 package.json
-pnpm-workspace.yaml
+bunfig.toml
 tsconfig.base.json
 eslint.config.*
 apps/core/

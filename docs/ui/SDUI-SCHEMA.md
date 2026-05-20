@@ -95,6 +95,8 @@ type MUiCommand = {
   requiredPermissions: string[];
   requiresPolicy: boolean;
   requiresAudit: boolean;
+  state: "enabled" | "disabled";
+  disabledReason?: string;
 };
 ```
 
@@ -104,13 +106,63 @@ Rules:
 - `risk: "high" | "critical"` requires `requiresAudit: true`.
 - A command must display impact summary before execution.
 - Destructive commands must never be icon-only.
+- Disabled commands must display a reason and must not send requests.
+- Enabled commands must use CommandWell confirmation before execution.
 
 ---
 
-## 5. Done Criteria
+## 5. Phase 9 Functional Demo Route
+
+Phase 9 introduces a temporary **M-UI Functional Demo Shell**. It proves the control-room flow but is not the final frontend design.
+
+Required route shape:
+
+```text
+id: control-room.overview
+layout: three-zone
+primary: NodeMap + ServiceRegistryTable + TimelineStream
+inspector: KeyValueInspector + TraceLink + RawEnvelopeView
+commandWell: Run noop task
+```
+
+Required command:
+
+```ts
+type Phase9NoopCommand = MUiCommand & {
+  id: "task.noop.run";
+  action: "task:assign";
+  risk: "medium";
+  requiredPermissions: ["task:assign"];
+  requiresPolicy: true;
+  requiresAudit: true;
+};
+```
+
+Phase 9 rules:
+
+- Visible UI text is Chinese for Phase 9; machine fields, permission names, event names, error codes, and component kinds remain English.
+- The `Run noop task` command is rendered to operators as `运行 noop 任务`.
+- It is enabled only for a selected reachable Leaf with `task:assign`.
+- Missing permission uses a visible Chinese explanation that preserves the permission name, such as `缺少权限：task:assign`.
+- Wrong node kind uses a visible Chinese explanation, such as `目标不是 Leaf 节点`.
+- Unreachable node state uses a visible Chinese explanation, such as `目标节点不可达`.
+- Disabled commands do not create Audit facts.
+- CommandWell confirmation displays target node, task type, required permission, policy requirement, and audit requirement before execution.
+- Success displays `task.id`, `policyDecisionId`, and `correlationId`.
+- Success refreshes Timeline and the selected Leaf node.
+- Failure displays the Core error envelope inline in CommandWell.
+- Audit regions remain visible but access-denied for actors without `audit:read`.
+- Minimal policy summaries may show actor, action, resource, result, and createdAt; Phase 9 does not require a full `PolicyDecisionPanel`.
+- Toasts, snackbars, modals, and hidden destructive controls remain forbidden.
+- Mobile must remain usable through a single-column or vertically scrollable layout, but final mobile interaction design is out of scope.
+- Phase 9 uses manual refresh and command-after refresh only; realtime UI transports are out of scope.
+
+---
+
+## 6. Done Criteria
 
 - Route schema validates before rendering.
 - Unknown component kind fails closed.
-- Missing permission hides or disables command with reason.
+- Missing permission hides or disables command with reason; Phase 9 must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
 - Component token usage follows `MERISTEM-DESIGN.md`.
