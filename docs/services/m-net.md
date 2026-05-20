@@ -25,8 +25,8 @@ Current implemented scope:
 - logical network membership queries
 - Join Ticket redemption
 - public TLS + WebSocket join ingress on `8443`
-- runtime token resume over the same session path
-- node-agent heartbeat ingestion over the M-Net session protocol
+- runtime token only in `join.accepted` and `session.resume`
+- node-agent heartbeat, log forward, and task result frames over the M-Net session protocol
 - node reachability and runtime status updates
 - offline transition on heartbeat timeout
 
@@ -100,6 +100,7 @@ Current MVP runtime boundary:
 - client -> server frames: `join.redeem`, `session.resume`, `heartbeat`, `log.forward`, `task.result`
 - server -> client frames: `join.accepted`, `session.resumed`, `task.execute`, `error`
 - `join.accepted` and `session.resumed` return a per-session `sessionId`
+- `join.accepted` is the only server frame that returns the runtime token
 - `heartbeat`, `log.forward`, and `task.result` must echo the current `sessionId`; stale session ids are rejected with `session.superseded`
 - only one active session may exist per node; a successful resume supersedes the previous live connection immediately
 - `M-Net` publishes `mnet.reachability.changed.v0` and `node.status.changed.v0` when runtime state changes

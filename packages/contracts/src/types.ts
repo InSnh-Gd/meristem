@@ -70,6 +70,12 @@ export type HealthResponse = {
   uptimeMs: number
 }
 
+// SessionResponse 让 UI/BFF 在不调用 M-Policy 的前提下获取当前操作者身份和权限列表。
+export type SessionResponse = {
+  actor: ActorId
+  permissions: Permission[]
+}
+
 // Ready 与 Health 明确分离：前者表示依赖可用性，后者只表示进程存活。
 export type ReadyResponse = {
   ready: boolean
@@ -184,26 +190,6 @@ export type AssignTaskResponse = {
   correlationId: string
 }
 
-export type NodeAgentHeartbeatPayload = {
-  nodeId: string
-  token: string
-  agentVersion: string
-  reportedStatus: 'healthy' | 'degraded'
-  timestamp: string
-}
-
-// agent payload 都携带节点 token，由上游服务在应用层做校验而不是信任总线本身。
-export type NodeAgentLogPayload = {
-  nodeId: string
-  token: string
-  level: FullLog['level']
-  message: string
-  timestamp: string
-  correlationId?: string
-  traceId?: string
-  payload?: unknown
-}
-
 export type NodeAgentTaskExecuteRequest = {
   nodeId: string
   taskId: string
@@ -218,6 +204,7 @@ export type NodeAgentTaskExecuteResponse = {
   completedAt: string
 }
 
+// Phase 8 steady-state frames are session-scoped: only the handshake carries runtime secrets.
 export type JoinRedeemMessage = {
   type: 'join.redeem'
   ticket: string

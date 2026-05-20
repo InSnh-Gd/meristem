@@ -131,23 +131,42 @@ type NodeStatusChangedPayload = {
   reason?: string;
 };
 
-type NodeAgentHeartbeatPayload = {
+type JoinRedeemMessage = {
+  type: "join.redeem";
+  ticket: string;
+};
+
+type SessionResumeMessage = {
+  type: "session.resume";
   nodeId: string;
   token: string;
+};
+
+type SessionHeartbeatMessage = {
+  type: "heartbeat";
+  sessionId: string;
   agentVersion: string;
   reportedStatus: "healthy" | "degraded";
   timestamp: string;
 };
 
-type NodeAgentLogPayload = {
-  nodeId: string;
-  token: string;
+type SessionLogForwardMessage = {
+  type: "log.forward";
+  sessionId: string;
   level: "debug" | "info" | "warn" | "error";
   message: string;
   timestamp: string;
   correlationId?: string;
   traceId?: string;
   payload?: unknown;
+};
+
+type SessionTaskResultMessage = {
+  type: "task.result";
+  sessionId: string;
+  taskId: string;
+  result: "completed";
+  completedAt: string;
 };
 
 type MNetNetworkCreatedPayload = {

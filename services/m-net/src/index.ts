@@ -173,12 +173,12 @@ function parseClientMessage(raw: string): MNetSessionClientMessage | null {
 /**
  * Bun WebSocket message 可能是 string、ArrayBuffer 或 Blob，这里统一归一化成 JSON 文本。
  */
-function messageText(message: string | BufferSource): string {
+function messageText(message: string | ArrayBuffer | ArrayBufferView): string {
   if (typeof message === 'string') return message
   return new TextDecoder().decode(
     message instanceof ArrayBuffer
       ? new Uint8Array(message)
-      : new Uint8Array((message as ArrayBufferView).buffer)
+      : new Uint8Array(message.buffer, message.byteOffset, message.byteLength)
   )
 }
 

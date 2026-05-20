@@ -11,7 +11,7 @@
 | Bun | yes | TypeScript runtime, package manager, script runner, and test runner |
 | PostgreSQL | yes for MVP | authoritative state |
 | NATS | yes for MVP | M-EventBus |
-| OpenSearch | no until Phase 9 | read model and log search |
+| OpenSearch | no until Phase 10 | read model and log search |
 | Redis / KeyDB | no | optional cache fallback |
 | APISIX | no | optional gateway |
 
@@ -103,8 +103,8 @@ Public exposure rule:
 | `DATABASE_URL` | PostgreSQL connection | `postgres://meristem:meristem@localhost:55432/meristem` |
 | `NATS_URL` | NATS WebSocket connection for internal services | `ws://localhost:4223` |
 | `MERISTEM_LOG_LEVEL` | Core log level | `info` |
-| `MERISTEM_NODE_ID` | node-agent target node ID | none |
-| `MERISTEM_NODE_TOKEN` | node-agent runtime token for `session.resume` | none |
+| `MERISTEM_NODE_ID` | node-agent target node ID for `session.resume` | none |
+| `MERISTEM_NODE_TOKEN` | node-agent runtime token used only by `session.resume` | none |
 | `MERISTEM_AGENT_VERSION` | node-agent reported version | `0.1.0` |
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
@@ -157,5 +157,5 @@ bun run dev:node-agent
 
 Compatibility note:
 
-- `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` remains available for `session.resume` and operator recovery flows.
+- `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` remain available for `session.resume` and operator recovery flows.
 - `meristem node issue-token` is no longer the primary public join flow.

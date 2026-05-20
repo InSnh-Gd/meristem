@@ -1,6 +1,8 @@
 # Bun-Only Hardening And Three-Machine Validation Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task.
+>
+> Status: partially superseded by the Phase 8 Join Ticket runtime design. The Bun-only and comment-hardening parts remain useful, but any runtime validation step that registers agent nodes with `--mode agent` is stale. Current agent-mode validation must create a Join Ticket, redeem it through the M-Net join ingress, and resume with the runtime token returned by `join.accepted`.
 
 **Goal:** Eliminate all Node.js runtime and Node API dependencies from the repository, backfill code comments to the standard required by `meristem_v_next_developer_document_v_0_1.md`, enforce both requirements in `AGENTS.md`, and then run a three-machine logical network plus agent-runtime validation across `45.204.206.45`, `45.204.206.96`, and `47.250.136.141`.
 **Architecture:** Keep the existing Meristem split of `Core + M-Policy + M-Log + M-EventBus + M-Net + node-agent`, with internal synchronous control paths using loopback `HTTP + Eden + internal token`, NATS reserved for events and agent bus traffic, and no Node.js runtime anywhere in the stack.
@@ -234,30 +236,27 @@ Deployment note:
 
 ### Execution Order
 
-1. Register a remote Stem node:
-   - `meristem node register --kind stem --name tri-remote-stem --mode agent`
-2. Register a remote Leaf node:
-   - `meristem node register --kind leaf --name tri-remote-leaf --mode agent`
-3. Issue a token for each node:
-   - `meristem node issue-token --node <stem-node-id>`
-   - `meristem node issue-token --node <leaf-node-id>`
-4. Start remote Stem agent on `45.204.206.96`.
-5. Wait until Stem becomes `healthy/reachable`.
-6. Start remote Leaf agent on `47.250.136.141`.
-7. Wait until Leaf becomes `healthy/reachable`.
-8. Create the network:
+1. Create a remote Stem Join Ticket:
+   - `meristem node ticket create --kind stem --name tri-remote-stem`
+2. Create a remote Leaf Join Ticket:
+   - `meristem node ticket create --kind leaf --name tri-remote-leaf`
+3. Start remote Stem agent on `45.204.206.96` with the Stem Join Ticket.
+4. Wait until Stem becomes `healthy/reachable`.
+5. Start remote Leaf agent on `47.250.136.141` with the Leaf Join Ticket.
+6. Wait until Leaf becomes `healthy/reachable`.
+7. Create the network:
    - `meristem network create --name tri-lab-mesh-20260508`
-9. Join the Stem to the network.
-10. Join the Leaf to the network.
-11. Verify members:
+8. Join the Stem to the network.
+9. Join the Leaf to the network.
+10. Verify members:
    - Stem membership mode is `full`
    - Leaf membership mode is `restricted`
-12. Assign a `noop` task to the Leaf:
+11. Assign a `noop` task to the Leaf:
    - `meristem task assign --leaf <leaf-node-id> --type noop`
-13. Stop the remote Leaf agent.
-14. Wait for timeout-based transition to `offline/unreachable`.
-15. Re-run `noop` assignment against the Leaf and expect failure.
-16. Optionally stop the remote Stem agent and confirm it also goes `offline/unreachable`.
+12. Stop the remote Leaf agent.
+13. Wait for timeout-based transition to `offline/unreachable`.
+14. Re-run `noop` assignment against the Leaf and expect failure.
+15. Optionally stop the remote Stem agent and confirm it also goes `offline/unreachable`.
 
 ### Expected Runtime Outputs
 

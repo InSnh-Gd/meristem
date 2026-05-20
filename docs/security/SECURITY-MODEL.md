@@ -200,5 +200,6 @@ Rules:
 - one node may have only one active token at a time.
 - `session.resume` validates the runtime token and establishes the active session lease.
 - heartbeat, forwarded log, and task reply validation rely on the authenticated session plus the current `sessionId`; they do not repeat the runtime token in every frame.
+- runtime token plaintext is only present in the `join.accepted` handshake and the `session.resume` request that reauthenticates a node.
 - invalid or revoked token usage must not update node state and must leave log evidence.
 - runtime tokens must never appear in stdout, Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, or error messages.

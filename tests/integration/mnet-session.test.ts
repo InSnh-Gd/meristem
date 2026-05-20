@@ -22,6 +22,7 @@ type ManagedSessionSocket = {
 const { db, client } = createDb()
 const joinIngressPort = 18_443
 const joinIngressUrl = `wss://localhost:${joinIngressPort}/join/v0/session`
+const joinIngressSessionTimeoutMs = 15_000
 
 let logMock: ManagedProcess | null = null
 let eventBusMock: ManagedProcess | null = null
@@ -184,6 +185,10 @@ async function cleanupTicket(ticketId: string, nodeId?: string): Promise<void> {
   }
 }
 
+function closeManagedSessionSocket(socket: ManagedSessionSocket | null): void {
+  socket?.close()
+}
+
 /**
  * Integration tests here drive the real join ingress so the session boundary is exercised
  * against Bun WebSockets, PostgreSQL, and the internal log/event callers together.
@@ -218,69 +223,75 @@ describe('M-Net join ingress session handling', () => {
       expiresAt: new Date(Date.now() + 60_000),
       name: `supersede-${crypto.randomUUID()}`
     })
+    let firstSocket: ManagedSessionSocket | null = null
+    let secondSocket: ManagedSessionSocket | null = null
+    let nodeId: string | undefined
 
-    const firstSocket = await openSessionSocket(joinIngressUrl)
-    firstSocket.send({ type: 'join.redeem', ticket })
-    const accepted = await firstSocket.waitForMessage((message) => message.type === 'join.accepted', 'join.accepted')
+    try {
+      firstSocket = await openSessionSocket(joinIngressUrl)
+      firstSocket.send({ type: 'join.redeem', ticket })
+      const accepted = await firstSocket.waitForMessage((message) => message.type === 'join.accepted', 'join.accepted')
 
-    const nodeId = String((accepted.node as { id: string }).id)
-    const runtimeToken = String(accepted.runtimeToken)
-    const firstSessionId = String(accepted.sessionId)
+      nodeId = String((accepted.node as { id: string }).id)
+      const joinedNodeId = nodeId
+      const runtimeToken = String(accepted.runtimeToken)
+      const firstSessionId = String(accepted.sessionId)
 
-    firstSocket.send({
-      type: 'heartbeat',
-      sessionId: firstSessionId,
-      agentVersion: '0.1.0',
-      reportedStatus: 'healthy',
-      timestamp: new Date().toISOString()
-    })
+      firstSocket.send({
+        type: 'heartbeat',
+        sessionId: firstSessionId,
+        agentVersion: '0.1.0',
+        reportedStatus: 'healthy',
+        timestamp: new Date().toISOString()
+      })
 
-    await waitFor(async () => {
-      const node = await readNode(nodeId)
-      return node?.status === 'healthy' && node.reachability === 'reachable'
-    }, {
-      label: 'initial heartbeat state',
-      timeoutMs: 2_000,
-      intervalMs: 25
-    })
+      await waitFor(async () => {
+        const node = await readNode(joinedNodeId)
+        return node?.status === 'healthy' && node.reachability === 'reachable'
+      }, {
+        label: 'initial heartbeat state',
+        timeoutMs: 2_000,
+        intervalMs: 25
+      })
 
-    const secondSocket = await openSessionSocket(joinIngressUrl)
-    secondSocket.send({
-      type: 'session.resume',
-      nodeId,
-      token: runtimeToken
-    })
+      secondSocket = await openSessionSocket(joinIngressUrl)
+      secondSocket.send({
+        type: 'session.resume',
+        nodeId: joinedNodeId,
+        token: runtimeToken
+      })
 
-    const resumed = await secondSocket.waitForMessage((message) => message.type === 'session.resumed', 'session.resumed')
-    const secondSessionId = String(resumed.sessionId)
+      const resumed = await secondSocket.waitForMessage((message) => message.type === 'session.resumed', 'session.resumed')
+      const secondSessionId = String(resumed.sessionId)
 
-    firstSocket.send({
-      type: 'heartbeat',
-      sessionId: firstSessionId,
-      agentVersion: '0.1.1',
-      reportedStatus: 'degraded',
-      timestamp: new Date().toISOString()
-    })
+      firstSocket.send({
+        type: 'heartbeat',
+        sessionId: firstSessionId,
+        agentVersion: '0.1.1',
+        reportedStatus: 'degraded',
+        timestamp: new Date().toISOString()
+      })
 
-    secondSocket.send({
-      type: 'heartbeat',
-      sessionId: secondSessionId,
-      agentVersion: '0.1.0',
-      reportedStatus: 'healthy',
-      timestamp: new Date().toISOString()
-    })
+      secondSocket.send({
+        type: 'heartbeat',
+        sessionId: secondSessionId,
+        agentVersion: '0.1.0',
+        reportedStatus: 'healthy',
+        timestamp: new Date().toISOString()
+      })
 
-    await Bun.sleep(100)
+      await Bun.sleep(100)
 
-    const node = await readNode(nodeId)
-    expect(node).not.toBeNull()
-    expect(node?.status).toBe('healthy')
-    expect(node?.reachability).toBe('reachable')
-
-    firstSocket.close()
-    secondSocket.close()
-    await cleanupTicket(ticketId, nodeId)
-  })
+      const node = await readNode(joinedNodeId)
+      expect(node).not.toBeNull()
+      expect(node?.status).toBe('healthy')
+      expect(node?.reachability).toBe('reachable')
+    } finally {
+      closeManagedSessionSocket(firstSocket)
+      closeManagedSessionSocket(secondSocket)
+      await cleanupTicket(ticketId, nodeId)
+    }
+  }, joinIngressSessionTimeoutMs)
 
   it('returns stable join ticket errors and only redeems a ticket once', async () => {
     const expiredTicket = `expired-${crypto.randomUUID()}`
@@ -316,55 +327,64 @@ describe('M-Net join ingress session handling', () => {
 
     const openAndRedeem = async (ticketValue: string): Promise<ParsedSessionMessage> => {
       const socket = await openSessionSocket(joinIngressUrl)
-      socket.send({ type: 'join.redeem', ticket: ticketValue })
-      const message = await socket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', `response for ${ticketValue}`)
-      socket.close()
-      return message
+      try {
+        socket.send({ type: 'join.redeem', ticket: ticketValue })
+        return await socket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', `response for ${ticketValue}`)
+      } finally {
+        socket.close()
+      }
     }
 
-    await expect(openAndRedeem(invalidTicket)).resolves.toMatchObject({
-      type: 'error',
-      code: 'node.join_ticket_invalid'
-    })
-    await expect(openAndRedeem(expiredTicket)).resolves.toMatchObject({
-      type: 'error',
-      code: 'node.join_ticket_expired'
-    })
-    await expect(openAndRedeem(revokedTicket)).resolves.toMatchObject({
-      type: 'error',
-      code: 'node.join_ticket_revoked'
-    })
-    await expect(openAndRedeem(redeemedTicket)).resolves.toMatchObject({
-      type: 'error',
-      code: 'node.join_ticket_redeemed'
-    })
+    let firstSocket: ManagedSessionSocket | null = null
+    let secondSocket: ManagedSessionSocket | null = null
+    let nodeId: string | undefined
 
-    const firstSocket = await openSessionSocket(joinIngressUrl)
-    const secondSocket = await openSessionSocket(joinIngressUrl)
+    try {
+      await expect(openAndRedeem(invalidTicket)).resolves.toMatchObject({
+        type: 'error',
+        code: 'node.join_ticket_invalid'
+      })
+      await expect(openAndRedeem(expiredTicket)).resolves.toMatchObject({
+        type: 'error',
+        code: 'node.join_ticket_expired'
+      })
+      await expect(openAndRedeem(revokedTicket)).resolves.toMatchObject({
+        type: 'error',
+        code: 'node.join_ticket_revoked'
+      })
+      await expect(openAndRedeem(redeemedTicket)).resolves.toMatchObject({
+        type: 'error',
+        code: 'node.join_ticket_redeemed'
+      })
 
-    firstSocket.send({ type: 'join.redeem', ticket: activeTicket })
-    secondSocket.send({ type: 'join.redeem', ticket: activeTicket })
+      firstSocket = await openSessionSocket(joinIngressUrl)
+      secondSocket = await openSessionSocket(joinIngressUrl)
 
-    const [firstResponse, secondResponse] = await Promise.all([
-      firstSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'first redemption response'),
-      secondSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'second redemption response')
-    ])
+      firstSocket.send({ type: 'join.redeem', ticket: activeTicket })
+      secondSocket.send({ type: 'join.redeem', ticket: activeTicket })
 
-    const acceptedCount = [firstResponse, secondResponse].filter((message) => message.type === 'join.accepted').length
-    const errorCodes = [firstResponse, secondResponse]
-      .filter((message): message is ParsedSessionMessage & { code: string } => message.type === 'error')
-      .map((message) => message.code)
+      const [firstResponse, secondResponse] = await Promise.all([
+        firstSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'first redemption response'),
+        secondSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'second redemption response')
+      ])
 
-    expect(acceptedCount).toBe(1)
-    expect(errorCodes).toContain('node.join_ticket_redeemed')
+      const acceptedCount = [firstResponse, secondResponse].filter((message) => message.type === 'join.accepted').length
+      const errorCodes = [firstResponse, secondResponse]
+        .filter((message): message is ParsedSessionMessage & { code: string } => message.type === 'error')
+        .map((message) => message.code)
 
-    const accepted = [firstResponse, secondResponse].find((message) => message.type === 'join.accepted')
-    const nodeId = accepted ? String((accepted.node as { id: string }).id) : undefined
-    firstSocket.close()
-    secondSocket.close()
-    await cleanupTicket(expiredTicketId)
-    await cleanupTicket(revokedTicketId)
-    await cleanupTicket(redeemedTicketId)
-    await cleanupTicket(activeTicketId, nodeId)
+      expect(acceptedCount).toBe(1)
+      expect(errorCodes).toContain('node.join_ticket_redeemed')
+
+      const accepted = [firstResponse, secondResponse].find((message) => message.type === 'join.accepted')
+      nodeId = accepted ? String((accepted.node as { id: string }).id) : undefined
+    } finally {
+      closeManagedSessionSocket(firstSocket)
+      closeManagedSessionSocket(secondSocket)
+      await cleanupTicket(expiredTicketId)
+      await cleanupTicket(revokedTicketId)
+      await cleanupTicket(redeemedTicketId)
+      await cleanupTicket(activeTicketId, nodeId)
+    }
   })
 })

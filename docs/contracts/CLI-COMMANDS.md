@@ -56,7 +56,7 @@ Rules:
 
 - the ticket is single-use and short-lived.
 - `joinUrl` points to the public M-Net ingress `wss://<host>:8443/join/v0/session`.
-- after the first successful join, the agent should reconnect with the returned runtime token instead of reusing the ticket.
+- after the first successful join, the agent should resume with the runtime token returned by `join.accepted` and keep using the active `sessionId` for steady-state frames.
 
 ### `meristem node issue-token --node <node-id>`
 
@@ -132,6 +132,7 @@ Rules:
 - target node must be a Leaf.
 - `simulated` nodes complete synchronously in Core.
 - `agent` nodes require `reachable` state and an active runtime token.
+- `agent` nodes require `reachable` state and an active runtime token used only for `session.resume`; heartbeat, log, and task replies use `sessionId`.
 - `agent` noop completion goes through Core -> M-Net internal HTTP -> active join-ingress session `task.execute` -> agent `task.result`.
 
 ### `meristem service list`

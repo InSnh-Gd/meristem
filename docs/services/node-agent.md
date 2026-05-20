@@ -17,8 +17,8 @@ Current implemented responsibilities:
 
 - connect to the public `M-Net` join ingress over `wss://.../join/v0/session`
 - redeem a one-time Join Ticket on first join
-- resume with the runtime token returned by `join.accepted`
 - keep the current session lease id returned by `join.accepted` / `session.resumed`
+- resume the active node session with the runtime token returned by `join.accepted`
 - send `heartbeat` and `log.forward` frames over the M-Net session protocol with that `sessionId`
 - answer `task.execute` with `task.result` for `noop`, again echoing the current `sessionId`
 - identify itself with one per-node opaque runtime token after join
@@ -47,6 +47,7 @@ Deployment note:
 - first-join ticket plaintext must come from Core ticket issuance
 - runtime token plaintext comes from `join.accepted` and must be used for `session.resume`
 - heartbeat, forwarded log, and task reply frames rely on the authenticated session plus the current `sessionId`; they do not repeat the runtime token in every payload
+- `join.accepted` is the only frame that returns the runtime token; `session.resumed` returns only the refreshed `sessionId`
 - token must not be printed in stdout, Timeline, Full Log, or Audit payloads
 - reissued tokens immediately invalidate the previous runtime
 - a successful `session.resume` rotates the active session lease and supersedes the previous live socket
