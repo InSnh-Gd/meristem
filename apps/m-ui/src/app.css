@@ -1,0 +1,67 @@
+:root {
+  --surface-root: #090B0D;
+  --surface-panel: #101418;
+  --surface-raised: #171D22;
+  --surface-sunken: #050607;
+  --text-100: #F3F7F7;
+  --text-80: #C8D0D2;
+  --text-60: #8B969B;
+  --text-40: #586268;
+  --line-strong: #2C363C;
+  --line-soft: #1B2328;
+  --signal-ok: #4CC38A;
+  --signal-info: #6FA8FF;
+  --signal-warn: #F2B84B;
+  --signal-risk: #FF7A45;
+  --signal-block: #FF5C70;
+  --signal-audit: #D6B66F;
+  --font-body: "IBM Plex Sans", "Aptos", system-ui, sans-serif;
+  --font-mono: "Berkeley Mono", "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --lh-tight: 1.15;
+  --lh-normal: 1.45;
+  --lh-prose: 1.65;
+  --lh-log: 1.55;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --nav-rail-width: 200px;
+  --inspector-width: 420px;
+  --inspector-mobile-max-height: 320px;
+  --command-well-offset: 112px;
+  --command-well-offset-mobile: 180px;
+  --token-input-width: min(54vw, 320px);
+  --token-input-min-width: 180px;
+  --service-table-min-width: 620px;
+  --shell-padding-x: clamp(16px, 2vw, 28px);
+  --shell-padding-y: 18px;
+  --panel-gap: 12px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--surface-root);
+  color: var(--text-80);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
