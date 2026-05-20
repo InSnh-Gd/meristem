@@ -166,3 +166,42 @@ Phase 9 rules:
 - Missing permission hides or disables command with reason; Phase 9 must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
 - Component token usage follows `MERISTEM-DESIGN.md`.
+
+---
+
+## 7. Phase 9 Control-Room Route
+
+The Phase 9 functional demo implements one SDUI route:
+
+```ts
+const controlRoomRoute: MUiRouteSchema = {
+  id: "control-room.overview",
+  version: "v0",
+  title: "控制室概览",
+  layout: "three-zone",
+  requiredPermissions: ["core:read"],
+  regions: {
+    navigation: { kind: "NavRail" },
+    primary: {
+      kind: "NodeMap",
+      // co-renders ServiceRegistryTable and TimelineStream below NodeMap
+    },
+    inspector: { kind: "KeyValueInspector" },
+    commandWell: { kind: "CommandWell" }
+  }
+};
+```
+
+**Phase 9 additions beyond the base schema**:
+
+- `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
+- `PolicyDecisionPanel`: Not implemented in Phase 9; only a minimal summary is shown inline after command execution.
+- `CommandWell` only surfaces one command (`noop`) against reachable Leaf nodes with `task:assign`.
+
+**Phase 9 state sources**:
+
+- Node list, service registry, session: authoritative (PostgreSQL via Core)
+- Timeline entries: log projection (via Core)
+- Audit entries: audit projection (via Core, post-filtered by BFF for `audit:read`)
+- Command eligibility: derived from session permissions + node state (BFF, display-only)
+- Policy decision summary: policy projection (via Core, trimmed by BFF)

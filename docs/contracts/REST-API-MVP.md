@@ -381,6 +381,32 @@ Rules:
 - It must not issue, refresh, or store tokens.
 - If permission context cannot be computed, the response fails closed and the UI command stays disabled.
 
+### `GET /api/v0/policy/decisions/:id/summary` (BFF)
+
+The M-UI BFF proxies Core `GET /api/v0/policy/decisions/:id` and returns a trimmed summary for UI display.
+
+**Response (200)**:
+
+```ts
+type PolicyDecisionSummaryResponse = {
+  decision: {
+    id: string;
+    actor: string;
+    action: string;
+    resource: string;
+    result: string;
+    createdAt: string;
+  };
+};
+```
+
+**Rules**:
+
+- Requires a valid Bearer token with `core:read`.
+- The BFF strips `reasons` and all policy internals from the Core response.
+- Returns 401 without token, 404 if decision not found, passes through Core error envelopes on failure.
+- This endpoint is display-only and must not expose policy evaluation internals.
+
 ---
 
 ## 10. OpenAPI Requirements
