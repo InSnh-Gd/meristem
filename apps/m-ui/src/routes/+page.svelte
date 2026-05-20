@@ -13,11 +13,7 @@
   }
 
   function togglePolicySummary() {
-    if (!appState.policySummary) {
-      showPolicySummary = !showPolicySummary
-    } else {
-      showPolicySummary = !showPolicySummary
-    }
+    showPolicySummary = !showPolicySummary
   }
 </script>
 
