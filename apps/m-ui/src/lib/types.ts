@@ -11,6 +11,7 @@ export type OverviewData = {
   services: ServiceSummary[]
   timeline: TimelineLog[]
   auditAccessible: boolean
+  audit: AuditEntry[] | null
 }
 
 export type CommandState = {
@@ -39,4 +40,22 @@ export type TaskResult = {
   }
   policyDecisionId: string
   correlationId: string
+}
+
+export type PolicyDecisionSummary = {
+  id: string
+  actor: string
+  action: string
+  resource: string
+  result: string
+  createdAt: string
+}
+
+export type AuditEntry = {
+  id: string
+  timestamp: string
+  actor: string
+  action: string
+  resource: string
+  result: string
 }

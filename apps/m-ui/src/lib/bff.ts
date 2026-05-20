@@ -76,3 +76,7 @@ export function executeNoop(token: string, leafNodeId: string) {
     body: JSON.stringify({ leafNodeId })
   })
 }
+
+export function fetchPolicySummary(token: string, decisionId: string) {
+  return bffFetch(`/api/v0/policy/decisions/${decisionId}/summary`, token)
+}

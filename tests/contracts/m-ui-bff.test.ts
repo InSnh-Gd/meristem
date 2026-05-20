@@ -297,4 +297,104 @@ describe('M-UI BFF contract tests', () => {
     expect(body.policyDecisionId).toBeDefined()
     expect(body.correlationId).toBeDefined()
   })
+
+  // --- Policy decision summary ---
+
+  it('GET /api/v0/policy/decisions/:id/summary returns trimmed response (no reasons)', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const coreApp = createCoreApp(deps)
+
+    // 先注册 Leaf 节点并执行 noop 以生成一个 policy decision
+    const regRes = await coreApp.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'leaf-policy', mode: 'simulated' })
+      })
+    )
+    const leafId = ((await regRes.json()) as { node: { id: string } }).node.id
+
+    const execRes = await coreApp.handle(
+      new Request('http://localhost/api/v0/tasks', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ leafNodeId: leafId, type: 'noop' })
+      })
+    )
+    const execBody = (await execRes.json()) as { policyDecisionId: string }
+    expect(execBody.policyDecisionId).toBeDefined()
+
+    const app = createBffWithCore(coreApp)
+    const res = await makeRequest(app, `/api/v0/policy/decisions/${execBody.policyDecisionId}/summary`, 'GET', 'operator-token')
+    expect(res.status).toBe(200)
+    const body = await res.json() as {
+      decision: { id: string; actor: string; action: string; resource: string; result: string; createdAt: string; reasons?: string[] }
+    }
+    expect(body.decision.id).toBe(execBody.policyDecisionId)
+    expect(body.decision.actor).toBeDefined()
+    expect(body.decision.action).toBeDefined()
+    expect(body.decision.resource).toBeDefined()
+    expect(body.decision.result).toBeDefined()
+    expect(body.decision.createdAt).toBeDefined()
+    // reasons MUST NOT be present
+    expect(body.decision).not.toHaveProperty('reasons')
+  })
+
+  it('GET /api/v0/policy/decisions/:id/summary passes through 404 from Core', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/policy/decisions/nonexistent-id/summary', 'GET', 'operator-token')
+    expect(res.status).toBe(404)
+    const body = await res.json() as { error: { code: string } }
+    expect(body.error.code).toBeDefined()
+  })
+
+  // --- Audit aggregation in overview ---
+
+  it('GET /api/v0/overview with operator token returns audit:null', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/overview', 'GET', 'operator-token')
+    expect(res.status).toBe(200)
+    const body = await res.json() as { audit: unknown }
+    expect(body.audit).toBeNull()
+  })
+
+  it('GET /api/v0/overview with security-admin token returns audit with entries', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+
+    // 写入审计日志条目
+    await deps.log.writeAudit({
+      actor: 'security-admin',
+      action: 'task:assign',
+      resource: 'node:1',
+      result: 'allow',
+      correlationId: 'cid-audit-1'
+    })
+
+    const app = createBffWithCore(coreApp)
+    const res = await makeRequest(app, '/api/v0/overview', 'GET', 'security-admin-token')
+    expect(res.status).toBe(200)
+    const body = await res.json() as {
+      auditAccessible: boolean
+      audit: Array<{ id: string; actor: string; action: string; resource: string; result: string }> | null
+    }
+    expect(body.auditAccessible).toBe(true)
+    expect(body.audit).not.toBeNull()
+    const entries = body.audit!
+    expect(entries.length).toBeGreaterThanOrEqual(1)
+    expect(entries[0]!.actor).toBe("security-admin")
+    expect(entries[0]!.action).toBe("task:assign")
+  })
 })

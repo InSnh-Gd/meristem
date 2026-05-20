@@ -83,7 +83,8 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       return { ready: result.ok }
     })
 
-    // overview 聚合控制台主页面数据：会话、状态、节点、服务、时间线。
+    // overview 聚合控制台主页面数据：会话、状态、节点、服务、时间线、审计（按权限）。
+    // 生命周期：先并行拉取非审计数据，再按权限条件拉取审计日志。
     .get('/api/v0/overview', async ({ headers }) => {
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
@@ -105,6 +106,15 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       const services = servicesRes.ok ? (servicesRes.data as { services: ServiceSummary[] }).services : []
       const timeline = timelineRes.ok ? (timelineRes.data as { entries: TimelineLog[] }).entries : []
 
+      const auditAccessible = session.permissions.includes('audit:read') as boolean
+
+      // 如果当前会话有 audit:read 权限，拉取审计日志；失败时置 null 不阻塞 overview
+      let auditEntries = null
+      if (auditAccessible) {
+        const auditRes = await cf('/api/v0/audit', token)
+        auditEntries = auditRes.ok ? (auditRes.data as { entries: unknown[] }).entries : null
+      }
+
       return {
         session,
         core: status.core,
@@ -112,13 +122,16 @@ export function createMUiBffApp(deps: MUiBffDeps) {
         nodes,
         services,
         timeline,
-        auditAccessible: session.permissions.includes('audit:read')
+        auditAccessible,
+        audit: auditEntries
       }
     })
     .get('/api/v0/nodes/:id', async ({ params, headers }) => {
+      // 鉴权：提取 Bearer token
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
 
+      // 调用 Core 节点详情端点
       const result = await cf(`/api/v0/nodes/${params.id}`, token)
       if (!result.ok) return passthroughCoreError(result)
       return result.data
@@ -126,11 +139,42 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       detail: { summary: 'Read single node detail' }
     })
-    // noop 命令状态派生：检查权限、节点类型和可达性，不执行实际操作。
-    .post('/api/v0/commands/noop', async ({ body, headers }) => {
+
+    // policy decision summary：从 Core 读取完整决策后裁剪掉 reasons 等内部字段，仅返回 BFF 层汇总视图。
+    // 鉴权与错误映射：token 缺失 → 401，Core 错误 → 透传。
+    .get('/api/v0/policy/decisions/:id/summary', async ({ params, headers }) => {
+      // 鉴权：提取 Bearer token
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
 
+      // 调用 Core policy decisions 端点获取完整决策
+      const result = await cf(`/api/v0/policy/decisions/${params.id}`, token)
+      if (!result.ok) return passthroughCoreError(result)
+
+      // 裁剪：从完整 PolicyDecision 中只取 id / actor / action / resource / result / createdAt，去除 reasons 等内部字段
+      const full = (result.data as { decision: { id: string; actor: string; action: string; resource: string; result: string; createdAt: string } }).decision
+      const decision = {
+        id: full.id,
+        actor: full.actor,
+        action: full.action,
+        resource: full.resource,
+        result: full.result,
+        createdAt: full.createdAt
+      }
+
+      return { decision }
+    }, {
+      params: t.Object({ id: t.String({ minLength: 1 }) }),
+      detail: { summary: 'Read policy decision summary (reasons redacted)' }
+    })
+
+    // noop 命令状态派生：检查权限、节点类型和可达性，不执行实际操作。
+    .post('/api/v0/commands/noop', async ({ body, headers }) => {
+      // 鉴权：提取 Bearer token
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      // 策略：并行获取会话与目标节点信息
       const [sessionRes, nodeRes] = await Promise.all([
         cf('/api/v0/session', token),
         cf(`/api/v0/nodes/${body.leafNodeId}`, token)
@@ -139,6 +183,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       if (!sessionRes.ok) return passthroughCoreError(sessionRes)
       const session = sessionRes.data as { actor: ActorId; permissions: Permission[] }
 
+      // 策略检查：缺少 task:assign 权限则禁用
       if (!session.permissions.includes('task:assign')) {
         return { state: 'disabled' as const, disabledReason: '缺少权限：task:assign' }
       }
@@ -146,10 +191,12 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       if (!nodeRes.ok) return passthroughCoreError(nodeRes)
       const node = (nodeRes.data as { node: MNode }).node
 
+      // 策略检查：仅 Leaf 节点可执行 noop
       if (node.kind !== 'leaf') {
         return { state: 'disabled' as const, disabledReason: '目标不是 Leaf 节点' }
       }
 
+      // 策略检查：仅可达节点可执行
       if (node.reachability !== 'reachable') {
         return { state: 'disabled' as const, disabledReason: '目标节点不可达' }
       }
@@ -173,9 +220,11 @@ export function createMUiBffApp(deps: MUiBffDeps) {
     })
     // noop 执行：透传任务到 Core POST /api/v0/tasks。
     .post('/api/v0/commands/noop/execute', async ({ body, headers }) => {
+      // 鉴权：提取 Bearer token
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
 
+      // 日志：透传任务执行请求到 Core，错误由 Core 感知并记录
       const result = await cf('/api/v0/tasks', token, {
         method: 'POST',
         body: JSON.stringify({ leafNodeId: body.leafNodeId, type: 'noop' })

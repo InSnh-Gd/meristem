@@ -1,5 +1,5 @@
-import type { OverviewData, CommandState, TaskResult } from './types'
-import { fetchCommandState, fetchOverview, executeNoop, formatBffError } from './bff'
+import type { OverviewData, CommandState, TaskResult, PolicyDecisionSummary, AuditEntry } from './types'
+import { fetchCommandState, fetchOverview, executeNoop, fetchPolicySummary, formatBffError } from './bff'
 
 class AppState {
   token = $state('')
@@ -10,9 +10,11 @@ class AppState {
   commandState = $state<CommandState | null>(null)
   taskResult = $state<TaskResult | null>(null)
   commandConfirming = $state(false)
+  policySummary = $state<PolicyDecisionSummary | null>(null)
 
   get actor() { return this.overview?.session.actor ?? null }
   get permissions() { return this.overview?.session.permissions ?? [] }
+  get auditEntries(): AuditEntry[] | null { return this.overview?.audit ?? null }
   get selectedNode() {
     if (!this.overview || !this.selectedNodeId) return null
     return this.overview.nodes.find((n) => n.id === this.selectedNodeId) ?? null
@@ -52,10 +54,22 @@ class AppState {
     try {
       this.taskResult = (await executeNoop(this.token, this.selectedNodeId)) as TaskResult
       await this.refresh()
+      // 刷新后使用任务结果里的 policyDecisionId 拉取决策摘要
+      if (this.taskResult?.policyDecisionId) {
+        await this.fetchPolicySummary(this.taskResult.policyDecisionId)
+      }
     } catch (e: unknown) {
       this.error = formatBffError(e, '任务执行失败')
     } finally {
       this.loading = false
+    }
+  }
+
+  async fetchPolicySummary(decisionId: string) {
+    try {
+      this.policySummary = (await fetchPolicySummary(this.token, decisionId)) as PolicyDecisionSummary
+    } catch {
+      this.policySummary = null
     }
   }
 }
