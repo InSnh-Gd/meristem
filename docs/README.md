@@ -20,6 +20,7 @@
 
 | Directory | Purpose | Start Here |
 |-----------|---------|------------|
+| `DOCUMENTATION-AUDIT.md` | Documentation hygiene findings and cleanup order | `DOCUMENTATION-AUDIT.md` |
 | `adr/` | Architecture decision records | `adr/README.md` |
 | `services/` | Service Definition template and first service specs | `services/SERVICE-DEFINITION-TEMPLATE.md` |
 | `events/` | NATS subject and event schema catalog | `events/EVENT-CATALOG.md` |
@@ -35,9 +36,26 @@
 | `skills/` | Project-local Codex skill sources | `skills/elysiajs/SKILL.md` |
 | `references/` | Current upstream technology snapshots | `references/elysiajs-latest.md` |
 
+Related repository documentation outside this index:
+
+- `../doc-driven-ai/` contains supporting documentation for doc-driven AI workflow tooling.
+
 ---
 
-## 3. MVP and Follow-on Phase Document Set
+## 3. Documentation Status Labels
+
+Use these labels when adding or reviewing docs:
+
+| Label | Meaning |
+|-------|---------|
+| Active | Current source of truth for implementation or review. |
+| Superseded | Kept for context, but a newer document owns current behavior. |
+| Historical | Original rationale or completed plan; do not treat as implementation guidance. |
+| Reference Snapshot | External technology snapshot that must be refreshed when relevant work touches it. |
+
+---
+
+## 4. MVP and Follow-on Phase Document Set
 
 The current implementation target starts with the Core + Stem/Leaf node MVP and continues into bounded follow-on phase specs:
 
@@ -70,7 +88,7 @@ Phase numbering note:
 
 ---
 
-## 4. Technology Reference Set
+## 5. Technology Reference Set
 
 Read these before implementing or reviewing code that touches the corresponding technology:
 
@@ -84,6 +102,6 @@ Read these before implementing or reviewing code that touches the corresponding 
 
 ---
 
-## 5. Update Rule
+## 6. Update Rule
 
 When a code change touches a boundary defined in a `docs/` contract, update that contract in the same change. If the root intent changes, update `MERISTEM.md` first, then cascade into the affected `docs/` files.
