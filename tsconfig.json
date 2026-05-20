@@ -1,10 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
   "include": [
-    "apps/**/*.ts",
+    "apps/core/**/*.ts",
+    "apps/m-cli/**/*.ts",
     "services/**/*.ts",
     "packages/**/*.ts",
     "scripts/**/*.ts",
-    "tests/**/*.ts"
+    "tests/contracts/**/*.ts",
+    "tests/cli/**/*.ts",
+    "tests/failure-modes/**/*.ts",
+    "tests/integration/**/*.ts",
+    "tests/helpers/**/*.ts"
   ]
 }
