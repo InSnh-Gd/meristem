@@ -17,6 +17,41 @@ export type PolicyAppDeps = {
   getDecision(id: string): Promise<PolicyDecision | null>
 }
 
+const internalErrorSchema = t.Object({
+  error: t.Object({
+    code: t.String(),
+    message: t.String()
+  })
+})
+
+const policyDecisionSchema = t.Object({
+  id: t.String(),
+  actor: t.Union([
+    t.Literal('viewer'),
+    t.Literal('operator'),
+    t.Literal('admin'),
+    t.Literal('security-admin')
+  ]),
+  action: t.Union([
+    t.Literal('core:read'),
+    t.Literal('node:register'),
+    t.Literal('node:issue-token'),
+    t.Literal('task:assign'),
+    t.Literal('timeline:read'),
+    t.Literal('log:read-full'),
+    t.Literal('audit:read'),
+    t.Literal('service:register'),
+    t.Literal('service:reload'),
+    t.Literal('network:read'),
+    t.Literal('network:create'),
+    t.Literal('network:join')
+  ]),
+  resource: t.String(),
+  result: t.Union([t.Literal('allow'), t.Literal('deny')]),
+  reasons: t.Array(t.String()),
+  createdAt: t.String()
+})
+
 /**
  * M-Policy 对内只暴露健康检查、授权决策和决策查询。
  * 每条 Elysia 链都先校验 internal token，再进入 trace 与领域逻辑。
@@ -64,7 +99,13 @@ export function createPolicyApp(deps: PolicyAppDeps) {
           resource: t.String(),
           correlationId: t.Optional(t.String()),
           traceId: t.Optional(t.String())
-        })
+        }),
+        response: {
+          200: t.Object({
+            decision: policyDecisionSchema
+          }),
+          401: internalErrorSchema
+        }
       }
     )
     .get(
@@ -81,7 +122,12 @@ export function createPolicyApp(deps: PolicyAppDeps) {
       {
         params: t.Object({
           id: t.String({ minLength: 1 })
-        })
+        }),
+        response: {
+          200: policyDecisionSchema,
+          401: internalErrorSchema,
+          404: internalErrorSchema
+        }
       }
     )
 }

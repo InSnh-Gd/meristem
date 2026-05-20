@@ -18,7 +18,19 @@ export const internalServicePorts: Record<InternalServiceName, number> = {
 }
 
 export const internalTokenHeaderName = 'x-meristem-internal-token'
-type HeaderSource = Headers | HeadersInit | Record<string, string | undefined>
+type FetchInput = Parameters<typeof fetch>[0]
+type FetchInit = Parameters<typeof fetch>[1]
+type HeaderRecord = Record<string, string | undefined>
+type HeaderSource = ConstructorParameters<typeof Headers>[0] | HeaderRecord
+
+function headerSource(headers?: HeaderSource): ConstructorParameters<typeof Headers>[0] | undefined {
+  if (!headers) return undefined
+  if (headers instanceof Headers || Array.isArray(headers)) return headers
+
+  return Object.fromEntries(
+    Object.entries(headers).flatMap(([key, value]) => typeof value === 'string' ? [[key, value]] : [])
+  )
+}
 
 /**
  * 内部控制面调用统一携带共享 token，确保在 MVP 阶段不依赖
@@ -38,14 +50,14 @@ export function serviceUrl(name: InternalServiceName): string {
  * 下游服务据此统一做认证校验并保持 OTel 链路连续。
  */
 export function internalRequestHeaders(headers?: HeaderSource): Record<string, string> {
-  const requestHeaders = new Headers(headers as HeadersInit)
+  const requestHeaders = new Headers(headerSource(headers))
   requestHeaders.set(internalTokenHeaderName, requiredInternalToken())
   return injectTraceHeaders(Object.fromEntries(requestHeaders.entries()))
 }
 
 export function createInternalFetcher(): typeof fetch {
   // 内部 fetcher 自动补 token 和 trace 头，调用方无需每次重复拼装样板代码。
-  const fetcher = (input: URL | RequestInfo, init?: RequestInit) =>
+  const fetcher = (input: FetchInput, init?: FetchInit) =>
     fetch(input, {
       ...init,
       headers: internalRequestHeaders(init?.headers)
@@ -63,7 +75,7 @@ export function validateInternalRequest(headers: HeaderSource): { ok: true } | {
     const expectedToken = requiredInternalToken()
     const actualToken = headers instanceof Headers
       ? headers.get(internalTokenHeaderName)
-      : new Headers(headers as HeadersInit).get(internalTokenHeaderName)
+      : new Headers(headerSource(headers)).get(internalTokenHeaderName)
     return actualToken === expectedToken
       ? { ok: true }
       : { ok: false, error: { code: 'internal.unauthorized', message: 'invalid internal token' } }

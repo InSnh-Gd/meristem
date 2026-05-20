@@ -16,6 +16,7 @@ import type {
   ReadyResponse,
   RegisterNodeRequest,
   ServiceSummary,
+  SessionResponse,
   TimelineLog
 } from '../../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../../packages/events/src/index.ts'
@@ -34,6 +35,7 @@ export type ServiceError = {
  */
 export type AuthPort = {
   verify(token: string): Promise<Result<{ actor: ActorId }, ServiceError> | { ok: true; actor: ActorId } | { ok: false; code: string; message: string }>
+  getPermissions(actor: ActorId): Promise<Result<Permission[], ServiceError>>
 }
 
 /**

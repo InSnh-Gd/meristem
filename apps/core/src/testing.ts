@@ -30,6 +30,51 @@ type InMemoryOptions = {
   mNetAvailable?: boolean
 }
 
+function asServiceSummary(value: unknown): ServiceSummary | null {
+  if (typeof value !== 'object' || value === null) return null
+
+  const id = Reflect.get(value, 'id')
+  const version = Reflect.get(value, 'version')
+  const domain = Reflect.get(value, 'domain')
+  const kind = Reflect.get(value, 'kind')
+
+  if (typeof id !== 'string' || typeof version !== 'string' || typeof domain !== 'string' || typeof kind !== 'string') {
+    return null
+  }
+
+  const normalizedKind = kind === 'service' ? 'internal' : kind
+  const validDomain = domain === 'core'
+    || domain === 'm-net'
+    || domain === 'm-eventbus'
+    || domain === 'm-log'
+    || domain === 'm-policy'
+    || domain === 'm-ui'
+    || domain === 'm-cli'
+    || domain === 'm-extension'
+  const validKind = normalizedKind === 'core'
+    || normalizedKind === 'internal'
+    || normalizedKind === 'node'
+    || normalizedKind === 'task'
+    || normalizedKind === 'extension'
+    || normalizedKind === 'bff'
+
+  if (!validDomain || !validKind) return null
+
+  return {
+    id,
+    version,
+    domain,
+    kind: normalizedKind,
+    lifecycle: { reloadable: false, rollbackable: false, degradable: true },
+    runtime: {
+      liveness: false,
+      readiness: false,
+      mode: 'degraded',
+      lastError: 'runtime state is not exposed for this service definition'
+    }
+  }
+}
+
 /**
  * createInMemoryCoreDeps 把 Core 需要的所有外部端口压缩成可预测的内存实现，
  * 让契约测试能在不启动 PostgreSQL/NATS/内部服务的前提下覆盖主业务语义。
@@ -106,6 +151,9 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
     auth: {
       async verify() {
         return { ok: true as const, actor }
+      },
+      async getPermissions() {
+        return ok((rolePermissions[actor] ?? []) as Permission[])
       }
     },
     policy: {
@@ -259,29 +307,9 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
     },
     services: {
       async list() {
-        const registered = services.flatMap((service): ServiceSummary[] => {
-          if (typeof service !== 'object' || service === null) return []
-          const id = Reflect.get(service, 'id')
-          const version = Reflect.get(service, 'version')
-          const domain = Reflect.get(service, 'domain')
-          const kind = Reflect.get(service, 'kind')
-          if (
-            typeof id !== 'string' ||
-            typeof version !== 'string' ||
-            typeof domain !== 'string' ||
-            typeof kind !== 'string' ||
-            builtinServices.some((builtin) => builtin.id === id)
-          ) {
-            return []
-          }
-          return [{
-            id,
-            version,
-            domain: domain as ServiceSummary['domain'],
-            kind: kind as ServiceSummary['kind'],
-            lifecycle: { reloadable: false, rollbackable: false, degradable: false }
-          }]
-        })
+        const registered = services
+          .map(asServiceSummary)
+          .flatMap((service) => service && !builtinServices.some((builtin) => builtin.id === service.id) ? [service] : [])
         return ok([...builtinServices, ...registered])
       },
       async reload(input) {
@@ -409,7 +437,12 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         return input
       },
       async listServices() {
-        return services
+        return [
+          ...builtinServices,
+          ...services
+            .map(asServiceSummary)
+            .flatMap((service) => service ? [service] : [])
+        ]
       }
     },
     __testing: {

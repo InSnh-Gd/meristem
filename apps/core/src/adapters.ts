@@ -1,5 +1,6 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { and, eq } from 'drizzle-orm'
+import { Effect } from 'effect'
 import { err, ok } from '../../../packages/common/src/result.ts'
 import type {
   ActorId,
@@ -12,6 +13,7 @@ import type {
   MNode,
   MNetwork,
   MNetworkMember,
+  Permission,
   NodeAgentTaskExecuteResponse,
   NetworkSummary,
   MTask,
@@ -21,7 +23,7 @@ import type {
   TimelineLog
 } from '../../../packages/contracts/src/index.ts'
 import { createDb, type MeristemDb } from '../../../packages/db/src/client.ts'
-import { nodeCredentials, nodeJoinTickets, nodes, serviceDefinitions, tasks } from '../../../packages/db/src/schema.ts'
+import { nodeCredentials, nodeJoinTickets, nodes, rolePermissions, serviceDefinitions, tasks, userRoles } from '../../../packages/db/src/schema.ts'
 import { createInternalFetcher as createInternalHttpFetcher, fetchReadyState, serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats, subjects, type RpcClient } from '../../../packages/nats-rpc/src/index.ts'
 import { extractBearerToken, hashNodeToken, mintNodeToken, verifyLocalToken } from '../../../packages/auth/src/index.ts'
@@ -33,6 +35,7 @@ import type { CoreDeps, CoreStorage } from './types.ts'
 
 // Core adapters 负责把 HTTP、NATS、数据库和内部服务客户端折叠成微内核可消费的稳定端口。
 type ServiceResponse<T> = { ok: true; decision?: PolicyDecision; entry?: T; entries?: T[]; eventId?: string }
+type ServiceFailure = { code: string; message: string }
 
 /**
  * JWT 密钥缺失直接阻断进程启动，避免 Core 在无认证边界的状态下对外提供写接口。
@@ -50,6 +53,31 @@ export function createJwtAuthPort(secret = requiredSecret()) {
   return {
     async verify(token: string) {
       return verifyLocalToken({ token, secret })
+    }
+  }
+}
+
+/**
+ * createSessionAuthPort 为 UI 和 BFF 提供独立的 JWT 认证与 RBAC 权限查询组合。
+ * 它复用 createJwtAuthPort 的 token 验证逻辑，并追加 getPermissions
+ * 以从 PostgreSQL 权威表读取角色的完整权限列表。
+ */
+export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret()) {
+  return {
+    async verify(token: string) {
+      return verifyLocalToken({ token, secret })
+    },
+    async getPermissions(actor: ActorId) {
+      try {
+        const rows = await db
+          .select({ permissionId: rolePermissions.permissionId })
+          .from(userRoles)
+          .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+          .where(eq(userRoles.userId, actor))
+        return ok(rows.map((row) => row.permissionId as Permission))
+      } catch {
+        return err({ code: "db.unavailable", message: "unable to query permissions" })
+      }
     }
   }
 }
@@ -260,6 +288,42 @@ function serviceErrorFromHttpResponse(value: unknown, fallbackCode: string, fall
 }
 
 /**
+ * 复杂的内部服务边界统一走 Effect：这里集中承载 Promise 失败、动态分支和错误映射，
+ * 保持上层端口继续输出仓库既有的 Result 语义，而不是把 Effect 暴露到整个代码库。
+ */
+async function runServiceEffect<T>(program: Effect.Effect<T, ServiceFailure>) {
+  return Effect.runPromise(
+    program.pipe(
+      Effect.map((value) => ok(value)),
+      Effect.catchAll((failure) => Effect.succeed(err(failure)))
+    )
+  )
+}
+
+function tryServiceCall<T>(thunk: () => Promise<T>, failure: ServiceFailure): Effect.Effect<T, ServiceFailure> {
+  return Effect.tryPromise({
+    try: thunk,
+    catch: () => failure
+  })
+}
+
+function requireServiceData<T>(
+  response: { data: T | null; error: { value: unknown; status: number } | null },
+  failure: ServiceFailure
+): Effect.Effect<T, ServiceFailure> {
+  return response.error || !response.data
+    ? Effect.fail({
+        code: failure.code,
+        message: errorMessageFromHttpResponse(response.error?.value, failure.message)
+      })
+    : Effect.succeed(response.data)
+}
+
+function requireServiceRoute<T>(route: T | undefined, failure: ServiceFailure): Effect.Effect<T, ServiceFailure> {
+  return route ? Effect.succeed(route) : Effect.fail(failure)
+}
+
+/**
  * Core 到 M-Policy 的同步调用已经收敛到 loopback HTTP + Eden。
  * 这里统一把内部服务错误折叠成 Core 可消费的 Result 形状。
  */
@@ -268,39 +332,34 @@ function createHttpPolicyPort() {
 
   return {
     async authorize(input: Parameters<CoreDeps['policy']['authorize']>[0]) {
-      try {
-        const response = await client.internal.v0.authorize.post(input)
-        if (response.error || !response.data) {
-          return err({
-            code: 'policy.unavailable',
-            message: errorMessageFromHttpResponse(response.error?.value, 'M-Policy unavailable')
-          })
-        }
-        return ok(response.data.decision)
-      } catch {
-        return err({ code: 'policy.unavailable', message: 'M-Policy unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.authorize.post(input), { code: 'policy.unavailable', message: 'M-Policy unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'policy.unavailable', message: 'M-Policy unavailable' })),
+          Effect.map((data) => data.decision)
+        )
+      )
     },
     async getDecision(id: string) {
-      try {
-        const routes = client.internal.v0.decisions as Record<
-          string,
-          { get(params: {}): Promise<{ data: unknown | null; error: { value: unknown; status: number } | null; status: number }> }
-        >
-        const route = routes[id]
-        if (!route) return err({ code: 'policy.unavailable', message: 'M-Policy unavailable' })
-        const response = await route.get({})
-        if (response.error) {
-          if (response.status === 404) return ok(null)
-          return err({
-            code: 'policy.unavailable',
-            message: errorMessageFromHttpResponse(response.error.value, 'M-Policy unavailable')
+      const routes = client.internal.v0.decisions as Record<
+        string,
+        { get(params: {}): Promise<{ data: PolicyDecision | null; error: { value: unknown; status: number } | null; status: number }> }
+      >
+      return runServiceEffect(
+        requireServiceRoute(routes[id], { code: 'policy.unavailable', message: 'M-Policy unavailable' }).pipe(
+          Effect.flatMap((route) =>
+            tryServiceCall(() => route.get({}), { code: 'policy.unavailable', message: 'M-Policy unavailable' })
+          ),
+          Effect.flatMap((response) => {
+            if (response.error?.status === 404 || response.status === 404) return Effect.succeed(null)
+            return response.error
+              ? Effect.fail({
+                  code: 'policy.unavailable',
+                  message: errorMessageFromHttpResponse(response.error.value, 'M-Policy unavailable')
+                })
+              : Effect.succeed(response.data ?? null)
           })
-        }
-        return ok((response.data ?? null) as PolicyDecision | null)
-      } catch {
-        return err({ code: 'policy.unavailable', message: 'M-Policy unavailable' })
-      }
+        )
+      )
     }
   }
 }
@@ -314,64 +373,52 @@ function createHttpLogPort() {
 
   return {
     async writeTimeline(input: Omit<TimelineLog, 'id' | 'timestamp'>) {
-      try {
-        const response = await client.internal.v0.timeline.post(input)
-        return response.error || !response.data
-          ? err({ code: 'log.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'M-Log unavailable') })
-          : ok(response.data.entry)
-      } catch {
-        return err({ code: 'log.unavailable', message: 'M-Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.timeline.post(input), { code: 'log.unavailable', message: 'M-Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'log.unavailable', message: 'M-Log unavailable' })),
+          Effect.map((data) => data.entry)
+        )
+      )
     },
     async writeFull(input: Omit<FullLog, 'id' | 'timestamp'>) {
-      try {
-        const response = await client.internal.v0.full.post(input)
-        return response.error || !response.data
-          ? err({ code: 'log.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'M-Log unavailable') })
-          : ok(response.data.entry)
-      } catch {
-        return err({ code: 'log.unavailable', message: 'M-Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.full.post(input), { code: 'log.unavailable', message: 'M-Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'log.unavailable', message: 'M-Log unavailable' })),
+          Effect.map((data) => data.entry)
+        )
+      )
     },
     async writeAudit(input: Omit<AuditLog, 'id' | 'timestamp'>) {
-      try {
-        const response = await client.internal.v0.audit.post(input)
-        return response.error || !response.data
-          ? err({ code: 'audit.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'Audit Log unavailable') })
-          : ok(response.data.entry)
-      } catch {
-        return err({ code: 'audit.unavailable', message: 'Audit Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.audit.post(input), { code: 'audit.unavailable', message: 'Audit Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'audit.unavailable', message: 'Audit Log unavailable' })),
+          Effect.map((data) => data.entry)
+        )
+      )
     },
     async listTimeline(limit?: number) {
-      try {
-        const response = await client.internal.v0.timeline.get({ $query: limit === undefined ? {} : { limit } })
-        return response.error || !response.data
-          ? err({ code: 'log.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'M-Log unavailable') })
-          : ok(response.data.entries)
-      } catch {
-        return err({ code: 'log.unavailable', message: 'M-Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.timeline.get({ $query: limit === undefined ? {} : { limit } }), { code: 'log.unavailable', message: 'M-Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'log.unavailable', message: 'M-Log unavailable' })),
+          Effect.map((data) => data.entries)
+        )
+      )
     },
     async listFull(limit?: number) {
-      try {
-        const response = await client.internal.v0.full.get({ $query: limit === undefined ? {} : { limit } })
-        return response.error || !response.data
-          ? err({ code: 'log.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'M-Log unavailable') })
-          : ok(response.data.entries)
-      } catch {
-        return err({ code: 'log.unavailable', message: 'M-Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.full.get({ $query: limit === undefined ? {} : { limit } }), { code: 'log.unavailable', message: 'M-Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'log.unavailable', message: 'M-Log unavailable' })),
+          Effect.map((data) => data.entries)
+        )
+      )
     },
     async listAudit(limit?: number) {
-      try {
-        const response = await client.internal.v0.audit.get({ $query: limit === undefined ? {} : { limit } })
-        return response.error || !response.data
-          ? err({ code: 'audit.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'Audit Log unavailable') })
-          : ok(response.data.entries)
-      } catch {
-        return err({ code: 'audit.unavailable', message: 'Audit Log unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.audit.get({ $query: limit === undefined ? {} : { limit } }), { code: 'audit.unavailable', message: 'Audit Log unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'audit.unavailable', message: 'Audit Log unavailable' })),
+          Effect.map((data) => data.entries)
+        )
+      )
     }
   }
 }
@@ -384,14 +431,12 @@ function createHttpEventPort() {
 
   return {
     async publish(subject: string, event: Parameters<CoreDeps['events']['publish']>[1]) {
-      try {
-        const response = await client.internal.v0.publish.post({ subject, event })
-        return response.error || !response.data
-          ? err({ code: 'eventbus.unavailable', message: errorMessageFromHttpResponse(response.error?.value, 'M-EventBus unavailable') })
-          : ok({ eventId: response.data.eventId })
-      } catch {
-        return err({ code: 'eventbus.unavailable', message: 'M-EventBus unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.publish.post({ subject, event }), { code: 'eventbus.unavailable', message: 'M-EventBus unavailable' }).pipe(
+          Effect.flatMap((response) => requireServiceData(response, { code: 'eventbus.unavailable', message: 'M-EventBus unavailable' })),
+          Effect.map((data) => ({ eventId: data.eventId }))
+        )
+      )
     }
   }
 }
@@ -430,6 +475,14 @@ function isServiceKind(value: string): value is ServiceSummary['kind'] {
     || value === 'task'
     || value === 'extension'
     || value === 'bff'
+}
+
+/**
+ * 兼容旧草稿里的通用 `service` kind；运行态摘要仍收敛到文档约定的 `internal`。
+ */
+function normalizeServiceKind(value: string): ServiceSummary['kind'] | null {
+  if (value === 'service') return 'internal'
+  return isServiceKind(value) ? value : null
 }
 
 function normalizeDynamicServiceRow(row: unknown): DynamicServiceRow | null {
@@ -483,12 +536,13 @@ async function runtimeFromInternalReadiness(
 }
 
 function dynamicServiceSummary(row: DynamicServiceRow): ServiceSummary | null {
-  if (!isServiceDomain(row.domain) || !isServiceKind(row.kind)) return null
+  const kind = normalizeServiceKind(row.kind)
+  if (!isServiceDomain(row.domain) || kind === null) return null
   return {
     id: row.id,
     version: row.version,
     domain: row.domain,
-    kind: row.kind,
+    kind,
     lifecycle: { reloadable: false, rollbackable: false, degradable: true },
     runtime: {
       liveness: false,
@@ -602,52 +656,54 @@ export function createHttpMNetPort() {
 
   return {
     async createNetwork(input: CreateNetworkRequest) {
-      try {
-        const response = await client.internal.v0.networks.post(input)
-        if (response.error || !response.data) {
-          return err(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
-        }
-        return ok((response.data as { network: MNetwork }).network)
-      } catch {
-        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.networks.post(input), { code: 'mnet.unavailable', message: 'M-Net unavailable' }).pipe(
+          Effect.flatMap((response) =>
+            response.error || !response.data
+              ? Effect.fail(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
+              : Effect.succeed(response.data.network)
+          )
+        )
+      )
     },
     async listNetworks() {
-      try {
-        const response = await client.internal.v0.networks.get({})
-        if (response.error || !response.data) {
-          return err(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
-        }
-        return ok((response.data as { networks: NetworkSummary[] }).networks)
-      } catch {
-        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.networks.get({}), { code: 'mnet.unavailable', message: 'M-Net unavailable' }).pipe(
+          Effect.flatMap((response) =>
+            response.error || !response.data
+              ? Effect.fail(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
+              : Effect.succeed(response.data.networks)
+          )
+        )
+      )
     },
     async joinNetwork(input: { networkId: string; nodeId: string }) {
-      try {
-        const route = networkRoutes[input.networkId]
-        if (!route) return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-        const response = await route.members.post({ nodeId: input.nodeId })
-        if (response.error || !response.data) {
-          return err(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
-        }
-        return ok((response.data as { member: MNetworkMember }).member)
-      } catch {
-        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-      }
+      return runServiceEffect(
+        requireServiceRoute(networkRoutes[input.networkId], { code: 'mnet.unavailable', message: 'M-Net unavailable' }).pipe(
+          Effect.flatMap((route) =>
+            tryServiceCall(() => route.members.post({ nodeId: input.nodeId }), { code: 'mnet.unavailable', message: 'M-Net unavailable' })
+          ),
+          Effect.flatMap((response) =>
+            response.error || !response.data
+              ? Effect.fail(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
+              : Effect.succeed(response.data.member)
+          )
+        )
+      )
     },
     async listNetworkMembers(networkId: string) {
-      try {
-        const route = networkRoutes[networkId]
-        if (!route) return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-        const response = await route.members.get({})
-        if (response.error || !response.data) {
-          return err(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
-        }
-        return ok((response.data as { members: MNetworkMember[] }).members)
-      } catch {
-        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
-      }
+      return runServiceEffect(
+        requireServiceRoute(networkRoutes[networkId], { code: 'mnet.unavailable', message: 'M-Net unavailable' }).pipe(
+          Effect.flatMap((route) =>
+            tryServiceCall(() => route.members.get({}), { code: 'mnet.unavailable', message: 'M-Net unavailable' })
+          ),
+          Effect.flatMap((response) =>
+            response.error || !response.data
+              ? Effect.fail(serviceErrorFromHttpResponse(response.error?.value, 'mnet.unavailable', 'M-Net unavailable'))
+              : Effect.succeed(response.data.members)
+          )
+        )
+      )
     }
   }
 }
@@ -660,15 +716,15 @@ export function createHttpAgentTaskPort() {
 
   return {
     async executeNoop(input: { nodeId: string; taskId: string; correlationId: string }) {
-      try {
-        const response = await client.internal.v0.tasks.noop.post(input)
-        if (response.error || !response.data) {
-          return err(serviceErrorFromHttpResponse(response.error?.value, 'nodeagent.unavailable', 'node agent unavailable'))
-        }
-        return ok((response.data as { result: NodeAgentTaskExecuteResponse }).result)
-      } catch {
-        return err({ code: 'nodeagent.unavailable', message: 'node agent unavailable' })
-      }
+      return runServiceEffect(
+        tryServiceCall(() => client.internal.v0.tasks.noop.post(input), { code: 'nodeagent.unavailable', message: 'node agent unavailable' }).pipe(
+          Effect.flatMap((response) =>
+            response.error || !response.data
+              ? Effect.fail(serviceErrorFromHttpResponse(response.error?.value, 'nodeagent.unavailable', 'node agent unavailable'))
+              : Effect.succeed(response.data.result)
+          )
+        )
+      )
     }
   }
 }
@@ -953,7 +1009,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     startedAt: Date.now(),
     version: '0.1.0',
     joinIngressPublicUrl: process.env.MERISTEM_JOIN_PUBLIC_URL ?? 'https://localhost:8443',
-    auth: createJwtAuthPort(),
+    auth: createSessionAuthPort(db),
     policy: createHttpPolicyPort(),
     log: createHttpLogPort(),
     events: createHttpEventPort(),

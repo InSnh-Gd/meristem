@@ -4,6 +4,36 @@ import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 
 describe('Core REST MVP routes', () => {
+  it('publishes bearer auth and protected-route contracts in OpenAPI', async () => {
+    const app = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
+
+    const response = await app.handle(new Request('http://localhost/openapi/json'))
+
+    expect(response.status).toBe(200)
+    const body = await response.json() as {
+      components?: {
+        securitySchemes?: Record<string, unknown>
+      }
+      paths: Record<string, Record<string, { security?: Array<Record<string, unknown>>; responses?: Record<string, unknown> }>>
+    }
+
+    expect(body.components?.securitySchemes?.bearerAuth).toEqual({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT'
+    })
+
+    expect(body.paths['/api/v0/status']?.get?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/api/v0/services']?.post?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/api/v0/services']?.get?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/api/v0/tasks']?.post?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/api/v0/logs/full']?.get?.security).toEqual([{ bearerAuth: [] }])
+
+    expect(body.paths['/api/v0/status']?.get?.responses?.['200']).toBeDefined()
+    expect(body.paths['/api/v0/node-tickets']?.post?.responses?.['200']).toBeDefined()
+    expect(body.paths['/api/v0/nodes']?.post?.responses?.['200']).toBeDefined()
+  })
+
   it('reports readiness across postgres, nats, and internal services', async () => {
     const deps = createInMemoryCoreDeps()
     deps.storage.readiness = async () => ({

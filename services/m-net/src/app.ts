@@ -27,18 +27,69 @@ export type MNetAppDeps = {
   executeNoop(input: { nodeId: string; taskId: string; correlationId: string }): Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>>
 }
 
+const internalErrorSchema = t.Object({
+  error: t.Object({
+    code: t.String(),
+    message: t.String()
+  })
+})
+
+const networkSchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  profileVersion: t.String(),
+  status: t.Literal('active'),
+  createdAt: t.String()
+})
+
+const networkSummarySchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  profileVersion: t.String(),
+  status: t.Literal('active'),
+  createdAt: t.String(),
+  memberCount: t.Number()
+})
+
+const networkMemberSchema = t.Object({
+  networkId: t.String(),
+  nodeId: t.String(),
+  nodeKind: t.Union([t.Literal('stem'), t.Literal('leaf')]),
+  membershipMode: t.Union([t.Literal('full'), t.Literal('restricted')]),
+  status: t.Literal('joined'),
+  joinedAt: t.String()
+})
+
+const taskExecuteResponseSchema = t.Object({
+  nodeId: t.String(),
+  taskId: t.String(),
+  result: t.Literal('completed'),
+  completedAt: t.String()
+})
+
 /**
  * internal HTTP 所有入口统一复用共享 token 校验，避免 Core -> M-Net 的 loopback 调用分散出多套认证逻辑。
  */
-function requireInternal(headers: Headers | Record<string, string | undefined>, status: (code: number, body: unknown) => unknown) {
+function requireInternal<TStatus extends (code: never, body: never) => unknown>(
+  headers: Headers | Record<string, string | undefined>,
+  _status: TStatus
+): never | null {
   const auth = validateInternalRequest(headers)
-  return auth.ok ? null : status(401, { error: auth.error })
+  return auth.ok ? null : _status(401 as Parameters<TStatus>[0], { error: auth.error } as Parameters<TStatus>[1]) as never
+}
+
+function internalError<TStatus extends (code: never, body: never) => unknown>(
+  _status: TStatus,
+  code: 404 | 409 | 503,
+  errorBody: MNetServiceError
+): never {
+  return _status(code as Parameters<TStatus>[0], { error: errorBody } as Parameters<TStatus>[1]) as never
 }
 
 /**
  * M-Net 业务错误在内部 HTTP 面收敛成稳定状态码，方便 Core 继续沿用统一错误映射策略。
  */
-function statusCodeForMNetError(code: string): number {
+function statusCodeForMNetError(code: string): 404 | 409 | 503 {
   switch (code) {
     case 'network.not_found':
     case 'node.not_found':
@@ -63,6 +114,18 @@ function statusCodeForMNetError(code: string): number {
  * 这里显式保留内部鉴权、错误映射和最小 route schema，避免回退到私有对象或 NATS RPC。
  */
 export function createMNetApp(deps: MNetAppDeps) {
+  const internalResponse = <
+    TSuccess extends ReturnType<typeof t.Object>,
+    const TExtra extends Record<number, ReturnType<typeof t.Object>> = {}
+  >(
+    success: TSuccess,
+    extra?: TExtra
+  ) => ({
+    200: success,
+    401: internalErrorSchema,
+    ...(extra ?? {})
+  }) as const
+
   return new Elysia()
     .get('/health', () => ({ ok: true as const, service: 'm-net' as const }))
     // ready 路由只接受内部调用；它同时验证 PostgreSQL、M-EventBus 和 M-Log 依赖是否可用。
@@ -81,12 +144,16 @@ export function createMNetApp(deps: MNetAppDeps) {
           const result = await deps.createNetwork(body)
           return result.ok
             ? { network: result.value }
-            : status(statusCodeForMNetError(result.error.code), { error: result.error })
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
         })
       }, {
         body: t.Object({
           name: t.String({ minLength: 1 }),
           profileVersion: t.Optional(t.String({ minLength: 1 }))
+        }),
+        response: internalResponse(t.Object({ network: networkSchema }), {
+          409: internalErrorSchema,
+          503: internalErrorSchema
         })
       })
       .get('/networks', async ({ headers, status }) => {
@@ -96,7 +163,11 @@ export function createMNetApp(deps: MNetAppDeps) {
           const result = await deps.listNetworks()
           return result.ok
             ? { networks: result.value }
-            : status(statusCodeForMNetError(result.error.code), { error: result.error })
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
+        })
+      }, {
+        response: internalResponse(t.Object({ networks: t.Array(networkSummarySchema) }), {
+          503: internalErrorSchema
         })
       })
       .post('/networks/:id/members', async ({ params, body, headers, status }) => {
@@ -106,7 +177,7 @@ export function createMNetApp(deps: MNetAppDeps) {
           const result = await deps.joinNetwork({ networkId: params.id, nodeId: body.nodeId })
           return result.ok
             ? { member: result.value }
-            : status(statusCodeForMNetError(result.error.code), { error: result.error })
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
         })
       }, {
         params: t.Object({
@@ -114,6 +185,11 @@ export function createMNetApp(deps: MNetAppDeps) {
         }),
         body: t.Object({
           nodeId: t.String({ minLength: 1 })
+        }),
+        response: internalResponse(t.Object({ member: networkMemberSchema }), {
+          404: internalErrorSchema,
+          409: internalErrorSchema,
+          503: internalErrorSchema
         })
       })
       .get('/networks/:id/members', async ({ params, headers, status }) => {
@@ -123,11 +199,15 @@ export function createMNetApp(deps: MNetAppDeps) {
           const result = await deps.listMembers({ networkId: params.id })
           return result.ok
             ? { members: result.value }
-            : status(statusCodeForMNetError(result.error.code), { error: result.error })
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
         })
       }, {
         params: t.Object({
           id: t.String({ minLength: 1 })
+        }),
+        response: internalResponse(t.Object({ members: t.Array(networkMemberSchema) }), {
+          404: internalErrorSchema,
+          503: internalErrorSchema
         })
       })
       // Core 对 agent noop 的同步调用收敛到 loopback HTTP；M-Net 再通过活动 session 下发 task.execute。
@@ -138,13 +218,18 @@ export function createMNetApp(deps: MNetAppDeps) {
           const result = await deps.executeNoop(body)
           return result.ok
             ? { result: result.value }
-            : status(statusCodeForMNetError(result.error.code), { error: result.error })
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
         })
       }, {
         body: t.Object({
           nodeId: t.String({ minLength: 1 }),
           taskId: t.String({ minLength: 1 }),
           correlationId: t.String({ minLength: 1 })
+        }),
+        response: internalResponse(t.Object({ result: taskExecuteResponseSchema }), {
+          404: internalErrorSchema,
+          409: internalErrorSchema,
+          503: internalErrorSchema
         })
       }))
 }

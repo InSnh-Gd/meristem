@@ -1,8 +1,8 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { desc } from 'drizzle-orm'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { auditLogs, fullLogs, nodeCredentials, timelineLogs } from '../../../packages/db/src/schema.ts'
-import { connectToNats, subjects } from '../../../packages/nats-rpc/src/index.ts'
+import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
+import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   createInternalFetcher,
@@ -11,9 +11,7 @@ import {
   serveHttpApp,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
-import { hashNodeToken } from '../../../packages/auth/src/index.ts'
-import { and, eq } from 'drizzle-orm'
-import type { ActorId, AuditLog, FullLog, NodeAgentLogPayload, TimelineLog } from '../../../packages/contracts/src/index.ts'
+import type { ActorId, AuditLog, FullLog, TimelineLog } from '../../../packages/contracts/src/index.ts'
 import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import { createLogApp } from './app.ts'
@@ -44,25 +42,6 @@ function readLogLevelFromEnv(): LogLevel {
   const level = process.env.MERISTEM_LOG_LEVEL ?? 'info'
   if (allowedLogLevels.includes(level as LogLevel)) return level as LogLevel
   throw new Error(`invalid MERISTEM_LOG_LEVEL: ${level}`)
-}
-
-/**
- * 节点凭据校验既要比对哈希，也要更新 lastUsedAt，为后续安全排查保留事实。
- */
-async function validateNodeCredential(nodeId: string, token: string): Promise<boolean> {
-  const [credential] = await db
-    .select()
-    .from(nodeCredentials)
-    .where(and(eq(nodeCredentials.nodeId, nodeId), eq(nodeCredentials.status, 'active')))
-    .limit(1)
-  if (!credential) return false
-  const tokenHash = await hashNodeToken(token)
-  if (tokenHash !== credential.tokenHash) return false
-  await db
-    .update(nodeCredentials)
-    .set({ lastUsedAt: new Date() })
-    .where(eq(nodeCredentials.id, credential.id))
-  return true
 }
 
 // 三类写入函数统一在这里创建日志事实，避免 HTTP 路由和 NATS 消费者各自拼装记录。
@@ -157,42 +136,6 @@ async function reload(_request: { correlationId?: string; reason?: string }): Pr
   }
 }
 
-/**
- * agent 转发日志先校验节点 token，再决定写正常 Full Log 还是拒绝日志与审计。
- */
-async function ingestAgentLog(payload: NodeAgentLogPayload): Promise<void> {
-  const validCredential = await validateNodeCredential(payload.nodeId, payload.token)
-  if (!validCredential) {
-    await writeFull({
-      level: 'warn',
-      source: 'm-log',
-      message: `rejected forwarded agent log for ${payload.nodeId}`,
-      ...(payload.correlationId ? { correlationId: payload.correlationId } : {}),
-      ...(payload.traceId ? { traceId: payload.traceId } : {}),
-      payload: { nodeId: payload.nodeId, reason: 'invalid_token' }
-    })
-    await writeAudit({
-      actor: 'system',
-      action: 'node:token-invalid',
-      resource: `node:${payload.nodeId}`,
-      result: 'deny',
-      ...(payload.correlationId ? { correlationId: payload.correlationId } : {}),
-      ...(payload.traceId ? { traceId: payload.traceId } : {}),
-      payload: { channel: 'log-forward', reason: 'invalid_token' }
-    })
-    return
-  }
-
-  await writeFull({
-    level: payload.level,
-    source: `node-agent:${payload.nodeId}`,
-    message: payload.message,
-    ...(payload.correlationId ? { correlationId: payload.correlationId } : {}),
-    ...(payload.traceId ? { traceId: payload.traceId } : {}),
-    ...(payload.payload === undefined ? {} : { payload: payload.payload })
-  })
-}
-
 const app = createLogApp({
   async readiness() {
     const postgresReady = await client`select 1`
@@ -256,23 +199,6 @@ const app = createLogApp({
   },
   reload
 })
-
-const forwardedLogs = nc.subscribe(subjects.nodeLogForwarded)
-// 转发日志消费者是 M-Log 的运行时附加入口，和内部 HTTP API 共享同一套落库函数。
-void (async () => {
-  for await (const message of forwardedLogs) {
-    try {
-      await ingestAgentLog(message.json<NodeAgentLogPayload>())
-    } catch (error) {
-      await writeFull({
-        level: 'error',
-        source: 'm-log',
-        message: 'failed to ingest forwarded agent log',
-        payload: { error: error instanceof Error ? error.message : 'unknown_error' }
-      })
-    }
-  }
-})()
 
 const server = serveHttpApp('m-log', app.fetch)
 

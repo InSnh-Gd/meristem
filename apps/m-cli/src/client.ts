@@ -21,6 +21,9 @@ type CliConfig = {
   token: string | undefined
 }
 
+type FetchInput = Parameters<typeof fetch>[0]
+type FetchInit = Parameters<typeof fetch>[1]
+
 /**
  * CLI 只负责透传 Bearer Token，不在本地推导角色或权限，避免把授权边界
  * 从 Core / M-Policy 偷偷复制到命令行进程里。
@@ -66,7 +69,7 @@ async function unwrap<T>(request: Promise<EdenResponse<unknown>>): Promise<T> {
 export function createCoreClient(config: CliConfig): CliClient {
   // CLI 出站请求同样注入 trace 头，保证跨进程问题排查时能串起用户命令和内部调用。
   const fetcher = Object.assign(
-    (input: URL | RequestInfo, init?: RequestInit) =>
+    (input: FetchInput, init?: FetchInit) =>
       fetch(input, {
         ...init,
         headers: injectTraceHeaders(

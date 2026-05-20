@@ -16,16 +16,16 @@ import type { CoreDeps } from './types.ts'
 
 type AuthContext =
   | { ok: true; actor: ActorId; correlationId: string }
-  | { ok: false; response: unknown }
+  | { ok: false; response: never }
 
 /**
  * Core 所有受保护路由都先经过这一层 Bearer Token 解析与本地 JWT 校验，
  * 这样后续策略、审计和事件链路都能复用统一的 actor 与 correlationId。
  */
-async function requireActor(
+async function requireActor<TStatus extends StatusFn>(
   deps: CoreDeps,
   headers: Record<string, string | undefined>,
-  status: StatusFn
+  status: TStatus
 ): Promise<AuthContext> {
   const correlationId = correlationIdFromHeader(headers['x-correlation-id'])
   const token = extractBearerToken(headers.authorization)
@@ -48,10 +48,10 @@ async function requireActor(
  * Core 不直接做权限硬编码，而是统一委托给 M-Policy，并在这里集中处理
  * fail-closed、拒绝写 Full Log 以及对外 HTTP 错误映射。
  */
-async function authorize(
+async function authorize<TStatus extends StatusFn>(
   deps: CoreDeps,
   input: { actor: ActorId; action: Permission; resource: string; correlationId: string },
-  status: StatusFn
+  status: TStatus
 ) {
   const decision = await deps.policy.authorize(input)
   if (!decision.ok) {
@@ -82,7 +82,7 @@ async function authorize(
 /**
  * 内部服务错误码在 Core 侧收敛为稳定的 HTTP 状态码，避免不同入口出现分裂语义。
  */
-function statusCodeForServiceError(code: string): number {
+function statusCodeForServiceError(code: string): 404 | 409 | 503 {
   switch (code) {
     case 'network.not_found':
     case 'node.not_found':
@@ -132,6 +132,200 @@ function joinSessionUrl(publicUrl: string): string {
   return base.toString()
 }
 
+const apiErrorSchema = t.Object({
+  error: t.Object({
+    code: t.String(),
+    message: t.String(),
+    correlationId: t.Optional(t.String())
+  })
+})
+
+const dependencyStateSchema = t.Union([t.Literal('ready'), t.Literal('unavailable')])
+
+const dependenciesSchema = t.Object({
+  postgres: dependencyStateSchema,
+  nats: dependencyStateSchema,
+  'm-policy': dependencyStateSchema,
+  'm-log': dependencyStateSchema,
+  'm-eventbus': dependencyStateSchema,
+  'm-net': dependencyStateSchema
+})
+
+const serviceLifecycleSchema = t.Object({
+  reloadable: t.Boolean(),
+  rollbackable: t.Boolean(),
+  degradable: t.Boolean()
+})
+
+const serviceRuntimeSchema = t.Object({
+  liveness: t.Boolean(),
+  readiness: t.Boolean(),
+  mode: t.Union([t.Literal('normal'), t.Literal('degraded')]),
+  lastError: t.Optional(t.String()),
+  lastReloadedAt: t.Optional(t.String())
+})
+
+const serviceSummarySchema = t.Object({
+  id: t.String(),
+  version: t.String(),
+  domain: t.Union([
+    t.Literal('core'),
+    t.Literal('m-net'),
+    t.Literal('m-eventbus'),
+    t.Literal('m-log'),
+    t.Literal('m-policy'),
+    t.Literal('m-ui'),
+    t.Literal('m-cli'),
+    t.Literal('m-extension')
+  ]),
+  kind: t.Union([
+    t.Literal('core'),
+    t.Literal('internal'),
+    t.Literal('node'),
+    t.Literal('task'),
+    t.Literal('extension'),
+    t.Literal('bff')
+  ]),
+  lifecycle: serviceLifecycleSchema,
+  runtime: t.Optional(serviceRuntimeSchema)
+})
+
+const nodeSchema = t.Object({
+  id: t.String(),
+  kind: t.Union([t.Literal('stem'), t.Literal('leaf')]),
+  name: t.String(),
+  mode: t.Union([t.Literal('agent'), t.Literal('simulated')]),
+  status: t.Union([
+    t.Literal('joining'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('offline'),
+    t.Literal('revoked')
+  ]),
+  reachability: t.Union([t.Literal('unknown'), t.Literal('reachable'), t.Literal('unreachable')]),
+  lastSeenAt: t.Optional(t.String()),
+  agentVersion: t.Optional(t.String()),
+  capabilities: t.Array(t.String()),
+  createdAt: t.String()
+})
+
+const taskSchema = t.Object({
+  id: t.String(),
+  leafNodeId: t.String(),
+  type: t.Literal('noop'),
+  status: t.Union([t.Literal('requested'), t.Literal('completed'), t.Literal('failed')]),
+  createdAt: t.String(),
+  completedAt: t.Optional(t.String())
+})
+
+const networkSchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  profileVersion: t.String(),
+  status: t.Literal('active'),
+  createdAt: t.String()
+})
+
+const networkSummarySchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  profileVersion: t.String(),
+  status: t.Literal('active'),
+  createdAt: t.String(),
+  memberCount: t.Number()
+})
+
+const networkMemberSchema = t.Object({
+  networkId: t.String(),
+  nodeId: t.String(),
+  nodeKind: t.Union([t.Literal('stem'), t.Literal('leaf')]),
+  membershipMode: t.Union([t.Literal('full'), t.Literal('restricted')]),
+  status: t.Literal('joined'),
+  joinedAt: t.String()
+})
+
+const policyDecisionSchema = t.Object({
+  id: t.String(),
+  actor: t.Union([
+    t.Literal('viewer'),
+    t.Literal('operator'),
+    t.Literal('admin'),
+    t.Literal('security-admin')
+  ]),
+  action: t.Union([
+    t.Literal('core:read'),
+    t.Literal('node:register'),
+    t.Literal('node:issue-token'),
+    t.Literal('task:assign'),
+    t.Literal('timeline:read'),
+    t.Literal('log:read-full'),
+    t.Literal('audit:read'),
+    t.Literal('service:register'),
+    t.Literal('service:reload'),
+    t.Literal('network:read'),
+    t.Literal('network:create'),
+    t.Literal('network:join')
+  ]),
+  resource: t.String(),
+  result: t.Union([t.Literal('allow'), t.Literal('deny')]),
+  reasons: t.Array(t.String()),
+  createdAt: t.String()
+})
+
+const timelineLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  summary: t.String(),
+  subject: t.Optional(t.String()),
+  correlationId: t.Optional(t.String())
+})
+
+const fullLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  level: t.Union([t.Literal('debug'), t.Literal('info'), t.Literal('warn'), t.Literal('error')]),
+  source: t.String(),
+  message: t.String(),
+  correlationId: t.Optional(t.String()),
+  traceId: t.Optional(t.String()),
+  payload: t.Optional(t.Unknown())
+})
+
+const auditLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  actor: t.Union([
+    t.Literal('viewer'),
+    t.Literal('operator'),
+    t.Literal('admin'),
+    t.Literal('security-admin'),
+    t.Literal('system')
+  ]),
+  action: t.String(),
+  resource: t.String(),
+  decisionId: t.Optional(t.String()),
+  result: t.String(),
+  correlationId: t.Optional(t.String()),
+  traceId: t.Optional(t.String()),
+  payload: t.Optional(t.Unknown())
+})
+
+function protectedRouteDetail(summary: string) {
+  return { security: [{ bearerAuth: [] }], summary }
+}
+
+function protectedResponse<
+  TSuccess extends ReturnType<typeof t.Object>,
+  const TExtra extends Record<number, ReturnType<typeof t.Object>> = {}
+>(success: TSuccess, extra?: TExtra) {
+  return {
+    200: success,
+    401: apiErrorSchema,
+    403: apiErrorSchema,
+    ...(extra ?? {})
+  } as const
+}
+
 export function createCoreApp(deps: CoreDeps) {
   let degradedEventOpen = false
 
@@ -139,7 +333,16 @@ export function createCoreApp(deps: CoreDeps) {
     .use(
       openapi({
         documentation: {
-          info: { title: 'Meristem Core API', version: 'v0' }
+          info: { title: 'Meristem Core API', version: 'v0' },
+          components: {
+            securitySchemes: {
+              bearerAuth: {
+                type: 'http',
+                scheme: 'bearer',
+                bearerFormat: 'JWT'
+              }
+            }
+          }
         }
       })
     )
@@ -148,7 +351,38 @@ export function createCoreApp(deps: CoreDeps) {
       service: 'meristem-core' as const,
       version: deps.version,
       uptimeMs: Date.now() - deps.startedAt
-    }))
+    }), {
+      response: t.Object({
+        ok: t.Literal(true),
+        service: t.Literal('meristem-core'),
+        version: t.String(),
+        uptimeMs: t.Number()
+      })
+    })
+    // 会话端点供 UI 和 BFF 在不触发授权的情况下读取当前操作者身份和权限列表。
+    .get('/api/v0/session', async ({ headers, status }) => {
+      const auth = await requireActor(deps, headers, status)
+      if (!auth.ok) return auth.response
+
+      const permissions = await deps.auth.getPermissions(auth.actor)
+      if (!permissions.ok) return apiError(status, 503, permissions.error.code, permissions.error.message, auth.correlationId)
+
+      return { actor: auth.actor, permissions: permissions.value }
+    }, {
+      response: {
+        200: t.Object({
+          actor: t.Union([t.Literal('viewer'), t.Literal('operator'), t.Literal('admin'), t.Literal('security-admin')]),
+          permissions: t.Array(t.Union([
+            t.Literal('core:read'), t.Literal('node:register'), t.Literal('node:issue-token'),
+            t.Literal('task:assign'), t.Literal('timeline:read'), t.Literal('log:read-full'),
+            t.Literal('audit:read'), t.Literal('service:register'), t.Literal('service:reload'),
+            t.Literal('network:read'), t.Literal('network:create'), t.Literal('network:join')
+          ]))
+        }),
+        401: apiErrorSchema
+      },
+      detail: protectedRouteDetail('Read current session identity and permissions')
+    })
     .get('/api/v0/ready', async ({ headers }) =>
       withExtractedSpan('meristem-core', 'core.ready', headers, async () => {
         const dependencies = await deps.storage.readiness()
@@ -169,7 +403,12 @@ export function createCoreApp(deps: CoreDeps) {
         if (ready) degradedEventOpen = false
         return { ready, dependencies }
       })
-    )
+    , {
+      response: t.Object({
+        ready: t.Boolean(),
+        dependencies: dependenciesSchema
+      })
+    })
     .get('/api/v0/status', async ({ headers, status }) =>
       withExtractedSpan('meristem-core', 'core.status', headers, async () => {
         const auth = await requireActor(deps, headers, status)
@@ -189,7 +428,24 @@ export function createCoreApp(deps: CoreDeps) {
           counts
         }
       })
-    )
+    , {
+      response: protectedResponse(
+        t.Object({
+          core: t.Object({
+            id: t.String(),
+            version: t.String(),
+            mode: t.Union([t.Literal('normal'), t.Literal('degraded'), t.Literal('safe')])
+          }),
+          dependencies: dependenciesSchema,
+          counts: t.Object({
+            services: t.Number(),
+            nodes: t.Number(),
+            tasks: t.Number()
+          })
+        })
+      ),
+      detail: protectedRouteDetail('Read Core runtime status')
+    })
     // 服务生命周期入口保持在 Core，对外统一暴露注册、枚举和 reload。
     // 这段方法链显式写出鉴权、审计、事件与失败路径，避免 Elysia 链式调用失去可读性。
     .post('/api/v0/services', async ({ body, headers, status }) => {
@@ -225,6 +481,16 @@ export function createCoreApp(deps: CoreDeps) {
         )
         return { service, policyDecisionId: permission.decision.id, correlationId: auth.correlationId }
       })
+    }, {
+      response: protectedResponse(
+        t.Object({
+          service: t.Unknown(),
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Register a service definition')
     })
     .get('/api/v0/services', async ({ headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -240,6 +506,14 @@ export function createCoreApp(deps: CoreDeps) {
         return apiError(status, 503, services.error.code, services.error.message, auth.correlationId)
       }
       return { services: services.value }
+    }, {
+      response: protectedResponse(
+        t.Object({
+          services: t.Array(serviceSummarySchema)
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List service runtime summaries')
     })
     .post('/api/v0/services/:id/reload', async ({ params, body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.service.reload', headers, async () => {
@@ -329,7 +603,18 @@ export function createCoreApp(deps: CoreDeps) {
       }),
       body: t.Object({
         reason: t.Optional(t.String())
-      })
+      }),
+      response: protectedResponse(
+        t.Object({
+          serviceId: t.String(),
+          accepted: t.Literal(true),
+          reloadedAt: t.String(),
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 404: apiErrorSchema, 409: apiErrorSchema, 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Reload a reloadable service')
     })
     // 网络路由继续由 Core 暴露外部契约，M-Net 持有权威网络状态和成员规则。
     // Core 侧必须清晰保留“鉴权 -> 审计 -> 状态写入 -> 事件发布”的编排顺序。
@@ -394,7 +679,15 @@ export function createCoreApp(deps: CoreDeps) {
           name: t.String({ minLength: 1 }),
           profileVersion: t.Optional(t.String({ minLength: 1 }))
         }),
-        detail: { security: [{ bearerAuth: [] }], summary: 'Create a logical network' }
+      response: protectedResponse(
+        t.Object({
+          network: networkSchema,
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 409: apiErrorSchema, 503: apiErrorSchema }
+      ),
+        detail: protectedRouteDetail('Create a logical network')
       }
     )
     .get('/api/v0/networks', async ({ headers, status }) => {
@@ -418,6 +711,14 @@ export function createCoreApp(deps: CoreDeps) {
         )
       }
       return { networks: networks.value }
+    }, {
+      response: protectedResponse(
+        t.Object({
+          networks: t.Array(networkSummarySchema)
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List logical networks')
     })
     .post(
       '/api/v0/networks/:id/members',
@@ -488,7 +789,15 @@ export function createCoreApp(deps: CoreDeps) {
         params: t.Object({
           id: t.String({ minLength: 1 })
         }),
-        detail: { security: [{ bearerAuth: [] }], summary: 'Join a node to a logical network' }
+      response: protectedResponse(
+        t.Object({
+          member: networkMemberSchema,
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 404: apiErrorSchema, 409: apiErrorSchema, 503: apiErrorSchema }
+      ),
+        detail: protectedRouteDetail('Join a node to a logical network')
       }
     )
     .get('/api/v0/networks/:id/members', async ({ params, headers, status }) => {
@@ -512,6 +821,17 @@ export function createCoreApp(deps: CoreDeps) {
         )
       }
       return { members: members.value }
+    }, {
+      params: t.Object({
+        id: t.String({ minLength: 1 })
+      }),
+      response: protectedResponse(
+        t.Object({
+          members: t.Array(networkMemberSchema)
+        }),
+        { 404: apiErrorSchema, 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List network members')
     })
     // Join Ticket 是公网 agent 加入的唯一入口；Core 负责鉴权、策略、审计和一次性票据签发，
     // 真正的节点创建与运行 token 签发在 M-Net 兑换成功时完成。
@@ -583,7 +903,18 @@ export function createCoreApp(deps: CoreDeps) {
           capabilities: t.Optional(t.Array(t.String())),
           expiresInSeconds: t.Optional(t.Number({ minimum: 30, maximum: 3600 }))
         }),
-        detail: { security: [{ bearerAuth: [] }], summary: 'Create a one-time node join ticket' }
+      response: protectedResponse(
+        t.Object({
+          ticketId: t.String(),
+          ticket: t.String(),
+          expiresAt: t.String(),
+          joinUrl: t.String(),
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 503: apiErrorSchema }
+      ),
+        detail: protectedRouteDetail('Create a one-time node join ticket')
       }
     )
     // 公共 node register 现在只保留 simulated 节点；agent 节点必须经由 Join Ticket + M-Net ingress 接入。
@@ -684,7 +1015,15 @@ export function createCoreApp(deps: CoreDeps) {
           mode: t.Optional(t.Union([t.Literal('agent'), t.Literal('simulated')])),
           capabilities: t.Optional(t.Array(t.String()))
         }),
-        detail: { security: [{ bearerAuth: [] }], summary: 'Register Stem or Leaf node' }
+      response: protectedResponse(
+        t.Object({
+          node: nodeSchema,
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 409: apiErrorSchema, 503: apiErrorSchema }
+      ),
+        detail: protectedRouteDetail('Register Stem or Leaf node')
       }
     )
     .post('/api/v0/nodes/:id/credentials', async ({ params, headers, status }) => {
@@ -728,7 +1067,18 @@ export function createCoreApp(deps: CoreDeps) {
     }, {
       params: t.Object({
         id: t.String({ minLength: 1 })
-      })
+      }),
+      response: protectedResponse(
+        t.Object({
+          nodeId: t.String(),
+          token: t.String(),
+          issuedAt: t.String(),
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 404: apiErrorSchema, 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Issue a node credential')
     })
     .get('/api/v0/nodes', async ({ headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -740,6 +1090,13 @@ export function createCoreApp(deps: CoreDeps) {
       )
       if (!permission.ok) return permission.response
       return { nodes: await deps.storage.listNodes() }
+    }, {
+      response: protectedResponse(
+        t.Object({
+          nodes: t.Array(nodeSchema)
+        })
+      ),
+      detail: protectedRouteDetail('List nodes')
     })
     .get('/api/v0/nodes/:id', async ({ params, headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -752,6 +1109,17 @@ export function createCoreApp(deps: CoreDeps) {
       if (!permission.ok) return permission.response
       const node = await deps.storage.getNode(params.id)
       return node ? { node } : apiError(status, 404, 'node.not_found', 'node not found', auth.correlationId)
+    }, {
+      params: t.Object({
+        id: t.String({ minLength: 1 })
+      }),
+      response: protectedResponse(
+        t.Object({
+          node: nodeSchema
+        }),
+        { 404: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Read one node')
     })
     // 任务分配在 simulated 与 agent 模式之间走不同执行路径，
     // 这里保留状态校验、token 校验和失败码映射的可读性。
@@ -861,7 +1229,16 @@ export function createCoreApp(deps: CoreDeps) {
         body: t.Object({
           leafNodeId: t.String(),
           type: t.Literal('noop')
-        })
+        }),
+      response: protectedResponse(
+        t.Object({
+          task: taskSchema,
+          policyDecisionId: t.String(),
+          correlationId: t.String()
+        }),
+        { 404: apiErrorSchema, 409: apiErrorSchema, 503: apiErrorSchema }
+      ),
+        detail: protectedRouteDetail('Assign a noop task to a leaf node')
       }
     )
     .get('/api/v0/tasks/:id', async ({ params, headers, status }) => {
@@ -875,6 +1252,17 @@ export function createCoreApp(deps: CoreDeps) {
       if (!permission.ok) return permission.response
       const task = await deps.storage.getTask(params.id)
       return task ? { task } : apiError(status, 404, 'task.not_found', 'task not found', auth.correlationId)
+    }, {
+      params: t.Object({
+        id: t.String({ minLength: 1 })
+      }),
+      response: protectedResponse(
+        t.Object({
+          task: taskSchema
+        }),
+        { 404: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Read one task')
     })
     // 日志与策略查询保持只读聚合职责，Core 在这里只做鉴权和错误映射，不重算事实。
     .get('/api/v0/logs/timeline', async ({ headers, status }) => {
@@ -888,6 +1276,14 @@ export function createCoreApp(deps: CoreDeps) {
       if (!permission.ok) return permission.response
       const entries = await deps.log.listTimeline()
       return entries.ok ? { entries: entries.value } : apiError(status, 503, entries.error.code, entries.error.message, auth.correlationId)
+    }, {
+      response: protectedResponse(
+        t.Object({
+          entries: t.Array(timelineLogSchema)
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List timeline logs')
     })
     .get('/api/v0/logs/full', async ({ headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -900,6 +1296,14 @@ export function createCoreApp(deps: CoreDeps) {
       if (!permission.ok) return permission.response
       const entries = await deps.log.listFull()
       return entries.ok ? { entries: entries.value } : apiError(status, 503, entries.error.code, entries.error.message, auth.correlationId)
+    }, {
+      response: protectedResponse(
+        t.Object({
+          entries: t.Array(fullLogSchema)
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List full logs')
     })
     .get('/api/v0/audit', async ({ headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -912,6 +1316,14 @@ export function createCoreApp(deps: CoreDeps) {
       if (!permission.ok) return permission.response
       const entries = await deps.log.listAudit()
       return entries.ok ? { entries: entries.value } : apiError(status, 503, entries.error.code, entries.error.message, auth.correlationId)
+    }, {
+      response: protectedResponse(
+        t.Object({
+          entries: t.Array(auditLogSchema)
+        }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('List audit logs')
     })
     .get('/api/v0/policy/decisions/:id', async ({ params, headers, status }) => {
       const auth = await requireActor(deps, headers, status)
@@ -925,6 +1337,17 @@ export function createCoreApp(deps: CoreDeps) {
       const decision = await deps.policy.getDecision(params.id)
       if (!decision.ok) return apiError(status, 503, decision.error.code, decision.error.message, auth.correlationId)
       return decision.value ? { decision: decision.value } : apiError(status, 404, 'policy_decision.not_found', 'policy decision not found', auth.correlationId)
+    }, {
+      params: t.Object({
+        id: t.String({ minLength: 1 })
+      }),
+      response: protectedResponse(
+        t.Object({
+          decision: policyDecisionSchema
+        }),
+        { 404: apiErrorSchema, 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail('Read one policy decision')
     })
 }
 

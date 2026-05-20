@@ -22,6 +22,51 @@ export type LogAppDeps = {
   reload(input: ReloadInput): Promise<{ serviceId: string; reloadedAt: string }>
 }
 
+const internalErrorSchema = t.Object({
+  error: t.Object({
+    code: t.String(),
+    message: t.String()
+  })
+})
+
+const timelineLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  summary: t.String({ minLength: 1 }),
+  subject: t.Optional(t.String()),
+  correlationId: t.Optional(t.String())
+})
+
+const fullLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  level: t.Union([t.Literal('debug'), t.Literal('info'), t.Literal('warn'), t.Literal('error')]),
+  source: t.String({ minLength: 1 }),
+  message: t.String({ minLength: 1 }),
+  correlationId: t.Optional(t.String()),
+  traceId: t.Optional(t.String()),
+  payload: t.Optional(t.Unknown())
+})
+
+const auditLogSchema = t.Object({
+  id: t.String(),
+  timestamp: t.String(),
+  actor: t.Union([
+    t.Literal('viewer'),
+    t.Literal('operator'),
+    t.Literal('admin'),
+    t.Literal('security-admin'),
+    t.Literal('system')
+  ]),
+  action: t.String({ minLength: 1 }),
+  resource: t.String({ minLength: 1 }),
+  decisionId: t.Optional(t.String()),
+  result: t.String({ minLength: 1 }),
+  correlationId: t.Optional(t.String()),
+  traceId: t.Optional(t.String()),
+  payload: t.Optional(t.Unknown())
+})
+
 /**
  * M-Log 对内统一暴露 Timeline / Full / Audit 写入与查询，以及生命周期 reload。
  * 这里的 Elysia 方法链必须显式保留 internal token、traceId 补齐和错误映射逻辑。
@@ -48,7 +93,11 @@ export function createLogApp(deps: LogAppDeps) {
           summary: t.String({ minLength: 1 }),
           subject: t.Optional(t.String()),
           correlationId: t.Optional(t.String())
-        })
+        }),
+        response: {
+          200: t.Object({ entry: timelineLogSchema }),
+          401: internalErrorSchema
+        }
       }
     )
     .post(
@@ -71,7 +120,11 @@ export function createLogApp(deps: LogAppDeps) {
           correlationId: t.Optional(t.String()),
           traceId: t.Optional(t.String()),
           payload: t.Optional(t.Unknown())
-        })
+        }),
+        response: {
+          200: t.Object({ entry: fullLogSchema }),
+          401: internalErrorSchema
+        }
       }
     )
     .post(
@@ -102,7 +155,11 @@ export function createLogApp(deps: LogAppDeps) {
           correlationId: t.Optional(t.String()),
           traceId: t.Optional(t.String()),
           payload: t.Optional(t.Unknown())
-        })
+        }),
+        response: {
+          200: t.Object({ entry: auditLogSchema }),
+          401: internalErrorSchema
+        }
       }
     )
     .get('/internal/v0/timeline', async ({ query, headers, status }) => {
@@ -110,21 +167,33 @@ export function createLogApp(deps: LogAppDeps) {
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.timeline.list', headers, async () => ({ entries: await deps.listTimeline(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) })
+      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      response: {
+        200: t.Object({ entries: t.Array(timelineLogSchema) }),
+        401: internalErrorSchema
+      }
     })
     .get('/internal/v0/full', async ({ query, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.full.list', headers, async () => ({ entries: await deps.listFull(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) })
+      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      response: {
+        200: t.Object({ entries: t.Array(fullLogSchema) }),
+        401: internalErrorSchema
+      }
     })
     .get('/internal/v0/audit', async ({ query, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.audit.list', headers, async () => ({ entries: await deps.listAudit(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) })
+      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      response: {
+        200: t.Object({ entries: t.Array(auditLogSchema) }),
+        401: internalErrorSchema
+      }
     })
     .post('/internal/v0/lifecycle/reload', async ({ body, headers, status }) => {
       const auth = validateInternalRequest(headers)
@@ -145,7 +214,15 @@ export function createLogApp(deps: LogAppDeps) {
       body: t.Object({
         correlationId: t.Optional(t.String()),
         reason: t.Optional(t.String())
-      })
+      }),
+      response: {
+        200: t.Object({
+          serviceId: t.String(),
+          reloadedAt: t.String()
+        }),
+        401: internalErrorSchema,
+        503: internalErrorSchema
+      }
     })
 }
 

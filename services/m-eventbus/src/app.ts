@@ -8,6 +8,13 @@ export type EventBusAppDeps = {
   publish(subject: string, event: MEventEnvelope): Promise<{ eventId: string }>
 }
 
+const internalErrorSchema = t.Object({
+  error: t.Object({
+    code: t.String(),
+    message: t.String()
+  })
+})
+
 /**
  * M-EventBus 对内只暴露发布入口，不允许上游绕过 envelope 校验直接向 NATS 写裸消息。
  */
@@ -48,7 +55,14 @@ export function createEventBusApp(deps: EventBusAppDeps) {
             subject: t.Optional(t.String()),
             payload: t.Unknown()
           })
-        })
+        }),
+        response: {
+          200: t.Object({
+            eventId: t.String()
+          }),
+          401: internalErrorSchema,
+          422: internalErrorSchema
+        }
       }
     )
 }

@@ -14,12 +14,7 @@ export const subjects = {
   networkCreate: 'mnet.network.create.v0',
   networkList: 'mnet.network.list.v0',
   networkJoin: 'mnet.network.join.v0',
-  networkMembersList: 'mnet.network.members.list.v0',
-  nodeHeartbeatReported: 'nodeagent.heartbeat.reported.v0',
-  nodeLogForwarded: 'nodeagent.log.forwarded.v0',
-  nodeTaskExecute(nodeId: string) {
-    return `nodeagent.${nodeId}.task.execute.v0`
-  }
+  networkMembersList: 'mnet.network.members.list.v0'
 } as const
 
 export type RpcClient = {

@@ -18,15 +18,23 @@ type LocalFetchApp = {
   handle(request: Request): Response | Promise<Response>
 }
 
+type FetchInput = Parameters<typeof fetch>[0]
+type FetchInit = Parameters<typeof fetch>[1]
+
 function localFetcher(app: LocalFetchApp): typeof fetch {
-  const fetcher = (input: URL | RequestInfo, init?: RequestInit) => {
-    const request = new Request(typeof input === 'string' || input instanceof URL ? input.toString() : input, {
+  const fetcher = (input: FetchInput, init?: FetchInit) => {
+    const requestInit = {
       ...init,
       headers: new Headers({
         ...Object.fromEntries(new Headers(init?.headers).entries()),
         ...internalHeaders()
       })
-    })
+    }
+    const request = typeof input === 'string'
+      ? new Request(input, requestInit)
+      : input instanceof URL
+        ? new Request(input.toString(), requestInit)
+        : new Request(input, requestInit)
     return app.handle(request)
   }
 
@@ -47,7 +55,7 @@ describe('Eden clients', () => {
     })
 
     expect(response.error).toBeNull()
-    const data = response.data as { core: { id: string }; counts: { nodes: number } } | null
+    const data = response.data
     expect(data?.core.id).toBe('meristem-core')
     expect(data?.counts.nodes).toBe(0)
   })

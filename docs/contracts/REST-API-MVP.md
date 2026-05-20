@@ -355,7 +355,35 @@ Returns one policy decision record.
 
 ---
 
-## 9. OpenAPI Requirements
+## 9. Phase 9 UI Session Context Extension
+
+Phase 9 adds a read-only session context endpoint for the M-UI BFF:
+
+### `GET /api/v0/session`
+
+Requires a valid Bearer token.
+
+```ts
+type SessionContextResponse = {
+  actor: "viewer" | "operator" | "admin" | "security-admin";
+  permissions: string[];
+  correlationId: string;
+};
+```
+
+Rules:
+
+- This endpoint is for display and command eligibility only.
+- `permissions` returns the actor's full MVP permission string list.
+- The response must not expose role inheritance, policy internals, RBAC table structure, or policy evaluation traces.
+- BFF may use it to show disabled command explanations.
+- It must not replace M-Policy checks on mutating routes.
+- It must not issue, refresh, or store tokens.
+- If permission context cannot be computed, the response fails closed and the UI command stays disabled.
+
+---
+
+## 10. OpenAPI Requirements
 
 OpenAPI must include:
 
