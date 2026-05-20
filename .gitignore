@@ -1,4 +1,5 @@
 node_modules/
+apps/*/node_modules/
 .env
 .env.*
 !.env.example
@@ -7,4 +8,10 @@ coverage/
 .worktrees/
 tmp/
 .serena/
+.codex/
+.local/
+.antigravitycli/
+.svelte-kit/
+apps/*/.svelte-kit/
+apps/*/build/
 doc-driven-ai/
