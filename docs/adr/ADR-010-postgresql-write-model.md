@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted for v0/MVP
 
 ## Context
 

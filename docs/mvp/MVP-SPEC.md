@@ -77,8 +77,8 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 4. As an operator, I can list registered nodes and see their statuses.
 5. As an operator, I can assign a noop task to a Leaf node.
 6. As an operator, I can see the task completion event and Timeline entry.
-6. As a security reviewer, I can verify protected operations require RBAC permission.
-7. As a security reviewer, I can verify node registration, task assignment, and permission denial produce Audit or Full Log entries according to risk.
+7. As a security reviewer, I can verify protected operations require RBAC permission.
+8. As a security reviewer, I can verify node registration, task assignment, and permission denial produce Audit or Full Log entries according to risk.
 
 ---
 

@@ -17,7 +17,7 @@
 | [ADR-007](ADR-007-m-extension-naming.md) | M-Plugin Renamed to M-Extension | Accepted |
 | [ADR-008](ADR-008-no-m-services-module.md) | Microservices Are Implementation Form | Accepted |
 | [ADR-009](ADR-009-nats-eventbus.md) | NATS for M-EventBus | Accepted |
-| [ADR-010](ADR-010-postgresql-write-model.md) | PostgreSQL Write Model | Proposed |
+| [ADR-010](ADR-010-postgresql-write-model.md) | PostgreSQL Write Model | Accepted for v0/MVP |
 | [ADR-011](ADR-011-opensearch-read-model.md) | OpenSearch Read Model | Accepted |
 | [ADR-012](ADR-012-nats-kv-default-cache.md) | NATS KV as Default Cache | Accepted |
 | [ADR-013](ADR-013-three-level-logging.md) | Timeline / Full / Audit Logs | Accepted |

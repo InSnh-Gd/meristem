@@ -6,8 +6,8 @@
 
 ## 1. State Classes
 
-| Class | Carrier | Examples | Not Allowed |
-|-------|---------|----------|-------------|
+| Class | Carrier | Owns | Must Not Become |
+|-------|---------|------|-----------------|
 | Authoritative State | PostgreSQL | users, roles, permissions, nodes, service definitions, config versions, secretRefs, tasks | event-only truth |
 | Event State | M-EventBus / NATS | task events, node events, lifecycle events, network events, config publish events | authoritative database |
 | Cache State | NATS KV first, Redis / KeyDB if needed | rate limit windows, ephemeral sessions, distributed lock, derived hot state | primary database |

@@ -131,7 +131,6 @@ Rules:
 - only `noop` is supported in MVP.
 - target node must be a Leaf.
 - `simulated` nodes complete synchronously in Core.
-- `agent` nodes require `reachable` state and an active runtime token.
 - `agent` nodes require `reachable` state and an active runtime token used only for `session.resume`; heartbeat, log, and task replies use `sessionId`.
 - `agent` noop completion goes through Core -> M-Net internal HTTP -> active join-ingress session `task.execute` -> agent `task.result`.
 
