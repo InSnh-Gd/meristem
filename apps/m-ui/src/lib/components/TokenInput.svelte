@@ -10,7 +10,7 @@
 </script>
 
 <form class="token-input" onsubmit={submitToken}>
-  <input
+  <input data-testid="token-input"
     type="text"
     autocomplete="off"
     spellcheck="false"
@@ -18,7 +18,7 @@
     value={appState.token}
     oninput={(e: Event) => appState.token = (e.target as HTMLInputElement).value}
   />
-  <button type="submit" disabled={!appState.token.trim() || appState.loading}>
+  <button type="submit" data-testid="token-submit" disabled={!appState.token.trim() || appState.loading}>
     连接
   </button>
 </form>

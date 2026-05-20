@@ -22,7 +22,7 @@
     <div class="empty">暂无节点</div>
   {:else}
     {#each nodes as node}
-      <button class="node-chip" class:selected={node.id === selectedNodeId} onclick={() => onSelect(node.id)}>
+      <button class="node-chip" data-testid="node-chip-{node.name}" class:selected={node.id === selectedNodeId} onclick={() => onSelect(node.id)}>
         <span class="node-status" style="background: {statusColor(node.status)}"></span>
         <span class="node-name">{node.name}</span>
         <span class="node-kind">{node.kind === 'stem' ? 'Stem' : 'Leaf'}</span>

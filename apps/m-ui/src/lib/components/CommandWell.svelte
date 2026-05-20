@@ -18,7 +18,7 @@
   {:else if commandState.state === 'disabled'}
     <div class="command-disabled">
       <span class="command-label">运行 noop 任务</span>
-      <span class="command-reason">{commandState.disabledReason}</span>
+      <span class="command-reason" data-testid="command-disabled-reason">{commandState.disabledReason}</span>
     </div>
   {:else if confirming}
     <div class="command-confirm">
@@ -33,12 +33,12 @@
         </div>
       </div>
       <div class="confirm-actions">
-        <button class="btn-confirm" onclick={onConfirm}>确认执行</button>
-        <button class="btn-cancel" onclick={onCancel}>取消</button>
+        <button class="btn-confirm" data-testid="command-confirm-btn" onclick={onConfirm}>确认执行</button>
+        <button class="btn-cancel" data-testid="command-cancel-btn" onclick={onCancel}>取消</button>
       </div>
     </div>
   {:else}
-    <button class="btn-command" onclick={onRequestConfirm}>运行 noop 任务</button>
+    <button class="btn-command" data-testid="command-btn" onclick={onRequestConfirm}>运行 noop 任务</button>
   {/if}
 </div>
 

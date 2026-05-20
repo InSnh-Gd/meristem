@@ -6,13 +6,15 @@
 
   let { children } = $props<{ children: import('svelte').Snippet }>()
 
-  const navItems = [
+  const navItems = $derived([
     { id: 'overview', label: '概览', enabled: true },
     { id: 'nodes', label: '节点', enabled: false },
     { id: 'logs', label: '日志', enabled: false },
-    { id: 'audit', label: '审计', enabled: false },
+    appState.overview?.auditAccessible
+      ? { id: 'audit', label: '审计', enabled: true }
+      : { id: 'audit', label: '审计', enabled: false, disabledReason: '需要 audit:read 权限' },
     { id: 'services', label: '服务', enabled: false }
-  ]
+  ])
   let selectedNav = $state('overview')
 </script>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  type NavItem = { id: string; label: string; enabled: boolean }
+  type NavItem = { id: string; label: string; enabled: boolean; disabledReason?: string }
 
   let { items, selected, onSelect } = $props<{
     items: NavItem[]
@@ -15,11 +15,11 @@
       class:active={item.id === selected}
       class:disabled={!item.enabled}
       onclick={() => item.enabled && onSelect(item.id)}
-      title={!item.enabled ? '功能尚未实现' : undefined}
+      title={!item.enabled ? (item.disabledReason ?? '功能尚未实现') : undefined}
     >
       <span class="nav-label">{item.label}</span>
       {#if !item.enabled}
-        <span class="nav-disabled-reason">未实现</span>
+        <span class="nav-disabled-reason">{item.disabledReason ?? '未实现'}</span>
       {/if}
     </button>
   {/each}
