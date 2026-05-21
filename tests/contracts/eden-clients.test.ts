@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
+import type { FullLogSearchQuery, TimelineSearchQuery, AuditSearchQuery } from '../../packages/contracts/src/index.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import { createLogApp, type LogApp } from '../../services/m-log/src/app.ts'
@@ -132,6 +133,13 @@ describe('Eden clients', () => {
           serviceId: 'm-log',
           reloadedAt: new Date().toISOString()
         }
+      },
+      // Phase 10: search deps
+      search: {
+      async full(_query: FullLogSearchQuery) { return null },
+      async timeline(_query: TimelineSearchQuery) { return null },
+      async audit(_query: AuditSearchQuery) { return null },
+      isAvailable() { return false },
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })
@@ -177,6 +185,13 @@ describe('Eden clients', () => {
           serviceId: 'm-log',
           reloadedAt: new Date().toISOString()
         }
+      },
+      // Phase 10: search deps
+      search: {
+      async full(_query: FullLogSearchQuery) { return null },
+      async timeline(_query: TimelineSearchQuery) { return null },
+      async audit(_query: AuditSearchQuery) { return null },
+      isAvailable() { return false },
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })

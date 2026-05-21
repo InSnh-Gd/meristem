@@ -15,6 +15,7 @@ import type { ActorId, AuditLog, FullLog, TimelineLog } from '../../../packages/
 import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import { createLogApp } from './app.ts'
+import { createOpenSearchAdapter } from './opensearch.ts'
 
 initTelemetry('m-log')
 
@@ -24,6 +25,18 @@ const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
 const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
   fetcher: createInternalFetcher()
 })
+
+// Phase 10 OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
+const opensearchUrl = process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200'
+const opensearch = createOpenSearchAdapter(opensearchUrl)
+const opensearchAvailable: boolean = await opensearch.health().then(async (ok) => {
+  if (!ok) return false
+  return opensearch.ensureAllIndices()
+})
+
+if (!opensearchAvailable) {
+  console.warn('m-log: OpenSearch unavailable, search endpoints will report degraded')
+}
 
 type TimelineWriteRequest = Omit<TimelineLog, 'id' | 'timestamp'>
 type FullWriteRequest = Omit<FullLog, 'id' | 'timestamp'>
@@ -44,7 +57,10 @@ function readLogLevelFromEnv(): LogLevel {
   throw new Error(`invalid MERISTEM_LOG_LEVEL: ${level}`)
 }
 
-// 三类写入函数统一在这里创建日志事实，避免 HTTP 路由和 NATS 消费者各自拼装记录。
+/**
+ * 三类写入函数统一在这里创建 PostgreSQL 事实，并在写入成功后 best-effort 投影到 OpenSearch。
+ * OpenSearch 投影失败不阻塞 PostgreSQL 写，也不回滚已写事实。
+ */
 async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog> {
   const entry: TimelineLog = {
     id: crypto.randomUUID(),
@@ -58,6 +74,12 @@ async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog
     subject: entry.subject,
     correlationId: entry.correlationId
   })
+
+  // Phase 10 best-effort OpenSearch 投影
+  if (opensearchAvailable) {
+    opensearch.indexTimelineLog(entry).catch(() => {})
+  }
+
   return entry
 }
 
@@ -77,6 +99,11 @@ async function writeFull(request: FullWriteRequest): Promise<FullLog> {
     traceId: entry.traceId,
     payload: entry.payload
   })
+
+  if (opensearchAvailable) {
+    opensearch.indexFullLog(entry).catch(() => {})
+  }
+
   return entry
 }
 
@@ -98,6 +125,10 @@ async function writeAudit(request: AuditWriteRequest): Promise<AuditLog> {
     traceId: entry.traceId,
     payload: entry.payload
   })
+
+  if (opensearchAvailable) {
+    opensearch.indexAuditLog(entry).catch(() => {})
+  }
 
   const traceId = entry.traceId ?? currentTraceId()
   const event = createEventEnvelope({
@@ -197,7 +228,13 @@ const app = createLogApp({
       return entry
     })
   },
-  reload
+  reload,
+  search: {
+    async full(query) { return opensearchAvailable ? opensearch.searchFull(query) : null },
+    async timeline(query) { return opensearchAvailable ? opensearch.searchTimeline(query) : null },
+    async audit(query) { return opensearchAvailable ? opensearch.searchAudit(query) : null },
+    isAvailable() { return opensearchAvailable }
+  }
 })
 
 const server = serveHttpApp('m-log', app.fetch)
