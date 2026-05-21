@@ -27,3 +27,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Phase 10 OpenSearch 读模型，作为可选 compose profile。
+  opensearch:
+    image: opensearchproject/opensearch:2-alpine
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "Meristem0pensearch!"
+    ports:
+      - "9200:9200"
+    profiles:
+      - opensearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -E 'green|yellow|red' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

@@ -375,3 +375,37 @@ export type AuditLog = {
   traceId?: string
   payload?: unknown
 }
+
+// Phase 10 OpenSearch 搜索契约类型，来自 MERISTEM-ROADMAP.md §3.11 与 docs/roadmap/PHASE-10.md §6
+export type LogSearchQuery = {
+  q?: string
+  from?: string
+  to?: string
+  limit?: number
+}
+
+export type FullLogSearchQuery = LogSearchQuery & {
+  level?: 'debug' | 'info' | 'warn' | 'error'
+  source?: string
+  correlationId?: string
+  traceId?: string
+}
+
+export type TimelineSearchQuery = LogSearchQuery & {
+  subject?: string
+  correlationId?: string
+}
+
+export type AuditSearchQuery = LogSearchQuery & {
+  actor?: string
+  action?: string
+  resource?: string
+  decisionId?: string
+  correlationId?: string
+}
+
+// 搜索结果统一包装，Phase 10.0 不实现 cursor pagination
+export type LogSearchResult<T> = {
+  entries: T[]
+  total: number
+}
