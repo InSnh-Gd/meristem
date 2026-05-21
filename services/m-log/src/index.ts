@@ -176,7 +176,7 @@ const app = createLogApp({
       .then(() => true)
       .catch(() => false)
     const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
-    return { ready: postgresReady && natsReady && eventBusReady }
+    return { ready: postgresReady && natsReady && eventBusReady, opensearch: opensearchAvailable ? ('ready' as const) : ('unavailable' as const) }
   },
   writeTimeline,
   writeFull,

@@ -64,7 +64,7 @@ describe('Eden clients', () => {
   it('supports typed internal policy authorization calls through Eden', async () => {
     const app = createPolicyApp({
       async readiness() {
-        return { ready: true }
+        return { ready: true, opensearch: 'unavailable' as const }
       },
       async authorize(input) {
         return {
@@ -105,7 +105,7 @@ describe('Eden clients', () => {
     const writes: Array<{ action: string; traceId?: string }> = []
     const app = createLogApp({
       async readiness() {
-        return { ready: true }
+        return { ready: true, opensearch: 'unavailable' as const }
       },
       async writeTimeline(input) {
         writes.push({ action: input.summary })
@@ -160,7 +160,7 @@ describe('Eden clients', () => {
   it('supports typed internal log reload calls through Eden', async () => {
     const app = createLogApp({
       async readiness() {
-        return { ready: true }
+        return { ready: true, opensearch: 'unavailable' as const }
       },
       async writeTimeline() {
         throw new Error('not used')
@@ -208,7 +208,7 @@ describe('Eden clients', () => {
     const published: string[] = []
     const app = createEventBusApp({
       async readiness() {
-        return { ready: true }
+        return { ready: true, opensearch: 'unavailable' as const }
       },
       async publish(subject, event) {
         published.push(subject)
@@ -235,7 +235,7 @@ describe('Eden clients', () => {
   it('rejects internal requests without the shared token', async () => {
     const app = createPolicyApp({
       async readiness() {
-        return { ready: true }
+        return { ready: true, opensearch: 'unavailable' as const }
       },
       async authorize() {
         throw new Error('should not run')

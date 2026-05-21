@@ -20,7 +20,7 @@ export type SearchDeps = {
 }
 
 export type LogAppDeps = {
-  readiness(): Promise<{ ready: boolean }>
+  readiness(): Promise<{ ready: boolean; opensearch: 'ready' | 'unavailable' }>
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
   writeFull(input: FullWriteInput): Promise<FullLog>
   writeAudit(input: AuditWriteInput): Promise<AuditLog>
@@ -37,6 +37,12 @@ const internalErrorSchema = t.Object({
     code: t.String(),
     message: t.String()
   })
+})
+
+// Phase 10: /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
+const readyResponseSchema = t.Object({
+  ready: t.Boolean(),
+  opensearch: t.Union([t.Literal('ready'), t.Literal('unavailable')])
 })
 
 const timelineLogSchema = t.Object({
@@ -130,11 +136,16 @@ const auditSearchQuery = t.Object({
  */
 export function createLogApp(deps: LogAppDeps) {
   return new Elysia()
-    .get('/health', () => ({ ok: true as const, service: 'm-log' as const }))
+    .get('/health', () => ({ ok: true as const, service: 'm-log' as const, opensearch: deps.search.isAvailable() ? ('ready' as const) : ('unavailable' as const) }))
     .get('/ready', async ({ headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.ready', headers, () => deps.readiness())
+    }, {
+      response: {
+        200: readyResponseSchema,
+        401: internalErrorSchema
+      }
     })
     .post(
       '/internal/v0/timeline',
