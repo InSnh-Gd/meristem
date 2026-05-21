@@ -394,6 +394,8 @@ Timeline 可聚合展示。
 OpenSearch 不影响权威写模型。
 ```
 
+Phase 10.1 Projection Platform Track 任务列表见 `docs/roadmap/PHASE-10.1.md`。
+
 ### 3.12 Phase 11：M-Policy 风险基础
 
 目标：在 RBAC 基础上引入操作危险等级和可解释置疑度算法。
