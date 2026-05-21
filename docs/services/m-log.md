@@ -70,6 +70,11 @@ Current MVP boundary:
 
 - listens on `http://127.0.0.1:3102`
 - requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
-- exposes `/health`, `/ready`, `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`, `/internal/v0/lifecycle/reload`
+- exposes `/health`, `/ready`, `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`,
+  `/internal/v0/search/full`, `/internal/v0/search/timeline`, `/internal/v0/search/audit`,
+  `/internal/v0/lifecycle/reload`
 - is the only reloadable internal service in the current lifecycle prototype
+- owns OpenSearch adapter (`services/m-log/src/opensearch.ts`) for Full, Timeline, and Audit read model projection
+- OpenSearch projection is best-effort after PostgreSQL writes; projection failure does not roll back authoritative facts
+- internal search endpoints (`GET /internal/v0/search/*`) are owned by M-Log and called by Core via Eden HTTP
 - publishes `audit.entry.created.v0` through M-EventBus after successful Audit writes

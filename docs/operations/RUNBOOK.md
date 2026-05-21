@@ -26,6 +26,8 @@ Node.js is not part of the supported local toolchain for this repository. Local 
 ```bash
 bun install
 docker compose up -d postgres nats
+# Phase 10: optionally start OpenSearch for log search
+# docker compose --profile opensearch up -d opensearch
 bun run db:migrate
 bun run db:seed
 bun run lint
@@ -142,7 +144,9 @@ OpenTelemetry is the trace / metric / log collection layer. M-Log is Meristem's 
 
 MVP internal startup order:
 
-1. `docker compose up -d postgres nats`
+1. `docker compose up -d postgres nats
+# Phase 10: optionally start OpenSearch for log search
+# docker compose --profile opensearch up -d opensearch`
 2. `bun run db:migrate && bun run db:seed`
 3. `export MERISTEM_INTERNAL_TOKEN=change-me-internal-shared-token`
 4. `bun run dev:all`

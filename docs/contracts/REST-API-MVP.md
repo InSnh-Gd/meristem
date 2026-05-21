@@ -407,9 +407,112 @@ type PolicyDecisionSummaryResponse = {
 - Returns 401 without token, 404 if decision not found, passes through Core error envelopes on failure.
 - This endpoint is display-only and must not expose policy evaluation internals.
 
+
 ---
 
-## 10. OpenAPI Requirements
+## Phase 10: OpenSearch Search Endpoints
+
+Core exposes three REST search endpoints that delegate to M-Log internal search APIs. Core does not implement OpenSearch query logic directly.
+
+### 9.1 GET /api/v0/logs/timeline/search
+
+Query timeline logs by text, subject, correlation ID, and time range.
+
+**Permission**: `timeline:read`
+
+**Query Parameters**:
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `q` | string | no | text search query |
+| `from` | ISO 8601 | no | start of time range |
+| `to` | ISO 8601 | no | end of time range |
+| `limit` | number | no | max results (hard cap 100) |
+| `subject` | string | no | log subject filter |
+| `correlationId` | string | no | correlation ID filter |
+
+**Success Response** (200):
+
+```ts
+type TimelineSearchResponse = {
+  entries: TimelineLog[];
+  total: number;
+};
+```
+
+**Error Responses**: 401, 403, 503 (`search_unavailable`).
+
+### 9.2 GET /api/v0/logs/full/search
+
+Query full logs by text, level, source, correlation ID, trace ID, and time range.
+
+**Permission**: `log:read-full`
+
+**Query Parameters**:
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `q` | string | no | text search query |
+| `from` | ISO 8601 | no | start of time range |
+| `to` | ISO 8601 | no | end of time range |
+| `limit` | number | no | max results (hard cap 100) |
+| `level` | `debug` \| `info` \| `warn` \| `error` | no | log level |
+| `source` | string | no | source service filter |
+| `correlationId` | string | no | correlation ID filter |
+| `traceId` | string | no | trace ID filter |
+
+**Success Response** (200):
+
+```ts
+type FullLogSearchResponse = {
+  entries: FullLog[];
+  total: number;
+};
+```
+
+**Error Responses**: 401, 403, 503 (`search_unavailable`).
+
+### 9.3 GET /api/v0/audit/search
+
+Query audit logs by actor, action, resource, decision ID, correlation ID, and time range.
+
+**Permission**: `audit:read`
+
+**Query Parameters**:
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `q` | string | no | text search query |
+| `from` | ISO 8601 | no | start of time range |
+| `to` | ISO 8601 | no | end of time range |
+| `limit` | number | no | max results (hard cap 100) |
+| `actor` | string | no | actor filter |
+| `action` | string | no | action filter |
+| `resource` | string | no | resource filter |
+| `decisionId` | string | no | policy decision ID filter |
+| `correlationId` | string | no | correlation ID filter |
+
+**Success Response** (200):
+
+```ts
+type AuditSearchResponse = {
+  entries: AuditLog[];
+  total: number;
+};
+```
+
+**Error Responses**: 401, 403, 503 (`search_unavailable`).
+
+**Failure Semantics**:
+
+- OpenSearch unavailability returns 503 with `search_unavailable` code.
+- PostgreSQL-backed list endpoints (`GET /api/v0/logs/timeline`, `/api/v0/logs/full`, `/api/v0/audit`) remain usable.
+- Authoritative log writes are never blocked by search degradation.
+
+
+---
+
+## 11. OpenAPI Requirements
 
 OpenAPI must include:
 

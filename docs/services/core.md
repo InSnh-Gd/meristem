@@ -42,6 +42,45 @@ Core must not own:
 - complex business microservice logic
 - full cloud-function platform
 
+
+
+---
+
+## 2.1 Internal Module Structure
+
+Core 源码位于 `apps/core/src/`，按职责拆分为以下模块：
+
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 装配入口 | `app.ts` (41行) | Elysia 实例创建、openapi 插件、7 个路由 `.use()` 组合 |
+| 端口类型 | `types.ts` | `CoreDeps`、`CoreStorage`、`AuthPort`、`PolicyPort`、`LogPort` 等端口接口 |
+| 依赖装配 | `adapters.ts` (75行) | `createProductionDeps` — 装配所有端口实现并暴露 `close()` |
+| Effect 基础设施 | `effect-helpers.ts` | `runServiceEffect`、`tryServiceCall`、`requireServiceData` 等共享工具 |
+| 存储适配器 | `storage-adapter.ts` | PostgreSQL 权威写模型 — 节点、任务、凭据、服务定义的 CRUD |
+| 认证中间件 | `middleware/auth.ts` | `requireActor` (JWT 验证) + `authorize` (M-Policy RBAC) |
+| 工具中间件 | `middleware/helpers.ts` | `statusCodeForServiceError`、`tracedEvent`、`joinSessionUrl` |
+| 共享 Schema | `schemas.ts` | 15 个 Elysia typebox schema + `protectedResponse` / `protectedRouteDetail` |
+| 适配器 — Policy | `adapters/http-policy.ts` | Core → M-Policy（Eden/HTTP） |
+| 适配器 — Log | `adapters/http-log.ts` | Core → M-Log（三层日志 + OpenSearch 搜索） |
+| 适配器 — EventBus | `adapters/http-eventbus.ts` | Core → M-EventBus |
+| 适配器 — M-Net | `adapters/http-mnet.ts` | Core → M-Net |
+| 适配器 — Agent | `adapters/http-agent-task.ts` | Core → node-agent |
+| 适配器 — 旧版 RPC | `adapters/rpc-legacy.ts` | NATS RPC 端口（@deprecated） |
+| 适配器 — 服务生命周期 | `adapters/service-lifecycle.ts` | 服务运行时聚合、探测、reload |
+| 路由 — Health | `routes/health.ts` | `/health`、`/session`、`/ready`、`/status` |
+| 路由 — Services | `routes/services.ts` | `/services` register、list、reload |
+| 路由 — Networks | `routes/networks.ts` | `/networks` create、list、join、members |
+| 路由 — Nodes | `routes/nodes.ts` | `/node-tickets`、`/nodes` register、credential、list、get |
+| 路由 — Tasks | `routes/tasks.ts` | `/tasks` assign、get |
+| 路由 — Logs | `routes/logs.ts` | timeline/full/audit list + search（6 路由） |
+| 路由 — Policy | `routes/policy.ts` | `/policy/decisions/:id` |
+
+拆分原则：
+- 路由按资源（REST 路径前缀）分文件，每个导出 `resourceRoutes(deps)` → `Elysia`
+- 适配器按目标服务分文件，每个导出 `createHttp*Port()` → 端口对象
+- 中间件独立于路由，被多个路由文件共享引用
+- `app.ts` 只负责 `.use()` 组合，不含任何路由处理逻辑
+
 ---
 
 ## 3. Contracts

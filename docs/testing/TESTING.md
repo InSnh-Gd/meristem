@@ -43,6 +43,10 @@ bun run test:contracts
 bun run test:cli
 bun run test:failure-modes
 bun run test:integration
+# Phase 10 OpenSearch tests
+bun run test:opensearch-failure-modes
+bun run test:opensearch-contracts
+bun run test:opensearch-integration
 bun run test:e2e
 ```
 
@@ -99,6 +103,7 @@ Must cover:
 - M-Policy unavailable means protected operation fails closed.
 - Audit Log unavailable blocks high-risk operation.
 - OpenSearch unavailable does not block authoritative writes.
+- Phase 10 search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query contracts. `test:opensearch-integration` skips gracefully when OpenSearch is not running.
 - NATS unavailable degrades event-dependent capabilities.
 - Leaf Node abnormal state shrinks or revokes permissions.
 - LLM unavailable does not block normal operation and cannot authorize high-risk operation.
@@ -162,6 +167,10 @@ bun run test:contracts
 bun run test:cli
 bun run test:failure-modes
 bun run test:integration
+# Phase 10 OpenSearch tests
+bun run test:opensearch-failure-modes
+bun run test:opensearch-contracts
+bun run test:opensearch-integration
 bun run test:e2e
 bun run nodejs-ban
 docker compose up -d postgres nats

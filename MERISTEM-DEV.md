@@ -96,7 +96,17 @@ gRPC everywhere
 
 ```text
 apps/
-  core/                 Elysia Core app composition, REST/OpenAPI, Eden aggregation
+  core/
+    src/
+      app.ts              Elysia instance assembly + openapi + route composition
+      types.ts            CoreDeps, CoreStorage and port interfaces
+      adapters.ts         createProductionDeps dependency assembly + re-export
+      schemas.ts          shared Elysia typebox schemas
+      effect-helpers.ts   Effect infrastructure (runServiceEffect, tryServiceCall, etc.)
+      storage-adapter.ts  PostgreSQL authoritative write model adapter
+      adapters/           per-service adapter ports (http-policy, http-log, http-eventbus, http-mnet, http-agent-task, rpc-legacy, service-lifecycle)
+      middleware/          auth middleware (requireActor, authorize) + route helpers
+      routes/             per-resource routes (health, services, networks, nodes, tasks, logs, policy)
   m-ui/                 SvelteKit + SDUI
   m-cli/                official CLI
 
