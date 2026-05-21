@@ -56,7 +56,7 @@ export function logsRoutes(deps: CoreDeps) {
     }, {
       query: t.Object({
         q: t.Optional(t.String()), from: t.Optional(t.String()), to: t.Optional(t.String()),
-        limit: t.Optional(t.Numeric()), subject: t.Optional(t.String()), correlationId: t.Optional(t.String())
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })), subject: t.Optional(t.String()), correlationId: t.Optional(t.String())
       }),
       response: protectedResponse(t.Object({ entries: t.Array(timelineLogSchema), total: t.Number() }), { 503: apiErrorSchema }),
       detail: protectedRouteDetail('Search timeline logs')
@@ -80,7 +80,7 @@ export function logsRoutes(deps: CoreDeps) {
     }, {
       query: t.Object({
         q: t.Optional(t.String()), from: t.Optional(t.String()), to: t.Optional(t.String()),
-        limit: t.Optional(t.Numeric()), level: t.Optional(t.Union([t.Literal('debug'), t.Literal('info'), t.Literal('warn'), t.Literal('error')])),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })), level: t.Optional(t.Union([t.Literal('debug'), t.Literal('info'), t.Literal('warn'), t.Literal('error')])),
         source: t.Optional(t.String()), correlationId: t.Optional(t.String()), traceId: t.Optional(t.String())
       }),
       response: protectedResponse(t.Object({ entries: t.Array(fullLogSchema), total: t.Number() }), { 503: apiErrorSchema }),
@@ -106,7 +106,7 @@ export function logsRoutes(deps: CoreDeps) {
     }, {
       query: t.Object({
         q: t.Optional(t.String()), from: t.Optional(t.String()), to: t.Optional(t.String()),
-        limit: t.Optional(t.Numeric()), actor: t.Optional(t.String()), action: t.Optional(t.String()),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })), actor: t.Optional(t.String()), action: t.Optional(t.String()),
         resource: t.Optional(t.String()), decisionId: t.Optional(t.String()), correlationId: t.Optional(t.String())
       }),
       response: protectedResponse(t.Object({ entries: t.Array(auditLogSchema), total: t.Number() }), { 503: apiErrorSchema }),

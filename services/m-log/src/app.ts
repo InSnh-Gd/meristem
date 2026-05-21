@@ -98,7 +98,7 @@ const baseSearchQuery = {
   q: t.Optional(t.String()),
   from: t.Optional(t.String()),
   to: t.Optional(t.String()),
-  limit: t.Optional(t.Numeric())
+  limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 }))
 }
 
 const fullSearchQuery = t.Object({
@@ -224,7 +224,7 @@ export function createLogApp(deps: LogAppDeps) {
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.timeline.list', headers, async () => ({ entries: await deps.listTimeline(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      query: t.Object({ limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })) }),
       response: {
         200: t.Object({ entries: t.Array(timelineLogSchema) }),
         401: internalErrorSchema
@@ -235,7 +235,7 @@ export function createLogApp(deps: LogAppDeps) {
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.full.list', headers, async () => ({ entries: await deps.listFull(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      query: t.Object({ limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })) }),
       response: {
         200: t.Object({ entries: t.Array(fullLogSchema) }),
         401: internalErrorSchema
@@ -246,7 +246,7 @@ export function createLogApp(deps: LogAppDeps) {
       if (!auth.ok) return status(401, { error: auth.error })
       return withExtractedSpan('m-log', 'm-log.audit.list', headers, async () => ({ entries: await deps.listAudit(query.limit) }))
     }, {
-      query: t.Object({ limit: t.Optional(t.Numeric()) }),
+      query: t.Object({ limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })) }),
       response: {
         200: t.Object({ entries: t.Array(auditLogSchema) }),
         401: internalErrorSchema
