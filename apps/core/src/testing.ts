@@ -28,6 +28,8 @@ type InMemoryOptions = {
   policyAvailable?: boolean
   auditAvailable?: boolean
   mNetAvailable?: boolean
+  // Phase 10
+  searchAvailable?: boolean
 }
 
 function asServiceSummary(value: unknown): ServiceSummary | null {
@@ -207,6 +209,24 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
       },
       async listAudit() {
         return ok(audit)
+      },
+      async searchFull(_query) {
+        if (options.searchAvailable === false) {
+          return err({ code: 'search.unavailable', message: 'search unavailable' })
+        }
+        return ok({ entries: [], total: 0 })
+      },
+      async searchTimeline(_query) {
+        if (options.searchAvailable === false) {
+          return err({ code: 'search.unavailable', message: 'search unavailable' })
+        }
+        return ok({ entries: [], total: 0 })
+      },
+      async searchAudit(_query) {
+        if (options.searchAvailable === false) {
+          return err({ code: 'search.unavailable', message: 'search unavailable' })
+        }
+        return ok({ entries: [], total: 0 })
       }
     },
     events: {

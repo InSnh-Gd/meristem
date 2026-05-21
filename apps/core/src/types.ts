@@ -2,9 +2,12 @@ import type {
   ActorId,
   AssignTaskRequest,
   AuditLog,
+  AuditSearchQuery,
   CreateNodeTicketRequest,
   CreateNetworkRequest,
   FullLog,
+  FullLogSearchQuery,
+  LogSearchResult,
   MNode,
   MNetwork,
   MNetworkMember,
@@ -17,7 +20,8 @@ import type {
   RegisterNodeRequest,
   ServiceSummary,
   SessionResponse,
-  TimelineLog
+  TimelineLog,
+  TimelineSearchQuery
 } from '../../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../../packages/events/src/index.ts'
 import type { Result } from '../../../packages/common/src/result.ts'
@@ -53,6 +57,7 @@ export type PolicyPort = {
 
 /**
  * LogPort 固定提供 Timeline / Full / Audit 三层日志接口，防止调用方绕开分级语义。
+ * Phase 10 新增 OpenSearch 搜索方法。
  */
 export type LogPort = {
   writeTimeline(input: Omit<TimelineLog, 'id' | 'timestamp'>): Promise<Result<TimelineLog, ServiceError>>
@@ -61,10 +66,13 @@ export type LogPort = {
   listTimeline(limit?: number): Promise<Result<TimelineLog[], ServiceError>>
   listFull(limit?: number): Promise<Result<FullLog[], ServiceError>>
   listAudit(limit?: number): Promise<Result<AuditLog[], ServiceError>>
+  searchFull(query: FullLogSearchQuery): Promise<Result<LogSearchResult<FullLog>, ServiceError>>
+  searchTimeline(query: TimelineSearchQuery): Promise<Result<LogSearchResult<TimelineLog>, ServiceError>>
+  searchAudit(query: AuditSearchQuery): Promise<Result<LogSearchResult<AuditLog>, ServiceError>>
 }
 
 /**
- * EventPort 只抽象“发布成功或失败”，不把具体总线实现泄漏给 Core 路由。
+ * EventPort 只抽象"发布成功或失败"，不把具体总线实现泄漏给 Core 路由。
  */
 export type EventPort = {
   publish(subject: string, event: MEventEnvelope): Promise<Result<{ eventId: string }, ServiceError>>
@@ -81,7 +89,7 @@ export type MNetPort = {
 }
 
 /**
- * AgentTaskPort 隔离“下发到 node-agent 并等待完成”的边界，避免 task 路由直接操作 NATS。
+ * AgentTaskPort 隔离"下发到 node-agent 并等待完成"的边界，避免 task 路由直接操作 NATS。
  */
 export type AgentTaskPort = {
   executeNoop(input: { nodeId: string; taskId: string; correlationId: string }): Promise<Result<NodeAgentTaskExecuteResponse, ServiceError>>
