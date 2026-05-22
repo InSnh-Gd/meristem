@@ -13,6 +13,7 @@
 | contract | API, Eden, event, service definition compatibility | contracts and services |
 | integration | Core with service, NATS, PostgreSQL boundaries | Core and M-* services |
 | failure-mode | degraded behavior and fail-closed behavior | policy, audit, event, storage |
+| e2e | full-stack end-to-end: Core REST, BFF, CLI, auth, RBAC | all new capabilities |
 | migration | old and new contract versions | versioned contracts |
 | UI contract | SDUI schema and forbidden component rules | M-UI |
 
@@ -51,6 +52,7 @@ bun run test:e2e
 ```
 
 No core capability is complete until these pass or an explicit documented exception exists.
+Any new capability must also add or extend e2e coverage in `tests/e2e/`.
 
 Additional hard gates:
 
@@ -63,6 +65,21 @@ Timeout rule:
 - keep the default `bun test` per-test timeout at `5000ms`
 - only real TLS / WebSocket / subprocess integration tests may opt into a longer per-test timeout
 - prefer the test-level timeout parameter over widening the whole suite or script timeout
+
+---
+
+## 3.1 E2E Test Requirements
+
+The e2e suite in `tests/e2e/core-rest.test.ts, tests/e2e/bff.test.ts, tests/e2e/cli.test.ts` validates the full request path through real Core, BFF, and CLI processes. It is the final gate before claiming a capability complete.
+
+Every new capability must extend e2e coverage with at least:
+- One happy-path test exercising the capability through REST or CLI.
+- One auth failure-mode test proving insufficient permissions are rejected (`401` or `403`).
+- One boundary test if the capability has a documented state or input restriction (e.g., `409` for invalid mode, `404` for missing resource).
+
+Do not add UI-only browser tests to the e2e suite unless the capability is explicitly UI-facing and the browser interaction is part of the contract. The existing e2e suite covers API, BFF, and CLI layers only.
+
+When removing or replacing old e2e tests, update this section to describe the new canonical suite.
 
 ---
 
@@ -129,7 +146,6 @@ MVP failure-mode tests:
 - non-reloadable service returns `409`.
 - reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
 - agent task assignment without an active token returns `409`.
-- Phase 9 browser tests cover operator -> security-admin token switching and a mobile usability smoke.
 
 ---
 
@@ -145,13 +161,10 @@ Must cover:
 
 UI contract tests are not MVP blockers because M-UI is out of scope for MVP, but the schema remains the future UI boundary.
 
-Phase 9 additions:
-
+Phase 9 BFF contract additions:
 - M-UI BFF must expose minimal OpenAPI for UI-facing endpoints.
 - M-UI must call M-UI BFF only, not Core REST directly.
 - BFF must not cache Core data or permission context across requests.
-- Phase 9 acceptance data must come from real Core REST v0; mock data is limited to empty-state rendering and contract-test stubs.
-- Playwright coverage must include operator happy path, missing-permission path, operator -> security-admin token switch, and one mobile viewport smoke.
 
 ---
 
