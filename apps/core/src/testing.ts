@@ -21,6 +21,7 @@ import type {
 } from '../../../packages/contracts/src/index.ts'
 import { rolePermissions, decidePermission } from '../../../packages/policy/src/index.ts'
 import type { CoreDeps } from './types.ts'
+import type { BackfillParams, BackfillResult, DLQRecord, ProjectionHealth } from '../../../packages/contracts/src/index.ts'
 
 // 内存依赖只服务测试和契约验证，不模拟生产级并发、事务或网络抖动。
 type InMemoryOptions = {
@@ -346,6 +347,32 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         const reloadedAt = new Date().toISOString()
         builtin.runtime = { ...(builtin.runtime ?? { liveness: true, readiness: true, mode: 'normal' }), lastReloadedAt: reloadedAt }
         return ok({ serviceId: input.serviceId, reloadedAt })
+      }
+    },
+    projection: {
+      async getHealth() {
+        const empty: ProjectionHealth[] = []
+        return ok(empty)
+      },
+      async executeBackfill(_params: BackfillParams) {
+        const result: BackfillResult = {
+          jobId: crypto.randomUUID(),
+          processedCount: 0,
+          errors: 0,
+          lastCursor: null,
+          status: 'completed'
+        }
+        return ok(result)
+      },
+      async listDLQ(_index?: string) {
+        const records: DLQRecord[] = []
+        return ok(records)
+      },
+      async replayDLQ(_dlqId: string) {
+        return ok(false)
+      },
+      async skipDLQ(_dlqId: string) {
+        return ok(false)
       }
     },
     storage: {

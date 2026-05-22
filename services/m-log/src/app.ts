@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import type { AuditLog, FullLog, FullLogSearchQuery, AuditSearchQuery, LogSearchResult, TimelineLog, TimelineSearchQuery } from '../../../packages/contracts/src/index.ts'
+import type { AuditLog, FullLog, FullLogSearchQuery, AuditSearchQuery, LogSearchResult, TimelineLog, TimelineSearchQuery, ProjectionHealth, BackfillParams, BackfillResult, DLQRecord } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { currentTraceId, withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 
@@ -19,6 +19,16 @@ export type SearchDeps = {
   isAvailable(): boolean
 }
 
+// Phase 10.1 投影端口：projection engine 暴露给 API 层的操作。
+export type ProjectionDeps = {
+  getProjectionHealth(): Promise<ProjectionHealth[]>
+  executeBackfill(params: BackfillParams): Promise<BackfillResult>
+  listDLQ(index?: string): Promise<DLQRecord[]>
+  replayDLQ(dlqId: string): Promise<boolean>
+  skipDLQ(dlqId: string): Promise<void>
+  isAvailable(): boolean
+}
+
 export type LogAppDeps = {
   readiness(): Promise<{ ready: boolean; opensearch: 'ready' | 'unavailable' }>
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
@@ -30,6 +40,8 @@ export type LogAppDeps = {
   reload(input: ReloadInput): Promise<{ serviceId: string; reloadedAt: string }>
   // Phase 10
   search: SearchDeps
+  // Phase 10.1
+  projection: ProjectionDeps
 }
 
 const internalErrorSchema = t.Object({
@@ -96,6 +108,53 @@ const degradedSearchSchema = t.Object({
   })
 })
 
+// ---- Phase 10.1 projection schemas ----
+
+const projectionHealthSchema = t.Object({
+  index: t.String(),
+  lagSeconds: t.Number(),
+  lastProjectedAt: t.Union([t.String(), t.Null()]),
+  pendingCount: t.Number(),
+  dlqCount: t.Number(),
+  status: t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('unavailable')])
+})
+
+const backfillParamsSchema = t.Object({
+  index: t.String({ minLength: 1 }),
+  from: t.Optional(t.Object({
+    factId: t.String(),
+    timestamp: t.String()
+  })),
+  to: t.Optional(t.Object({
+    factId: t.String(),
+    timestamp: t.String()
+  })),
+  batchSize: t.Numeric({ minimum: 1, maximum: 1000 }),
+  targetVersion: t.Optional(t.String())
+})
+
+const backfillResultSchema = t.Object({
+  jobId: t.String(),
+  processedCount: t.Number(),
+  errors: t.Number(),
+  lastCursor: t.Union([t.Object({
+    factId: t.String(),
+    timestamp: t.String()
+  }), t.Null()]),
+  status: t.Union([t.Literal('pending'), t.Literal('running'), t.Literal('completed'), t.Literal('failed'), t.Literal('cancelled')])
+})
+
+const dlqRecordSchema = t.Object({
+  id: t.String(),
+  jobId: t.String(),
+  factId: t.String(),
+  index: t.String(),
+  error: t.String(),
+  attemptedAt: t.Array(t.String()),
+  retries: t.Number(),
+  createdAt: t.String()
+})
+
 /**
  * 搜索 query schema: 通用字段 + 各类型特有字段。
  * unknown query fields 由 Elysia 自动拒绝（不在 schema 中的 key 会触发验证错误）。
@@ -132,7 +191,8 @@ const auditSearchQuery = t.Object({
 
 /**
  * M-Log 对内统一暴露 Timeline / Full / Audit 写入、查询、搜索，以及生命周期 reload。
- * Phase 10 新增内部搜索路由：GET /internal/v0/search/full|timeline|audit。
+ * Phase 10 新增内部搜索路由。
+ * Phase 10.1 新增投影健康、backfill、DLQ 路由。
  */
 export function createLogApp(deps: LogAppDeps) {
   return new Elysia()
@@ -292,8 +352,7 @@ export function createLogApp(deps: LogAppDeps) {
         503: internalErrorSchema
       }
     })
-    // Phase 10 内部搜索路由：M-Log 拥有 OpenSearch 查询语义。
-    // OpenSearch 不可用时返回 503 degraded。
+    // Phase 10 内部搜索路由
     .get('/internal/v0/search/full', async ({ query, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
@@ -373,6 +432,109 @@ export function createLogApp(deps: LogAppDeps) {
       query: auditSearchQuery,
       response: {
         200: logSearchResultSchema(auditLogSchema),
+        401: internalErrorSchema,
+        503: degradedSearchSchema
+      }
+    })
+    // ---- Phase 10.1 投影路由 ----
+    // §2.6 投影健康端点：lagSeconds、lastProjectedAt、pendingCount
+    .get('/internal/v0/projection/health', async ({ headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      if (!deps.projection.isAvailable()) {
+        return status(503, { error: { code: 'projection_unavailable', message: 'projection engine is not available' } })
+      }
+      const health = await deps.projection.getProjectionHealth()
+      return { indices: health }
+    }, {
+      response: {
+        200: t.Object({ indices: t.Array(projectionHealthSchema) }),
+        401: internalErrorSchema,
+        503: degradedSearchSchema
+      }
+    })
+    // §2.5 Backfill 端点：通过内部 HTTP 触发 full-text 重建
+    .post('/internal/v0/projection/backfill', async ({ body, headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      if (!deps.projection.isAvailable()) {
+        return status(503, { error: { code: 'projection_unavailable', message: 'projection engine is not available' } })
+      }
+      try {
+        const params: BackfillParams = {
+          index: body.index,
+          from: body.from ?? null,
+          to: body.to ?? null,
+          batchSize: Number(body.batchSize),
+          ...(body.targetVersion ? { targetVersion: body.targetVersion } : {})
+        }
+        const result = await deps.projection.executeBackfill(params)
+        return result
+      } catch (error) {
+        return status(503, {
+          error: {
+            code: 'backfill_failed',
+            message: error instanceof Error ? error.message : 'backfill failed'
+          }
+        })
+      }
+    }, {
+      body: backfillParamsSchema,
+      response: {
+        200: backfillResultSchema,
+        401: internalErrorSchema,
+        503: degradedSearchSchema
+      }
+    })
+    // §2.4 DLQ 列表查询
+    .get('/internal/v0/projection/dlg', async ({ query, headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      if (!deps.projection.isAvailable()) {
+        return status(503, { error: { code: 'projection_unavailable', message: 'projection engine is not available' } })
+      }
+      const records = await deps.projection.listDLQ(query.index)
+      return { records }
+    }, {
+      query: t.Object({ index: t.Optional(t.String()) }),
+      response: {
+        200: t.Object({ records: t.Array(dlqRecordSchema) }),
+        401: internalErrorSchema,
+        503: degradedSearchSchema
+      }
+    })
+    // §2.4 DLQ 手动重放
+    .post('/internal/v0/projection/dlg/:id/replay', async ({ params, headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      if (!deps.projection.isAvailable()) {
+        return status(503, { error: { code: 'projection_unavailable', message: 'projection engine is not available' } })
+      }
+      const success = await deps.projection.replayDLQ(params.id)
+      if (!success) {
+        return status(404, { error: { code: 'dlq_not_found_or_replay_failed', message: 'DLQ record not found or replay failed' } })
+      }
+      return { replayed: true }
+    }, {
+      response: {
+        200: t.Object({ replayed: t.Boolean() }),
+        401: internalErrorSchema,
+        404: internalErrorSchema,
+        503: degradedSearchSchema
+      }
+    })
+    // §2.4 DLQ 逐条跳过
+    .post('/internal/v0/projection/dlg/:id/skip', async ({ params, headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      if (!deps.projection.isAvailable()) {
+        return status(503, { error: { code: 'projection_unavailable', message: 'projection engine is not available' } })
+      }
+      await deps.projection.skipDLQ(params.id)
+      return { skipped: true }
+    }, {
+      response: {
+        200: t.Object({ skipped: t.Boolean() }),
         401: internalErrorSchema,
         503: degradedSearchSchema
       }
