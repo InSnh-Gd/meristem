@@ -369,10 +369,10 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         return ok(records)
       },
       async replayDLQ(_dlqId: string) {
-        return ok(false)
+        return ok(true)
       },
       async skipDLQ(_dlqId: string) {
-        return ok(false)
+        return ok(true)
       }
     },
     storage: {

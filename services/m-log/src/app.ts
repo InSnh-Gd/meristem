@@ -487,7 +487,7 @@ export function createLogApp(deps: LogAppDeps) {
       }
     })
     // §2.4 DLQ 列表查询
-    .get('/internal/v0/projection/dlg', async ({ query, headers, status }) => {
+    .get('/internal/v0/projection/dlq', async ({ query, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       if (!deps.projection.isAvailable()) {
@@ -504,7 +504,7 @@ export function createLogApp(deps: LogAppDeps) {
       }
     })
     // §2.4 DLQ 手动重放
-    .post('/internal/v0/projection/dlg/:id/replay', async ({ params, headers, status }) => {
+    .post('/internal/v0/projection/dlq/:id/replay', async ({ params, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       if (!deps.projection.isAvailable()) {
@@ -524,7 +524,7 @@ export function createLogApp(deps: LogAppDeps) {
       }
     })
     // §2.4 DLQ 逐条跳过
-    .post('/internal/v0/projection/dlg/:id/skip', async ({ params, headers, status }) => {
+    .post('/internal/v0/projection/dlq/:id/skip', async ({ params, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
       if (!deps.projection.isAvailable()) {

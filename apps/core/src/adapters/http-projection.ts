@@ -8,7 +8,7 @@ import { Effect } from "effect"
 type ProjectionClient = {
   health: { get(params?: Record<string, never>): Promise<{ data: { indices: ProjectionHealth[] } | null; error: { value: unknown; status: number } | null }> }
   backfill: { post(body: BackfillParams): Promise<{ data: BackfillResult | null; error: { value: unknown; status: number } | null }> }
-  dlg: {
+  dlq: {
     get(params: { query?: { index?: string } }): Promise<{ data: { records: DLQRecord[] } | null; error: { value: unknown; status: number } | null }>
   }
 }
@@ -54,7 +54,7 @@ export function createHttpProjectionPort() {
         tryServiceCall(
           async () => {
             const params = index ? { query: { index } } : {}
-            const response = await (client.internal.v0.projection as ProjectionClient).dlg.get(params)
+            const response = await (client.internal.v0.projection as ProjectionClient).dlq.get(params)
             if (response.error || !response.data) throw { code: "projection.unavailable", message: "projection unavailable" }
             return response.data.records
           },
@@ -68,7 +68,7 @@ export function createHttpProjectionPort() {
       return runServiceEffect(
         tryServiceCall(
           async () => {
-            const url = baseUrl + "/internal/v0/projection/dlg/" + encodeURIComponent(dlqId) + "/replay"
+            const url = baseUrl + "/internal/v0/projection/dlq/" + encodeURIComponent(dlqId) + "/replay"
             const response = await fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" } })
             if (!response.ok) throw { code: "dlq.replay_failed", message: "DLQ replay failed" }
             const body = await response.json() as { replayed: boolean }
@@ -84,7 +84,7 @@ export function createHttpProjectionPort() {
       return runServiceEffect(
         tryServiceCall(
           async () => {
-            const url = baseUrl + "/internal/v0/projection/dlg/" + encodeURIComponent(dlqId) + "/skip"
+            const url = baseUrl + "/internal/v0/projection/dlq/" + encodeURIComponent(dlqId) + "/skip"
             const response = await fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" } })
             if (!response.ok) throw { code: "dlq.skip_failed", message: "DLQ skip failed" }
             const body = await response.json() as { skipped: boolean }

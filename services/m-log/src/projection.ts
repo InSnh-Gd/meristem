@@ -5,6 +5,7 @@
 import { eq, and, asc, sql, gte, lte, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { projectorJobs, projectionCursors, projectionDLQ, timelineLogs, fullLogs, auditLogs } from '../../../packages/db/src/schema.ts'
+import { recordGauge } from '../../../packages/telemetry/src/index.ts'
 import type {
   ProjectorJob,
   ProjectorJobStatus,
@@ -49,6 +50,14 @@ function factTableFromIndex(index: string): FactTableName | null {
 function idempotencyKey(index: string, factId: string): string {
   // version 固定为 1，后续可扩展
   return `${index}:${factId}:1`
+}
+
+/**
+ * 计算目标索引名。若提供 targetVersion，替换 params.index 的版本后缀。
+ */
+function resolveTargetIndex(index: string, targetVersion?: string): string {
+  if (!targetVersion) return index
+  return index.replace(/-v\d+$/, `-v${targetVersion}`)
 }
 
 /**
@@ -286,6 +295,10 @@ export function createProjectionEngine(
         status = 'healthy'
       }
 
+      recordGauge('projection.lag_seconds', lagSeconds, { index })
+      recordGauge('projection.pending_count', pendingCount, { index })
+      recordGauge('projection.dlq_count', dlqCount, { index })
+
       results.push({ index, lagSeconds, lastProjectedAt, pendingCount, dlqCount, status })
     }
 
@@ -296,19 +309,20 @@ export function createProjectionEngine(
 
   /**
    * 执行 backfill：从 PostgreSQL 事实表读取数据，批量投影到 OpenSearch。
-   * 支持断点续投（基于 cursor）。
+   * 支持断点续投（基于 cursor）和目标版本索引切换（targetVersion）。
    */
   async function executeBackfill(params: BackfillParams): Promise<BackfillResult> {
+    const targetIndex = resolveTargetIndex(params.index, params.targetVersion)
     const factTable = factTableFromIndex(params.index)
     if (!factTable) throw new Error(`unknown index: ${params.index}`)
 
-    const job = await createJob('backfill', params.index, params.from, params.to, params.batchSize)
+    const job = await createJob('backfill', targetIndex, params.from, params.to, params.batchSize)
     await transitionJob(job.id, 'running')
 
     const table = factTables[factTable]
     let processedCount = 0
     let errors = 0
-    let currentCursor = params.from ?? await getCursor(params.index) ?? {
+    let currentCursor = params.from ?? await getCursor(targetIndex) ?? {
       factId: '00000000-0000-0000-0000-000000000000',
       timestamp: '1970-01-01T00:00:00.000Z'
     }
@@ -338,8 +352,8 @@ export function createProjectionEngine(
 
         // 逐条投影
         for (const row of batch) {
-          const doc = mapFactToDoc(params.index, row as Record<string, unknown>)
-          const success = await projectWithRetry(job.id, params.index, (row as Record<string, unknown>).id as string, doc)
+          const doc = mapFactToDoc(targetIndex, row as Record<string, unknown>)
+          const success = await projectWithRetry(job.id, targetIndex, (row as Record<string, unknown>).id as string, doc)
           if (success) {
             processedCount++
           } else {
@@ -355,7 +369,7 @@ export function createProjectionEngine(
           factId: lastRec.id as string,
           timestamp: (lastRec.timestamp as Date).toISOString()
         }
-        await advanceCursor(params.index, currentCursor)
+        await advanceCursor(targetIndex, currentCursor)
 
         if (batch.length < params.batchSize) break // 已读完
       }

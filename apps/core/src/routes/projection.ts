@@ -70,7 +70,7 @@ export function projectionRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail("Execute backfill")
     })
     // 2.4 DLQ list
-    .get("/api/v0/projection/dlg", async ({ query, headers, status }) => {
+    .get("/api/v0/projection/dlq", async ({ query, headers, status }) => {
       const auth = await requireActor(deps, headers, status)
       if (!auth.ok) return auth.response
       const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
@@ -89,6 +89,37 @@ export function projectionRoutes(deps: CoreDeps) {
         { 503: apiErrorSchema }
       ),
       detail: protectedRouteDetail("List DLQ records")
+    })
+
+    // 2.4 DLQ replay
+    .post("/api/v0/projection/dlq/:id/replay", async ({ params, headers, status }) => {
+      const auth = await requireActor(deps, headers, status)
+      if (!auth.ok) return auth.response
+      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
+      if (!permission.ok) return permission.response
+      const result = await deps.projection.replayDLQ(params.id)
+      return result.ok ? { replayed: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+    }, {
+      response: protectedResponse(
+        t.Object({ replayed: t.Boolean() }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail("Replay DLQ record")
+    })
+    // 2.4 DLQ skip
+    .post("/api/v0/projection/dlq/:id/skip", async ({ params, headers, status }) => {
+      const auth = await requireActor(deps, headers, status)
+      if (!auth.ok) return auth.response
+      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
+      if (!permission.ok) return permission.response
+      const result = await deps.projection.skipDLQ(params.id)
+      return result.ok ? { skipped: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+    }, {
+      response: protectedResponse(
+        t.Object({ skipped: t.Boolean() }),
+        { 503: apiErrorSchema }
+      ),
+      detail: protectedRouteDetail("Skip DLQ record")
     })
 }
 
