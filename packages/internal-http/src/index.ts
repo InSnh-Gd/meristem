@@ -115,7 +115,7 @@ export function serveHttpApp(
   return {
     name,
     port,
-    url: serviceUrl(name),
+    url: `http://127.0.0.1:${port}`,
     async stop() {
       server.stop(true)
     }

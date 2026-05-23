@@ -1,4 +1,4 @@
-import { context, propagation, SpanStatusCode, trace, type Attributes } from '@opentelemetry/api'
+import { context, metrics, propagation, SpanStatusCode, trace, type Attributes, type Meter } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import {
   CompositePropagator,
@@ -17,6 +17,7 @@ import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
 
 let initialized = false
 let provider: BasicTracerProvider | null = null
+let meter: Meter | null = null
 
 /**
  * 控制台 exporter 需要输出微秒时间戳，方便与日志、事件和数据库中的 ISO 时间互相对照。
@@ -89,10 +90,32 @@ function ensureGlobalTelemetry(serviceName: string): void {
 }
 
 /**
+ * 初始化 metrics，获取 meter 供本服务记录 gauge/counter 等测量值。
+ * 失败时静默处理，不破坏既有 trace-only 行为。
+ */
+export function initMetrics(serviceName: string): void {
+  try {
+    meter = metrics.getMeter(serviceName, '0.1.0')
+  } catch {
+    meter = null
+  }
+}
+
+/**
+ * 记录 gauge 测量值。若 meter 未初始化则静默忽略。
+ */
+export function recordGauge(name: string, value: number, attributes?: Record<string, string | number | boolean>): void {
+  if (!meter) return
+  const gauge = meter.createGauge(name)
+  gauge.record(value, attributes)
+}
+
+/**
  * 每个进程在入口处调用 initTelemetry，拿到本服务 tracer 后再开展业务调用。
  */
 export function initTelemetry(serviceName: string) {
   ensureGlobalTelemetry(serviceName)
+  initMetrics(serviceName)
   return trace.getTracer(serviceName, '0.1.0')
 }
 

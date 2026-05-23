@@ -1,4 +1,5 @@
 import { createSqlClient } from './client.ts'
+import { projectionPermissions } from '../../contracts/src/index.ts'
 
 // 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
@@ -30,13 +31,16 @@ const permissions = [
   ['service:reload', 'reload internal services'],
   ['network:read', 'read logical network state'],
   ['network:create', 'create logical networks'],
-  ['network:join', 'join nodes to logical networks']
+  ['network:join', 'join nodes to logical networks'],
+  ['projection:read', 'read projection health and DLQ state'],
+  ['projection:backfill', 'execute projection backfills'],
+  ['projection:dlq-manage', 'replay or skip projection DLQ records']
 ] as const
 
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join'],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -49,7 +53,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     'service:reload',
     'network:read',
     'network:create',
-    'network:join'
+    'network:join',
+    ...projectionPermissions
   ]
 }
 

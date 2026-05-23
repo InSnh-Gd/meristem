@@ -1,6 +1,8 @@
 # ElysiaJS Latest Reference
 
-> Last checked: 2026-05-04. This is a concise project reference, not a copy of upstream docs.
+> Last checked: 2026-05-22. This is a concise project reference, not a copy of upstream docs.  
+> Context7 mirror: `/elysiajs/documentation` (benchmark 90.1).  
+> Round query: 2026-05-22 via Context7 MCP (`resolve-library-id` + `query-docs`).
 
 ---
 
@@ -25,6 +27,10 @@ Release `1.4.28` includes stream response/backpressure work, range handling for 
 - Lifecycle hooks such as request, before-handle, after-handle, and error handling are part of app organization.
 - Eden provides type-safe internal TypeScript clients from the server app type.
 - OpenAPI/Swagger plugins generate API documentation from route schemas.
+- `.error()` registers custom error classes for type-safe error handling.
+- `.onError()` provides a global error hook for validation, not-found, and custom errors.
+- `status(code, body)` returns a response with a specific HTTP status code.
+- Valibot and TypeBox are both supported for schema validation.
 
 ---
 
@@ -73,7 +79,54 @@ export const app = new Elysia()
 
 ---
 
-## 5. Testing Pattern
+## 5. Error Handling Pattern
+
+Elysia 1.4.28 supports custom error classes and a global `onError` hook.  
+The `.error()` method registers type-safe custom errors; `.onError()` catches them by `code`.
+
+```ts
+class AuthError extends Error {
+  status = 401
+  constructor(message: string) { super(message) }
+}
+
+new Elysia()
+  .error({ AuthError })
+  .onError(({ code, error, status }) => {
+    switch (code) {
+      case 'AuthError':
+        return { error: error.message, code: 'AUTH_FAILED' }
+      case 'VALIDATION':
+        return status(400, { error: error.message })
+      case 'NOT_FOUND':
+        return status(404, { error: 'Route not found' })
+      default:
+        return status(500, { error: 'Internal server error' })
+    }
+  })
+  .get('/protected', ({ headers }) => {
+    if (!headers.authorization) throw new AuthError('Missing authorization')
+    return 'Secret data'
+  })
+```
+
+Validation errors can be caught with `code === 'VALIDATION'` and `error.all()` for field-level detail:
+
+```ts
+.onError(({ code, error, set }) => {
+  if (code === 'VALIDATION') {
+    set.status = 400
+    return { fields: error.all() }
+  }
+})
+```
+
+**Meristem 现状 (2026-05-22)**: 代码库未使用 `.error()` 和 `.onError()`；每个 handler 手动调用 `apiError(status, ...)`。  
+**建议**: 在 `apps/core/src/app.ts` 注册全局 `.error()` + `.onError()`，统一错误响应格式。
+
+---
+
+## 6. Testing Pattern
 
 ```ts
 const response = await app.handle(
@@ -88,9 +141,33 @@ Use this style for route-level tests before relying on a live server.
 
 ---
 
-## 6. Sources
+## 7. Version Pinning Note
+
+Elysia and its plugin ecosystem release on independent cadences.  
+`@elysiajs/openapi`, `@elysiajs/eden`, `@elysiajs/cors` may introduce breaking changes across minor versions.
+
+Recommendation: pin all Elysia-family packages to exact versions in `package.json`.
+
+---
+
+## 8. Sources
 
 - Elysia official docs: https://elysiajs.com
 - Elysia documentation repository: https://github.com/elysiajs/documentation
 - Elysia release `1.4.28`: https://github.com/elysiajs/elysia/releases/tag/1.4.28
-- Context7 official-doc mirror used for route, lifecycle, OpenAPI, Eden, and testing examples: `/elysiajs/documentation`
+- Context7 official-doc mirror: `/elysiajs/documentation` (benchmark 90.1)
+- Context7 OpenAPI plugin mirror: `/elysiajs/elysia-openapi`
+
+## 9. Context7 Query Log (2026-05-22)
+
+| Topic | Context7 libraryId | Key findings |
+|-------|-------------------|--------------|
+| Version & features | `/elysiajs/documentation` | `elysia@1.4.28` (2026-03-16); stream/backpressure/range fixes |
+| Error handling | `/elysiajs/documentation` | `.error()` + `.onError()` for type-safe custom errors |
+| Validation | `/elysiajs/documentation` | TypeBox (`t.String()`) and Valibot (`v.string()`) both supported |
+| Testing | `/elysiajs/documentation` | `app.handle(new Request(...))` no server needed |
+
+**Context7 usage notes**:
+- Requires `POST` + `Accept: application/json, text/event-stream`
+- Returns SSE format (`event: message\ndata: {...}`)
+- Does not support `resources/list`; only exposes `tools` (`resolve-library-id`, `query-docs`)

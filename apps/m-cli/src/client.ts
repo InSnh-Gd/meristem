@@ -11,7 +11,11 @@ import type {
   RegisterNodeResponse,
   ServiceListResponse,
   ServiceReloadResponse,
-  StatusResponse
+  StatusResponse,
+  ProjectionHealth,
+  BackfillParams,
+  BackfillResult,
+  DLQRecord
 } from '../../../packages/contracts/src/index.ts'
 import { injectTraceHeaders } from '../../../packages/telemetry/src/index.ts'
 import type { CliClient } from './cli.ts'
@@ -140,7 +144,32 @@ export function createCoreClient(config: CliConfig): CliClient {
       return unwrap<ServiceReloadResponse>(route.reload.post({ ...(reason ? { reason } : {}), $headers: headers }))
     },
     listTimeline: async () => unwrap(client.api.v0.logs.timeline.get({ $headers: headers })),
-    listAudit: async () => unwrap(client.api.v0.audit.get({ $headers: headers }))
+    listAudit: async () => unwrap(client.api.v0.audit.get({ $headers: headers })),
+    projectionHealth: async () => unwrap<{ indices: ProjectionHealth[] }>(client.api.v0.projection.health.get({ $headers: headers })),
+    backfill: async (input) => {
+      const body: Record<string, unknown> = { index: input.index, batchSize: input.batchSize, $headers: headers }
+      if (input.from !== null && input.from !== undefined) body.from = input.from
+      if (input.to !== null && input.to !== undefined) body.to = input.to
+      if (input.targetVersion !== undefined) body.targetVersion = input.targetVersion
+      return unwrap<BackfillResult>(client.api.v0.projection.backfill.post(body as { index: string; from?: { factId: string; timestamp: string }; to?: { factId: string; timestamp: string }; batchSize: number; targetVersion?: string; $headers: Record<string, string> }))
+    },
+    listDLQ: async (index) => unwrap<{ records: DLQRecord[] }>(client.api.v0.projection.dlq.get({ $query: { ...(index ? { index } : {}) }, $headers: headers })),
+    replayDLQ: async (dlqId) => {
+      const response = await fetch(`${config.coreUrl}/api/v0/projection/dlq/${encodeURIComponent(dlqId)}/replay`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      })
+      if (!response.ok) throw new Error(`replay DLQ failed: ${response.status}`)
+      return response.json()
+    },
+    skipDLQ: async (dlqId) => {
+      const response = await fetch(`${config.coreUrl}/api/v0/projection/dlq/${encodeURIComponent(dlqId)}/skip`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' }
+      })
+      if (!response.ok) throw new Error(`skip DLQ failed: ${response.status}`)
+      return response.json()
+    }
   }
 }
 

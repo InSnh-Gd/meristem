@@ -23,7 +23,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` |
 | M-Net | `networks`, `network_memberships` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions` |
-| M-Log | `timeline_logs`, `full_logs`, `audit_logs` |
+| M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
 
 ### `users`
 

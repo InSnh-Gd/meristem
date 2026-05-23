@@ -78,3 +78,49 @@ Before adding new state, answer:
 5. Does it need Audit Log?
 6. How does it degrade when storage is unavailable?
 7. Does it affect Core / Stem / Leaf compatibility?
+
+---
+
+## 5. Phase 10.1 Projection State Tables
+
+Phase 10.1 Projection Platform Track 新增三张 PostgreSQL 表，均归属 M-Log。
+
+### `projector_jobs`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | job UUID |
+| `type` | text | `backfill`, `incremental`, `repair` |
+| `index` | text | target OpenSearch index name |
+| `start_cursor` | jsonb | `{ factId, timestamp }` or null |
+| `end_cursor` | jsonb | `{ factId, timestamp }` or null |
+| `batch_size` | integer | documents per batch |
+| `status` | text | `pending`, `running`, `completed`, `failed`, `cancelled` |
+| `error` | text | failure reason when status is failed |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `completed_at` | timestamptz | set on terminal state |
+
+### `projection_cursors`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `index` | text primary key | OpenSearch index name, one cursor per index |
+| `fact_id` | text | last projected PostgreSQL fact ID |
+| `timestamp` | timestamptz | last projected fact timestamp |
+| `updated_at` | timestamptz | cursor last advanced at |
+
+### `projection_dlq`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | DLQ record UUID |
+| `job_id` | text | originating projector job ID |
+| `fact_id` | text | PostgreSQL fact ID that failed projection |
+| `index` | text | target OpenSearch index |
+| `error` | text | failure reason |
+| `attempted_at` | jsonb | ISO8601 timestamp array per retry |
+| `retries` | integer | number of retry attempts |
+| `created_at` | timestamptz | UTC |
+
+All three tables are authoritative state owned by M-Log and must not be used as cache or event state.

@@ -1,20 +1,6 @@
-// ActorId 固定为 MVP 文档定义的四类操作者身份，避免运行时冒出未建模角色。
-export type ActorId = 'viewer' | 'operator' | 'admin' | 'security-admin'
+import type { ActorId, Permission } from './literals.ts'
 
-// Permission 是 Core 和 M-Policy 共享的最小授权词表，所有高权限操作都必须落到这里。
-export type Permission =
-  | 'core:read'
-  | 'node:register'
-  | 'node:issue-token'
-  | 'task:assign'
-  | 'timeline:read'
-  | 'log:read-full'
-  | 'audit:read'
-  | 'service:register'
-  | 'service:reload'
-  | 'network:read'
-  | 'network:create'
-  | 'network:join'
+export type { ActorId, Permission } from './literals.ts'
 
 export type DependencyState = 'ready' | 'unavailable'
 
@@ -408,4 +394,72 @@ export type AuditSearchQuery = LogSearchQuery & {
 export type LogSearchResult<T> = {
   entries: T[]
   total: number
+}
+
+// ---- Phase 10.1 Projection Platform 类型 ----
+// 来源：docs/roadmap/PHASE-10.1.md
+
+// §2.1 Projector Job 状态机：pending → running → completed | failed | cancelled
+export type ProjectorJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export type ProjectorJobType = 'backfill' | 'incremental' | 'repair'
+
+export type ProjectorJob = {
+  id: string
+  type: ProjectorJobType
+  index: string
+  startCursor: ProjectionCursor | null
+  endCursor: ProjectionCursor | null
+  batchSize: number
+  status: ProjectorJobStatus
+  error: string | null
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+// §2.3 Cursor 形状：基于 PostgreSQL 事实表的 (id, timestamp) 排序
+export type ProjectionCursor = {
+  factId: string
+  timestamp: string // ISO8601
+}
+
+// §2.4 DLQ 记录 schema
+export type DLQRecord = {
+  id: string
+  jobId: string
+  factId: string
+  index: string
+  error: string
+  attemptedAt: string[] // ISO8601 timestamps per retry
+  retries: number
+  createdAt: string
+}
+
+// §2.6 投影健康指标
+export type ProjectionHealth = {
+  index: string
+  lagSeconds: number
+  lastProjectedAt: string | null
+  pendingCount: number
+  dlqCount: number
+  status: 'healthy' | 'degraded' | 'unavailable'
+}
+
+// §2.5 Backfill 参数
+export type BackfillParams = {
+  index: string
+  from: ProjectionCursor | null
+  to: ProjectionCursor | null
+  batchSize: number
+  targetVersion?: string // 目标索引版本，默认 latest
+}
+
+// Backfill 结果
+export type BackfillResult = {
+  jobId: string
+  processedCount: number
+  errors: number
+  lastCursor: ProjectionCursor | null
+  status: ProjectorJobStatus
 }

@@ -139,7 +139,15 @@ describe('Eden clients', () => {
       async full(_query: FullLogSearchQuery) { return null },
       async timeline(_query: TimelineSearchQuery) { return null },
       async audit(_query: AuditSearchQuery) { return null },
-      isAvailable() { return false },
+      isAvailable() { return false }
+      },
+      projection: {
+        async getProjectionHealth() { return [] },
+        async executeBackfill() { return { jobId: '', processedCount: 0, errors: 0, lastCursor: null, status: 'completed' as const } },
+        async listDLQ() { return [] },
+        async replayDLQ() { return false },
+        async skipDLQ() { return Promise.resolve() },
+        isAvailable() { return false }
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })
@@ -191,7 +199,15 @@ describe('Eden clients', () => {
       async full(_query: FullLogSearchQuery) { return null },
       async timeline(_query: TimelineSearchQuery) { return null },
       async audit(_query: AuditSearchQuery) { return null },
-      isAvailable() { return false },
+      isAvailable() { return false }
+      },
+      projection: {
+        async getProjectionHealth() { return [] },
+        async executeBackfill() { return { jobId: '', processedCount: 0, errors: 0, lastCursor: null, status: 'completed' as const } },
+        async listDLQ() { return [] },
+        async replayDLQ() { return false },
+        async skipDLQ() { return Promise.resolve() },
+        isAvailable() { return false }
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })

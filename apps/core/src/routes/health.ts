@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia'
+import { CoreError } from '../core-error.ts'
 import type { CoreDeps } from '../types.ts'
 import { requireActor, authorize } from '../middleware/auth.ts'
 import { statusCodeForServiceError, tracedEvent, joinSessionUrl } from '../middleware/helpers.ts'
-import { apiError } from '../errors.ts'
 import {
   apiErrorSchema,
   dependenciesSchema,
@@ -20,6 +20,7 @@ import {
   protectedResponse
 } from '../schemas.ts'
 import { withExtractedSpan } from '../../../../packages/telemetry/src/index.ts'
+import { actorIds, permissions as permissionLiterals } from '../../../../packages/contracts/src/index.ts'
 
 
 export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean }) {
@@ -39,23 +40,17 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
     })
     // 会话端点供 UI 和 BFF 在不触发授权的情况下读取当前操作者身份和权限列表。
     .get('/api/v0/session', async ({ headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
+      const auth = await requireActor(deps, headers)
 
       const permissions = await deps.auth.getPermissions(auth.actor)
-      if (!permissions.ok) return apiError(status, 503, permissions.error.code, permissions.error.message, auth.correlationId)
+      if (!permissions.ok) throw new CoreError(503, permissions.error.code, permissions.error.message, auth.correlationId)
 
       return { actor: auth.actor, permissions: permissions.value }
     }, {
       response: {
         200: t.Object({
-          actor: t.Union([t.Literal('viewer'), t.Literal('operator'), t.Literal('admin'), t.Literal('security-admin')]),
-          permissions: t.Array(t.Union([
-            t.Literal('core:read'), t.Literal('node:register'), t.Literal('node:issue-token'),
-            t.Literal('task:assign'), t.Literal('timeline:read'), t.Literal('log:read-full'),
-            t.Literal('audit:read'), t.Literal('service:register'), t.Literal('service:reload'),
-            t.Literal('network:read'), t.Literal('network:create'), t.Literal('network:join')
-          ]))
+          actor: t.UnionEnum(actorIds),
+          permissions: t.Array(t.UnionEnum(permissionLiterals))
         }),
         401: apiErrorSchema
       },
@@ -87,14 +82,8 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
     })
     .get('/api/v0/status', async ({ headers, status }) =>
       withExtractedSpan('meristem-core', 'core.status', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
-        const permission = await authorize(
-          deps,
-          { actor: auth.actor, action: 'core:read', resource: 'core', correlationId: auth.correlationId },
-          status
-        )
-        if (!permission.ok) return permission.response
+        const auth = await requireActor(deps, headers)
+        const permission = await authorize(deps, { actor: auth.actor, action: 'core:read', resource: 'core', correlationId: auth.correlationId })
 
         const dependencies = await deps.storage.readiness()
         const counts = await deps.storage.counts()

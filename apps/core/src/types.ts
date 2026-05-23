@@ -3,8 +3,11 @@ import type {
   AssignTaskRequest,
   AuditLog,
   AuditSearchQuery,
+  BackfillParams,
+  BackfillResult,
   CreateNodeTicketRequest,
   CreateNetworkRequest,
+  DLQRecord,
   FullLog,
   FullLogSearchQuery,
   LogSearchResult,
@@ -16,6 +19,7 @@ import type {
   MTask,
   Permission,
   PolicyDecision,
+  ProjectionHealth,
   ReadyResponse,
   RegisterNodeRequest,
   ServiceSummary,
@@ -128,6 +132,19 @@ export type CoreStorage = {
   listServices(): Promise<unknown[]>
 }
 
+
+/**
+ * ProjectionPort 暴露投影平台操作，Core 通过内部 HTTP 调用 M-Log 投影端点。
+ * Phase 10.1 来源：docs/roadmap/PHASE-10.1.md
+ */
+export type ProjectionPort = {
+  getHealth(): Promise<Result<ProjectionHealth[], ServiceError>>
+  executeBackfill(params: BackfillParams): Promise<Result<BackfillResult, ServiceError>>
+  listDLQ(index?: string): Promise<Result<DLQRecord[], ServiceError>>
+  replayDLQ(dlqId: string): Promise<Result<boolean, ServiceError>>
+  skipDLQ(dlqId: string): Promise<Result<boolean, ServiceError>>
+}
+
 /**
  * CoreDeps 是微内核真正依赖的端口集合，路由层必须通过这些显式端口访问外部能力。
  */
@@ -142,5 +159,6 @@ export type CoreDeps = {
   mNet: MNetPort
   agentTasks: AgentTaskPort
   services: ServiceLifecyclePort
+  projection: ProjectionPort
   storage: CoreStorage
 }

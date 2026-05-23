@@ -1,7 +1,10 @@
 import { describe, expect, it, beforeAll, afterAll } from 'bun:test'
+import * as Either from 'effect/Either'
+import * as Schema from 'effect/Schema'
 import { createMUiBffApp } from '../../services/m-ui-bff/src/app.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
+import { CommandWellEligibilitySchema, MinimalPolicyDecisionSummarySchema } from '../../packages/contracts/src/index.ts'
 
 const CORE_BASE = 'http://mock-core'
 
@@ -189,6 +192,7 @@ describe('M-UI BFF contract tests', () => {
       state: string
       command: { id: string }
     }
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
     expect(body.state).toBe('enabled')
     expect(body.command.id).toBe('task.noop.run')
   })
@@ -202,8 +206,11 @@ describe('M-UI BFF contract tests', () => {
       leafNodeId: 'leaf-placeholder'
     })
     expect(res.status).toBe(200)
-    const body = await res.json() as { state: string; disabledReason: string }
+    const body = await res.json() as { state: string; disabledReason: string; disabled: { code: string; missingPermission?: string } }
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
     expect(body.state).toBe('disabled')
+    expect(body.disabled.code).toBe('missing_permission')
+    expect(body.disabled.missingPermission).toBe('task:assign')
     expect(body.disabledReason).toBe('缺少权限：task:assign')
   })
 
@@ -228,8 +235,10 @@ describe('M-UI BFF contract tests', () => {
       leafNodeId: stemId
     })
     expect(res.status).toBe(200)
-    const body = await res.json() as { state: string; disabledReason: string }
+    const body = await res.json() as { state: string; disabledReason: string; disabled: { code: string } }
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
     expect(body.state).toBe('disabled')
+    expect(body.disabled.code).toBe('wrong_node_kind')
     expect(body.disabledReason).toBe('目标不是 Leaf 节点')
   })
 
@@ -261,9 +270,28 @@ describe('M-UI BFF contract tests', () => {
       leafNodeId: leafId
     })
     expect(res.status).toBe(200)
-    const body = await res.json() as { state: string; disabledReason: string }
+    const body = await res.json() as { state: string; disabledReason: string; disabled: { code: string } }
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
     expect(body.state).toBe('disabled')
+    expect(body.disabled.code).toBe('node_unreachable')
     expect(body.disabledReason).toBe('目标节点不可达')
+  })
+
+  it('POST /api/v0/commands/noop derives disabled state without audit or task side effects', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'viewer' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/commands/noop', 'POST', 'viewer-token', {
+      leafNodeId: 'leaf-placeholder'
+    })
+    const audit = await deps.log.listAudit()
+    const timeline = await deps.log.listTimeline()
+
+    expect(res.status).toBe(200)
+    expect(audit.ok ? audit.value.length : -1).toBe(0)
+    expect(audit.ok ? audit.value.some((entry) => entry.action === 'task:assign') : true).toBe(false)
+    expect(timeline.ok ? timeline.value.some((entry) => entry.summary.includes('noop task')) : true).toBe(false)
   })
 
   it('POST /api/v0/commands/noop/execute with operator token returns task result', async () => {
@@ -342,6 +370,7 @@ describe('M-UI BFF contract tests', () => {
     expect(body.decision.resource).toBeDefined()
     expect(body.decision.result).toBeDefined()
     expect(body.decision.createdAt).toBeDefined()
+    expect(Either.isRight(Schema.decodeUnknownEither(MinimalPolicyDecisionSummarySchema)(body.decision))).toBe(true)
     // reasons MUST NOT be present
     expect(body.decision).not.toHaveProperty('reasons')
   })

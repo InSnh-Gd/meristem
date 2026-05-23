@@ -1,4 +1,5 @@
 import { Elysia, t } from 'elysia'
+import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
 import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
@@ -26,26 +27,8 @@ const internalErrorSchema = t.Object({
 
 const policyDecisionSchema = t.Object({
   id: t.String(),
-  actor: t.Union([
-    t.Literal('viewer'),
-    t.Literal('operator'),
-    t.Literal('admin'),
-    t.Literal('security-admin')
-  ]),
-  action: t.Union([
-    t.Literal('core:read'),
-    t.Literal('node:register'),
-    t.Literal('node:issue-token'),
-    t.Literal('task:assign'),
-    t.Literal('timeline:read'),
-    t.Literal('log:read-full'),
-    t.Literal('audit:read'),
-    t.Literal('service:register'),
-    t.Literal('service:reload'),
-    t.Literal('network:read'),
-    t.Literal('network:create'),
-    t.Literal('network:join')
-  ]),
+  actor: t.UnionEnum(actorIds),
+  action: t.UnionEnum(permissions),
   resource: t.String(),
   result: t.Union([t.Literal('allow'), t.Literal('deny')]),
   reasons: t.Array(t.String()),
@@ -76,26 +59,8 @@ export function createPolicyApp(deps: PolicyAppDeps) {
       },
       {
         body: t.Object({
-          actor: t.Union([
-            t.Literal('viewer'),
-            t.Literal('operator'),
-            t.Literal('admin'),
-            t.Literal('security-admin')
-          ]),
-          action: t.Union([
-            t.Literal('core:read'),
-            t.Literal('node:register'),
-            t.Literal('node:issue-token'),
-            t.Literal('task:assign'),
-            t.Literal('timeline:read'),
-            t.Literal('log:read-full'),
-            t.Literal('audit:read'),
-            t.Literal('service:register'),
-            t.Literal('service:reload'),
-            t.Literal('network:read'),
-            t.Literal('network:create'),
-            t.Literal('network:join')
-          ]),
+          actor: t.UnionEnum(actorIds),
+          action: t.UnionEnum(permissions),
           resource: t.String(),
           correlationId: t.Optional(t.String()),
           traceId: t.Optional(t.String())

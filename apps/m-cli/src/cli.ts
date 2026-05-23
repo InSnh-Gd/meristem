@@ -9,7 +9,11 @@ import type {
   RegisterNodeResponse,
   ServiceListResponse,
   ServiceReloadResponse,
-  StatusResponse
+  StatusResponse,
+  ProjectionHealth,
+  BackfillParams,
+  BackfillResult,
+  DLQRecord
 } from '../../../packages/contracts/src/index.ts'
 
 export type CliClient = {
@@ -29,6 +33,11 @@ export type CliClient = {
   reloadService?(serviceId: string, reason?: string): Promise<ServiceReloadResponse>
   listTimeline?(): Promise<unknown>
   listAudit?(): Promise<unknown>
+  projectionHealth?(): Promise<{ indices: ProjectionHealth[] }>
+  backfill?(input: BackfillParams): Promise<BackfillResult>
+  listDLQ?(index?: string): Promise<{ records: DLQRecord[] }>
+  replayDLQ?(dlqId: string): Promise<unknown>
+  skipDLQ?(dlqId: string): Promise<unknown>
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -179,9 +188,57 @@ export function createCliRunner(client: CliClient) {
           return { exitCode: 0, stdout: encode(await listAudit()), stderr: '' }
         }
 
+        if (command === 'projection' && subcommand === 'health') {
+          const projectionHealth = requireMethod(client.projectionHealth, 'projectionHealth')
+          return { exitCode: 0, stdout: encode(await projectionHealth()), stderr: '' }
+        }
+
+        if (command === 'projection' && subcommand === 'backfill') {
+          const index = requireArg(args, '--index')
+          const fromFlagIndex = args.indexOf('--from')
+          const toFlagIndex = args.indexOf('--to')
+          const batchSizeFlagIndex = args.indexOf('--batch-size')
+          const from = fromFlagIndex >= 0 ? args[fromFlagIndex + 1] : undefined
+          const to = toFlagIndex >= 0 ? args[toFlagIndex + 1] : undefined
+          const batchSize = batchSizeFlagIndex >= 0 ? Number(args[batchSizeFlagIndex + 1]) : 100
+          if (!Number.isFinite(batchSize) || batchSize < 1 || batchSize > 1000) throw new Error('--batch-size must be between 1 and 1000')
+          const backfill = requireMethod(client.backfill, 'backfill')
+          return {
+            exitCode: 0,
+            stdout: encode(await backfill({
+              index,
+              ...(from ? { from: JSON.parse(from) } : { from: null }),
+              ...(to ? { to: JSON.parse(to) } : { to: null }),
+              batchSize
+            })),
+            stderr: ''
+          }
+        }
+
+        if (command === 'projection' && subcommand === 'dlq') {
+          const action = args[2]
+          if (action === 'list') {
+            const indexFlagIndex = args.indexOf('--index')
+            const index = indexFlagIndex >= 0 ? args[indexFlagIndex + 1] : undefined
+            const listDLQ = requireMethod(client.listDLQ, 'listDLQ')
+            return { exitCode: 0, stdout: encode(await listDLQ(index)), stderr: '' }
+          }
+          if (action === 'replay') {
+            const id = requireArg(args, '--id')
+            const replayDLQ = requireMethod(client.replayDLQ, 'replayDLQ')
+            return { exitCode: 0, stdout: encode(await replayDLQ(id)), stderr: '' }
+          }
+          if (action === 'skip') {
+            const id = requireArg(args, '--id')
+            const skipDLQ = requireMethod(client.skipDLQ, 'skipDLQ')
+            return { exitCode: 0, stdout: encode(await skipDLQ(id)), stderr: '' }
+          }
+          throw new Error('usage: meristem projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>')
+        }
+
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task assign | service list/reload | log timeline | audit list'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task assign | service list/reload | log timeline | audit list | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

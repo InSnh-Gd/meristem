@@ -509,6 +509,160 @@ type AuditSearchResponse = {
 - PostgreSQL-backed list endpoints (`GET /api/v0/logs/timeline`, `/api/v0/logs/full`, `/api/v0/audit`) remain usable.
 - Authoritative log writes are never blocked by search degradation.
 
+## 10. Projection Platform Endpoints
+
+Core exposes Projection Platform REST endpoints as thin adapters over the M-Log projection engine. Core owns public authentication, M-Policy authorization, Audit fail-closed behavior, and Timeline / Full Log observability; M-Log owns projection jobs, cursors, DLQ records, backfill execution, and OpenSearch writes.
+
+### 10.1 GET /api/v0/projection/health
+
+Returns projection health by index.
+
+**Permission**: `projection:read`
+
+**Success Response** (200):
+
+```ts
+type ProjectionHealthResponse = {
+  indices: Array<{
+    index: string;
+    lagSeconds: number;
+    lastProjectedAt: string | null;
+    pendingCount: number;
+    dlqCount: number;
+    status: "healthy" | "degraded" | "unavailable";
+  }>;
+};
+```
+
+**Logging Semantics**:
+
+- This read action does not write Audit Log.
+- Projection unavailable or degraded failures return 503 and write Full Log.
+
+### 10.2 POST /api/v0/projection/backfill
+
+Runs a projection backfill job for one index.
+
+**Permission**: `projection:backfill`
+
+**Request Body**:
+
+```ts
+type ProjectionCursor = {
+  factId: string;
+  timestamp: string;
+};
+
+type ProjectionBackfillRequest = {
+  index: string;
+  from?: ProjectionCursor;
+  to?: ProjectionCursor;
+  batchSize: number;
+  targetVersion?: string;
+};
+```
+
+**Success Response** (200):
+
+```ts
+type ProjectionBackfillResponse = {
+  jobId: string;
+  processedCount: number;
+  errors: number;
+  lastCursor: ProjectionCursor | null;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+};
+```
+
+**Logging Semantics**:
+
+- Core writes Audit Log before executing the backfill with action `projection:backfill`, resource `projection:<index>`, and payload fields `batchSize`, `from`, `to`, and `targetVersion` when present.
+- If Audit Log is unavailable, the request fails closed with 503 and Core does not call M-Log projection execution.
+- Successful execution writes Timeline Log.
+- Projection unavailable or degraded failures return 503 and write Full Log.
+
+### 10.3 GET /api/v0/projection/dlq
+
+Lists projection DLQ records, optionally filtered by index.
+
+**Permission**: `projection:read`
+
+**Query Parameters**:
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `index` | string | no | projection index filter |
+
+**Success Response** (200):
+
+```ts
+type ProjectionDLQListResponse = {
+  records: Array<{
+    id: string;
+    jobId: string;
+    factId: string;
+    index: string;
+    error: string;
+    attemptedAt: string[];
+    retries: number;
+    createdAt: string;
+  }>;
+};
+```
+
+**Logging Semantics**:
+
+- This read action does not write Audit Log.
+- Projection unavailable or degraded failures return 503 and write Full Log.
+
+### 10.4 POST /api/v0/projection/dlq/:id/replay
+
+Replays one projection DLQ record.
+
+**Permission**: `projection:dlq-manage`
+
+**Success Response** (200):
+
+```ts
+type ProjectionDLQReplayResponse = {
+  replayed: boolean;
+};
+```
+
+**Logging Semantics**:
+
+- Core writes Audit Log before execution with action `projection:dlq-manage`, resource `projection-dlq:<id>`, and payload `{ operation: "replay" }`.
+- If Audit Log is unavailable, the request fails closed with 503 and Core does not call M-Log projection execution.
+- Successful replay writes Timeline Log.
+- Projection unavailable or degraded failures return 503 and write Full Log.
+
+### 10.5 POST /api/v0/projection/dlq/:id/skip
+
+Skips one projection DLQ record.
+
+**Permission**: `projection:dlq-manage`
+
+**Success Response** (200):
+
+```ts
+type ProjectionDLQSkipResponse = {
+  skipped: boolean;
+};
+```
+
+**Logging Semantics**:
+
+- Core writes Audit Log before execution with action `projection:dlq-manage`, resource `projection-dlq:<id>`, and payload `{ operation: "skip" }`.
+- If Audit Log is unavailable, the request fails closed with 503 and Core does not call M-Log projection execution.
+- Successful skip writes Timeline Log.
+- Projection unavailable or degraded failures return 503 and write Full Log.
+
+**Failure Semantics**:
+
+- Missing or denied credentials return 401 or 403 through the common protected endpoint envelope.
+- M-Log projection engine unavailability returns 503 with the projection error code.
+- Audit Log unavailability on control actions returns 503 before any projection mutation is attempted.
+
 
 ---
 

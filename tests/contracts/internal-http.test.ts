@@ -23,13 +23,13 @@ describe('internal http boundary', () => {
     })
     startedServers.push(server)
 
-    const ready = await fetchReadyState(`${serviceUrl('m-policy')}/ready`)
+    const ready = await fetchReadyState(`${server.url}/ready`)
     expect(ready).toBe(true)
 
     await server.stop()
     startedServers.length = 0
 
-    const stoppedReady = await fetchReadyState(`${serviceUrl('m-policy')}/ready`)
+    const stoppedReady = await fetchReadyState(`${server.url}/ready`)
     expect(stoppedReady).toBe(false)
   })
 })

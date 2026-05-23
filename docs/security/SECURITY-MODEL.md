@@ -52,6 +52,9 @@ MVP uses a narrower permission set than the long-term baseline:
 | `audit:read` | no | no | no | yes |
 | `service:register` | no | no | yes | yes |
 | `service:reload` | no | yes | yes | yes |
+| `projection:read` | no | yes | yes | yes |
+| `projection:backfill` | no | no | yes | yes |
+| `projection:dlq-manage` | no | no | yes | yes |
 
 MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
 
@@ -117,6 +120,9 @@ MVP protected operations:
 | create logical node network | operator | required |
 | join node to logical network | operator | required |
 | assign noop task | operator | required |
+| read projection health / DLQ | operator | none |
+| run projection backfill | admin | required before execution |
+| replay or skip projection DLQ | admin | required before execution |
 | read Audit Log | security-admin | Full Log on denied access |
 | register service definition | admin | required |
 | reload internal service prototype | operator | required |

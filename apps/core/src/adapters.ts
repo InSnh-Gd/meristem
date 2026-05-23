@@ -12,6 +12,7 @@ import { createHttpEventPort } from './adapters/http-eventbus.ts'
 import { createHttpMNetPort } from './adapters/http-mnet.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import { createServiceLifecyclePort, dependencyStateFromReady } from './adapters/service-lifecycle.ts'
+import { createHttpProjectionPort } from './adapters/http-projection.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
 export { createDbStorage } from './storage-adapter.ts'
@@ -63,6 +64,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     mNet: createHttpMNetPort(),
     agentTasks: createHttpAgentTaskPort(),
     services: createServiceLifecyclePort(storage, readinessChecks),
+    projection: createHttpProjectionPort(),
     storage,
     async close() {
       await client.end()

@@ -1,8 +1,9 @@
 import { Elysia, t } from 'elysia'
+import { CoreError } from '../core-error.ts'
+import { Effect } from 'effect'
 import type { CoreDeps } from '../types.ts'
 import { requireActor, authorize } from '../middleware/auth.ts'
 import { statusCodeForServiceError, tracedEvent } from '../middleware/helpers.ts'
-import { apiError } from '../errors.ts'
 import { apiErrorSchema, taskSchema, protectedRouteDetail, protectedResponse } from '../schemas.ts'
 import { withExtractedSpan } from '../../../../packages/telemetry/src/index.ts'
 
@@ -10,23 +11,20 @@ export function tasksRoutes(deps: CoreDeps) {
   return new Elysia()
     .post('/api/v0/tasks', async ({ body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.task.assign', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'task:assign', resource: `node:${body.leafNodeId}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'task:assign',
           resource: `node:${body.leafNodeId}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
         await deps.events.publish(
           'task.assignment.requested.v0',
           tracedEvent({
@@ -37,42 +35,56 @@ export function tasksRoutes(deps: CoreDeps) {
           })
         )
         const node = await deps.storage.getNode(body.leafNodeId)
-        if (!node) return apiError(status, 404, 'node.not_found', 'node not found', auth.correlationId)
+        if (!node) throw new CoreError(404, 'node.not_found', 'node not found', auth.correlationId)
         if (node.kind !== 'leaf') {
-          return apiError(status, 409, 'node.invalid_kind', 'target must be a Leaf node', auth.correlationId)
+          throw new CoreError(409, 'node.invalid_kind', 'target must be a Leaf node', auth.correlationId)
         }
         const task = node.mode === 'simulated'
           ? await deps.storage.assignTask(body)
-          : await (async () => {
-              if (node.reachability !== 'reachable' || (node.status !== 'healthy' && node.status !== 'degraded')) {
-                throw { code: 'node.unreachable', message: 'node is unreachable' }
-              }
-              const hasCredential = await deps.storage.hasActiveNodeCredential(node.id)
-              if (!hasCredential) throw { code: 'node.credential_missing', message: 'node does not have an active credential' }
-              const requestedTask = await deps.storage.createTaskRequest(body)
-              const executed = await deps.agentTasks.executeNoop({
-                nodeId: node.id,
-                taskId: requestedTask.id,
-                correlationId: auth.correlationId
-              })
-              if (!executed.ok) throw executed.error
-              const completed = await deps.storage.completeTask({
-                taskId: requestedTask.id,
-                completedAt: executed.value.completedAt
-              })
-              if (!completed) throw { code: 'task.not_found', message: 'task not found' }
-              return completed
-            })().catch((error: unknown) => {
-              const failure = typeof error === 'object' && error !== null
-                ? {
-                    code: String(Reflect.get(error, 'code') ?? 'nodeagent.unavailable'),
-                    message: String(Reflect.get(error, 'message') ?? 'node agent unavailable')
-                  }
-                : { code: 'nodeagent.unavailable', message: 'node agent unavailable' }
-              return failure
-            })
+          : await Effect.runPromise(
+              Effect.gen(function* () {
+                if (node.reachability !== 'reachable' || (node.status !== 'healthy' && node.status !== 'degraded')) {
+                  return yield* Effect.fail({ code: 'node.unreachable', message: 'node is unreachable' })
+                }
+                const hasCredential = yield* Effect.tryPromise({
+                  try: () => deps.storage.hasActiveNodeCredential(node.id),
+                  catch: () => ({ code: 'nodeagent.unavailable', message: 'node agent unavailable' })
+                })
+                if (!hasCredential) {
+                  return yield* Effect.fail({ code: 'node.credential_missing', message: 'node does not have an active credential' })
+                }
+                const requestedTask = yield* Effect.tryPromise({
+                  try: () => deps.storage.createTaskRequest(body),
+                  catch: () => ({ code: 'nodeagent.unavailable', message: 'node agent unavailable' })
+                })
+                const executed = yield* Effect.tryPromise({
+                  try: () => deps.agentTasks.executeNoop({
+                    nodeId: node.id,
+                    taskId: requestedTask.id,
+                    correlationId: auth.correlationId
+                  }),
+                  catch: () => ({ code: 'nodeagent.unavailable', message: 'node agent unavailable' })
+                })
+                if (!executed.ok) {
+                  return yield* Effect.fail(executed.error)
+                }
+                const completed = yield* Effect.tryPromise({
+                  try: () => deps.storage.completeTask({
+                    taskId: requestedTask.id,
+                    completedAt: executed.value.completedAt
+                  }),
+                  catch: () => ({ code: 'nodeagent.unavailable', message: 'node agent unavailable' })
+                })
+                if (!completed) {
+                  return yield* Effect.fail({ code: 'task.not_found', message: 'task not found' })
+                }
+                return completed
+              }).pipe(
+                Effect.catchAll((failure) => Effect.succeed(failure))
+              )
+            )
         if ('code' in task) {
-          return apiError(status, statusCodeForServiceError(task.code), task.code, task.message, auth.correlationId)
+          throw new CoreError(statusCodeForServiceError(task.code), task.code, task.message, auth.correlationId)
         }
         await deps.events.publish(
           'task.assignment.completed.v0',
@@ -88,7 +100,7 @@ export function tasksRoutes(deps: CoreDeps) {
           subject: task.id,
           correlationId: auth.correlationId
         })
-        return { task, policyDecisionId: permission.decision.id, correlationId: auth.correlationId }
+        return { task, policyDecisionId: permission.id, correlationId: auth.correlationId }
       })
     }, {
       body: t.Object({ leafNodeId: t.String(), type: t.Literal('noop') }),
@@ -99,16 +111,14 @@ export function tasksRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail('Assign a noop task to a leaf node')
     })
     .get('/api/v0/tasks/:id', async ({ params, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
+      const auth = await requireActor(deps, headers)
       const permission = await authorize(
         deps,
         { actor: auth.actor, action: 'core:read', resource: `task:${params.id}`, correlationId: auth.correlationId },
-        status
       )
-      if (!permission.ok) return permission.response
       const task = await deps.storage.getTask(params.id)
-      return task ? { task } : apiError(status, 404, 'task.not_found', 'task not found', auth.correlationId)
+      if (!task) throw new CoreError(404, 'task.not_found', 'task not found', auth.correlationId)
+      return { task }
     }, {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       response: protectedResponse(t.Object({ task: taskSchema }), { 404: apiErrorSchema }),

@@ -52,7 +52,7 @@ Keep these as current, active documentation families:
 - ADRs: `docs/adr/*.md`, with status cleanup for ADR-010.
 - Executable contracts: `docs/contracts/*.md`, `docs/events/EVENT-CATALOG.md`, `docs/services/*.md`, `docs/security/SECURITY-MODEL.md`, `docs/data/POSTGRES-SCHEMA-MVP.md`, `docs/config/CONFIG-LIFECYCLE.md`, `docs/testing/TESTING.md`, `docs/operations/RUNBOOK.md`, `docs/ui/SDUI-SCHEMA.md`.
 - Phase docs: `docs/roadmap/PHASE-0.md` through `docs/roadmap/PHASE-10.md`.
-- Project-local skills: `docs/skills/elysiajs/SKILL.md`, `docs/skills/functional-programming/SKILL.md`.
+- Project-local skills: `.agents/skills/elysiajs/SKILL.md`, `.agents/skills/functional-programming/SKILL.md`.
 - Technology snapshots: `docs/references/*.md`, provided they are periodically refreshed when implementation work touches those technologies.
 
 ---

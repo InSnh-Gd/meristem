@@ -48,6 +48,22 @@ _Avoid_: Modal confirmation, single-click execution
 The visible executability state of a command derived from Core-visible facts and policy-facing permissions.
 _Avoid_: BFF-private authorization rule, demo-only shortcut
 
+**Effect Executable Contract**:
+A Meristem internal contract modeled with Effect Schema so type derivation, runtime validation, and contract tests share one source.
+_Avoid_: Type-only interface, duplicated route literal list, schema refactor
+
+**Contract Drift Check**:
+A test that proves an **Effect Executable Contract** and its Elysia TypeBox / OpenAPI adapter still accept the same required fields, literals, and documented examples.
+_Avoid_: Snapshot-only OpenAPI check, manual schema comparison
+
+**Projection Read Action**:
+A projection operation that only reads **OpenSearch Read Model Projection** state, such as projection health or DLQ listing.
+_Avoid_: Projection admin API, projection mutation
+
+**Projection Control Action**:
+A projection operation that changes projection operating state or the visible read model path, such as backfill, DLQ replay, or DLQ skip.
+_Avoid_: Search query, ordinary log read, OpenSearch write model action
+
 ## Relationships
 
 - The **M-UI Functional Demo Shell** demonstrates a subset of the **Control Room Ledger** without becoming the final visual design.
@@ -60,6 +76,10 @@ _Avoid_: BFF-private authorization rule, demo-only shortcut
 - The **Projection Platform Track** follows the first **OpenSearch Read Model Projection** and adds durable projector operations without changing the source of truth.
 - A **CommandWell Confirmation** happens before the command is sent and before any audit fact is created.
 - **CommandWell Eligibility** may be displayed by the **M-UI BFF**, but it must be derived from Core-visible facts rather than invented as a separate authorization layer.
+- An **Effect Executable Contract** is the internal source for complex shared contract shapes; Elysia TypeBox remains the REST/OpenAPI adapter until a route is deliberately migrated.
+- A **Contract Drift Check** belongs anywhere an **Effect Executable Contract** and an Elysia TypeBox / OpenAPI adapter coexist.
+- A **Projection Read Action** requires projection read permission but does not create an Audit Log fact by itself.
+- A **Projection Control Action** must pass M-Policy, write Audit Log before execution, and write Timeline or Full Log according to outcome.
 
 ## Example Dialogue
 
@@ -78,3 +98,5 @@ _Avoid_: BFF-private authorization rule, demo-only shortcut
 - "complex projection platform" can mean the first read-model slice or the later operating model; resolved: use **Projection Platform Track** for the latter.
 - "confirmation" can mean either a browser modal or a command-area step; resolved: use **CommandWell Confirmation** for Meristem control actions.
 - "command is allowed" can mean final authorization or visible executability; resolved: use **CommandWell Eligibility** for the visible command state before execution.
+- "Effect schema work" can mean either internal executable contract modeling or HTTP adapter validation; resolved: use **Effect Executable Contract** for internal contract source and keep Elysia TypeBox as REST/OpenAPI adapter.
+- "projection admin" can blur read-only observation and mutating repair actions; resolved: use **Projection Read Action** and **Projection Control Action**.
