@@ -9,7 +9,7 @@
 | Test Type | Purpose | Applies To |
 |-----------|---------|------------|
 | typecheck | TypeScript strict and no `any` | all packages |
-| unit | pure logic and schema narrowing | contracts, policy, config, codec |
+| unit | pure logic, Effect Schema decode/encode, and schema narrowing | contracts, policy, config, codec |
 | contract | API, Eden, event, service definition compatibility | contracts and services |
 | integration | Core with service, NATS, PostgreSQL boundaries | Core and M-* services |
 | failure-mode | degraded behavior and fail-closed behavior | policy, audit, event, storage |
@@ -59,6 +59,7 @@ Additional hard gates:
 - repository code must remain Bun-only
 - repository code must not import `node:*`
 - source comments must satisfy `MERISTEM-DEV.md §8.2`
+- complex internal workflows must have Effect success and failure-path tests at the workflow interface, not only route-level tests
 
 Timeout rule:
 
@@ -96,6 +97,8 @@ Must cover:
 - config schema versioning
 - M-Policy decision result shape
 - Audit Log required fields
+- Effect Schema decode/encode for internal executable contracts that back policy, event, log, projection, config, service definition, webhook, or BFF command-state shapes
+- drift checks between shared Effect Schema contracts and Elysia TypeBox/OpenAPI adapter schemas when both exist
 
 MVP-specific contract tests:
 
@@ -146,6 +149,7 @@ MVP failure-mode tests:
 - non-reloadable service returns `409`.
 - reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
 - agent task assignment without an active token returns `409`.
+- Effect workflow tests cover typed failure mapping for task assignment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
 
 ---
 

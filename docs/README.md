@@ -24,7 +24,7 @@
 | `adr/` | Architecture decision records | `adr/README.md` |
 | `services/` | Service Definition template and first service specs | `services/SERVICE-DEFINITION-TEMPLATE.md` |
 | `events/` | NATS subject and event schema catalog | `events/EVENT-CATALOG.md` |
-| `contracts/` | API, Eden, event, webhook, and versioning rules | `contracts/CONTRACT-VERSIONING.md` |
+| `contracts/` | API, Eden, Effect Schema, event, webhook, and versioning rules | `contracts/CONTRACT-VERSIONING.md` |
 | `security/` | RBAC, policy, audit, secrets, LLM and webhook security | `security/SECURITY-MODEL.md` |
 | `data/` | Authoritative state, event state, cache, read model boundaries | `data/STATE-MODEL.md` |
 | `config/` | Config lifecycle state machine and rollback rules | `config/CONFIG-LIFECYCLE.md` |
@@ -33,11 +33,11 @@
 | `ui/` | SDUI schema and operational component contract | `ui/SDUI-SCHEMA.md` |
 | `roadmap/` | Phase-level implementation specs | `roadmap/PHASE-0.md` |
 | `mvp/` | MVP product and engineering target | `mvp/MVP-SPEC.md` |
-| `skills/` | Project-local Codex skill sources | `skills/elysiajs/SKILL.md` |
 | `references/` | Current upstream technology snapshots | `references/elysiajs-latest.md` |
 
 Related repository documentation outside this index:
 
+- `../.agents/skills/` contains project-local Codex skill sources.
 - `../doc-driven-ai/` contains supporting documentation for doc-driven AI workflow tooling.
 
 ---
@@ -73,6 +73,7 @@ The current implementation target starts with the Core + Stem/Leaf node MVP and 
 | `roadmap/PHASE-8.md` | real node-agent runtime prototype |
 | `roadmap/PHASE-9.md` | M-UI functional demo shell and control-room flow |
 | `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
+| `roadmap/PHASE-11.md` | M-Task draft and future task-domain split |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
 | `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |
@@ -94,9 +95,11 @@ Read these before implementing or reviewing code that touches the corresponding 
 
 | Document | Purpose |
 |----------|---------|
-| `skills/elysiajs/SKILL.md` | ElysiaJS route, plugin, schema, Eden, OpenAPI, and test workflow |
-| `skills/functional-programming/SKILL.md` | Pure-first TypeScript domain logic and explicit side-effect boundaries |
+| `../.agents/skills/elysiajs/SKILL.md` | ElysiaJS route, plugin, schema, Eden, OpenAPI, and test workflow |
+| `../.agents/skills/effect-ts/SKILL.md` | Effect v4 patterns, services, layers, Schema, errors, testing, HTTP, CLI, and config references |
+| `../.agents/skills/functional-programming/SKILL.md` | Pure-first TypeScript domain logic and explicit side-effect boundaries |
 | `references/elysiajs-latest.md` | ElysiaJS current release snapshot and Meristem usage guidance |
+| `references/effect-latest.md` | Effect current project snapshot and Meristem usage guidance |
 | `references/svelte-latest.md` | Svelte current release snapshot and Svelte 5 runes guidance |
 | `references/wasm3-latest.md` | Wasm3 current release snapshot, maintenance status, and adoption checklist |
 
