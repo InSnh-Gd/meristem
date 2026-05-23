@@ -1,4 +1,5 @@
 import { integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { relations } from 'drizzle-orm'
 
 // PostgreSQL schema 是 MVP 权威写模型；事件、日志和缓存都不能替代这些表的职责。
 export const users = pgTable('users', {
@@ -97,6 +98,14 @@ export const tasks = pgTable('tasks', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   completedAt: timestamp('completed_at', { withTimezone: true })
 })
+
+export const nodesRelations = relations(nodes, ({ many }) => ({
+  tasks: many(tasks),
+}))
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  node: one(nodes, { fields: [tasks.leafNodeId], references: [nodes.id] }),
+}))
 
 // 逻辑网络表只表达网络和成员归属，不表达链路、带宽或实际传输路径。
 export const networks = pgTable(

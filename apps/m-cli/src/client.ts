@@ -146,8 +146,14 @@ export function createCoreClient(config: CliConfig): CliClient {
     listTimeline: async () => unwrap(client.api.v0.logs.timeline.get({ $headers: headers })),
     listAudit: async () => unwrap(client.api.v0.audit.get({ $headers: headers })),
     projectionHealth: async () => unwrap<{ indices: ProjectionHealth[] }>(client.api.v0.projection.health.get({ $headers: headers })),
-    backfill: async (input) => unwrap<BackfillResult>(client.api.v0.projection.backfill.post({ ...input, $headers: headers })),
-    listDLQ: async (index) => unwrap<{ records: DLQRecord[] }>(client.api.v0.projection.dlq.get({ ...(index ? { query: { index } } : {}), $headers: headers })),
+    backfill: async (input) => {
+      const body: Record<string, unknown> = { index: input.index, batchSize: input.batchSize, $headers: headers }
+      if (input.from !== null && input.from !== undefined) body.from = input.from
+      if (input.to !== null && input.to !== undefined) body.to = input.to
+      if (input.targetVersion !== undefined) body.targetVersion = input.targetVersion
+      return unwrap<BackfillResult>(client.api.v0.projection.backfill.post(body as { index: string; from?: { factId: string; timestamp: string }; to?: { factId: string; timestamp: string }; batchSize: number; targetVersion?: string; $headers: Record<string, string> }))
+    },
+    listDLQ: async (index) => unwrap<{ records: DLQRecord[] }>(client.api.v0.projection.dlq.get({ $query: { ...(index ? { index } : {}) }, $headers: headers })),
     replayDLQ: async (dlqId) => {
       const response = await fetch(`${config.coreUrl}/api/v0/projection/dlq/${encodeURIComponent(dlqId)}/replay`, {
         method: 'POST',

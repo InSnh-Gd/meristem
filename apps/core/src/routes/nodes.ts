@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia'
+import { CoreError } from '../core-error.ts'
 import type { CoreDeps } from '../types.ts'
 import { requireActor, authorize } from '../middleware/auth.ts'
 import { statusCodeForServiceError, tracedEvent, joinSessionUrl } from '../middleware/helpers.ts'
-import { apiError } from '../errors.ts'
 import {
   apiErrorSchema,
   nodeSchema,
@@ -15,24 +15,21 @@ export function nodesRoutes(deps: CoreDeps) {
   return new Elysia()
     .post('/api/v0/node-tickets', async ({ body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.node.ticket.create', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'node:register', resource: `node:${body.kind}:${body.name}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'node:register',
           resource: `node:${body.kind}:${body.name}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId,
           payload: { channel: 'join-ticket' }
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
         await deps.events.publish(
           'node.registration.requested.v0',
           tracedEvent({
@@ -62,7 +59,7 @@ export function nodesRoutes(deps: CoreDeps) {
           ticket: ticket.ticket,
           expiresAt: ticket.expiresAt,
           joinUrl: joinSessionUrl(deps.joinIngressPublicUrl),
-          policyDecisionId: permission.decision.id,
+          policyDecisionId: permission.id,
           correlationId: auth.correlationId
         }
       })
@@ -88,27 +85,24 @@ export function nodesRoutes(deps: CoreDeps) {
     })
     .post('/api/v0/nodes', async ({ body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.node.register', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const requestedMode = Reflect.get(body as object, 'mode')
         if (requestedMode === 'agent') {
-          return apiError(status, 409, 'node.agent_join_ticket_required', 'agent nodes must join through node ticket create and the M-Net join ingress', auth.correlationId)
+          throw new CoreError(409, 'node.agent_join_ticket_required', 'agent nodes must join through node ticket create and the M-Net join ingress', auth.correlationId)
         }
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'node:register', resource: `node:${body.kind}:${body.name}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'node:register',
           resource: `node:${body.kind}:${body.name}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
         await deps.events.publish(
           'node.registration.requested.v0',
           tracedEvent({
@@ -149,7 +143,7 @@ export function nodesRoutes(deps: CoreDeps) {
           subject: node.id,
           correlationId: auth.correlationId
         })
-        return { node, policyDecisionId: permission.decision.id, correlationId: auth.correlationId }
+        return { node, policyDecisionId: permission.id, correlationId: auth.correlationId }
       })
     }, {
       body: t.Object({
@@ -166,25 +160,22 @@ export function nodesRoutes(deps: CoreDeps) {
     })
     .post('/api/v0/nodes/:id/credentials', async ({ params, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.node.issue-token', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'node:issue-token', resource: `node:${params.id}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'node:issue-token',
           resource: `node:${params.id}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
         const credential = await deps.storage.issueNodeCredential(params.id)
-        if (!credential) return apiError(status, 404, 'node.not_found', 'node not found', auth.correlationId)
+        if (!credential) throw new CoreError(404, 'node.not_found', 'node not found', auth.correlationId)
         await deps.log.writeTimeline({
           summary: `issued node token for ${params.id}`,
           subject: params.id,
@@ -194,7 +185,7 @@ export function nodesRoutes(deps: CoreDeps) {
           nodeId: credential.nodeId,
           token: credential.token,
           issuedAt: credential.issuedAt,
-          policyDecisionId: permission.decision.id,
+          policyDecisionId: permission.id,
           correlationId: auth.correlationId
         }
       })
@@ -207,22 +198,19 @@ export function nodesRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail('Issue a node credential')
     })
     .get('/api/v0/nodes', async ({ headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: 'core:read', resource: 'nodes', correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: 'core:read', resource: 'nodes', correlationId: auth.correlationId })
       return { nodes: await deps.storage.listNodes() }
     }, {
       response: protectedResponse(t.Object({ nodes: t.Array(nodeSchema) })),
       detail: protectedRouteDetail('List nodes')
     })
     .get('/api/v0/nodes/:id', async ({ params, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: 'core:read', resource: `node:${params.id}`, correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: 'core:read', resource: `node:${params.id}`, correlationId: auth.correlationId })
       const node = await deps.storage.getNode(params.id)
-      return node ? { node } : apiError(status, 404, 'node.not_found', 'node not found', auth.correlationId)
+      if (!node) throw new CoreError(404, 'node.not_found', 'node not found', auth.correlationId)
+      return { node }
     }, {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       response: protectedResponse(t.Object({ node: nodeSchema }), { 404: apiErrorSchema }),

@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia'
+import { CoreError } from '../core-error.ts'
 import type { CoreDeps } from '../types.ts'
 import { requireActor, authorize } from '../middleware/auth.ts'
 import { statusCodeForServiceError, tracedEvent } from '../middleware/helpers.ts'
-import { apiError } from '../errors.ts'
 import {
   apiErrorSchema,
   networkSchema,
@@ -18,35 +18,24 @@ export function networksRoutes(deps: CoreDeps) {
   return new Elysia()
     .post('/api/v0/networks', async ({ body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.network.create', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'network:create', resource: `network:${body.name}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
 
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'network:create',
           resource: `network:${body.name}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
 
         const created = await deps.mNet.createNetwork(body)
-        if (!created.ok) {
-          return apiError(
-            status,
-            statusCodeForServiceError(created.error.code),
-            created.error.code,
-            created.error.message,
-            auth.correlationId
-          )
-        }
+        if (!created.ok) throw new CoreError(statusCodeForServiceError(created.error.code), created.error.code, created.error.message, auth.correlationId)
 
         await deps.events.publish(
           'mnet.network.created.v0',
@@ -63,7 +52,7 @@ export function networksRoutes(deps: CoreDeps) {
           correlationId: auth.correlationId
         })
 
-        return { network: created.value, policyDecisionId: permission.decision.id, correlationId: auth.correlationId }
+        return { network: created.value, policyDecisionId: permission.id, correlationId: auth.correlationId }
       })
     }, {
       body: t.Object({
@@ -77,18 +66,12 @@ export function networksRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail('Create a logical network')
     })
     .get('/api/v0/networks', async ({ headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(
-        deps,
-        { actor: auth.actor, action: 'network:read', resource: 'networks', correlationId: auth.correlationId },
-        status
-      )
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: 'network:read', resource: 'networks', correlationId: auth.correlationId })
 
       const networks = await deps.mNet.listNetworks()
       if (!networks.ok) {
-        return apiError(status, statusCodeForServiceError(networks.error.code), networks.error.code, networks.error.message, auth.correlationId)
+        throw new CoreError(statusCodeForServiceError(networks.error.code), networks.error.code, networks.error.message, auth.correlationId)
       }
       return { networks: networks.value }
     }, {
@@ -97,28 +80,25 @@ export function networksRoutes(deps: CoreDeps) {
     })
     .post('/api/v0/networks/:id/members', async ({ params, body, headers, status }) => {
       return withExtractedSpan('meristem-core', 'core.network.join', headers, async () => {
-        const auth = await requireActor(deps, headers, status)
-        if (!auth.ok) return auth.response
+        const auth = await requireActor(deps, headers)
         const permission = await authorize(
           deps,
           { actor: auth.actor, action: 'network:join', resource: `network:${params.id}:node:${body.nodeId}`, correlationId: auth.correlationId },
-          status
         )
-        if (!permission.ok) return permission.response
 
         const audit = await deps.log.writeAudit({
           actor: auth.actor,
           action: 'network:join',
           resource: `network:${params.id}:node:${body.nodeId}`,
-          decisionId: permission.decision.id,
-          result: permission.decision.result,
+          decisionId: permission.id,
+          result: permission.result,
           correlationId: auth.correlationId
         })
-        if (!audit.ok) return apiError(status, 503, audit.error.code, audit.error.message, auth.correlationId)
+        if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
 
         const member = await deps.mNet.joinNetwork({ networkId: params.id, nodeId: body.nodeId })
         if (!member.ok) {
-          return apiError(status, statusCodeForServiceError(member.error.code), member.error.code, member.error.message, auth.correlationId)
+          throw new CoreError(statusCodeForServiceError(member.error.code), member.error.code, member.error.message, auth.correlationId)
         }
 
         await deps.events.publish(
@@ -136,7 +116,7 @@ export function networksRoutes(deps: CoreDeps) {
           correlationId: auth.correlationId
         })
 
-        return { member: member.value, policyDecisionId: permission.decision.id, correlationId: auth.correlationId }
+        return { member: member.value, policyDecisionId: permission.id, correlationId: auth.correlationId }
       })
     }, {
       body: t.Object({ nodeId: t.String({ minLength: 1 }) }),
@@ -148,18 +128,15 @@ export function networksRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail('Join a node to a logical network')
     })
     .get('/api/v0/networks/:id/members', async ({ params, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
+      const auth = await requireActor(deps, headers)
       const permission = await authorize(
         deps,
         { actor: auth.actor, action: 'network:read', resource: `network:${params.id}`, correlationId: auth.correlationId },
-        status
       )
-      if (!permission.ok) return permission.response
 
       const members = await deps.mNet.listNetworkMembers(params.id)
       if (!members.ok) {
-        return apiError(status, statusCodeForServiceError(members.error.code), members.error.code, members.error.message, auth.correlationId)
+        throw new CoreError(statusCodeForServiceError(members.error.code), members.error.code, members.error.message, auth.correlationId)
       }
       return { members: members.value }
     }, {
