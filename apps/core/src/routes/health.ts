@@ -20,6 +20,7 @@ import {
   protectedResponse
 } from '../schemas.ts'
 import { withExtractedSpan } from '../../../../packages/telemetry/src/index.ts'
+import { actorIds, permissions as permissionLiterals } from '../../../../packages/contracts/src/index.ts'
 
 
 export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean }) {
@@ -48,13 +49,8 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
     }, {
       response: {
         200: t.Object({
-          actor: t.Union([t.Literal('viewer'), t.Literal('operator'), t.Literal('admin'), t.Literal('security-admin')]),
-          permissions: t.Array(t.Union([
-            t.Literal('core:read'), t.Literal('node:register'), t.Literal('node:issue-token'),
-            t.Literal('task:assign'), t.Literal('timeline:read'), t.Literal('log:read-full'),
-            t.Literal('audit:read'), t.Literal('service:register'), t.Literal('service:reload'),
-            t.Literal('network:read'), t.Literal('network:create'), t.Literal('network:join')
-          ]))
+          actor: t.UnionEnum(actorIds),
+          permissions: t.Array(t.UnionEnum(permissionLiterals))
         }),
         401: apiErrorSchema
       },

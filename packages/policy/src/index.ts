@@ -1,3 +1,4 @@
+import { projectionPermissions } from '../../contracts/src/index.ts'
 import type { ActorId, Permission, PolicyDecision, PolicyResult } from '../../contracts/src/index.ts'
 
 // PolicyInput 保持纯数据形状，让 RBAC 决策函数可以脱离数据库和 HTTP 边界独立复用。
@@ -13,8 +14,8 @@ export type PolicyDecisionDraft = Omit<PolicyDecision, 'id' | 'createdAt'>
 // 角色权限矩阵作为最小 RBAC 默认值存在，真实权威表仍在 PostgreSQL seed 中。
 export const rolePermissions: Record<ActorId, readonly Permission[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join'],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -27,7 +28,8 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     'service:reload',
     'network:read',
     'network:create',
-    'network:join'
+    'network:join',
+    ...projectionPermissions
   ]
 }
 

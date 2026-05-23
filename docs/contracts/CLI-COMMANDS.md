@@ -165,6 +165,36 @@ Permission: `audit:read`.
 
 Shows recent Audit Log entries.
 
+### `meristem projection health`
+
+Permission: `projection:read`.
+
+Shows projection index health, lag, pending count, DLQ count, and status.
+
+### `meristem projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] [--target-version <version>]`
+
+Permission: `projection:backfill`.
+
+Runs a projection backfill through Core. Core writes Audit Log before execution and fails closed if Audit Log is unavailable.
+
+### `meristem projection dlq list [--index <name>]`
+
+Permission: `projection:read`.
+
+Lists projection DLQ records. This is a read action and does not write Audit Log.
+
+### `meristem projection dlq replay --id <dlq-id>`
+
+Permission: `projection:dlq-manage`.
+
+Replays one projection DLQ record. Core writes Audit Log before execution and writes Timeline Log on success.
+
+### `meristem projection dlq skip --id <dlq-id>`
+
+Permission: `projection:dlq-manage`.
+
+Skips one projection DLQ record. Core writes Audit Log before execution and writes Timeline Log on success.
+
 ---
 
 ## 3. Token Defaults

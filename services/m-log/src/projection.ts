@@ -4,8 +4,10 @@
 
 import { eq, and, asc, sql, gte, lte, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
+import { Effect } from 'effect'
 import { projectorJobs, projectionCursors, projectionDLQ, timelineLogs, fullLogs, auditLogs } from '../../../packages/db/src/schema.ts'
 import { recordGauge } from '../../../packages/telemetry/src/index.ts'
+import { ProjectionUnknownIndexError, ProjectionWorkflowError } from './projection/errors.ts'
 import type {
   ProjectorJob,
   ProjectorJobStatus,
@@ -58,6 +60,20 @@ function idempotencyKey(index: string, factId: string): string {
 function resolveTargetIndex(index: string, targetVersion?: string): string {
   if (!targetVersion) return index
   return index.replace(/-v\d+$/, `-v${targetVersion}`)
+}
+
+function workflowError(operation: string, error: unknown) {
+  return new ProjectionWorkflowError({
+    operation,
+    message: error instanceof Error ? error.message : String(error)
+  })
+}
+
+function tryProjection<A>(operation: string, evaluate: () => A | PromiseLike<A>) {
+  return Effect.tryPromise({
+    try: () => Promise.resolve(evaluate()),
+    catch: (error) => workflowError(operation, error)
+  })
 }
 
 /**
@@ -311,18 +327,23 @@ export function createProjectionEngine(
    * 执行 backfill：从 PostgreSQL 事实表读取数据，批量投影到 OpenSearch。
    * 支持断点续投（基于 cursor）和目标版本索引切换（targetVersion）。
    */
-  async function executeBackfill(params: BackfillParams): Promise<BackfillResult> {
+  const executeBackfillEffect = Effect.fn('MLogProjection.executeBackfill')(function* (params: BackfillParams) {
     const targetIndex = resolveTargetIndex(params.index, params.targetVersion)
     const factTable = factTableFromIndex(params.index)
-    if (!factTable) throw new Error(`unknown index: ${params.index}`)
+    if (!factTable) {
+      return yield* new ProjectionUnknownIndexError({
+        index: params.index,
+        message: `unknown index: ${params.index}`
+      })
+    }
 
-    const job = await createJob('backfill', targetIndex, params.from, params.to, params.batchSize)
-    await transitionJob(job.id, 'running')
+    const job = yield* tryProjection('create-backfill-job', () => createJob('backfill', targetIndex, params.from, params.to, params.batchSize))
+    yield* tryProjection('start-backfill-job', () => transitionJob(job.id, 'running'))
 
     const table = factTables[factTable]
     let processedCount = 0
     let errors = 0
-    let currentCursor = params.from ?? await getCursor(targetIndex) ?? {
+    let currentCursor = params.from ?? (yield* tryProjection('read-backfill-cursor', () => getCursor(targetIndex))) ?? {
       factId: '00000000-0000-0000-0000-000000000000',
       timestamp: '1970-01-01T00:00:00.000Z'
     }
@@ -341,19 +362,19 @@ export function createProjectionEngine(
           conditions.push(lte(table['timestamp' as keyof typeof table] as unknown as PgColumn, new Date(params.to.timestamp)))
         }
 
-        const batch = await db
-          .select()
-          .from(table)
-          .where(and(...conditions))
-          .orderBy(asc(table['timestamp' as keyof typeof table] as unknown as PgColumn), asc(table['id' as keyof typeof table] as unknown as SQL<unknown>))
-          .limit(params.batchSize)
+        const batch = yield* tryProjection('read-backfill-batch', () => db
+            .select()
+            .from(table)
+            .where(and(...conditions))
+            .orderBy(asc(table['timestamp' as keyof typeof table] as unknown as PgColumn), asc(table['id' as keyof typeof table] as unknown as SQL<unknown>))
+            .limit(params.batchSize))
 
         if (batch.length === 0) break
 
         // 逐条投影
         for (const row of batch) {
           const doc = mapFactToDoc(targetIndex, row as Record<string, unknown>)
-          const success = await projectWithRetry(job.id, targetIndex, (row as Record<string, unknown>).id as string, doc)
+          const success = yield* tryProjection('project-backfill-row', () => projectWithRetry(job.id, targetIndex, (row as Record<string, unknown>).id as string, doc))
           if (success) {
             processedCount++
           } else {
@@ -369,25 +390,30 @@ export function createProjectionEngine(
           factId: lastRec.id as string,
           timestamp: (lastRec.timestamp as Date).toISOString()
         }
-        await advanceCursor(targetIndex, currentCursor)
+        yield* tryProjection('advance-backfill-cursor', () => advanceCursor(targetIndex, currentCursor))
 
         if (batch.length < params.batchSize) break // 已读完
       }
 
-      await transitionJob(job.id, 'completed')
+      yield* tryProjection('complete-backfill-job', () => transitionJob(job.id, 'completed'))
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e)
-      await transitionJob(job.id, 'failed', errMsg)
+      yield* tryProjection('fail-backfill-job', () => transitionJob(job.id, 'failed', errMsg))
       errors++
     }
 
+    const status: ProjectorJobStatus = errors === 0 ? 'completed' : 'failed'
     return {
       jobId: job.id,
       processedCount,
       errors,
       lastCursor: currentCursor,
-      status: errors === 0 ? 'completed' : 'failed'
+      status
     }
+  })
+
+  async function executeBackfill(params: BackfillParams): Promise<BackfillResult> {
+    return Effect.runPromise(executeBackfillEffect(params))
   }
 
   return {
@@ -402,6 +428,7 @@ export function createProjectionEngine(
     skipDLQ,
     listDLQ,
     getProjectionHealth,
+    executeBackfillEffect,
     executeBackfill
   }
 }

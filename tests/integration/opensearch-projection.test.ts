@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach } from 'bun:test'
+import { Effect, Exit } from 'effect'
 import { createProjectionEngine } from '../../services/m-log/src/projection.ts'
+import { ProjectionUnknownIndexError } from '../../services/m-log/src/projection/errors.ts'
 import {
   projectorJobs,
   projectionCursors,
@@ -58,11 +60,11 @@ function createMockDb() {
               // This is used only by advanceCursor on projection_cursors where index is unique.
               const targetCol = 'index' // heuristic for projection_cursors
               const existingIdx = store.findIndex((r, i) => i !== store.length - 1 && r[targetCol] === row[targetCol])
-              if (existingIdx !== -1) {
-                Object.assign(store[existingIdx], _opts.set)
+              if (existingIdx !== -1 && _opts.set) {
+                Object.assign(store[existingIdx]!, _opts.set)
                 store.pop() // remove the just-pushed row since we updated existing
               }
-              return Promise.resolve() as any
+              return Promise.resolve() as Promise<void>
             }
           }
           return chain
@@ -97,9 +99,9 @@ function createMockDb() {
           where(cond: unknown) {
             const matches = matchById(store, cond)
             for (const m of matches) {
-              Object.assign(m, updates)
+              if (updates) Object.assign(m, updates)
             }
-            return Promise.resolve() as any
+            return Promise.resolve() as Promise<void>
           }
         })
       }
@@ -110,11 +112,16 @@ function createMockDb() {
         where(cond: unknown) {
           const toRemove = new Set(matchById(store, cond))
           for (let i = store.length - 1; i >= 0; i--) {
-            if (toRemove.has(store[i])) store.splice(i, 1)
+            if (toRemove.has(store[i]!)) store.splice(i, 1)
           }
-          return Promise.resolve() as any
+          return Promise.resolve() as Promise<void>
         }
       }
+    },
+    getStore(table: object) {
+      const s = storeMap.get(table)
+      if (!s) throw new Error('unknown table in mock db')
+      return s
     },
     storeMap,
     _reset() {
@@ -149,11 +156,12 @@ describe('Projection engine', () => {
   beforeEach(() => {
     db = createMockDb()
     os = createMockOs()
+    // @ts-expect-error MockDb structurally satisfies projection engine deps
     engine = createProjectionEngine(db as unknown as MockDb, os)
   })
 
   it('creates a backfill job and transitions it to running then completed', async () => {
-    db.storeMap.get(timelineLogs)!.push({
+    db.getStore(timelineLogs).push({
       id: 'fact-1',
       timestamp: new Date('2024-01-01T00:00:00.000Z'),
       summary: 'hello',
@@ -172,11 +180,11 @@ describe('Projection engine', () => {
     expect(result.processedCount).toBe(1)
     expect(result.errors).toBe(0)
     expect(os.docs.length).toBe(1)
-    expect(os.docs[0].index).toBe('meristem-timeline-logs-v0')
+    expect(os.docs[0]!.index).toBe('meristem-timeline-logs-v0')
 
-    const jobRows = db.storeMap.get(projectorJobs)!
+    const jobRows = db.getStore(projectorJobs)
     expect(jobRows.length).toBe(1)
-    expect(jobRows[0].status).toBe('completed')
+    expect(jobRows[0]!.status).toBe('completed')
   })
 
   it('idempotencyKey format is {index}:{factId}:1', () => {
@@ -201,14 +209,14 @@ describe('Projection engine', () => {
     } finally {
       globalThis.setTimeout = originalSetTimeout
     }
-    const dlq = db.storeMap.get(projectionDLQ)!
+    const dlq = db.getStore(projectionDLQ)
     expect(dlq.length).toBe(1)
-    expect(dlq[0].factId).toBe('f1')
-    expect(dlq[0].index).toBe('meristem-timeline-logs-v0')
+    expect(dlq[0]!.factId).toBe('f1')
+    expect(dlq[0]!.index).toBe('meristem-timeline-logs-v0')
   })
 
   it('replayDLQ removes record on success', async () => {
-    db.storeMap.get(projectionDLQ)!.push({
+    db.getStore(projectionDLQ).push({
       id: 'dlq-1',
       jobId: 'job-1',
       factId: 'f1',
@@ -218,7 +226,7 @@ describe('Projection engine', () => {
       retries: 3,
       createdAt: new Date()
     })
-    db.storeMap.get(timelineLogs)!.push({
+    db.getStore(timelineLogs).push({
       id: 'f1',
       timestamp: new Date('2024-01-01T00:00:00.000Z'),
       summary: 'hello',
@@ -228,12 +236,12 @@ describe('Projection engine', () => {
 
     const ok = await engine.replayDLQ('dlq-1')
     expect(ok).toBe(true)
-    expect(db.storeMap.get(projectionDLQ)!.length).toBe(0)
+    expect(db.getStore(projectionDLQ).length).toBe(0)
     expect(os.docs.length).toBe(1)
   })
 
   it('skipDLQ removes record', async () => {
-    db.storeMap.get(projectionDLQ)!.push({
+    db.getStore(projectionDLQ).push({
       id: 'dlq-2',
       jobId: 'job-1',
       factId: 'f2',
@@ -244,11 +252,11 @@ describe('Projection engine', () => {
       createdAt: new Date()
     })
     await engine.skipDLQ('dlq-2')
-    expect(db.storeMap.get(projectionDLQ)!.length).toBe(0)
+    expect(db.getStore(projectionDLQ).length).toBe(0)
   })
 
   it('getProjectionHealth returns healthy when no lag and no DLQ', async () => {
-    db.storeMap.get(projectionCursors)!.push({
+    db.getStore(projectionCursors).push({
       index: 'meristem-timeline-logs-v0',
       factId: 'f1',
       timestamp: new Date(),
@@ -261,5 +269,21 @@ describe('Projection engine', () => {
     expect(h!.status).toBe('healthy')
     expect(h!.dlqCount).toBe(0)
     expect(h!.pendingCount).toBe(0)
+  })
+
+  it('exposes typed Effect errors for invalid backfill indices', async () => {
+    const exit = await Effect.runPromiseExit(engine.executeBackfillEffect({
+      index: 'meristem-unknown-logs-v0',
+      from: null,
+      to: null,
+      batchSize: 10
+    }))
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = exit.cause._tag === 'Fail' ? exit.cause.error : null
+      expect(error).toBeInstanceOf(ProjectionUnknownIndexError)
+      expect(error?._tag).toBe('ProjectionUnknownIndexError')
+    }
   })
 })

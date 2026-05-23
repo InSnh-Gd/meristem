@@ -4,7 +4,7 @@ import { openapi } from '@elysiajs/openapi'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId, Permission, CoreMode, CoreDependencies, MNode,
-  ServiceSummary, TimelineLog
+  ServiceSummary, TimelineLog, CommandWellEligibility, DisabledCommandExplanation, MinimalPolicyDecisionSummary
 } from '../../../packages/contracts/src/index.ts'
 
 export type MUiBffDeps = {
@@ -60,6 +60,42 @@ function passthroughCoreError(result: { ok: boolean; status: number; data: unkno
     status: result.status || 502,
     headers: { 'content-type': 'application/json' }
   })
+}
+
+function disabledCommand(code: DisabledCommandExplanation['code'], message: string, missingPermission?: Permission): CommandWellEligibility {
+  const disabled: DisabledCommandExplanation = {
+    code,
+    message,
+    ...(missingPermission ? { missingPermission } : {})
+  }
+  return { state: 'disabled', disabled, disabledReason: message }
+}
+
+/**
+ * CommandWell eligibility is display-only and derived from Core-visible session and node facts.
+ * Source: docs/plans/2026-05-23-effect-projection-hardening.md §3 Slice 4
+ */
+function deriveNoopCommandEligibility(session: { permissions: Permission[] }, node: MNode): CommandWellEligibility {
+  if (node.kind !== 'leaf') {
+    return disabledCommand('wrong_node_kind', '目标不是 Leaf 节点')
+  }
+  if (node.reachability !== 'reachable') {
+    return disabledCommand('node_unreachable', '目标节点不可达')
+  }
+
+  return {
+    state: 'enabled',
+    command: {
+      id: 'task.noop.run',
+      label: '运行 noop 任务',
+      action: 'task:assign',
+      resource: node.id,
+      risk: 'medium',
+      requiredPermissions: ['task:assign'],
+      requiresPolicy: true,
+      requiresAudit: true
+    }
+  }
 }
 
 /**
@@ -152,8 +188,8 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       if (!result.ok) return passthroughCoreError(result)
 
       // 裁剪：从完整 PolicyDecision 中只取 id / actor / action / resource / result / createdAt，去除 reasons 等内部字段
-      const full = (result.data as { decision: { id: string; actor: string; action: string; resource: string; result: string; createdAt: string } }).decision
-      const decision = {
+      const full = (result.data as { decision: MinimalPolicyDecisionSummary }).decision
+      const decision: MinimalPolicyDecisionSummary = {
         id: full.id,
         actor: full.actor,
         action: full.action,
@@ -183,37 +219,13 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       if (!sessionRes.ok) return passthroughCoreError(sessionRes)
       const session = sessionRes.data as { actor: ActorId; permissions: Permission[] }
 
-      // 策略检查：缺少 task:assign 权限则禁用
       if (!session.permissions.includes('task:assign')) {
-        return { state: 'disabled' as const, disabledReason: '缺少权限：task:assign' }
+        return disabledCommand('missing_permission', '缺少权限：task:assign', 'task:assign')
       }
 
       if (!nodeRes.ok) return passthroughCoreError(nodeRes)
       const node = (nodeRes.data as { node: MNode }).node
-
-      // 策略检查：仅 Leaf 节点可执行 noop
-      if (node.kind !== 'leaf') {
-        return { state: 'disabled' as const, disabledReason: '目标不是 Leaf 节点' }
-      }
-
-      // 策略检查：仅可达节点可执行
-      if (node.reachability !== 'reachable') {
-        return { state: 'disabled' as const, disabledReason: '目标节点不可达' }
-      }
-
-      return {
-        state: 'enabled' as const,
-        command: {
-          id: 'task.noop.run',
-          label: '运行 noop 任务',
-          action: 'task:assign',
-          resource: node.id,
-          risk: 'medium',
-          requiredPermissions: ['task:assign'],
-          requiresPolicy: true,
-          requiresAudit: true
-        }
-      }
+      return deriveNoopCommandEligibility(session, node)
     }, {
       body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
       detail: { summary: 'Derive disabled/enabled state for the noop task command' }

@@ -1,20 +1,6 @@
-// ActorId 固定为 MVP 文档定义的四类操作者身份，避免运行时冒出未建模角色。
-export type ActorId = 'viewer' | 'operator' | 'admin' | 'security-admin'
+import type { ActorId, Permission } from './literals.ts'
 
-// Permission 是 Core 和 M-Policy 共享的最小授权词表，所有高权限操作都必须落到这里。
-export type Permission =
-  | 'core:read'
-  | 'node:register'
-  | 'node:issue-token'
-  | 'task:assign'
-  | 'timeline:read'
-  | 'log:read-full'
-  | 'audit:read'
-  | 'service:register'
-  | 'service:reload'
-  | 'network:read'
-  | 'network:create'
-  | 'network:join'
+export type { ActorId, Permission } from './literals.ts'
 
 export type DependencyState = 'ready' | 'unavailable'
 

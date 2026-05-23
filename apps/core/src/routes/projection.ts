@@ -1,24 +1,81 @@
 import { Elysia, t } from "elysia"
+import { CoreError } from '../core-error.ts'
 import type { CoreDeps } from "../types.ts"
 import { requireActor, authorize } from "../middleware/auth.ts"
-import { apiError } from "../errors.ts"
 import { apiErrorSchema, protectedRouteDetail, protectedResponse } from "../schemas.ts"
+import { statusCodeForServiceError } from '../middleware/helpers.ts'
+import type { ActorId, BackfillParams, Permission, PolicyDecision, ProjectionCursor, ServiceRuntimeMode } from '../../../../packages/contracts/src/index.ts'
+
+type ProjectionControlContext = {
+  actor: ActorId
+  correlationId: string
+  permission: PolicyDecision
+  action: Permission
+  resource: string
+}
+
+async function writeProjectionControlAudit(
+  deps: CoreDeps,
+  context: ProjectionControlContext,
+  payload: Record<string, unknown>
+) {
+  const audit = await deps.log.writeAudit({
+    actor: context.actor,
+    action: context.action,
+    resource: context.resource,
+    decisionId: context.permission.id,
+    result: context.permission.result,
+    correlationId: context.correlationId,
+    payload
+  })
+  if (!audit.ok) throw new CoreError(503, audit.error.code, audit.error.message, context.correlationId)
+}
+
+async function writeProjectionControlFailure(
+  deps: CoreDeps,
+  context: Pick<ProjectionControlContext, 'actor' | 'action' | 'resource' | 'correlationId'>,
+  error: { code: string; message: string }
+) {
+  await deps.log.writeFull({
+    level: 'warn',
+    source: 'meristem-core',
+    message: 'projection control failed',
+    correlationId: context.correlationId,
+    payload: {
+      actor: context.actor,
+      action: context.action,
+      resource: context.resource,
+      code: error.code,
+      message: error.message
+    }
+  })
+}
+
+function optionalCursorPayload(cursor: ProjectionCursor | null) {
+  return cursor ? { factId: cursor.factId, timestamp: cursor.timestamp } : null
+}
 
 /**
- * Phase 10.1 Projection routes: backfill, projection health, DLQ management.
- * All routes require admin or security-admin role.
- * Source: docs/roadmap/PHASE-10.1.md 2.5, 2.6, 2.4
+ * Projection routes separate read and control permissions while keeping Core as the REST adapter.
+ * Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.3-2.5
  */
 export function projectionRoutes(deps: CoreDeps) {
   return new Elysia()
-    // 2.6 Projection health
+    // Projection read routes require only projection:read and do not create Audit Log facts.
     .get("/api/v0/projection/health", async ({ headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: "projection:read", resource: "projection", correlationId: auth.correlationId })
       const result = await deps.projection.getHealth()
-      return result.ok ? { indices: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+      if (!result.ok) {
+        await writeProjectionControlFailure(deps, {
+          actor: auth.actor,
+          action: 'projection:read',
+          resource: 'projection',
+          correlationId: auth.correlationId
+        }, result.error)
+        throw new CoreError(503, result.error.code, result.error.message, auth.correlationId)
+      }
+      return { indices: result.value }
     }, {
       response: protectedResponse(
         t.Object({
@@ -35,20 +92,45 @@ export function projectionRoutes(deps: CoreDeps) {
       ),
       detail: protectedRouteDetail("Get projection health")
     })
-    // 2.5 Backfill
+    // Projection control routes audit before calling M-Log and fail closed if audit is unavailable.
     .post("/api/v0/projection/backfill", async ({ body, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
-      const result = await deps.projection.executeBackfill({
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: "projection:backfill", resource: `projection:${body.index}`, correlationId: auth.correlationId })
+      const params: BackfillParams = {
         index: body.index,
         from: body.from ?? null,
         to: body.to ?? null,
         batchSize: Number(body.batchSize),
         ...(body.targetVersion ? { targetVersion: body.targetVersion } : {})
+      }
+      await writeProjectionControlAudit(deps, {
+        actor: auth.actor,
+        correlationId: auth.correlationId,
+        permission,
+        action: 'projection:backfill',
+        resource: `projection:${body.index}`
+      }, {
+        batchSize: params.batchSize,
+        from: optionalCursorPayload(params.from),
+        to: optionalCursorPayload(params.to),
+        ...(params.targetVersion ? { targetVersion: params.targetVersion } : {})
       })
-      return result.ok ? result.value : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+      const result = await deps.projection.executeBackfill(params)
+      if (!result.ok) {
+        await writeProjectionControlFailure(deps, {
+          actor: auth.actor,
+          action: 'projection:backfill',
+          resource: `projection:${body.index}`,
+          correlationId: auth.correlationId
+        }, result.error)
+        throw new CoreError(statusCodeForServiceError(result.error.code), result.error.code, result.error.message, auth.correlationId)
+      }
+      await deps.log.writeTimeline({
+        summary: 'projection backfill completed',
+        subject: body.index,
+        correlationId: auth.correlationId
+      })
+      return result.value
     }, {
       body: t.Object({
         index: t.String({ minLength: 1 }),
@@ -69,14 +151,21 @@ export function projectionRoutes(deps: CoreDeps) {
       ),
       detail: protectedRouteDetail("Execute backfill")
     })
-    // 2.4 DLQ list
+    // Projection DLQ listing is read-only; replay and skip below are audited control operations.
     .get("/api/v0/projection/dlq", async ({ query, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: "projection:read", resource: "projection-dlq", correlationId: auth.correlationId })
       const result = await deps.projection.listDLQ(query.index)
-      return result.ok ? { records: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+      if (!result.ok) {
+        await writeProjectionControlFailure(deps, {
+          actor: auth.actor,
+          action: 'projection:read',
+          resource: 'projection-dlq',
+          correlationId: auth.correlationId
+        }, result.error)
+        throw new CoreError(503, result.error.code, result.error.message, auth.correlationId)
+      }
+      return { records: result.value }
     }, {
       query: t.Object({ index: t.Optional(t.String()) }),
       response: protectedResponse(
@@ -91,14 +180,33 @@ export function projectionRoutes(deps: CoreDeps) {
       detail: protectedRouteDetail("List DLQ records")
     })
 
-    // 2.4 DLQ replay
+    // Replay writes Audit first, then delegates the DLQ record mutation to M-Log.
     .post("/api/v0/projection/dlq/:id/replay", async ({ params, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: "projection:dlq-manage", resource: `projection-dlq:${params.id}`, correlationId: auth.correlationId })
+      await writeProjectionControlAudit(deps, {
+        actor: auth.actor,
+        correlationId: auth.correlationId,
+        permission,
+        action: 'projection:dlq-manage',
+        resource: `projection-dlq:${params.id}`
+      }, { operation: 'replay' })
       const result = await deps.projection.replayDLQ(params.id)
-      return result.ok ? { replayed: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+      if (!result.ok) {
+        await writeProjectionControlFailure(deps, {
+          actor: auth.actor,
+          action: 'projection:dlq-manage',
+          resource: `projection-dlq:${params.id}`,
+          correlationId: auth.correlationId
+        }, result.error)
+        throw new CoreError(statusCodeForServiceError(result.error.code), result.error.code, result.error.message, auth.correlationId)
+      }
+      await deps.log.writeTimeline({
+        summary: 'projection DLQ replay completed',
+        subject: params.id,
+        correlationId: auth.correlationId
+      })
+      return { replayed: result.value }
     }, {
       response: protectedResponse(
         t.Object({ replayed: t.Boolean() }),
@@ -106,14 +214,33 @@ export function projectionRoutes(deps: CoreDeps) {
       ),
       detail: protectedRouteDetail("Replay DLQ record")
     })
-    // 2.4 DLQ skip
+    // Skip writes Audit first, then delegates the DLQ record mutation to M-Log.
     .post("/api/v0/projection/dlq/:id/skip", async ({ params, headers, status }) => {
-      const auth = await requireActor(deps, headers, status)
-      if (!auth.ok) return auth.response
-      const permission = await authorize(deps, { actor: auth.actor, action: "core:read", resource: "projection", correlationId: auth.correlationId }, status)
-      if (!permission.ok) return permission.response
+      const auth = await requireActor(deps, headers)
+      const permission = await authorize(deps, { actor: auth.actor, action: "projection:dlq-manage", resource: `projection-dlq:${params.id}`, correlationId: auth.correlationId })
+      await writeProjectionControlAudit(deps, {
+        actor: auth.actor,
+        correlationId: auth.correlationId,
+        permission,
+        action: 'projection:dlq-manage',
+        resource: `projection-dlq:${params.id}`
+      }, { operation: 'skip' })
       const result = await deps.projection.skipDLQ(params.id)
-      return result.ok ? { skipped: result.value } : apiError(status, 503, result.error.code, result.error.message, auth.correlationId)
+      if (!result.ok) {
+        await writeProjectionControlFailure(deps, {
+          actor: auth.actor,
+          action: 'projection:dlq-manage',
+          resource: `projection-dlq:${params.id}`,
+          correlationId: auth.correlationId
+        }, result.error)
+        throw new CoreError(statusCodeForServiceError(result.error.code), result.error.code, result.error.message, auth.correlationId)
+      }
+      await deps.log.writeTimeline({
+        summary: 'projection DLQ skip completed',
+        subject: params.id,
+        correlationId: auth.correlationId
+      })
+      return { skipped: result.value }
     }, {
       response: protectedResponse(
         t.Object({ skipped: t.Boolean() }),
