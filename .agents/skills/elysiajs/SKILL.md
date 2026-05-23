@@ -43,7 +43,7 @@ export const app = new Elysia()
 
 ## When More Detail Is Needed
 
-Read `../../references/elysiajs-latest.md` for the current project snapshot, official links, release notes, and Meristem-specific usage guidance.
+Read `../../../docs/references/elysiajs-latest.md` for the current project snapshot, official links, release notes, and Meristem-specific usage guidance.
 
 ## Common Mistakes
 
