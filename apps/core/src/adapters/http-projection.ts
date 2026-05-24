@@ -1,6 +1,7 @@
 import { edenTreaty } from "@elysiajs/eden"
 import type { BackfillParams, BackfillResult, DLQRecord, ProjectionHealth } from "../../../../packages/contracts/src/index.ts"
-import { serviceUrl } from "../../../../packages/internal-http/src/index.ts"
+import { createDynamicRouteAdapter } from "../../../../packages/internal-http/src/dynamic-routes.ts"
+import { internalRequestHeaders, serviceUrl } from "../../../../packages/internal-http/src/index.ts"
 import type { LogApp } from "../../../../services/m-log/src/app.ts"
 import { createInternalFetcher, requireServiceData, runServiceEffect, tryServiceCall } from "../effect-helpers.ts"
 import { Effect } from "effect"
@@ -20,7 +21,10 @@ type ProjectionClient = {
 export function createHttpProjectionPort() {
   const client = edenTreaty<LogApp>(serviceUrl("m-log"), { fetcher: createInternalFetcher() })
   const baseUrl = serviceUrl("m-log")
-  const fetcher = createInternalFetcher()
+  const dynamicRoutes = createDynamicRouteAdapter({
+    baseUrl,
+    defaultHeaders: internalRequestHeaders()
+  })
 
   return {
     async getHealth() {
@@ -63,32 +67,26 @@ export function createHttpProjectionPort() {
       )
     },
 
-    // DLQ replay: use raw fetch for dynamic path param
     async replayDLQ(dlqId: string) {
       return runServiceEffect(
         tryServiceCall(
           async () => {
-            const url = baseUrl + "/internal/v0/projection/dlq/" + encodeURIComponent(dlqId) + "/replay"
-            const response = await fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" } })
-            if (!response.ok) throw { code: "dlq.replay_failed", message: "DLQ replay failed" }
-            const body = await response.json() as { replayed: boolean }
-            return body.replayed
+            const result = await dynamicRoutes.postJson<{ replayed: boolean }>("/internal/v0/projection/dlq/:id/replay", { params: { id: dlqId } })
+            if (!result.ok) throw result.error
+            return result.value.replayed
           },
           { code: "dlq.replay_failed", message: "DLQ replay failed" }
         ).pipe(Effect.map((data) => data))
       )
     },
 
-    // DLQ skip: use raw fetch for dynamic path param
     async skipDLQ(dlqId: string) {
       return runServiceEffect(
         tryServiceCall(
           async () => {
-            const url = baseUrl + "/internal/v0/projection/dlq/" + encodeURIComponent(dlqId) + "/skip"
-            const response = await fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" } })
-            if (!response.ok) throw { code: "dlq.skip_failed", message: "DLQ skip failed" }
-            const body = await response.json() as { skipped: boolean }
-            return body.skipped
+            const result = await dynamicRoutes.postJson<{ skipped: boolean }>("/internal/v0/projection/dlq/:id/skip", { params: { id: dlqId } })
+            if (!result.ok) throw result.error
+            return result.value.skipped
           },
           { code: "dlq.skip_failed", message: "DLQ skip failed" }
         ).pipe(Effect.map((data) => data))

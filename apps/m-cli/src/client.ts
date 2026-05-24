@@ -17,6 +17,7 @@ import type {
   BackfillResult,
   DLQRecord
 } from '../../../packages/contracts/src/index.ts'
+import { createDynamicRouteAdapter } from '../../../packages/internal-http/src/dynamic-routes.ts'
 import { injectTraceHeaders } from '../../../packages/telemetry/src/index.ts'
 import type { CliClient } from './cli.ts'
 
@@ -86,6 +87,11 @@ export function createCoreClient(config: CliConfig): CliClient {
   ) as typeof fetch
   const client = edenTreaty<CoreApp>(config.coreUrl, { fetcher })
   const headers = authHeaders(config.token)
+  const dynamicRoutes = createDynamicRouteAdapter({
+    baseUrl: config.coreUrl,
+    defaultHeaders: headers,
+    traceHeaders: () => injectTraceHeaders({})
+  })
   const networkRoutes = client.api.v0.networks as Record<
     string,
     {
@@ -155,20 +161,14 @@ export function createCoreClient(config: CliConfig): CliClient {
     },
     listDLQ: async (index) => unwrap<{ records: DLQRecord[] }>(client.api.v0.projection.dlq.get({ $query: { ...(index ? { index } : {}) }, $headers: headers })),
     replayDLQ: async (dlqId) => {
-      const response = await fetch(`${config.coreUrl}/api/v0/projection/dlq/${encodeURIComponent(dlqId)}/replay`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' }
-      })
-      if (!response.ok) throw new Error(`replay DLQ failed: ${response.status}`)
-      return response.json()
+      const result = await dynamicRoutes.postJson('/api/v0/projection/dlq/:id/replay', { params: { id: dlqId } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
     },
     skipDLQ: async (dlqId) => {
-      const response = await fetch(`${config.coreUrl}/api/v0/projection/dlq/${encodeURIComponent(dlqId)}/skip`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' }
-      })
-      if (!response.ok) throw new Error(`skip DLQ failed: ${response.status}`)
-      return response.json()
+      const result = await dynamicRoutes.postJson('/api/v0/projection/dlq/:id/skip', { params: { id: dlqId } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
     }
   }
 }
