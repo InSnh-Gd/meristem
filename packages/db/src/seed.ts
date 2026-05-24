@@ -23,7 +23,11 @@ const permissions = [
   ['core:read', 'read core status'],
   ['node:register', 'register stem and leaf nodes'],
   ['node:issue-token', 'issue node agent tokens'],
-  ['task:assign', 'assign noop tasks'],
+  ['task:read', 'read task state'],
+  ['task:submit', 'submit noop tasks'],
+  ['task:cancel', 'cancel tasks'],
+  ['task:retry', 'retry tasks'],
+  ['task:manage', 'manage task definitions'],
   ['timeline:read', 'read timeline log'],
   ['log:read-full', 'read full log'],
   ['audit:read', 'read audit log'],
@@ -39,13 +43,17 @@ const permissions = [
 
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
     'node:issue-token',
-    'task:assign',
+    'task:read',
+    'task:submit',
+    'task:cancel',
+    'task:retry',
+    'task:manage',
     'timeline:read',
     'log:read-full',
     'audit:read',
@@ -59,6 +67,10 @@ const rolePermissions: Record<string, readonly string[]> = {
 }
 
 await sql.begin(async (tx) => {
+  // Phase 11 移除 task:assign；先清理历史 seed 残留，避免会话权限返回无效字面量。
+  await tx`delete from role_permissions where permission_id = 'task:assign'`
+  await tx`delete from permissions where id = 'task:assign'`
+
   // 用户、角色、权限三类基础数据分别 upsert，保证反复 seed 仍是幂等操作。
   for (const [id, displayName] of users) {
     await tx`
@@ -102,6 +114,17 @@ await sql.begin(async (tx) => {
       `
     }
   }
+
+  // M-Task Phase 11 默认只开放 noop 定义；更多任务类型必须显式扩展定义和风险语义。
+  await tx`
+    insert into task_definitions (id, type, version, description, danger_level, default_timeout_seconds, created_at, updated_at)
+    values ('task-definition-noop-v0', 'noop', 'v0', 'Phase 11 noop task', 'medium', 30, ${now}, ${now})
+    on conflict (id) do update set
+      description = excluded.description,
+      danger_level = excluded.danger_level,
+      default_timeout_seconds = excluded.default_timeout_seconds,
+      updated_at = excluded.updated_at
+  `
 })
 
 await sql.end()

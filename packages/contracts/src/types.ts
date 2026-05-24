@@ -25,7 +25,7 @@ export type ApiError = {
 
 // 服务摘要用于 service list、reload 和运行态聚合，不等同于完整 service definition。
 export type CoreMode = 'normal' | 'degraded' | 'safe'
-export type ServiceDomain = 'core' | 'm-net' | 'm-eventbus' | 'm-log' | 'm-policy' | 'm-ui' | 'm-cli' | 'm-extension'
+export type ServiceDomain = 'core' | 'm-net' | 'm-eventbus' | 'm-log' | 'm-policy' | 'm-task' | 'm-ui' | 'm-cli' | 'm-extension'
 export type ServiceKind = 'core' | 'internal' | 'node' | 'task' | 'extension' | 'bff'
 export type ServiceRuntimeMode = 'normal' | 'degraded'
 export type ServiceLifecycle = {
@@ -155,25 +155,83 @@ export type IssueNodeCredentialResponse = {
   correlationId: string
 }
 
-// 当前任务模型刻意收敛为 noop，用来验证控制面和 agent bus 的最小闭环。
-export type AssignTaskRequest = {
-  leafNodeId: string
-  type: 'noop'
+export type TaskType = 'noop'
+export type MTaskStatus = 'accepted' | 'queued' | 'dispatched' | 'running' | 'completed' | 'failed' | 'cancel_requested' | 'canceled' | 'timed_out'
+export type OperationDangerLevel = 'low' | 'medium' | 'high' | 'critical'
+export type RiskFactor =
+  | 'actor_permission_level'
+  | 'operation_danger_level'
+  | 'target_node_kind'
+  | 'target_node_reachability'
+  | 'task_type_risk'
+  | 'recent_failure_count'
+  | 'outside_expected_scope'
+  | 'audit_visibility'
+
+// Phase 11 起 M-Task 拥有 canonical task lifecycle。
+export type SubmitTaskRequest = {
+  nodeId: string
+  type: TaskType
+  timeoutAt?: string
 }
 
 export type MTask = {
   id: string
+  nodeId: string
   leafNodeId: string
-  type: 'noop'
-  status: 'requested' | 'completed' | 'failed'
+  type: TaskType
+  status: MTaskStatus
   createdAt: string
+  updatedAt: string
+  timeoutAt?: string
   completedAt?: string
+  canceledAt?: string
 }
 
-export type AssignTaskResponse = {
+export type TaskRiskSummary = {
+  operationDangerLevel: OperationDangerLevel
+  suspicionScore: number
+  riskFactors: RiskFactor[]
+}
+
+export type TaskPolicyResult = 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+
+export type MTaskPolicyDecision = {
+  decisionId: string
+  result: TaskPolicyResult
+  requiredAction?: 'manual_review' | 'multi_approval' | undefined
+  reasons: string[]
+}
+
+export type SubmitTaskResponse = {
   task: MTask
   policyDecisionId: string
   correlationId: string
+  risk: TaskRiskSummary
+}
+
+export type TaskListResponse = {
+  tasks: MTask[]
+}
+
+export type TaskStatusResponse = {
+  task: MTask
+}
+
+export type TaskControlResponse = {
+  task: MTask
+  policyDecisionId: string
+  correlationId: string
+  risk: TaskRiskSummary
+}
+
+export type TaskRetryNotImplementedResponse = {
+  error: {
+    code: 'not_implemented_for_phase'
+    message: string
+  }
+  decisionId: string
+  risk: TaskRiskSummary
 }
 
 export type NodeAgentTaskExecuteRequest = {
@@ -317,7 +375,7 @@ export type JoinNetworkResponse = {
   correlationId: string
 }
 
-export type PolicyResult = 'allow' | 'deny'
+export type PolicyResult = 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
 
 export type PolicyDecision = {
   id: string
@@ -326,6 +384,10 @@ export type PolicyDecision = {
   resource: string
   result: PolicyResult
   reasons: string[]
+  operationDangerLevel?: OperationDangerLevel
+  suspicionScore?: number
+  riskFactors?: RiskFactor[]
+  requiredAction?: 'manual_review' | 'multi_approval'
   createdAt: string
 }
 

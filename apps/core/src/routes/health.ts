@@ -2,20 +2,10 @@ import { Elysia, t } from 'elysia'
 import { CoreError } from '../core-error.ts'
 import type { CoreDeps } from '../types.ts'
 import { requireActor, authorize } from '../middleware/auth.ts'
-import { statusCodeForServiceError, tracedEvent, joinSessionUrl } from '../middleware/helpers.ts'
+import { tracedEvent } from '../middleware/helpers.ts'
 import {
   apiErrorSchema,
   dependenciesSchema,
-  nodeSchema,
-  taskSchema,
-  networkSchema,
-  networkSummarySchema,
-  networkMemberSchema,
-  policyDecisionSchema,
-  timelineLogSchema,
-  fullLogSchema,
-  auditLogSchema,
-  serviceSummarySchema,
   protectedRouteDetail,
   protectedResponse
 } from '../schemas.ts'

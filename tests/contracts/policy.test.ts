@@ -6,7 +6,7 @@ describe('MVP RBAC policy', () => {
     const decision = decidePermission({
       actor: 'operator',
       action: 'node:register',
-      permissions: ['core:read', 'node:register', 'task:assign']
+      permissions: ['core:read', 'node:register', 'task:submit']
     })
 
     expect(decision.result).toBe('allow')

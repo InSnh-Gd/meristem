@@ -1,20 +1,28 @@
 import { describe, expect, it } from 'bun:test'
 
-describe('M-Task draft alignment', () => {
-  it('keeps Phase 11 as a draft without changing MVP noop compatibility', async () => {
+describe('M-Task Phase 11 alignment', () => {
+  it('records the accepted M-Task cutover and implementation baseline', async () => {
     const phase11 = await Bun.file('docs/roadmap/PHASE-11.md').text()
-    const taskRoute = await Bun.file('apps/core/src/routes/tasks.ts').text()
+    const adr25 = await Bun.file('docs/adr/ADR-025-promote-m-task-to-canonical-task-service.md').text()
+    const coreApp = await Bun.file('apps/core/src/app.ts').text()
+    const taskApp = await Bun.file('services/m-task/src/app.ts').text()
 
     expect(phase11).toContain('Status: Draft')
-    expect(phase11).toContain('M-Task')
-    expect(phase11).toContain('does not change the MVP `noop` contract')
-    expect(phase11).toContain('The existing `task:assign` permission remains the MVP permission')
-    expect(phase11).toContain('Keep current MVP `noop` task behavior stable')
+    expect(phase11).toContain('Phase 11.1 - M-Task Service Cutover')
+    expect(phase11).toContain('Phase 11.2 - M-Policy Risk Foundation')
+    expect(phase11).toContain('Phase 11.3 - End-to-End MVP Closure')
+    expect(phase11).toContain('M-Task becomes a first-class REST / OpenAPI service')
+    expect(phase11).toContain('M-Task exposes /api/v0/tasks')
+    expect(phase11).toContain('`meristem task assign` is not retained as a compatibility command')
+    expect(phase11).toContain('The existing `task:assign` permission is replaced by M-Task permissions')
 
-    expect(taskRoute).toContain("action: 'task:assign'")
-    expect(taskRoute).toContain("type: t.Literal('noop')")
-    expect(taskRoute).not.toContain('m-task')
-    expect(taskRoute).not.toContain('task:submit')
+    expect(adr25).toContain('## Status\n\nAccepted')
+    expect(adr25).toContain('M-Task becomes the canonical external REST / OpenAPI task API')
+    expect(adr25).toContain('no Core task compatibility window is preserved')
+
+    expect(coreApp).not.toContain('tasksRoutes')
+    expect(taskApp).toContain(".post('/api/v0/tasks'")
+    expect(taskApp).toContain("action: 'task:submit'")
+    expect(taskApp).toContain("action: 'task:retry'")
   })
 })
-

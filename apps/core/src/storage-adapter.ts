@@ -1,11 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import type {
   ActorId,
-  AssignTaskRequest,
   CreateNodeTicketRequest,
   CoreDependencies,
   MNode,
-  MTask,
   RegisterNodeRequest
 } from '../../../packages/contracts/src/index.ts'
 import { type MeristemDb } from '../../../packages/db/src/client.ts'
@@ -176,79 +174,6 @@ export function createDbStorage(db: MeristemDb, readinessChecks?: () => Promise<
           }
         : null
     },
-    async assignTask(input: AssignTaskRequest) {
-      const nodeRows = await db.select().from(nodes).where(eq(nodes.id, input.leafNodeId)).limit(1)
-      if (nodeRows[0]?.kind !== 'leaf') throw new Error('target must be an existing Leaf node')
-      const now = new Date()
-      const id = crypto.randomUUID()
-      await db.insert(tasks).values({
-        id,
-        leafNodeId: input.leafNodeId,
-        type: input.type,
-        status: 'completed',
-        createdAt: now,
-        completedAt: now
-      })
-      return {
-        id,
-        leafNodeId: input.leafNodeId,
-        type: input.type,
-        status: 'completed',
-        createdAt: now.toISOString(),
-        completedAt: now.toISOString()
-      }
-    },
-    async createTaskRequest(input: AssignTaskRequest) {
-      const nodeRows = await db.select().from(nodes).where(eq(nodes.id, input.leafNodeId)).limit(1)
-      if (nodeRows[0]?.kind !== 'leaf') throw new Error('target must be an existing Leaf node')
-      const now = new Date()
-      const id = crypto.randomUUID()
-      await db.insert(tasks).values({
-        id,
-        leafNodeId: input.leafNodeId,
-        type: input.type,
-        status: 'requested',
-        createdAt: now
-      })
-      return {
-        id,
-        leafNodeId: input.leafNodeId,
-        type: input.type,
-        status: 'requested',
-        createdAt: now.toISOString()
-      }
-    },
-    async completeTask(input: { taskId: string; completedAt: string }) {
-      const [task] = await db.select().from(tasks).where(eq(tasks.id, input.taskId)).limit(1)
-      if (!task) return null
-      const completedAt = new Date(input.completedAt)
-      await db
-        .update(tasks)
-        .set({ status: 'completed', completedAt })
-        .where(eq(tasks.id, input.taskId))
-      return {
-        id: task.id,
-        leafNodeId: task.leafNodeId,
-        type: 'noop',
-        status: 'completed',
-        createdAt: task.createdAt.toISOString(),
-        completedAt: completedAt.toISOString()
-      }
-    },
-    async getTask(id: string) {
-      const rows = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1)
-      const row = rows[0]
-      if (!row) return null
-      const task: MTask = {
-        id: row.id,
-        leafNodeId: row.leafNodeId,
-        type: 'noop',
-        status: row.status as MTask['status'],
-        createdAt: row.createdAt.toISOString()
-      }
-      if (row.completedAt) task.completedAt = row.completedAt.toISOString()
-      return task
-    },
     async registerService(input: unknown) {
       const definition = input as { id?: string; version?: string; domain?: string; kind?: string }
       const now = new Date()
@@ -268,4 +193,3 @@ export function createDbStorage(db: MeristemDb, readinessChecks?: () => Promise<
     }
   }
 }
-

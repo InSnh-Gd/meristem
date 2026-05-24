@@ -122,6 +122,78 @@ await sql.begin(async (tx) => {
     )
   `
   await tx`
+    create table if not exists policy_decisions (
+      id text primary key,
+      actor text not null,
+      action text not null,
+      resource text not null,
+      result text not null,
+      reasons jsonb not null,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists task_definitions (
+      id text primary key,
+      type text not null,
+      version text not null,
+      description text not null,
+      danger_level text not null,
+      default_timeout_seconds integer not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists task_requests (
+      id text primary key,
+      definition_id text not null references task_definitions(id),
+      node_id text not null references nodes(id),
+      type text not null,
+      status text not null,
+      requested_by text not null,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      risk jsonb not null,
+      timeout_at timestamptz,
+      created_at timestamptz not null,
+      updated_at timestamptz not null,
+      completed_at timestamptz,
+      canceled_at timestamptz
+    )
+  `
+  await tx`
+    create table if not exists task_transitions (
+      id text primary key,
+      task_id text not null references task_requests(id),
+      from_status text,
+      to_status text not null,
+      reason text,
+      correlation_id text,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists task_results (
+      task_id text primary key references task_requests(id),
+      status text not null,
+      payload jsonb,
+      error text,
+      completed_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists task_cancellations (
+      id text primary key,
+      task_id text not null references task_requests(id),
+      requested_by text not null,
+      status text not null,
+      correlation_id text,
+      requested_at timestamptz not null,
+      completed_at timestamptz
+    )
+  `
+  await tx`
     create table if not exists networks (
       id text primary key,
       name text not null unique,
@@ -140,17 +212,6 @@ await sql.begin(async (tx) => {
       joined_at timestamptz not null,
       updated_at timestamptz not null,
       primary key (network_id, node_id)
-    )
-  `
-  await tx`
-    create table if not exists policy_decisions (
-      id text primary key,
-      actor text not null,
-      action text not null,
-      resource text not null,
-      result text not null,
-      reasons jsonb not null,
-      created_at timestamptz not null
     )
   `
   await tx`

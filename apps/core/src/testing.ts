@@ -2,7 +2,6 @@ import { err, ok } from '../../../packages/common/src/result.ts'
 import { hashNodeToken, mintNodeToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId,
-  AssignTaskRequest,
   AuditLog,
   CreateNodeTicketRequest,
   CreateNetworkRequest,
@@ -12,7 +11,6 @@ import type {
   MNetworkMember,
   NodeAgentTaskExecuteResponse,
   NetworkSummary,
-  MTask,
   Permission,
   PolicyDecision,
   RegisterNodeRequest,
@@ -85,7 +83,7 @@ function asServiceSummary(value: unknown): ServiceSummary | null {
 export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps {
   const actor = options.actor ?? 'operator'
   const nodes: MNode[] = []
-  const tasks: MTask[] = []
+  const taskCount = { value: 0 }
   const services: unknown[] = []
   const networks: MNetwork[] = []
   const memberships: MNetworkMember[] = []
@@ -387,7 +385,7 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         }
       },
       async counts() {
-        return { services: services.length, nodes: nodes.length, tasks: tasks.length }
+        return { services: services.length, nodes: nodes.length, tasks: taskCount.value }
       },
       async registerNode(input: RegisterNodeRequest) {
         const now = new Date().toISOString()
@@ -440,44 +438,6 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
       },
       async getNode(id: string) {
         return nodes.find((node) => node.id === id) ?? null
-      },
-      async assignTask(input: AssignTaskRequest) {
-        const node = nodes.find((candidate) => candidate.id === input.leafNodeId)
-        if (!node || node.kind !== 'leaf') throw new Error('target must be an existing Leaf node')
-        const now = new Date().toISOString()
-        const task: MTask = {
-          id: crypto.randomUUID(),
-          leafNodeId: input.leafNodeId,
-          type: 'noop',
-          status: 'completed',
-          createdAt: now,
-          completedAt: now
-        }
-        tasks.push(task)
-        return task
-      },
-      async createTaskRequest(input: AssignTaskRequest) {
-        const node = nodes.find((candidate) => candidate.id === input.leafNodeId)
-        if (!node || node.kind !== 'leaf') throw new Error('target must be an existing Leaf node')
-        const task: MTask = {
-          id: crypto.randomUUID(),
-          leafNodeId: input.leafNodeId,
-          type: 'noop',
-          status: 'requested',
-          createdAt: new Date().toISOString()
-        }
-        tasks.push(task)
-        return task
-      },
-      async completeTask(input: { taskId: string; completedAt: string }) {
-        const task = tasks.find((candidate) => candidate.id === input.taskId) ?? null
-        if (!task) return null
-        task.status = 'completed'
-        task.completedAt = input.completedAt
-        return task
-      },
-      async getTask(id: string) {
-        return tasks.find((task) => task.id === id) ?? null
       },
       async registerService(input: unknown) {
         services.push(input)

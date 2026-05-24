@@ -26,7 +26,7 @@ describe('Core REST MVP routes', () => {
     expect(body.paths['/api/v0/status']?.get?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/services']?.post?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/services']?.get?.security).toEqual([{ bearerAuth: [] }])
-    expect(body.paths['/api/v0/tasks']?.post?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/api/v0/tasks']).toBeUndefined()
     expect(body.paths['/api/v0/logs/full']?.get?.security).toEqual([{ bearerAuth: [] }])
 
     expect(body.paths['/api/v0/status']?.get?.responses?.['200']).toBeDefined()
@@ -275,27 +275,8 @@ describe('Core REST MVP routes', () => {
     expect(published.map((entry) => entry.subject)).toContain('service.lifecycle.reload.requested.v0')
   })
 
-  it('publishes requested and completed task events for noop assignment', async () => {
-    const deps = createInMemoryCoreDeps({ actor: 'operator' })
-    const published: Array<{ subject: string; event: MEventEnvelope }> = []
-    const publish = deps.events.publish
-    deps.events.publish = async (subject, event) => {
-      published.push({ subject, event })
-      return publish(subject, event)
-    }
-    const app = createCoreApp(deps)
-
-    const register = await app.handle(
-      new Request('http://localhost/api/v0/nodes', {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer operator-token',
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
-      })
-    )
-    const registered = await register.json() as { node: { id: string } }
+  it('does not expose canonical task routes after the M-Task cutover', async () => {
+    const app = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
 
     const response = await app.handle(
       new Request('http://localhost/api/v0/tasks', {
@@ -304,66 +285,11 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ leafNodeId: registered.node.id, type: 'noop' })
+        body: JSON.stringify({ nodeId: 'node-leaf-1', type: 'noop' })
       })
     )
 
-    expect(response.status).toBe(200)
-    expect(published.map((entry) => entry.subject)).toContain('task.assignment.requested.v0')
-    expect(published.map((entry) => entry.subject)).toContain('task.assignment.completed.v0')
-  })
-
-  it('assigns noop tasks to reachable agent nodes after issuing a node token', async () => {
-    const deps = createInMemoryCoreDeps({ actor: 'operator' }) as ReturnType<typeof createInMemoryCoreDeps> & {
-      __testing: {
-        setNodeRuntime(nodeId: string, patch: { status?: string; reachability?: string; lastSeenAt?: string; agentVersion?: string }): void
-      }
-    }
-    const app = createCoreApp(deps)
-
-    const register = await app.handle(
-      new Request('http://localhost/api/v0/nodes', {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer operator-token',
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ kind: 'leaf', name: 'agent-worker', mode: 'simulated' })
-      })
-    )
-    const registered = await register.json() as { node: { id: string } }
-
-    const issued = await app.handle(
-      new Request(`http://localhost/api/v0/nodes/${registered.node.id}/credentials`, {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer operator-token'
-        }
-      })
-    )
-    expect(issued.status).toBe(200)
-
-    deps.__testing.setNodeRuntime(registered.node.id, {
-      status: 'healthy',
-      reachability: 'reachable',
-      lastSeenAt: new Date().toISOString(),
-      agentVersion: '0.1.0-test'
-    })
-
-    const response = await app.handle(
-      new Request('http://localhost/api/v0/tasks', {
-        method: 'POST',
-        headers: {
-          authorization: 'Bearer operator-token',
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ leafNodeId: registered.node.id, type: 'noop' })
-      })
-    )
-
-    expect(response.status).toBe(200)
-    const body = await response.json() as { task: { status: string } }
-    expect(body.task.status).toBe('completed')
+    expect(response.status).toBe(404)
   })
 
   it('returns full logs for operators', async () => {

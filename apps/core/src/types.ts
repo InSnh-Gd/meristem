@@ -1,6 +1,5 @@
 import type {
   ActorId,
-  AssignTaskRequest,
   AuditLog,
   AuditSearchQuery,
   BackfillParams,
@@ -16,7 +15,6 @@ import type {
   MNetworkMember,
   NodeAgentTaskExecuteResponse,
   NetworkSummary,
-  MTask,
   Permission,
   PolicyDecision,
   ProjectionHealth,
@@ -124,10 +122,6 @@ export type CoreStorage = {
   validateNodeCredential(nodeId: string, token: string): Promise<boolean>
   listNodes(): Promise<MNode[]>
   getNode(id: string): Promise<MNode | null>
-  assignTask(input: AssignTaskRequest): Promise<MTask>
-  createTaskRequest(input: AssignTaskRequest): Promise<MTask>
-  completeTask(input: { taskId: string; completedAt: string }): Promise<MTask | null>
-  getTask(id: string): Promise<MTask | null>
   registerService(input: unknown): Promise<unknown>
   listServices(): Promise<unknown[]>
 }

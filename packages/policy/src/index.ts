@@ -14,13 +14,17 @@ export type PolicyDecisionDraft = Omit<PolicyDecision, 'id' | 'createdAt'>
 // 角色权限矩阵作为最小 RBAC 默认值存在，真实权威表仍在 PostgreSQL seed 中。
 export const rolePermissions: Record<ActorId, readonly Permission[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:assign', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
     'node:issue-token',
-    'task:assign',
+    'task:read',
+    'task:submit',
+    'task:cancel',
+    'task:retry',
+    'task:manage',
     'timeline:read',
     'log:read-full',
     'audit:read',

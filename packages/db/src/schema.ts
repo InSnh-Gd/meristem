@@ -89,7 +89,7 @@ export const serviceDefinitions = pgTable('service_definitions', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
 })
 
-// tasks 仍保持最小 MVP 形状，避免在 agent 原型阶段提前引入复杂调度状态机。
+// tasks 是 Phase 11 前 Core-owned MVP 路径的历史兼容表；canonical task state 由 M-Task 表组持有。
 export const tasks = pgTable('tasks', {
   id: text('id').primaryKey(),
   leafNodeId: text('leaf_node_id').notNull().references(() => nodes.id),
@@ -106,6 +106,63 @@ export const nodesRelations = relations(nodes, ({ many }) => ({
 export const tasksRelations = relations(tasks, ({ one }) => ({
   node: one(nodes, { fields: [tasks.leafNodeId], references: [nodes.id] }),
 }))
+
+// M-Task 表组是 Phase 11 后任务生命周期的权威写模型，不再由 Core tasks 表承载 canonical state。
+export const taskDefinitions = pgTable('task_definitions', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  version: text('version').notNull(),
+  description: text('description').notNull(),
+  dangerLevel: text('danger_level').notNull(),
+  defaultTimeoutSeconds: integer('default_timeout_seconds').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+})
+
+export const taskRequests = pgTable('task_requests', {
+  id: text('id').primaryKey(),
+  definitionId: text('definition_id').notNull().references(() => taskDefinitions.id),
+  nodeId: text('node_id').notNull().references(() => nodes.id),
+  type: text('type').notNull(),
+  status: text('status').notNull(),
+  requestedBy: text('requested_by').notNull(),
+  policyDecisionId: text('policy_decision_id').references(() => policyDecisions.id),
+  correlationId: text('correlation_id'),
+  risk: jsonb('risk').notNull(),
+  timeoutAt: timestamp('timeout_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  canceledAt: timestamp('canceled_at', { withTimezone: true })
+})
+
+export const taskTransitions = pgTable('task_transitions', {
+  id: text('id').primaryKey(),
+  taskId: text('task_id').notNull().references(() => taskRequests.id),
+  fromStatus: text('from_status'),
+  toStatus: text('to_status').notNull(),
+  reason: text('reason'),
+  correlationId: text('correlation_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+})
+
+export const taskResults = pgTable('task_results', {
+  taskId: text('task_id').primaryKey().references(() => taskRequests.id),
+  status: text('status').notNull(),
+  payload: jsonb('payload'),
+  error: text('error'),
+  completedAt: timestamp('completed_at', { withTimezone: true }).notNull()
+})
+
+export const taskCancellations = pgTable('task_cancellations', {
+  id: text('id').primaryKey(),
+  taskId: text('task_id').notNull().references(() => taskRequests.id),
+  requestedBy: text('requested_by').notNull(),
+  status: text('status').notNull(),
+  correlationId: text('correlation_id'),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true })
+})
 
 // 逻辑网络表只表达网络和成员归属，不表达链路、带宽或实际传输路径。
 export const networks = pgTable(

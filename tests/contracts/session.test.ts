@@ -15,7 +15,7 @@ describe('GET /api/v0/session', () => {
     expect(body.actor).toBe('operator')
     expect(Array.isArray(body.permissions)).toBe(true)
     expect(body.permissions).toContain('core:read')
-    expect(body.permissions).toContain('task:assign')
+    expect(body.permissions).toContain('task:submit')
   })
 
   it('returns viewer permissions correctly', async () => {
@@ -28,7 +28,7 @@ describe('GET /api/v0/session', () => {
     const body = await res.json() as { actor: string; permissions: string[] }
     expect(body.actor).toBe('viewer')
     expect(body.permissions).toContain('core:read')
-    expect(body.permissions).not.toContain('task:assign')
+    expect(body.permissions).not.toContain('task:submit')
   })
 
   it('returns 401 when no token is provided', async () => {

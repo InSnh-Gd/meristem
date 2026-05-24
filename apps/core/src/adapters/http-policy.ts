@@ -1,6 +1,6 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { Effect } from 'effect'
-import type { PolicyDecision } from '../../../../packages/contracts/src/index.ts'
+import type { PolicyDecision, RiskFactor } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import type { PolicyApp } from '../../../../services/m-policy/src/app.ts'
 import type { CoreDeps } from '../types.ts'
@@ -18,7 +18,7 @@ export function createHttpPolicyPort() {
       return runServiceEffect(
         tryServiceCall(() => client.internal.v0.authorize.post(input), { code: 'policy.unavailable', message: 'M-Policy unavailable' }).pipe(
           Effect.flatMap((response) => requireServiceData(response, { code: 'policy.unavailable', message: 'M-Policy unavailable' })),
-          Effect.map((data) => data.decision)
+          Effect.map((data) => normalizePolicyDecision(data.decision as unknown))
         )
       )
     },
@@ -39,10 +39,33 @@ export function createHttpPolicyPort() {
                   code: 'policy.unavailable',
                   message: errorMessageFromHttpResponse(response.error.value, 'M-Policy unavailable')
                 })
-              : Effect.succeed(response.data ?? null)
+              : Effect.succeed(response.data ? normalizePolicyDecision(response.data as unknown) : null)
           })
         )
       )
     }
+  }
+}
+
+const riskFactors: readonly RiskFactor[] = [
+  'actor_permission_level',
+  'operation_danger_level',
+  'target_node_kind',
+  'target_node_reachability',
+  'task_type_risk',
+  'recent_failure_count',
+  'outside_expected_scope',
+  'audit_visibility'
+]
+
+function isRiskFactor(value: unknown): value is RiskFactor {
+  return typeof value === 'string' && riskFactors.includes(value as RiskFactor)
+}
+
+function normalizePolicyDecision(value: unknown): PolicyDecision {
+  const decision = value as PolicyDecision & { riskFactors?: unknown[] }
+  return {
+    ...decision,
+    ...(Array.isArray(decision.riskFactors) ? { riskFactors: decision.riskFactors.filter(isRiskFactor) } : {})
   }
 }

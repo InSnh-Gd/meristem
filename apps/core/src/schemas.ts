@@ -48,6 +48,7 @@ export const serviceSummarySchema = t.Object({
     t.Literal('m-eventbus'),
     t.Literal('m-log'),
     t.Literal('m-policy'),
+    t.Literal('m-task'),
     t.Literal('m-ui'),
     t.Literal('m-cli'),
     t.Literal('m-extension')
@@ -85,10 +86,23 @@ export const nodeSchema = t.Object({
 
 export const taskSchema = t.Object({
   id: t.String(),
+  nodeId: t.String(),
   leafNodeId: t.String(),
   type: t.Literal('noop'),
-  status: t.Union([t.Literal('requested'), t.Literal('completed'), t.Literal('failed')]),
+  status: t.Union([
+    t.Literal('accepted'),
+    t.Literal('queued'),
+    t.Literal('dispatched'),
+    t.Literal('running'),
+    t.Literal('completed'),
+    t.Literal('failed'),
+    t.Literal('cancel_requested'),
+    t.Literal('canceled'),
+    t.Literal('timed_out')
+  ]),
   createdAt: t.String(),
+  updatedAt: t.String(),
+  timeoutAt: t.Optional(t.String()),
   completedAt: t.Optional(t.String())
 })
 
@@ -123,8 +137,17 @@ export const policyDecisionSchema = t.Object({
   actor: t.UnionEnum(actorIds),
   action: t.UnionEnum(permissions),
   resource: t.String(),
-  result: t.Union([t.Literal('allow'), t.Literal('deny')]),
+  result: t.Union([
+    t.Literal('allow'),
+    t.Literal('deny'),
+    t.Literal('require_manual_review'),
+    t.Literal('require_multi_approval')
+  ]),
   reasons: t.Array(t.String()),
+  operationDangerLevel: t.Optional(t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Literal('critical')])),
+  suspicionScore: t.Optional(t.Number()),
+  riskFactors: t.Optional(t.Array(t.String())),
+  requiredAction: t.Optional(t.Union([t.Literal('manual_review'), t.Literal('multi_approval')])),
   createdAt: t.String()
 })
 

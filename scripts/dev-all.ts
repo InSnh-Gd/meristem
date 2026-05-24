@@ -4,6 +4,7 @@ const commands = [
   ['bun', 'run', 'dev:m-policy'],
   ['bun', 'run', 'dev:m-log'],
   ['bun', 'run', 'dev:m-net'],
+  ['bun', 'run', 'dev:m-task'],
   ['bun', 'run', 'dev:core']
 ] as const
 

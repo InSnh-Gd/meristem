@@ -8,7 +8,11 @@ export const basePermissions = [
   'core:read',
   'node:register',
   'node:issue-token',
-  'task:assign',
+  'task:read',
+  'task:submit',
+  'task:cancel',
+  'task:retry',
+  'task:manage',
   'timeline:read',
   'log:read-full',
   'audit:read',
@@ -28,4 +32,3 @@ export const projectionPermissions = [
 export const permissions = [...basePermissions, ...projectionPermissions] as const
 
 export type Permission = typeof permissions[number]
-

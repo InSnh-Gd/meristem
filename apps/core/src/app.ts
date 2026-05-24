@@ -6,7 +6,6 @@ import { healthRoutes } from './routes/health.ts'
 import { servicesRoutes } from './routes/services.ts'
 import { networksRoutes } from './routes/networks.ts'
 import { nodesRoutes } from './routes/nodes.ts'
-import { tasksRoutes } from './routes/tasks.ts'
 import { logsRoutes } from './routes/logs.ts'
 import { policyRoutes } from './routes/policy.ts'
 import { projectionRoutes } from './routes/projection.ts'
@@ -57,7 +56,6 @@ export function createCoreApp(deps: CoreDeps) {
     .use(servicesRoutes(deps))
     .use(networksRoutes(deps))
     .use(nodesRoutes(deps))
-    .use(tasksRoutes(deps))
     .use(logsRoutes(deps))
     .use(policyRoutes(deps))
     .use(projectionRoutes(deps))
