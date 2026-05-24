@@ -15,3 +15,7 @@ tmp/
 apps/*/.svelte-kit/
 apps/*/build/
 doc-driven-ai/
+*.bak
+*.tmp
+*.orig
+.agent-sources/

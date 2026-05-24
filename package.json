@@ -34,7 +34,8 @@
     "test:opensearch-failure-modes": "bun test tests/failure-modes/opensearch.test.ts",
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",
     "token:mint": "bun run packages/auth/src/mint-token.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "workspace-hygiene": "bun run scripts/workspace-hygiene.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "1.4.2",

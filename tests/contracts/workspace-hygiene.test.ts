@@ -1,0 +1,33 @@
+import { describe, expect, it } from 'bun:test'
+import { findWorkspaceHygieneViolations } from '../../scripts/workspace-hygiene.ts'
+
+describe('workspace hygiene scanner', () => {
+  it('rejects backup, generated, dependency, and local source mirror paths', () => {
+    const violations = findWorkspaceHygieneViolations([
+      'apps/core/src/app.ts',
+      'apps/core/src/app.ts.bak',
+      'apps/m-ui/.svelte-kit/generated/root.js',
+      'services/m-log/node_modules/package/index.js',
+      '.agent-sources/effect/packages/effect/src/Effect.ts'
+    ])
+
+    expect(violations.map((v) => v.path)).toEqual([
+      'apps/core/src/app.ts.bak',
+      'apps/m-ui/.svelte-kit/generated/root.js',
+      'services/m-log/node_modules/package/index.js',
+      '.agent-sources/effect/packages/effect/src/Effect.ts'
+    ])
+  })
+
+  it('allows normal tracked source, docs, and tests', () => {
+    const violations = findWorkspaceHygieneViolations([
+      'apps/core/src/routes/projection.ts',
+      'services/m-log/src/projection/engine.ts',
+      'docs/plans/2026-05-23-architecture-review-register.md',
+      'tests/contracts/workspace-hygiene.test.ts'
+    ])
+
+    expect(violations).toEqual([])
+  })
+})
+
