@@ -10,21 +10,22 @@ import { deriveNoopCommandEligibility, missingPermissionCommandEligibility, targ
 
 export type MUiBffDeps = {
   coreBaseUrl: string
+  taskBaseUrl?: string
 }
 
 /**
- * coreFetch 是对 Core REST v0 的薄封装：自动注入 Bearer token、统一错误契约。
- * 可选的 init 参数支持非 GET 请求（如 POST /api/v0/tasks）。
+ * serviceFetch 是对上游 REST v0 的薄封装：自动注入 Bearer token、统一错误契约。
+ * Phase 11 后 BFF 同时面向 Core 读模型和 M-Task 命令面。
  */
-async function coreFetch(
-  deps: MUiBffDeps,
+async function serviceFetch(
+  baseUrl: string,
   path: string,
   token?: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   try {
     const hasBody = init?.body !== undefined
-    const response = await fetch(`${deps.coreBaseUrl}${path}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers: {
         ...(hasBody ? { 'content-type': 'application/json' } : {}),
@@ -35,7 +36,7 @@ async function coreFetch(
     const data = await response.json()
     return { ok: response.ok, status: response.status, data }
   } catch {
-    return { ok: false, status: 0, data: { error: { code: 'bff.core_unreachable', message: 'Core unreachable' } } }
+    return { ok: false, status: 0, data: { error: { code: 'bff.service_unreachable', message: 'Upstream service unreachable' } } }
   }
 }
 
@@ -69,7 +70,8 @@ function passthroughCoreError(result: { ok: boolean; status: number; data: unkno
  * 它负责聚合 Core REST v0 数据、派生命令可用状态并透传任务执行请求。
  */
 export function createMUiBffApp(deps: MUiBffDeps) {
-  const cf = (path: string, token?: string, init?: RequestInit) => coreFetch(deps, path, token, init)
+  const cf = (path: string, token?: string, init?: RequestInit) => serviceFetch(deps.coreBaseUrl, path, token, init)
+  const tf = (path: string, token?: string, init?: RequestInit) => serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init)
 
   return new Elysia()
     .use(cors({ origin: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["content-type", "authorization"], credentials: true }))
@@ -184,7 +186,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       if (!sessionRes.ok) return passthroughCoreError(sessionRes)
       const session = sessionRes.data as { actor: ActorId; permissions: Permission[] }
 
-      if (!session.permissions.includes('task:assign')) {
+      if (!session.permissions.includes('task:submit')) {
         return missingPermissionCommandEligibility()
       }
 
@@ -198,16 +200,16 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
       detail: { summary: 'Derive disabled/enabled state for the noop task command' }
     })
-    // noop 执行：透传任务到 Core POST /api/v0/tasks。
+    // noop 执行：Phase 11 后透传到 canonical M-Task POST /api/v0/tasks。
     .post('/api/v0/commands/noop/execute', async ({ body, headers }) => {
       // 鉴权：提取 Bearer token
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
 
-      // 日志：透传任务执行请求到 Core，错误由 Core 感知并记录
-      const result = await cf('/api/v0/tasks', token, {
+      // 日志：透传任务执行请求到 M-Task，错误由任务服务按策略和日志契约处理。
+      const result = await tf('/api/v0/tasks', token, {
         method: 'POST',
-        body: JSON.stringify({ leafNodeId: body.leafNodeId, type: 'noop' })
+        body: JSON.stringify({ nodeId: body.leafNodeId, type: 'noop' })
       })
       if (!result.ok) return passthroughCoreError(result)
       return result.data

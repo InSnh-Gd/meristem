@@ -23,12 +23,12 @@ function derive(permissions: Permission[], node: MNode) {
 
 describe('CommandWell eligibility display shaping', () => {
   it('enables noop only from Core-visible session permissions and Leaf reachability', () => {
-    const result = derive(['task:assign'], leafNode)
+    const result = derive(['task:submit'], leafNode)
 
     expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(result))).toBe(true)
     expect(result.state).toBe('enabled')
     if (result.state === 'enabled') {
-      expect(result.command.action).toBe('task:assign')
+      expect(result.command.action).toBe('task:submit')
       expect(result.command.resource).toBe('node-leaf-1')
       expect(result.command.requiresPolicy).toBe(true)
       expect(result.command.requiresAudit).toBe(true)
@@ -37,8 +37,8 @@ describe('CommandWell eligibility display shaping', () => {
 
   it('returns disabled explanations without creating policy or audit facts', () => {
     const noPermission = derive([], leafNode)
-    const wrongKind = derive(['task:assign'], { ...leafNode, id: 'node-stem-1', kind: 'stem' })
-    const unreachable = derive(['task:assign'], { ...leafNode, reachability: 'unreachable' })
+    const wrongKind = derive(['task:submit'], { ...leafNode, id: 'node-stem-1', kind: 'stem' })
+    const unreachable = derive(['task:submit'], { ...leafNode, reachability: 'unreachable' })
 
     expect(noPermission.state).toBe('disabled')
     expect(noPermission.state === 'disabled' ? noPermission.disabled.code : '').toBe('missing_permission')

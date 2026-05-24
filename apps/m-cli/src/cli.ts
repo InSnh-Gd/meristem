@@ -1,5 +1,4 @@
 import type {
-  AssignTaskResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -9,6 +8,11 @@ import type {
   RegisterNodeResponse,
   ServiceListResponse,
   ServiceReloadResponse,
+  SubmitTaskResponse,
+  TaskControlResponse,
+  TaskListResponse,
+  TaskRetryNotImplementedResponse,
+  TaskStatusResponse,
   StatusResponse,
   ProjectionHealth,
   BackfillParams,
@@ -28,7 +32,11 @@ export type CliClient = {
   listNetworks?(): Promise<unknown>
   joinNetwork?(input: { networkId: string; nodeId: string }): Promise<JoinNetworkResponse>
   listNetworkMembers?(networkId: string): Promise<unknown>
-  assignTask?(input: { leafNodeId: string; type: 'noop' }): Promise<AssignTaskResponse>
+  submitTask?(input: { nodeId: string; type: 'noop' }): Promise<SubmitTaskResponse>
+  cancelTask?(taskId: string): Promise<TaskControlResponse>
+  getTask?(taskId: string): Promise<TaskStatusResponse>
+  listTasks?(): Promise<TaskListResponse>
+  retryTask?(taskId: string): Promise<TaskRetryNotImplementedResponse>
   listServices?(): Promise<ServiceListResponse>
   reloadService?(serviceId: string, reason?: string): Promise<ServiceReloadResponse>
   listTimeline?(): Promise<unknown>
@@ -157,12 +165,38 @@ export function createCliRunner(client: CliClient) {
           return { exitCode: 0, stdout: encode(await listNetworkMembers(networkId)), stderr: '' }
         }
 
-        if (command === 'task' && subcommand === 'assign') {
-          const leafNodeId = requireArg(args, '--leaf')
+        if (command === 'task' && subcommand === 'submit') {
+          const nodeId = requireArg(args, '--node')
           const type = requireArg(args, '--type')
           if (type !== 'noop') throw new Error('--type must be noop')
-          const assignTask = requireMethod(client.assignTask, 'assignTask')
-          return { exitCode: 0, stdout: encode(await assignTask({ leafNodeId, type })), stderr: '' }
+          const submitTask = requireMethod(client.submitTask, 'submitTask')
+          return { exitCode: 0, stdout: encode(await submitTask({ nodeId, type })), stderr: '' }
+        }
+
+        if (command === 'task' && subcommand === 'cancel') {
+          const taskId = args[2]
+          if (!taskId) throw new Error('usage: meristem task cancel <task-id>')
+          const cancelTask = requireMethod(client.cancelTask, 'cancelTask')
+          return { exitCode: 0, stdout: encode(await cancelTask(taskId)), stderr: '' }
+        }
+
+        if (command === 'task' && subcommand === 'status') {
+          const taskId = args[2]
+          if (!taskId) throw new Error('usage: meristem task status <task-id>')
+          const getTask = requireMethod(client.getTask, 'getTask')
+          return { exitCode: 0, stdout: encode(await getTask(taskId)), stderr: '' }
+        }
+
+        if (command === 'task' && subcommand === 'list') {
+          const listTasks = requireMethod(client.listTasks, 'listTasks')
+          return { exitCode: 0, stdout: encode(await listTasks()), stderr: '' }
+        }
+
+        if (command === 'task' && subcommand === 'retry') {
+          const taskId = args[2]
+          if (!taskId) throw new Error('usage: meristem task retry <task-id>')
+          const retryTask = requireMethod(client.retryTask, 'retryTask')
+          return { exitCode: 0, stdout: encode(await retryTask(taskId)), stderr: '' }
         }
 
         if (command === 'service' && subcommand === 'list') {
@@ -238,7 +272,7 @@ export function createCliRunner(client: CliClient) {
 
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task assign | service list/reload | log timeline | audit list | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

@@ -67,13 +67,13 @@ if (!infraOk) {
           audit: unknown
         }
         expect(body.session.actor).toBe('operator')
-        expect(body.session.permissions).toContain('task:assign')
+        expect(body.session.permissions).toContain('task:submit')
         expect(body.core.id).toBe('meristem-core')
         expect(Array.isArray(body.nodes)).toBe(true)
         expect(Array.isArray(body.services)).toBe(true)
         expect(Array.isArray(body.timeline)).toBe(true)
-        expect(body.auditAccessible).toBe(true)
-        expect(body.audit).not.toBeNull()
+        expect(body.auditAccessible).toBe(false)
+        expect(body.audit).toBeNull()
       })
 
       it('returns 401 without token', async () => {
@@ -100,10 +100,11 @@ if (!infraOk) {
 
     describe('policy decision summary', () => {
       it('returns redacted decision', async () => {
-        const decisionsRes = await coreFetch('/api/v0/policy/decisions', operatorToken)
-        const decisions = (decisionsRes.data as { decisions: Array<{ id: string }> }).decisions
-        expect(decisions.length).toBeGreaterThan(0)
-        const id = decisions[0].id
+        const nodeRes = await coreFetch('/api/v0/nodes', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ kind: 'leaf', name: `summary-leaf-${Date.now()}`, mode: 'simulated' })
+        })
+        const id = (nodeRes.data as { policyDecisionId: string }).policyDecisionId
 
         const res = await bffFetch(`/api/v0/policy/decisions/${id}/summary`, operatorToken)
         expect(res.ok).toBe(true)
@@ -130,7 +131,7 @@ if (!infraOk) {
         expect(body.command?.label).toBe('运行 noop 任务')
       })
 
-      it('disabled for viewer (missing task:assign)', async () => {
+      it('disabled for viewer (missing task:submit)', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string }> }).nodes
         const res = await bffFetch('/api/v0/commands/noop', viewerToken, {
@@ -140,7 +141,7 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { state: string; disabledReason: string }
         expect(body.state).toBe('disabled')
-        expect(body.disabledReason).toContain('task:assign')
+        expect(body.disabledReason).toContain('task:submit')
       })
     })
 

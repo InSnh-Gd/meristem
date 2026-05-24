@@ -18,7 +18,7 @@ function disabledCommand(code: DisabledCommandExplanation['code'], message: stri
  * Source: docs/plans/2026-05-23-architecture-review-register.md A-005.
  */
 export function deriveNoopCommandEligibility(session: SessionFacts, node: MNode): CommandWellEligibility {
-  if (!session.permissions.includes('task:assign')) {
+  if (!session.permissions.includes('task:submit')) {
     return missingPermissionCommandEligibility()
   }
   if (node.kind !== 'leaf') {
@@ -33,19 +33,19 @@ export function deriveNoopCommandEligibility(session: SessionFacts, node: MNode)
     command: {
       id: 'task.noop.run',
       label: '运行 noop 任务',
-      action: 'task:assign',
+      action: 'task:submit',
       resource: node.id,
       risk: 'medium',
-      requiredPermissions: ['task:assign'],
+      requiredPermissions: ['task:submit'],
       requiresPolicy: true,
       requiresAudit: true
     }
   }
 }
 
-/** Returns display-only disabled state when the session lacks task assignment permission. */
+/** Returns display-only disabled state when the session lacks task submit permission. */
 export function missingPermissionCommandEligibility(): CommandWellEligibility {
-  return disabledCommand('missing_permission', '缺少权限：task:assign', 'task:assign')
+  return disabledCommand('missing_permission', '缺少权限：task:submit', 'task:submit')
 }
 
 /** Returns display-only disabled state when the Core node lookup cannot find the target. */

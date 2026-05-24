@@ -4,7 +4,8 @@ import {
   infrastructureAvailable,
   startFullStack,
   stopFullStack,
-  coreFetch
+  coreFetch,
+  taskFetch
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -62,8 +63,8 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { actor: string; permissions: string[] }
         expect(body.actor).toBe('operator')
-        expect(body.permissions).toContain('task:assign')
-        expect(body.permissions).toContain('audit:read')
+        expect(body.permissions).toContain('task:submit')
+        expect(body.permissions).not.toContain('audit:read')
       })
 
       it('session returns viewer permissions without audit:read', async () => {
@@ -84,9 +85,9 @@ if (!infraOk) {
         expect(res.status).toBe(401)
       })
 
-      it('viewer cannot read status (403)', async () => {
+      it('viewer can read status with core:read', async () => {
         const res = await coreFetch('/api/v0/status', viewerToken)
-        expect(res.status).toBe(403)
+        expect(res.status).toBe(200)
       })
     })
 
@@ -192,27 +193,36 @@ if (!infraOk) {
     })
 
     describe('tasks', () => {
-      it('assigns noop task to simulated leaf', async () => {
+      it('does not expose canonical task submission through Core', async () => {
+        const res = await coreFetch('/api/v0/tasks', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ nodeId: 'node-e2e-missing', type: 'noop' })
+        })
+        expect(res.status).toBe(404)
+      })
+
+      it('submits noop task through M-Task', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
         const leaf = nodes.find((n) => n.name === 'e2e-leaf')
         expect(leaf).toBeDefined()
-        const res = await coreFetch('/api/v0/tasks', operatorToken, {
+        const res = await taskFetch('/api/v0/tasks', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ leafNodeId: leaf!.id, type: 'noop' })
+          body: JSON.stringify({ nodeId: leaf!.id, type: 'noop' })
         })
         expect(res.ok).toBe(true)
-        const body = res.data as { task: { id: string; status: string; leafNodeId: string; type: string }; policyDecisionId: string }
+        const body = res.data as { task: { id: string; status: string; nodeId: string; type: string }; policyDecisionId: string }
         expect(body.task.status).toBe('completed')
+        expect(body.task.nodeId).toBe(leaf!.id)
         expect(body.task.type).toBe('noop')
       })
 
-      it('viewer cannot assign task (403)', async () => {
+      it('viewer cannot submit task through M-Task (403)', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string }> }).nodes
-        const res = await coreFetch('/api/v0/tasks', viewerToken, {
+        const res = await taskFetch('/api/v0/tasks', viewerToken, {
           method: 'POST',
-          body: JSON.stringify({ leafNodeId: nodes[0].id, type: 'noop' })
+          body: JSON.stringify({ nodeId: nodes[0].id, type: 'noop' })
         })
         expect(res.status).toBe(403)
       })
@@ -222,11 +232,11 @@ if (!infraOk) {
       it('creates a logical network', async () => {
         const res = await coreFetch('/api/v0/networks', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ name: 'e2e-net' })
+          body: JSON.stringify({ name: `e2e-net-${Date.now()}` })
         })
         expect(res.ok).toBe(true)
         const body = res.data as { network: { id: string; name: string }; policyDecisionId: string }
-        expect(body.network.name).toBe('e2e-net')
+        expect(body.network.name).toStartWith('e2e-net-')
         expect(typeof body.network.id).toBe('string')
       })
 
@@ -234,13 +244,13 @@ if (!infraOk) {
         const res = await coreFetch('/api/v0/networks', operatorToken)
         expect(res.ok).toBe(true)
         const body = res.data as { networks: Array<{ name: string }> }
-        expect(body.networks.some((n) => n.name === 'e2e-net')).toBe(true)
+        expect(body.networks.some((n) => n.name.startsWith('e2e-net-'))).toBe(true)
       })
 
       it('joins a stem node to the network', async () => {
         const netRes = await coreFetch('/api/v0/networks', operatorToken)
         const nets = (netRes.data as { networks: Array<{ id: string; name: string }> }).networks
-        const net = nets.find((n) => n.name === 'e2e-net')
+        const net = nets.find((n) => n.name.startsWith('e2e-net-'))
         expect(net).toBeDefined()
 
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
@@ -330,12 +340,17 @@ if (!infraOk) {
     })
 
     describe('policy', () => {
-      it('lists policy decisions', async () => {
-        const res = await coreFetch('/api/v0/policy/decisions', operatorToken)
+      it('reads a policy decision by id', async () => {
+        const register = await coreFetch('/api/v0/nodes', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ kind: 'leaf', name: `policy-leaf-${Date.now()}`, mode: 'simulated' })
+        })
+        const registered = register.data as { policyDecisionId: string }
+        const res = await coreFetch(`/api/v0/policy/decisions/${registered.policyDecisionId}`, operatorToken)
         expect(res.ok).toBe(true)
-        const body = res.data as { decisions: Array<{ id: string; actor: string; result: string }> }
-        expect(Array.isArray(body.decisions)).toBe(true)
-        expect(body.decisions.length).toBeGreaterThan(0)
+        const body = res.data as { decision: { id: string; actor: string; result: string } }
+        expect(body.decision.id).toBe(registered.policyDecisionId)
+        expect(body.decision.actor).toBe('operator')
       })
     })
   })

@@ -1,7 +1,6 @@
 import { edenTreaty } from '@elysiajs/eden'
 import type { CoreApp } from '../../core/src/app.ts'
 import type {
-  AssignTaskResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -11,6 +10,11 @@ import type {
   RegisterNodeResponse,
   ServiceListResponse,
   ServiceReloadResponse,
+  SubmitTaskResponse,
+  TaskControlResponse,
+  TaskListResponse,
+  TaskRetryNotImplementedResponse,
+  TaskStatusResponse,
   StatusResponse,
   ProjectionHealth,
   BackfillParams,
@@ -23,6 +27,7 @@ import type { CliClient } from './cli.ts'
 
 type CliConfig = {
   coreUrl: string
+  taskUrl: string
   token: string | undefined
 }
 
@@ -87,8 +92,13 @@ export function createCoreClient(config: CliConfig): CliClient {
   ) as typeof fetch
   const client = edenTreaty<CoreApp>(config.coreUrl, { fetcher })
   const headers = authHeaders(config.token)
-  const dynamicRoutes = createDynamicRouteAdapter({
+  const coreRoutes = createDynamicRouteAdapter({
     baseUrl: config.coreUrl,
+    defaultHeaders: headers,
+    traceHeaders: () => injectTraceHeaders({})
+  })
+  const taskRoutes = createDynamicRouteAdapter({
+    baseUrl: config.taskUrl,
     defaultHeaders: headers,
     traceHeaders: () => injectTraceHeaders({})
   })
@@ -142,7 +152,31 @@ export function createCoreClient(config: CliConfig): CliClient {
       if (!route) throw new Error('network route unavailable')
       return unwrap(route.members.get({ $headers: headers }))
     },
-    assignTask: async (input) => unwrap<AssignTaskResponse>(client.api.v0.tasks.post({ ...input, $headers: headers })),
+    submitTask: async (input) => {
+      const result = await taskRoutes.postJson<SubmitTaskResponse>('/api/v0/tasks', { body: input })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    cancelTask: async (taskId) => {
+      const result = await taskRoutes.postJson<TaskControlResponse>('/api/v0/tasks/:id/cancel', { params: { id: taskId } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    getTask: async (taskId) => {
+      const result = await taskRoutes.getJson('/api/v0/tasks/:id', { params: { id: taskId } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value as TaskStatusResponse
+    },
+    listTasks: async () => {
+      const result = await taskRoutes.getJson('/api/v0/tasks')
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value as TaskListResponse
+    },
+    retryTask: async (taskId) => {
+      const result = await taskRoutes.postJson<TaskRetryNotImplementedResponse>('/api/v0/tasks/:id/retry', { params: { id: taskId } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
     listServices: async () => unwrap<ServiceListResponse>(client.api.v0.services.get({ $headers: headers })),
     reloadService: async (serviceId, reason) => {
       const route = serviceRoutes[serviceId]
@@ -161,12 +195,12 @@ export function createCoreClient(config: CliConfig): CliClient {
     },
     listDLQ: async (index) => unwrap<{ records: DLQRecord[] }>(client.api.v0.projection.dlq.get({ $query: { ...(index ? { index } : {}) }, $headers: headers })),
     replayDLQ: async (dlqId) => {
-      const result = await dynamicRoutes.postJson('/api/v0/projection/dlq/:id/replay', { params: { id: dlqId } })
+      const result = await coreRoutes.postJson('/api/v0/projection/dlq/:id/replay', { params: { id: dlqId } })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
     },
     skipDLQ: async (dlqId) => {
-      const result = await dynamicRoutes.postJson('/api/v0/projection/dlq/:id/skip', { params: { id: dlqId } })
+      const result = await coreRoutes.postJson('/api/v0/projection/dlq/:id/skip', { params: { id: dlqId } })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
     }
@@ -177,6 +211,7 @@ export function configFromEnv(): CliConfig {
   // CLI 运行配置保持最小化，只依赖 Core 地址和 Bearer Token。
   return {
     coreUrl: process.env.MERISTEM_CORE_URL ?? 'http://localhost:3000',
+    taskUrl: process.env.MERISTEM_TASK_URL ?? 'http://127.0.0.1:3105',
     token: process.env.MERISTEM_TOKEN
   }
 }

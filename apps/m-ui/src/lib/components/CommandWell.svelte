@@ -27,7 +27,7 @@
         <div class="confirm-details">
           <div>目标: {selectedNode?.name}</div>
           <div>类型: noop</div>
-          <div>权限: task:assign</div>
+          <div>权限: task:submit</div>
           <div>策略: 需要</div>
           <div>审计: 需要</div>
         </div>

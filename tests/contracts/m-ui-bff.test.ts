@@ -2,11 +2,13 @@ import { describe, expect, it, beforeAll, afterAll } from 'bun:test'
 import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
 import { createMUiBffApp } from '../../services/m-ui-bff/src/app.ts'
+import { createInMemoryMTaskDeps, createMTaskApp } from '../../services/m-task/src/app.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import { CommandWellEligibilitySchema, MinimalPolicyDecisionSummarySchema } from '../../packages/contracts/src/index.ts'
 
 const CORE_BASE = 'http://mock-core'
+const TASK_BASE = 'http://mock-task'
 
 // 覆盖全局 fetch: 把指向 mock-core 的请求路由到 Core app.handle()
 let originalFetch: typeof globalThis.fetch
@@ -36,15 +38,20 @@ function makeRequest(
 
 // 创建一个指向特定 Core 实例的 BFF app
 function createBffWithCore(
-  coreApp: ReturnType<typeof createCoreApp>
+  coreApp: ReturnType<typeof createCoreApp>,
+  taskApp?: ReturnType<typeof createMTaskApp>
 ): ReturnType<typeof createMUiBffApp> {
-  const app = createMUiBffApp({ coreBaseUrl: CORE_BASE })
+  const app = createMUiBffApp(taskApp ? { coreBaseUrl: CORE_BASE, taskBaseUrl: TASK_BASE } : { coreBaseUrl: CORE_BASE })
   // 覆盖 fetch 把 mock-core 请求路由到 Core app
   globalThis.fetch = (async (input, init?) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url.startsWith(CORE_BASE)) {
       const path = url.slice(CORE_BASE.length)
       return coreApp.handle(new Request(`http://localhost${path}`, init))
+    }
+    if (taskApp && url.startsWith(TASK_BASE)) {
+      const path = url.slice(TASK_BASE.length)
+      return taskApp.handle(new Request(`http://localhost${path}`, init))
     }
     return originalFetch(input, init)
   }) as typeof globalThis.fetch
@@ -197,7 +204,7 @@ describe('M-UI BFF contract tests', () => {
     expect(body.command.id).toBe('task.noop.run')
   })
 
-  it('POST /api/v0/commands/noop with viewer token returns disabled for missing task:assign', async () => {
+  it('POST /api/v0/commands/noop with viewer token returns disabled for missing task:submit', async () => {
     const viewerDeps = createInMemoryCoreDeps({ actor: 'viewer' })
     const coreApp = createCoreApp(viewerDeps)
 
@@ -210,8 +217,8 @@ describe('M-UI BFF contract tests', () => {
     expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
     expect(body.state).toBe('disabled')
     expect(body.disabled.code).toBe('missing_permission')
-    expect(body.disabled.missingPermission).toBe('task:assign')
-    expect(body.disabledReason).toBe('缺少权限：task:assign')
+    expect(body.disabled.missingPermission).toBe('task:submit')
+    expect(body.disabledReason).toBe('缺少权限：task:submit')
   })
 
   it('POST /api/v0/commands/noop with operator token targeting stem returns disabled for wrong kind', async () => {
@@ -307,13 +314,14 @@ describe('M-UI BFF contract tests', () => {
 
     expect(res.status).toBe(200)
     expect(audit.ok ? audit.value.length : -1).toBe(0)
-    expect(audit.ok ? audit.value.some((entry) => entry.action === 'task:assign') : true).toBe(false)
+    expect(audit.ok ? audit.value.some((entry) => entry.action === 'task:submit') : true).toBe(false)
     expect(timeline.ok ? timeline.value.some((entry) => entry.summary.includes('noop task')) : true).toBe(false)
   })
 
   it('POST /api/v0/commands/noop/execute with operator token returns task result', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
     const coreApp = createCoreApp(deps)
+    const taskApp = createMTaskApp(createInMemoryMTaskDeps({ actor: 'operator' }))
 
     const regRes = await coreApp.handle(
       new Request('http://localhost/api/v0/nodes', {
@@ -327,7 +335,7 @@ describe('M-UI BFF contract tests', () => {
     )
     const leafId = ((await regRes.json()) as { node: { id: string } }).node.id
 
-    const app = createBffWithCore(coreApp)
+    const app = createBffWithCore(coreApp, taskApp)
     const res = await makeRequest(app, '/api/v0/commands/noop/execute', 'POST', 'operator-token', {
       leafNodeId: leafId
     })
@@ -349,7 +357,7 @@ describe('M-UI BFF contract tests', () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
     const coreApp = createCoreApp(deps)
 
-    // 先注册 Leaf 节点并执行 noop 以生成一个 policy decision
+    // 先注册 Leaf 节点并执行受保护操作以生成一个 policy decision
     const regRes = await coreApp.handle(
       new Request('http://localhost/api/v0/nodes', {
         method: 'POST',
@@ -363,13 +371,9 @@ describe('M-UI BFF contract tests', () => {
     const leafId = ((await regRes.json()) as { node: { id: string } }).node.id
 
     const execRes = await coreApp.handle(
-      new Request('http://localhost/api/v0/tasks', {
+      new Request(`http://localhost/api/v0/nodes/${leafId}/credentials`, {
         method: 'POST',
-        headers: {
-          authorization: 'Bearer operator-token',
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ leafNodeId: leafId, type: 'noop' })
+        headers: { authorization: 'Bearer operator-token' }
       })
     )
     const execBody = (await execRes.json()) as { policyDecisionId: string }
@@ -423,7 +427,7 @@ describe('M-UI BFF contract tests', () => {
     // 写入审计日志条目
     await deps.log.writeAudit({
       actor: 'security-admin',
-      action: 'task:assign',
+      action: 'task:submit',
       resource: 'node:1',
       result: 'allow',
       correlationId: 'cid-audit-1'
@@ -441,6 +445,6 @@ describe('M-UI BFF contract tests', () => {
     const entries = body.audit!
     expect(entries.length).toBeGreaterThanOrEqual(1)
     expect(entries[0]!.actor).toBe("security-admin")
-    expect(entries[0]!.action).toBe("task:assign")
+    expect(entries[0]!.action).toBe("task:submit")
   })
 })

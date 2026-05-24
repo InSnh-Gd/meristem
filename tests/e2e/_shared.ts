@@ -6,6 +6,7 @@ import { connectToNats } from '../../packages/nats-rpc/src/index.ts'
 
 export const coreUrl = 'http://localhost:3000'
 export const bffUrl = 'http://localhost:3200'
+export const taskUrl = 'http://localhost:3105'
 
 export const baseEnv = {
   ...createJoinTlsEnv({
@@ -17,6 +18,7 @@ export const baseEnv = {
   MERISTEM_JWT_SECRET: 'e2e-jwt-secret',
   MERISTEM_BFF_PORT: '3200',
   MERISTEM_CORE_URL: 'http://localhost:3000',
+  MERISTEM_TASK_URL: 'http://localhost:3105',
   MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS: '500',
   MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS: '2000',
   MERISTEM_AGENT_TASK_TIMEOUT_MS: '2000',
@@ -78,6 +80,10 @@ export async function startFullStack(): Promise<{
     { label: 'core startup', timeoutMs: 20_000, intervalMs: 100 }
   )
   await waitFor(
+    () => devAll.stdout.includes('m-task listening on http://127.0.0.1:3105'),
+    { label: 'm-task startup', timeoutMs: 20_000, intervalMs: 100 }
+  )
+  await waitFor(
     () => devAll.stdout.includes('m-net join ingress listening on https://0.0.0.0:8443'),
     { label: 'm-net join ingress startup', timeoutMs: 20_000, intervalMs: 100 }
   )
@@ -123,6 +129,26 @@ export async function coreFetch(
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const res = await fetch(`${coreUrl}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.body ? { 'content-type': 'application/json' } : {}),
+      ...(init?.headers ?? {}),
+      ...(token ? { authorization: `Bearer ${token}` } : {})
+    }
+  })
+  const data = res.status !== 204 ? (await res.json().catch(() => ({}))) : {}
+  return { ok: res.ok, status: res.status, data }
+}
+
+/**
+ * 对 M-Task REST 发起 HTTP 请求，验证 Phase 11 后任务入口不再经过 Core。
+ */
+export async function taskFetch(
+  path: string,
+  token?: string,
+  init?: RequestInit
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const res = await fetch(`${taskUrl}${path}`, {
     ...init,
     headers: {
       ...(init?.body ? { 'content-type': 'application/json' } : {}),

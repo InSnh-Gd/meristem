@@ -13,7 +13,7 @@ export const MinimalPolicyDecisionSummarySchema = Schema.Struct({
   actor: ActorIdSchema,
   action: PermissionSchema,
   resource: Schema.NonEmptyString,
-  result: Schema.Literal('allow', 'deny'),
+  result: Schema.Literal('allow', 'deny', 'require_manual_review', 'require_multi_approval'),
   createdAt: Schema.NonEmptyString
 })
 

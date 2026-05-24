@@ -83,7 +83,7 @@ if (!infraOk) {
         })
         const exitCode = await proc.exited
         expect(exitCode).not.toBe(0)
-        expect(proc.stderr).toContain('403')
+        expect(proc.stderr).toContain('permission denied')
       })
 
       it('viewer node register fails with 403', async () => {
@@ -92,7 +92,7 @@ if (!infraOk) {
         })
         const exitCode = await proc.exited
         expect(exitCode).not.toBe(0)
-        expect(proc.stderr).toContain('403')
+        expect(proc.stderr).toContain('permission denied')
       })
     })
   })

@@ -32,10 +32,12 @@ export type CommandState = {
 export type TaskResult = {
   task: {
     id: string
+    nodeId: string
     leafNodeId: string
     type: string
     status: string
     createdAt: string
+    updatedAt: string
     completedAt?: string
   }
   policyDecisionId: string
