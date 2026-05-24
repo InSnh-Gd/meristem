@@ -4,8 +4,9 @@ import { openapi } from '@elysiajs/openapi'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId, Permission, CoreMode, CoreDependencies, MNode,
-  ServiceSummary, TimelineLog, CommandWellEligibility, DisabledCommandExplanation, MinimalPolicyDecisionSummary
+  ServiceSummary, TimelineLog, MinimalPolicyDecisionSummary
 } from '../../../packages/contracts/src/index.ts'
+import { deriveNoopCommandEligibility, missingPermissionCommandEligibility, targetMissingCommandEligibility } from './command-well/eligibility.ts'
 
 export type MUiBffDeps = {
   coreBaseUrl: string
@@ -60,42 +61,6 @@ function passthroughCoreError(result: { ok: boolean; status: number; data: unkno
     status: result.status || 502,
     headers: { 'content-type': 'application/json' }
   })
-}
-
-function disabledCommand(code: DisabledCommandExplanation['code'], message: string, missingPermission?: Permission): CommandWellEligibility {
-  const disabled: DisabledCommandExplanation = {
-    code,
-    message,
-    ...(missingPermission ? { missingPermission } : {})
-  }
-  return { state: 'disabled', disabled, disabledReason: message }
-}
-
-/**
- * CommandWell eligibility is display-only and derived from Core-visible session and node facts.
- * Source: docs/plans/2026-05-23-effect-projection-hardening.md §3 Slice 4
- */
-function deriveNoopCommandEligibility(session: { permissions: Permission[] }, node: MNode): CommandWellEligibility {
-  if (node.kind !== 'leaf') {
-    return disabledCommand('wrong_node_kind', '目标不是 Leaf 节点')
-  }
-  if (node.reachability !== 'reachable') {
-    return disabledCommand('node_unreachable', '目标节点不可达')
-  }
-
-  return {
-    state: 'enabled',
-    command: {
-      id: 'task.noop.run',
-      label: '运行 noop 任务',
-      action: 'task:assign',
-      resource: node.id,
-      risk: 'medium',
-      requiredPermissions: ['task:assign'],
-      requiresPolicy: true,
-      requiresAudit: true
-    }
-  }
 }
 
 /**
@@ -220,10 +185,13 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       const session = sessionRes.data as { actor: ActorId; permissions: Permission[] }
 
       if (!session.permissions.includes('task:assign')) {
-        return disabledCommand('missing_permission', '缺少权限：task:assign', 'task:assign')
+        return missingPermissionCommandEligibility()
       }
 
-      if (!nodeRes.ok) return passthroughCoreError(nodeRes)
+      if (!nodeRes.ok) {
+        if (nodeRes.status === 404) return targetMissingCommandEligibility()
+        return passthroughCoreError(nodeRes)
+      }
       const node = (nodeRes.data as { node: MNode }).node
       return deriveNoopCommandEligibility(session, node)
     }, {

@@ -3,7 +3,7 @@ import { ActorIdSchema } from './identity.ts'
 import { PermissionSchema } from './policy.ts'
 
 export const DisabledCommandExplanationSchema = Schema.Struct({
-  code: Schema.Literal('missing_permission', 'wrong_node_kind', 'node_unreachable'),
+  code: Schema.Literal('missing_permission', 'target_missing', 'wrong_node_kind', 'node_unreachable'),
   message: Schema.String,
   missingPermission: Schema.optional(PermissionSchema)
 })
@@ -43,4 +43,3 @@ export const CommandWellEligibilitySchema = Schema.Union(
 export type DisabledCommandExplanation = typeof DisabledCommandExplanationSchema.Type
 export type MinimalPolicyDecisionSummary = typeof MinimalPolicyDecisionSummarySchema.Type
 export type CommandWellEligibility = typeof CommandWellEligibilitySchema.Type
-

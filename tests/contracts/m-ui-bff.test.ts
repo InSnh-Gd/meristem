@@ -242,6 +242,23 @@ describe('M-UI BFF contract tests', () => {
     expect(body.disabledReason).toBe('目标不是 Leaf 节点')
   })
 
+  it('POST /api/v0/commands/noop with operator token targeting missing node returns disabled for target missing', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/commands/noop', 'POST', 'operator-token', {
+      leafNodeId: 'missing-leaf-node'
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json() as { state: string; disabledReason: string; disabled: { code: string } }
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(true)
+    expect(body.state).toBe('disabled')
+    expect(body.disabled.code).toBe('target_missing')
+    expect(body.disabledReason).toBe('目标节点不存在')
+  })
+
   it('POST /api/v0/commands/noop with operator token targeting offline leaf returns disabled for unreachable', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
     const coreApp = createCoreApp(deps)
