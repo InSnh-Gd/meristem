@@ -4,6 +4,7 @@ type WorkspaceHygieneViolation = {
 }
 
 const DEFAULT_SCAN_ROOTS = ['apps', 'services', 'packages', 'tests', 'docs', 'scripts']
+const LOCAL_RUNTIME_ROOTS = ['.agent-sources', '.codex', '.antigravitycli', 'doc-driven-ai']
 
 /**
  * Classifies paths that should not appear in tracked source or normal review surfaces.
@@ -27,13 +28,16 @@ function classifyWorkspacePath(path: string): string | null {
   if (segments.includes('.svelte-kit')) return 'generated SvelteKit output'
   if (segments.includes('node_modules')) return 'dependency install output'
   if (segments.includes('.agent-sources')) return 'local agent source mirror'
+  if (segments.includes('.codex')) return 'local Codex runtime output'
+  if (segments.includes('.antigravitycli')) return 'local Antigravity CLI runtime output'
+  if (segments[0] === 'doc-driven-ai') return 'local doc-driven AI tooling checkout'
   return null
 }
 
 async function collectWorkspacePaths(): Promise<string[]> {
   const paths: string[] = []
   const rootGlobs = DEFAULT_SCAN_ROOTS.map((root) => `${root}/**/*`)
-  rootGlobs.push('.agent-sources/**/*')
+  rootGlobs.push(...LOCAL_RUNTIME_ROOTS.map((root) => `${root}/**/*`))
 
   for (const pattern of rootGlobs) {
     for await (const entry of new Bun.Glob(pattern).scan('.')) {
@@ -54,4 +58,3 @@ if (import.meta.main) {
   }
   console.log('workspace hygiene checks passed')
 }
-

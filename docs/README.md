@@ -8,7 +8,7 @@
 
 | Document | Role |
 |----------|------|
-| `../AGENTS.md` | AI agent protocol and document reading order |
+| `../AGENTS.md` | AI agent entrypoint and project skill routing |
 | `../MERISTEM.md` | Product intent, product taboos, privacy and safety principles |
 | `../MERISTEM-DESIGN.md` | M-UI visual and interaction contract |
 | `../MERISTEM-DEV.md` | Engineering baseline, domain boundaries, data structures, frozen rules |
@@ -33,12 +33,20 @@
 | `ui/` | SDUI schema and operational component contract | `ui/SDUI-SCHEMA.md` |
 | `roadmap/` | Phase-level implementation specs | `roadmap/PHASE-0.md` |
 | `mvp/` | MVP product and engineering target | `mvp/MVP-SPEC.md` |
+| `plans/` | Active and accepted implementation plans that are not phase documents | `plans/2026-05-23-effect-projection-hardening.md` |
 | `references/` | Current upstream technology snapshots | `references/elysiajs-latest.md` |
+| `archive/` | Historical drafts and superseded plans | `archive/meristem-v-next-developer-document-v0.1.md` |
 
 Related repository documentation outside this index:
 
 - `../.agents/skills/` contains project-local Codex skill sources.
-- `../doc-driven-ai/` contains supporting documentation for doc-driven AI workflow tooling.
+- `../.agents/skills/meristem-context-protocol/SKILL.md` contains the full AI context protocol, document reading order, conflict resolution, and task-specific doc routing.
+- `../.agents/skills/meristem-engineering-guardrails/SKILL.md` contains Meristem implementation guardrails for code, contracts, services, events, config, state, tests, security, logging, policy, telemetry, CLI, and UI.
+- `../.agents/skills/meristem-service-definition/SKILL.md` contains the service definition workflow for Core, M-* services, node services, task services, extension services, and BFFs.
+- `../.agents/skills/meristem-contract-versioning/SKILL.md` contains versioning and migration rules for Meristem boundary contracts.
+- `../.agents/skills/meristem-ui-contract/SKILL.md` contains M-UI, SDUI, CommandWell, BFF display, and Phase 9 functional demo guardrails.
+- `../.agents/skills/meristem-testing-gates/SKILL.md` contains test selection, TDD, failure-mode, e2e, and completion-gate rules.
+- `../doc-driven-ai/` is an ignored local tooling checkout when present; it is not part of the tracked product documentation set.
 
 ---
 
@@ -73,6 +81,7 @@ The current implementation target starts with the Core + Stem/Leaf node MVP and 
 | `roadmap/PHASE-8.md` | real node-agent runtime prototype |
 | `roadmap/PHASE-9.md` | M-UI functional demo shell and control-room flow |
 | `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
+| `roadmap/PHASE-10.1.md` | projection platform track for projector metadata, cursor, retry, DLQ, backfill, and health |
 | `roadmap/PHASE-11.md` | M-Task service cutover, M-Policy risk foundation, and v0.1 MVP closure |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
@@ -102,6 +111,21 @@ Read these before implementing or reviewing code that touches the corresponding 
 | `references/effect-latest.md` | Effect current project snapshot and Meristem usage guidance |
 | `references/svelte-latest.md` | Svelte current release snapshot and Svelte 5 runes guidance |
 | `references/wasm3-latest.md` | Wasm3 current release snapshot, maintenance status, and adoption checklist |
+
+---
+
+## 5.1 Project Skill Set
+
+Load these project skills when their trigger matches the task:
+
+| Skill | Purpose |
+|-------|---------|
+| `../.agents/skills/meristem-context-protocol/SKILL.md` | Repository context, document order, conflict resolution, task-specific doc routing |
+| `../.agents/skills/meristem-engineering-guardrails/SKILL.md` | General implementation guardrails and completion boundaries |
+| `../.agents/skills/meristem-service-definition/SKILL.md` | Service definition, ownership, lifecycle, dependency, policy, and log behavior |
+| `../.agents/skills/meristem-contract-versioning/SKILL.md` | Versioned contracts, breaking changes, migrations, adapter drift tests |
+| `../.agents/skills/meristem-ui-contract/SKILL.md` | M-UI, SDUI, CommandWell, BFF display contract, Phase 9 UI behavior |
+| `../.agents/skills/meristem-testing-gates/SKILL.md` | Test matrix, TDD loop, failure-mode coverage, completion evidence |
 
 ---
 

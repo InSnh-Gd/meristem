@@ -25,6 +25,7 @@
     "lint": "bun run scripts/no-any-check.ts",
     "meristem": "bun run apps/m-cli/src/index.ts",
     "nodejs-ban": "bun run scripts/nodejs-ban.ts",
+    "skill-hygiene": "bun run scripts/skill-hygiene.ts",
     "test": "bun test tests/contracts tests/failure-modes tests/cli tests/integration",
     "test:cli": "bun test tests/cli",
     "test:contracts": "bun test tests/contracts",
@@ -36,7 +37,7 @@
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",
     "token:mint": "bun run packages/auth/src/mint-token.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "workspace-hygiene": "bun run scripts/workspace-hygiene.ts"
+    "workspace-hygiene": "bun run scripts/workspace-hygiene.ts && bun run scripts/skill-hygiene.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "1.4.2",

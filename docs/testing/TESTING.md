@@ -49,6 +49,9 @@ bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
 bun run test:e2e
+bun run workspace-hygiene
+bun run skill-hygiene
+bun run nodejs-ban
 ```
 
 No core capability is complete until these pass or an explicit documented exception exists.
@@ -58,6 +61,8 @@ Additional hard gates:
 
 - repository code must remain Bun-only
 - repository code must not import `node:*`
+- workspace hygiene must reject generated output, dependency installs, local agent mirrors, local Codex runtime output, local Antigravity CLI output, and ignored `doc-driven-ai/` checkouts on review surfaces
+- project skill hygiene must pass without Python or Node.js tooling
 - source comments must satisfy `MERISTEM-DEV.md §8.2`
 - complex internal workflows must have Effect success and failure-path tests at the workflow interface, not only route-level tests
 
