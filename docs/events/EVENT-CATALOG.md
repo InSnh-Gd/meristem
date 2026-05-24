@@ -70,8 +70,17 @@ Rules:
 | `node.status.changed.v0` | event | Core / M-Net | M-Log, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
 | `mnet.network.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
 | `mnet.membership.joined.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
-| `task.assignment.requested.v0` | command | Core / CLI | Core, M-Log | `TaskAssignmentRequestedPayload` | at-least-once |
-| `task.assignment.completed.v0` | event | Core | M-Log, M-UI BFF | `TaskAssignmentCompletedPayload` | at-least-once |
+| `task.requested.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRequestedPayload` | at-least-once |
+| `task.queued.v0` | event | M-Task | M-Log, M-UI BFF | `TaskQueuedPayload` | at-least-once |
+| `task.dispatched.v0` | event | M-Task | M-Log, M-UI BFF | `TaskDispatchedPayload` | at-least-once |
+| `task.running.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRunningPayload` | at-least-once |
+| `task.completed.v0` | event | M-Task | M-Log, M-UI BFF | `TaskCompletedPayload` | at-least-once |
+| `task.failed.v0` | event | M-Task | M-Log, M-UI BFF | `TaskFailedPayload` | at-least-once |
+| `task.cancel.requested.v0` | event | M-Task | M-Net, M-Log, M-UI BFF | `TaskCancelRequestedPayload` | at-least-once |
+| `task.canceled.v0` | event | M-Task | M-Log, M-UI BFF | `TaskCanceledPayload` | at-least-once |
+| `task.timed_out.v0` | event | M-Task | M-Log, M-UI BFF | `TaskTimedOutPayload` | at-least-once |
+| `task.retry.requested.v0` | event | M-Task | M-Policy, M-Log | `TaskRetryRequestedPayload` | at-least-once |
+| `task.retry.rejected.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRetryRejectedPayload` | at-least-once |
 | `mnet.reachability.changed.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetReachabilityChangedPayload` | at-least-once |
 | `mnet.path.changed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetPathChangedPayload` | at-least-once |
 | `mnet.derp.fallback.changed.v0` | event | M-Net | Core, M-Log, M-Policy | `MNetDerpFallbackChangedPayload` | at-least-once |

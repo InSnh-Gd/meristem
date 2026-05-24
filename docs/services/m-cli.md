@@ -43,6 +43,6 @@ CLI behavior is defined in `docs/contracts/CLI-COMMANDS.md`.
 - `meristem status` works against local Core.
 - node registration/listing commands work.
 - logical network create/list/join/member commands work.
-- noop task assignment command works.
+- noop task submitment command works.
 - timeline and audit list commands work with correct permissions.
 - failures print clear errors and exit non-zero.

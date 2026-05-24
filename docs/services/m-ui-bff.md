@@ -16,7 +16,7 @@ What this service owns:
 
 - Aggregating Core REST v0 operational data into a single control-room overview response
 - Deriving disabled/enabled command state for the M-UI CommandWell from Core-visible permission and node state
-- Forwarding confirmed noop task execution to Core `POST /api/v0/tasks`
+- Forwarding confirmed noop task execution to M-Task `POST /api/v0/tasks`
 - Returning a trimmed Minimal Policy Decision Summary from Core policy decision records
 - Exposing its own minimal OpenAPI document for the M-UI frontend
 
@@ -47,7 +47,7 @@ What this service must not own:
 | GET | `/api/v0/overview` | Bearer | Aggregates session, status, nodes, services, timeline |
 | GET | `/api/v0/nodes/:id` | Bearer | Pass-through to Core node detail |
 | POST | `/api/v0/commands/noop` | Bearer | Derives disabled/enabled state, does NOT execute |
-| POST | `/api/v0/commands/noop/execute` | Bearer | Forwards confirmed noop to Core `POST /api/v0/tasks` |
+| POST | `/api/v0/commands/noop/execute` | Bearer | Forwards confirmed noop to M-Task `POST /api/v0/tasks` |
 | GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for Phase 9 UI display |
 
 `GET /api/v0/policy/decisions/:id/summary` calls Core `GET /api/v0/policy/decisions/:id` with the caller's Bearer token and returns only:
@@ -71,7 +71,7 @@ It must not return `reasons`, `confidence`, `suspicion`, role inheritance, RBAC 
 
 | Permission | Required For | Risk |
 |------------|--------------|------|
-| `task:assign` | noop execution | medium |
+| `task:submit` | noop execution | medium |
 | `core:read` | policy decision summary pass-through | low |
 
 The BFF does not enforce permissions. It derives disabled command state from the session endpoint's returned permissions list. All actual authorization happens in Core via M-Policy.

@@ -21,6 +21,27 @@ Core starts
 
 MVP success means a developer can run Core locally with PostgreSQL and NATS, use CLI commands to perform the loop, and verify resulting API responses, database records, events, logs, and audit entries.
 
+## 1.1 Post-MVP v0.1 Baseline Update
+
+Phase 11 closes the MVP task loop by promoting task ownership from Core to M-Task. The original MVP loop proved that Core could assign a noop task through the minimal control path. The v0.1 baseline after Phase 11 treats M-Task as the canonical task service, task API entrypoint, task state owner, and task lifecycle event owner.
+
+Updated task loop:
+
+```text
+M-Task receives task submit
+-> M-Task verifies actor auth through shared auth primitives
+-> M-Task asks M-Policy for RBAC and risk decision
+-> M-Task persists authoritative task state in PostgreSQL
+-> M-Task coordinates delivery through M-Net
+-> M-Net delivers to node-agent
+-> node-agent completes the noop frame
+-> M-Task records completion, timeout, cancellation, or failure
+-> M-Task publishes task lifecycle events through M-EventBus
+-> M-Log records Timeline / Full / Audit facts according to outcome
+```
+
+The old Core-owned task assignment path is historical MVP context, not the current v0.1 baseline after Phase 11.
+
 ---
 
 ## 2. In Scope
@@ -28,10 +49,10 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 - Core bootstrap and health/readiness endpoints.
 - REST + OpenAPI v0.
 - Eden typed clients for CLI -> Core and Core -> M-Policy / M-Log / M-EventBus.
-- M-CLI commands for status, node registration/listing, task assignment, timeline logs, and audit logs using JWT bearer auth.
+- M-CLI commands for status, node registration/listing, task submission, timeline logs, and audit logs using JWT bearer auth.
 - per-node token issuance and agent-mode node runtime through `node-agent`.
 - PostgreSQL authoritative state for users, roles, permissions, nodes, service definitions, tasks, policy decisions, timeline logs, full logs, and audit logs.
-- NATS event publishing for Core lifecycle, node registration/status, task assignment/completion, policy decisions, and audit entries.
+- NATS event publishing for Core lifecycle, node registration/status, task submission/completion, policy decisions, and audit entries.
 - Minimal RBAC with `viewer`, `operator`, `admin`, and `security-admin`.
 - Timeline Log, Full Log, and Audit Log minimal implementations.
 - OpenTelemetry SDK with real trace/correlation propagation across HTTP, internal loopback HTTP, logs, and events.
@@ -64,7 +85,7 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 | Persona | Uses | Must Be Able To |
 |---------|------|-----------------|
 | local developer | CLI + REST | start Core, run tests, inspect MVP loop |
-| operator | CLI | register nodes, assign noop task, inspect status |
+| operator | CLI | register nodes, submit noop task, inspect status |
 | security reviewer | CLI + DB/API | verify RBAC denial and Audit Log entries |
 
 ---
@@ -75,10 +96,10 @@ MVP success means a developer can run Core locally with PostgreSQL and NATS, use
 2. As an operator, I can register one Stem node and one Leaf node.
 3. As an operator, I can issue one active token for an agent node.
 4. As an operator, I can list registered nodes and see their statuses.
-5. As an operator, I can assign a noop task to a Leaf node.
+5. As an operator, I can submit a noop task to a Leaf node.
 6. As an operator, I can see the task completion event and Timeline entry.
 7. As a security reviewer, I can verify protected operations require RBAC permission.
-8. As a security reviewer, I can verify node registration, task assignment, and permission denial produce Audit or Full Log entries according to risk.
+8. As a security reviewer, I can verify node registration, task submission, and permission denial produce Audit or Full Log entries according to explicit log behavior.
 
 ---
 
@@ -92,7 +113,7 @@ meristem node register --kind stem --name local-stem
 meristem node register --kind leaf --name local-leaf
 meristem node ticket create --kind leaf --name remote-leaf
 meristem node list
-meristem task assign --leaf <leaf-node-id> --type noop
+meristem task submit --type noop --node <leaf-node-id>
 meristem log timeline
 meristem audit list
 ```
@@ -104,7 +125,7 @@ Expected result:
 - Join Ticket issuance succeeds and points agents at the M-Net join ingress.
 - a real `node-agent` can redeem that ticket, become `healthy` / `reachable`, complete `noop`, and transition back to `offline` after shutdown.
 - noop task moves to completed.
-- NATS events are published for lifecycle, registration, status, assignment, completion, policy decision, and audit entry.
+- NATS events are published for lifecycle, registration, status, task submission, task completion, policy decision, and audit entry.
 - Timeline shows human-readable Core/node/task events.
 - Audit shows protected operation decisions.
 
@@ -122,7 +143,7 @@ Expected result:
 | NATS | publishes MVP subjects listed in `docs/events/EVENT-CATALOG.md` |
 | RBAC | blocks protected operations without permission |
 | Audit | records protected node/task/security operations |
-| Timeline | records Core start, node registration, task assignment/completion |
+| Timeline | records Core start, node registration, task submission/completion |
 | Full Log | records errors, rejected requests, dependency degradation |
 | Tests | typecheck, unit, contract, API, CLI, event, RBAC, audit fail-closed tests pass |
 

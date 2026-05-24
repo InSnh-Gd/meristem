@@ -92,7 +92,8 @@ Current Core-driven logical-network events:
 
 Current MVP runtime boundary:
 
-- Core -> M-Net create/list/join/member and agent task dispatch use loopback HTTP + Eden + internal token
+- Core -> M-Net create/list/join/member uses loopback HTTP + Eden + internal token
+- M-Task -> M-Net agent task dispatch and best-effort cancellation use declared delivery operations; M-Task owns task lifecycle state
 - `M-Net` exposes loopback-only `http://127.0.0.1:3104/health`, `/ready`, and `/internal/v0/*`
 - `/ready` requires `x-meristem-internal-token`
 - Core includes `M-Net` health in aggregated readiness

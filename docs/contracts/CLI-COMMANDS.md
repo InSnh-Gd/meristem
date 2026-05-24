@@ -120,19 +120,42 @@ Permission: `network:read`.
 
 Lists network members with node kind, membership mode, and joined time.
 
-### `meristem task assign --leaf <node-id> --type noop`
+### `meristem task submit --node <node-id> --type noop`
 
-Permission: `task:assign`.
+Permission: `task:submit`.
 
-Assigns and completes an MVP noop task against a Leaf node.
+Submits a Phase 11 noop task through M-Task against a Leaf node.
 
 Rules:
 
 - only `noop` is supported in MVP.
 - target node must be a Leaf.
-- `simulated` nodes complete synchronously in Core.
-- `agent` nodes require `reachable` state and an active runtime token used only for `session.resume`; heartbeat, log, and task replies use `sessionId`.
-- `agent` noop completion goes through Core -> M-Net internal HTTP -> active join-ingress session `task.execute` -> agent `task.result`.
+- M-Task owns the task state, risk decision, task events, and task log behavior.
+- `agent` noop delivery goes through M-Task -> M-Net -> active join-ingress session `task.execute` -> agent `task.result`.
+
+### `meristem task status <task-id>`
+
+Permission: `task:read`.
+
+Returns one M-Task task record.
+
+### `meristem task list`
+
+Permission: `task:read`.
+
+Lists M-Task task records.
+
+### `meristem task cancel <task-id>`
+
+Permission: `task:cancel`.
+
+Requests M-Task cancellation. Queued tasks cancel locally; dispatched or running tasks use best-effort M-Net cancellation.
+
+### `meristem task retry <task-id>`
+
+Permission: `task:retry`.
+
+Runs auth, RBAC, and risk checks, then returns `not_implemented_for_phase` when policy allows the retry request.
 
 ### `meristem service list`
 

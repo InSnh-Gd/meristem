@@ -152,15 +152,16 @@ Core 源码位于 `apps/core/src/`，按职责拆分为以下模块：
 
 ## 9. MVP Additions
 
-For MVP, Core also owns orchestration for:
+For the pre-Phase-11 MVP, Core also owned orchestration for:
 
 - Stem / Leaf node registration.
 - per-node agent credential issuance.
 - logical network API aggregation through M-Net.
-- noop Leaf task assignment, including `node-agent` request/reply dispatch for agent-mode nodes.
 - PostgreSQL authoritative writes.
 - NATS event publication.
 - M-Policy checks for protected operations.
 - M-Log writes for Timeline / Full / Audit.
 
-Core must not implement real network connectivity for MVP. Node and task flow are logical records and events only.
+After Phase 11, Core no longer owns canonical task routes, task lifecycle state, task lifecycle events, or task log facts. M-Task owns `/api/v0/tasks`, M-Task PostgreSQL tables, task lifecycle events, and task control policy/log behavior.
+
+Core must not implement real network connectivity for MVP. Node flow remains logical records and events only; task delivery is coordinated by M-Task through M-Net.

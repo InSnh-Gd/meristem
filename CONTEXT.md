@@ -64,6 +64,14 @@ _Avoid_: Projection admin API, projection mutation
 A projection operation that changes projection operating state or the visible read model path, such as backfill, DLQ replay, or DLQ skip.
 _Avoid_: Search query, ordinary log read, OpenSearch write model action
 
+**M-Task**:
+The Meristem domain for task lifecycle, task definitions, execution coordination, and task observability once task behavior outgrows the Core-owned MVP noop workflow.
+_Avoid_: Generic workflow engine, Core-private task helper, transport owner
+
+**Pending Policy Escalation**:
+A policy decision state where an operation is blocked and recorded because it requires manual review or multi-approval, without executing the operation or running the approval workflow yet.
+_Avoid_: Completed approval, allow with warning, automatic delayed execution
+
 ## Relationships
 
 - The **M-UI Functional Demo Shell** demonstrates a subset of the **Control Room Ledger** without becoming the final visual design.
@@ -80,6 +88,8 @@ _Avoid_: Search query, ordinary log read, OpenSearch write model action
 - A **Contract Drift Check** belongs anywhere an **Effect Executable Contract** and an Elysia TypeBox / OpenAPI adapter coexist.
 - A **Projection Read Action** requires projection read permission but does not create an Audit Log fact by itself.
 - A **Projection Control Action** must pass M-Policy, write Audit Log before execution, and write Timeline or Full Log according to outcome.
+- **M-Task** coordinates task lifecycle with M-Net / node-agent for delivery and execution, while M-Policy remains the authorization source and M-Log remains the log fact source.
+- A **Pending Policy Escalation** can be produced for an **M-Task** control action; it blocks execution until a later approval workflow exists.
 
 ## Example Dialogue
 
@@ -100,3 +110,5 @@ _Avoid_: Search query, ordinary log read, OpenSearch write model action
 - "command is allowed" can mean final authorization or visible executability; resolved: use **CommandWell Eligibility** for the visible command state before execution.
 - "Effect schema work" can mean either internal executable contract modeling or HTTP adapter validation; resolved: use **Effect Executable Contract** for internal contract source and keep Elysia TypeBox as REST/OpenAPI adapter.
 - "projection admin" can blur read-only observation and mutating repair actions; resolved: use **Projection Read Action** and **Projection Control Action**.
+- "M-Task" can imply a general workflow platform or transport layer; resolved: use **M-Task** only for Meristem task lifecycle ownership and keep transport in M-Net / node-agent.
+- "require manual review" can sound like a complete approval system; resolved: use **Pending Policy Escalation** when Phase 11 only blocks and records the required review outcome.

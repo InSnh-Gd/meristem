@@ -139,7 +139,7 @@ The BFF must not:
 - `/session` must not expose role inheritance, policy internals, RBAC table structure, or policy evaluation traces.
 - `operator` can demonstrate control execution but sees Audit as visible and access denied when missing `audit:read`.
 - `security-admin` can demonstrate Audit visibility.
-- **CommandWell Eligibility** is derived from Core-visible facts: the actor has `task:assign`, the selected target is a Leaf node, and the selected target is reachable. The Functional Demo Acceptance Path must use a real `node-agent` Leaf, but the BFF must not add a private `node.mode === "agent"` authorization rule.
+- **CommandWell Eligibility** is derived from Core-visible facts: the actor has `task:submit`, the selected target is a Leaf node, and the selected target is reachable. The Functional Demo Acceptance Path must use a real `node-agent` Leaf, but the BFF must not add a private `node.mode === "agent"` authorization rule.
 - BFF must not cache token permission results across requests.
 - `apps/m-ui` must call only M-UI BFF APIs, never Core REST directly.
 - BFF OpenAPI covers the UI-facing route schema, overview data, command state, and command execution endpoints without copying Core REST v0 as a second public API.
@@ -203,7 +203,7 @@ The `operator` path proves control execution. The `security-admin` path proves A
 - BFF uses Core REST v0 only for operational data, `noop` execution, and Minimal Policy Decision Summary retrieval.
 - BFF does not perform cross-request caching.
 - Core, M-Policy, and M-Log remain the sources of facts.
-- CommandWell shows `Run noop task` only as executable for a selected reachable Leaf with `task:assign`.
+- CommandWell shows `Run noop task` only as executable for a selected reachable Leaf with `task:submit`.
 - Missing permission, wrong node kind, and unreachable node states produce visible disabled command explanations.
 - Audit is visible but access-denied for actors without `audit:read`.
 - CommandWell confirmation occurs before `POST /api/v0/tasks`.
@@ -233,6 +233,6 @@ Manual checks:
 - Start a real `node-agent` through the existing Join Ticket flow.
 - Confirm the UI shows Core status, nodes, services, Timeline, and Audit access state.
 - Confirm `operator` can run `noop` against a reachable Leaf.
-- Confirm a token without `task:assign` sees a disabled command explanation and sends no command request.
+- Confirm a token without `task:submit` sees a disabled command explanation and sends no command request.
 - Confirm `security-admin` can inspect Audit data according to the existing RBAC contract.
 - Confirm mobile viewport can load, accept a token, browse the core regions vertically, and complete CommandWell confirmation.

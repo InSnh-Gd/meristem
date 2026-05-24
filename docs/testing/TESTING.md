@@ -132,7 +132,7 @@ MVP failure-mode tests:
 
 - PostgreSQL unavailable makes readiness fail.
 - NATS unavailable makes event-dependent operations fail or explicitly degrade.
-- Audit Log write failure blocks node registration and task assignment.
+- Audit Log write failure blocks node registration and task submitment.
 - Audit Log write failure blocks network creation and network join.
 - viewer cannot register node.
 - viewer cannot issue node tokens.
@@ -148,8 +148,8 @@ MVP failure-mode tests:
 - viewer cannot reload a service.
 - non-reloadable service returns `409`.
 - reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
-- agent task assignment without an active token returns `409`.
-- Effect workflow tests cover typed failure mapping for task assignment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
+- agent task submitment without an active token returns `409`.
+- Effect workflow tests cover typed failure mapping for task submitment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
 
 ---
 
@@ -206,7 +206,7 @@ MERISTEM_TOKEN=<operator-token> bun run meristem network join --network <network
 MERISTEM_TOKEN=<operator-token> bun run meristem network members --network <network-id>
 MERISTEM_TOKEN=<operator-token> bun run meristem service list
 MERISTEM_TOKEN=<operator-token> bun run meristem service reload --service m-log --reason smoke-test
-MERISTEM_TOKEN=<operator-token> bun run meristem task assign --leaf <leaf-node-id> --type noop
+MERISTEM_TOKEN=<operator-token> bun run meristem task submit --leaf <leaf-node-id> --type noop
 MERISTEM_TOKEN=<operator-token> bun run meristem log timeline
 MERISTEM_TOKEN=<security-admin-token> bun run meristem audit list
 ```

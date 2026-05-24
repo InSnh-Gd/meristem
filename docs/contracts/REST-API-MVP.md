@@ -282,44 +282,64 @@ Returns logical network members or `404` if the network does not exist.
 
 ## 6. Tasks
 
+Phase 11 changes the owner of the canonical task API from Core to M-Task. The resource path remains `/api/v0/tasks`, but the service exposing it is M-Task, not Core.
+
 ### `POST /api/v0/tasks`
 
-Protected by `task:assign`.
+Protected by `task:submit`.
 
 ```ts
-type AssignTaskRequest = {
-  leafNodeId: string;
+type SubmitTaskRequest = {
+  nodeId: string;
   type: "noop";
 };
 
-type AssignTaskResponse = {
+type SubmitTaskResponse = {
   task: {
     id: string;
+    nodeId: string;
     leafNodeId: string;
     type: "noop";
-    status: "completed";
+    status: "accepted" | "queued" | "dispatched" | "running" | "completed" | "failed" | "cancel_requested" | "canceled" | "timed_out";
     createdAt: string;
-    completedAt: string;
+    updatedAt: string;
+    completedAt?: string;
   };
   policyDecisionId: string;
   correlationId: string;
+  risk: {
+    operationDangerLevel: "medium";
+    suspicionScore: number;
+    riskFactors: string[];
+  };
 };
 ```
 
 Rules:
 
-- MVP supports only `noop`.
-- Target must be an existing Leaf node.
-- `simulated` nodes complete synchronously in Core.
-- `agent` nodes require `reachable` state, `healthy` or `degraded` status, and one active node credential.
-- `agent` completion goes Core -> M-Net internal HTTP -> active join session `task.execute`.
-- Successful assignment publishes requested and completed events.
+- Phase 11 supports only `noop` execution.
+- Target must be an existing Leaf node known through M-Net / node state.
+- M-Task checks `task:submit`, asks M-Policy for risk output, writes required M-Log facts, and publishes task lifecycle events.
+- Delivery to node-agent goes M-Task -> M-Net -> active join session `task.execute`.
+- Core does not expose canonical task routes after the cutover.
 
 ### `GET /api/v0/tasks/:id`
 
-Protected by `core:read`.
+Protected by `task:read`.
 
 Returns one task or `404`.
+
+### `POST /api/v0/tasks/:id/cancel`
+
+Protected by `task:cancel`.
+
+Cancels queued tasks directly and requests best-effort cancel for dispatched or running tasks.
+
+### `POST /api/v0/tasks/:id/retry`
+
+Protected by `task:retry`.
+
+Phase 11 returns `not_implemented_for_phase` after auth, RBAC, and risk checks allow the retry request.
 
 ---
 

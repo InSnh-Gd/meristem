@@ -32,6 +32,7 @@
 | [ADR-022](ADR-022-sveltekit-elysia-integration.md) | SvelteKit + Elysia Integration | Accepted |
 | [ADR-023](ADR-023-m-net-default-network.md) | M-Net Default Network | Proposed |
 | [ADR-024](ADR-024-m-net-cn-profile.md) | M-Net CN Regional Profile | Proposed |
+| [ADR-025](ADR-025-promote-m-task-to-canonical-task-service.md) | Promote M-Task to Canonical Task Service | Accepted |
 
 ---
 

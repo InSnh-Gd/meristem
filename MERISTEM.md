@@ -93,7 +93,7 @@ MERISTEM 的核心领域实体：
 3. **Stem Node** - 长期在线节点，承担主要任务、网络功能、微服务承载和区域中继能力。
 4. **Leaf Node** - 临时、任务驱动、默认低权限、受限 API、受限互联的节点。
 5. **Meristem Core** - 微内核化核心，负责 bootstrap、基础配置、基础身份、服务生命周期入口、REST/OpenAPI、Eden 聚合、M-CLI 入口和安全模式。
-6. **M-* 功能域** - M-Net、M-EventBus、M-Log、M-Policy、M-UI、M-CLI、M-Extension 等一级能力边界。
+6. **M-* 功能域** - M-Net、M-EventBus、M-Log、M-Policy、M-Task、M-UI、M-CLI、M-Extension 等一级能力边界。
 7. **Service Definition** - 微服务必须声明的契约、权限、依赖、配置、生命周期和日志行为。
 8. **契约与事件** - Eden Contract、REST/OpenAPI、Event Schema、Webhook Payload、BFF Contract 等跨服务和跨节点边界。
 9. **日志事实** - Timeline Log、Full Log、Audit Log 组成的三级日志系统。

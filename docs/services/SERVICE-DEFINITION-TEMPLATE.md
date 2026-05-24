@@ -16,6 +16,7 @@ type MServiceDefinition = {
     | "m-eventbus"
     | "m-log"
     | "m-policy"
+    | "m-task"
     | "m-ui"
     | "m-cli"
     | "m-extension";

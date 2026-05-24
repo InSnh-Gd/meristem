@@ -20,8 +20,9 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 
 | Owner | Tables |
 |-------|--------|
-| Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` |
+| Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` historical compatibility table |
 | M-Net | `networks`, `network_memberships` |
+| M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
 
@@ -118,7 +119,9 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `created_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
 
-### `tasks`
+### `tasks` historical compatibility table
+
+Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` remains only for pre-cutover compatibility and must not be used as the canonical task state source.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -127,6 +130,72 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `type` | text | MVP supports `noop` |
 | `status` | text | `requested`, `completed`, `failed` |
 | `created_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | UTC |
+
+### `task_definitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | task definition ID |
+| `type` | text | MVP supports `noop` |
+| `version` | text | definition version, e.g. `v0` |
+| `description` | text | operator-facing summary |
+| `danger_level` | text | `low`, `medium`, `high`, or `critical` |
+| `default_timeout_seconds` | integer | Phase 11 default timeout |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+### `task_requests`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | task request ID |
+| `definition_id` | text | references `task_definitions.id` |
+| `node_id` | text | references `nodes.id` |
+| `type` | text | task type |
+| `status` | text | `accepted`, `queued`, `dispatched`, `running`, `completed`, `failed`, `cancel_requested`, `canceled`, `timed_out` |
+| `requested_by` | text | actor ID |
+| `policy_decision_id` | text nullable | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `risk` | jsonb | operation danger level, suspicion score, and risk factors |
+| `timeout_at` | timestamptz nullable | task deadline |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | UTC |
+| `canceled_at` | timestamptz nullable | UTC |
+
+### `task_transitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition row ID |
+| `task_id` | text | references `task_requests.id` |
+| `from_status` | text nullable | previous state |
+| `to_status` | text | next state |
+| `reason` | text nullable | transition cause |
+| `correlation_id` | text nullable | request correlation |
+| `created_at` | timestamptz | UTC |
+
+### `task_results`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `task_id` | text primary key | references `task_requests.id` |
+| `status` | text | terminal result status |
+| `payload` | jsonb nullable | non-secret result payload |
+| `error` | text nullable | failure summary |
+| `completed_at` | timestamptz | UTC |
+
+### `task_cancellations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | cancellation row ID |
+| `task_id` | text | references `task_requests.id` |
+| `requested_by` | text | actor ID |
+| `status` | text | cancellation lifecycle status |
+| `correlation_id` | text nullable | request correlation |
+| `requested_at` | timestamptz | UTC |
 | `completed_at` | timestamptz nullable | UTC |
 
 ### `networks`
@@ -223,7 +292,7 @@ node:issue-token
 network:read
 network:create
 network:join
-task:assign
+task:submit
 timeline:read
 log:read-full
 audit:read
@@ -242,6 +311,7 @@ service:register
 - A network membership must be unique per `network_id` + `node_id`.
 - Core node records are system-managed.
 - Task target must be an existing Leaf node.
+- M-Task-owned task tables are the canonical task lifecycle source after Phase 11.
 
 ## 5. Migration Rules
 

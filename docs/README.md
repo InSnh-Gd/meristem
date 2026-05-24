@@ -73,7 +73,7 @@ The current implementation target starts with the Core + Stem/Leaf node MVP and 
 | `roadmap/PHASE-8.md` | real node-agent runtime prototype |
 | `roadmap/PHASE-9.md` | M-UI functional demo shell and control-room flow |
 | `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
-| `roadmap/PHASE-11.md` | M-Task draft and future task-domain split |
+| `roadmap/PHASE-11.md` | M-Task service cutover, M-Policy risk foundation, and v0.1 MVP closure |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
 | `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |

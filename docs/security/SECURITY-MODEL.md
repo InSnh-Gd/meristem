@@ -46,7 +46,7 @@ MVP uses a narrower permission set than the long-term baseline:
 | `network:read` | yes | yes | yes | yes |
 | `network:create` | no | yes | yes | yes |
 | `network:join` | no | yes | yes | yes |
-| `task:assign` | no | yes | yes | yes |
+| `task:submit` | no | yes | yes | yes |
 | `timeline:read` | yes | yes | yes | yes |
 | `log:read-full` | no | yes | yes | yes |
 | `audit:read` | no | no | no | yes |
@@ -119,7 +119,7 @@ MVP protected operations:
 | issue or rotate node agent token | operator | required |
 | create logical node network | operator | required |
 | join node to logical network | operator | required |
-| assign noop task | operator | required |
+| submit noop task through M-Task | operator | required |
 | read projection health / DLQ | operator | none |
 | run projection backfill | admin | required before execution |
 | replay or skip projection DLQ | admin | required before execution |

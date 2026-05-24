@@ -8,7 +8,7 @@
 
 | Class | Carrier | Owns | Must Not Become |
 |-------|---------|------|-----------------|
-| Authoritative State | PostgreSQL | users, roles, permissions, nodes, service definitions, config versions, secretRefs, tasks | event-only truth |
+| Authoritative State | PostgreSQL | users, roles, permissions, nodes, service definitions, config versions, secretRefs, M-Task task tables | event-only truth |
 | Event State | M-EventBus / NATS | task events, node events, lifecycle events, network events, config publish events | authoritative database |
 | Cache State | NATS KV first, Redis / KeyDB if needed | rate limit windows, ephemeral sessions, distributed lock, derived hot state | primary database |
 | Read Model | OpenSearch or projection | log search, Timeline aggregation, Audit query, node state board, policy analysis view | source of truth |
@@ -31,7 +31,7 @@
 | ServiceDefinition | Core | service contract entrypoint |
 | ConfigVersion | Core / config subsystem | published config state |
 | SecretRef | Core | value storage backend is implementation detail |
-| TaskRecord | Core or task service | v0 minimal task assignment |
+| TaskRequest / TaskTransition / TaskResult / TaskCancellation | M-Task | Phase 11 canonical task lifecycle state |
 | PolicyDecision | M-Policy | decision fact; high-risk copies into Audit Log |
 
 The MVP concrete schema is defined in `docs/data/POSTGRES-SCHEMA-MVP.md`.

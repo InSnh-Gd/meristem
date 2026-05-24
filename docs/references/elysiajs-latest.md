@@ -42,7 +42,7 @@ Use Elysia for:
 - OpenAPI v0 generation.
 - internal Eden sample contract.
 - service lifecycle routes.
-- node registration and task assignment endpoints.
+- node registration in Core and task lifecycle endpoints in M-Task.
 - policy/audit-aware route composition.
 
 Do not use Elysia to hide:

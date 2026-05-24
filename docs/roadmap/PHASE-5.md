@@ -16,7 +16,7 @@ Phase 5 includes:
 - policy decision table.
 - RBAC allow / deny.
 - protected node registration.
-- protected task assignment.
+- protected task submitment.
 - protected audit read.
 - Audit Log integration for protected operations.
 
@@ -47,7 +47,7 @@ Phase 5 excludes:
 |-----------|------------|--------------|
 | read status | `core:read` | viewer |
 | register node | `node:register` | operator |
-| assign noop task | `task:assign` | operator |
+| assign noop task | `task:submit` | operator |
 | read Timeline | `timeline:read` | viewer |
 | read Audit | `audit:read` | security-admin |
 | register service | `service:register` | admin |
@@ -72,7 +72,7 @@ Phase 5 excludes:
 ```bash
 meristem status
 meristem node register --kind leaf --name local-leaf
-meristem task assign --leaf <leaf-node-id> --type noop
+meristem task submit --leaf <leaf-node-id> --type noop
 meristem audit list
 ```
 

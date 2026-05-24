@@ -54,7 +54,10 @@ bun run meristem network create --name lab-mesh
 bun run meristem network join --network <network-id> --node <stem-node-id>
 bun run meristem network members --network <network-id>
 bun run meristem node list
-bun run meristem task assign --leaf <leaf-node-id> --type noop
+bun run meristem task submit --node <leaf-node-id> --type noop
+bun run meristem task status <task-id>
+bun run meristem task cancel <queued-task-id>
+bun run meristem task retry <task-id>
 bun run meristem log timeline
 MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem audit list
 ```
@@ -70,6 +73,7 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-Log | `3102` | loopback HTTP + Eden + internal token |
 | M-EventBus | `3103` | loopback HTTP + Eden + internal token; publishes to NATS |
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
+| M-Task | `3105` | canonical Phase 11 task API `/api/v0/tasks` |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | M-UI | `5173` or framework default | SvelteKit dev server |
 | NATS TCP | `4222` | server-side listen port; not the default Bun client transport |
@@ -82,7 +86,7 @@ Ports are provisional until the project scaffold defines them.
 Public exposure rule:
 
 - public deployment exposes only `8443`
-- `3000`, `3101`, `3102`, `3103`, `3104`, PostgreSQL, `4222`, and `4223` stay private or loopback-only
+- `3000`, `3101`, `3102`, `3103`, `3104`, `3105`, PostgreSQL, `4222`, and `4223` stay private or loopback-only
 - exposing `3000 + 4223` for remote validation is now a development exception, not the target topology
 
 ---
@@ -92,6 +96,7 @@ Public exposure rule:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `MERISTEM_CORE_URL` | CLI target Core URL | `http://localhost:3000` |
+| `MERISTEM_TASK_URL` | BFF target M-Task URL | `http://127.0.0.1:3105` |
 | `MERISTEM_TOKEN` | CLI bearer token | none |
 | `MERISTEM_JOIN_PUBLIC_URL` | public join ingress base URL used by Core ticket issuance | `https://localhost:8443` |
 | `MERISTEM_JOIN_INGRESS_PORT` | public M-Net join ingress port | `8443` |

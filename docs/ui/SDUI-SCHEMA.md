@@ -130,9 +130,9 @@ Required command:
 ```ts
 type Phase9NoopCommand = MUiCommand & {
   id: "task.noop.run";
-  action: "task:assign";
+  action: "task:submit";
   risk: "medium";
-  requiredPermissions: ["task:assign"];
+  requiredPermissions: ["task:submit"];
   requiresPolicy: true;
   requiresAudit: true;
 };
@@ -142,8 +142,8 @@ Phase 9 rules:
 
 - Visible UI text is Chinese for Phase 9; machine fields, permission names, event names, error codes, and component kinds remain English.
 - The `Run noop task` command is rendered to operators as `运行 noop 任务`.
-- It is enabled only for a selected reachable Leaf with `task:assign`.
-- Missing permission uses a visible Chinese explanation that preserves the permission name, such as `缺少权限：task:assign`.
+- It is enabled only for a selected reachable Leaf with `task:submit`.
+- Missing permission uses a visible Chinese explanation that preserves the permission name, such as `缺少权限：task:submit`.
 - Wrong node kind uses a visible Chinese explanation, such as `目标不是 Leaf 节点`.
 - Unreachable node state uses a visible Chinese explanation, such as `目标节点不可达`.
 - Disabled commands do not create Audit facts.
@@ -196,7 +196,7 @@ const controlRoomRoute: MUiRouteSchema = {
 
 - `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
 - `PolicyDecisionPanel`: Not implemented in Phase 9; only a minimal summary is shown inline after command execution.
-- `CommandWell` only surfaces one command (`noop`) against reachable Leaf nodes with `task:assign`.
+- `CommandWell` only surfaces one command (`noop`) against reachable Leaf nodes with `task:submit`.
 
 **Phase 9 state sources**:
 
