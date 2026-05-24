@@ -6,7 +6,7 @@
 
 ## A-001 Projection Permission Hardening
 
-Status: planned.
+Status: implemented.
 
 Primary plan: `docs/plans/2026-05-23-effect-projection-hardening.md`.
 
@@ -29,12 +29,13 @@ Final state:
 Verification:
 
 - Contract, policy, failure-mode, and success-path tests listed in the primary plan.
+- Implemented by `feat(core): harden projection permissions and audit controls`.
 
 ---
 
 ## A-002 Contract Locality And Drift
 
-Status: planned.
+Status: implemented.
 
 Primary references:
 
@@ -63,6 +64,7 @@ Verification:
 
 - Effect Schema decode/encode tests.
 - Drift tests between shared Effect Schema/literals and TypeBox/OpenAPI adapters.
+- Implemented by `docs(architecture): make effect-first contracts explicit` and projection hardening contract tests.
 
 ---
 
@@ -95,7 +97,7 @@ Verification:
 
 ## A-004 M-Log Projection Module Depth
 
-Status: accepted future implementation slice.
+Status: implemented.
 
 Problem:
 
@@ -122,6 +124,11 @@ services/m-log/src/projection/
   errors.ts
 ```
 
+Implementation note:
+
+- `services/m-log/src/projection.ts` remains the public facade for existing imports.
+- Projection internals now live under `services/m-log/src/projection/` with separate modules for engine assembly, job storage, cursor storage, DLQ, retry, backfill, health, document mapping, typed errors, and shared table/type helpers.
+
 Rules:
 
 - `engine.ts` keeps the outside-facing projection engine facade equivalent to current `createProjectionEngine(...)`.
@@ -144,7 +151,7 @@ Verification:
 
 ## A-005 M-UI BFF CommandWell Eligibility
 
-Status: accepted future implementation slice.
+Status: implemented.
 
 Problem:
 
@@ -164,6 +171,12 @@ services/m-ui-bff/src/command-well/
   schemas.ts
   errors.ts
 ```
+
+Implementation note:
+
+- `services/m-ui-bff/src/command-well/eligibility.ts` owns CommandWell Eligibility display shaping.
+- BFF routes call the module after reading session and node facts from Core REST.
+- Missing permission and missing target are returned as disabled display states without creating PolicyDecision or Audit Log facts.
 
 Rules:
 
@@ -187,7 +200,7 @@ Verification:
 
 ## A-006 Workspace Hygiene And Backup/Generated Artifacts
 
-Status: accepted future implementation slice.
+Status: implemented.
 
 Problem:
 
@@ -206,6 +219,13 @@ scripts/workspace-hygiene.ts
 package.json script: workspace-hygiene
 optional tests/contracts/workspace-hygiene.test.ts
 ```
+
+Implementation note:
+
+- `.gitignore` ignores backup, temporary, merge backup, and local agent source mirror artifacts.
+- `scripts/workspace-hygiene.ts` provides a Bun-only scanner and exported pure classification function.
+- `package.json` exposes `bun run workspace-hygiene`.
+- Existing `.bak` files were removed before implementation.
 
 Ignore candidates:
 
@@ -236,7 +256,7 @@ Verification:
 
 ## A-007 DynamicRouteAdapter For Eden/REST Dynamic Paths
 
-Status: accepted future implementation slice.
+Status: implemented.
 
 Problem:
 
@@ -254,6 +274,11 @@ Target location:
 ```text
 packages/internal-http/src/dynamic-routes.ts
 ```
+
+Implementation note:
+
+- `packages/internal-http/src/dynamic-routes.ts` owns dynamic route path expansion, path parameter encoding, query serialization, header injection, JSON parse failure, and Meristem error envelope extraction.
+- CLI projection DLQ replay/skip and Core-to-M-Log projection DLQ replay/skip now use the adapter instead of local raw fetch glue.
 
 Target Interface:
 
@@ -294,4 +319,3 @@ Verification:
 
 - Unit tests for path encoding, query serialization, header injection, JSON failure, Meristem error envelope extraction, and typed success.
 - CLI/Core adapter tests prove dynamic routes use the adapter instead of raw fetch/casts where applicable.
-
