@@ -88,6 +88,21 @@ Rules:
 | `config.published.v0` | event | Core | target nodes, M-Log | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | target node | Core, M-Log | `ConfigApplyAckedPayload` | at-least-once |
 | `policy.decision.created.v0` | event | M-Policy | M-Log, Core, M-UI BFF | `PolicyDecisionCreatedPayload` | at-least-once |
+| `extension.definition.registered.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionDefinitionRegisteredPayload` | at-least-once |
+| `extension.definition.rejected.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionDefinitionRejectedPayload` | at-least-once |
+| `extension.instance.enabled.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionInstanceEnabledPayload` | at-least-once |
+| `extension.instance.disabled.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionInstanceDisabledPayload` | at-least-once |
+| `extension.instance.enable_failed.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionInstanceEnableFailedPayload` | at-least-once |
+| `extension.instance.disable_failed.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionInstanceDisableFailedPayload` | at-least-once |
+| `identity.token.issued.v0` | event | Core | M-Log, M-UI BFF | `IdentityTokenIssuedPayload` | at-least-once |
+| `identity.token.revoked.v0` | event | Core | M-Log, M-UI BFF | `IdentityTokenRevokedPayload` | at-least-once |
+| `secret.ref.created.v0` | event | Core | M-Log, M-UI BFF | `SecretRefCreatedPayload` | at-least-once |
+| `secret.ref.rotated.v0` | event | Core | M-Log, M-UI BFF | `SecretRefRotatedPayload` | at-least-once |
+| `secret.ref.disabled.v0` | event | Core | M-Log, M-UI BFF | `SecretRefDisabledPayload` | at-least-once |
+| `config.validated.v0` | event | Core | M-Log, M-UI BFF | `ConfigValidatedPayload` | at-least-once |
+| `config.apply.failed.v0` | event | target service | Core, M-Log, M-UI BFF | `ConfigApplyFailedPayload` | at-least-once |
+| `config.rollback.requested.v0` | command | Core / M-CLI | target service | `ConfigRollbackRequestedPayload` | at-least-once |
+| `config.rolled_back.v0` | event | Core | target services, M-Log, M-UI BFF | `ConfigRolledBackPayload` | at-least-once |
 | `audit.lock.required.v0` | event | M-Policy / M-Log | Core, M-UI BFF | `AuditLockRequiredPayload` | at-least-once |
 | `audit.entry.created.v0` | event | M-Log | Core, M-UI BFF | `AuditEntryCreatedPayload` | at-least-once |
 
@@ -221,6 +236,76 @@ type AuditEntryCreatedPayload = {
   resource: string;
   decisionId?: string;
 };
+
+type ExtensionLifecyclePayload = {
+  extensionId: string;
+  manifestVersion: string;
+  kind: "metadata-only" | "webhook-declared" | "wasm-placeholder" | "http-callback-placeholder";
+  actor: string;
+  decisionId: string;
+  scopeType: "system";
+  scopeId: "default";
+  reason?: string;
+  correlationId?: string;
+};
+
+type ExtensionDefinitionRegisteredPayload = ExtensionLifecyclePayload;
+
+type ExtensionDefinitionRejectedPayload = ExtensionLifecyclePayload & {
+  errorCode: string;
+};
+
+type ExtensionInstanceEnabledPayload = ExtensionLifecyclePayload;
+
+type ExtensionInstanceDisabledPayload = ExtensionLifecyclePayload;
+
+type ExtensionInstanceEnableFailedPayload = ExtensionLifecyclePayload & {
+  errorCode: string;
+};
+
+type ExtensionInstanceDisableFailedPayload = ExtensionLifecyclePayload & {
+  errorCode: string;
+};
+
+type IdentityTokenLifecyclePayload = {
+  jti: string;
+  actor: string;
+  performedBy: string;
+  reason?: string;
+  correlationId?: string;
+};
+
+type IdentityTokenIssuedPayload = IdentityTokenLifecyclePayload;
+type IdentityTokenRevokedPayload = IdentityTokenLifecyclePayload;
+
+type SecretRefLifecyclePayload = {
+  secretRefId: string;
+  scope: "system" | "service" | "node";
+  actor: string;
+  decisionId: string;
+  reason?: string;
+  correlationId?: string;
+};
+
+type SecretRefCreatedPayload = SecretRefLifecyclePayload;
+type SecretRefRotatedPayload = SecretRefLifecyclePayload;
+type SecretRefDisabledPayload = SecretRefLifecyclePayload;
+
+type ConfigLifecyclePayload = {
+  configId: string;
+  configVersion: string;
+  configHash: string;
+  domain: string;
+  actor: string;
+  decisionId?: string;
+  reason?: string;
+  correlationId?: string;
+};
+
+type ConfigValidatedPayload = ConfigLifecyclePayload;
+type ConfigApplyFailedPayload = ConfigLifecyclePayload & { errorCode: string };
+type ConfigRollbackRequestedPayload = ConfigLifecyclePayload & { rollbackVersion: string };
+type ConfigRolledBackPayload = ConfigLifecyclePayload & { rollbackVersion: string };
 ```
 
 ---
@@ -232,3 +317,79 @@ type AuditEntryCreatedPayload = {
 - Schema validation failure rejects the event and writes Full Log.
 - High-risk validation failure writes Audit Log when an actor and resource are known.
 - Dead-letter handling is required before v1 for long-running or externally triggered commands.
+
+### Phase 12 Approval Lifecycle Events
+
+| Subject | Type | Publisher | Subscribers | Payload Schema | Delivery |
+|---------|------|-----------|-------------|----------------|----------|
+| `policy.approval.created.v0` | event | M-Policy | M-Log, M-UI BFF | `PolicyApprovalCreatedPayload` | at-least-once |
+| `policy.approval.approved.v0` | event | M-Policy | M-Task, M-Log, M-UI BFF | `PolicyApprovalApprovedPayload` | at-least-once |
+| `policy.approval.rejected.v0` | event | M-Policy | M-Task, M-Log, M-UI BFF | `PolicyApprovalRejectedPayload` | at-least-once |
+| `policy.approval.expired.v0` | event | M-Policy | M-Task, M-Log, M-UI BFF | `PolicyApprovalExpiredPayload` | at-least-once |
+| `policy.approval.canceled.v0` | event | M-Policy | M-Task, M-Log, M-UI BFF | `PolicyApprovalCanceledPayload` | at-least-once |
+| `task.operation.suspended.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationSuspendedPayload` | at-least-once |
+| `task.operation.resumed.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationResumedPayload` | at-least-once |
+| `task.operation.resume.failure.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationResumeFailurePayload` | at-least-once |
+
+Approval authorization and resume execution are distinct facts. `policy.approval.approved.v0` does not imply the origin operation executed; `task.operation.resumed.v0` or `task.operation.resume.failure.v0` records the business execution result.
+
+```ts
+type PolicyApprovalCreatedPayload = {
+  approvalId: string;
+  policyDecisionId: string;
+  originService: string;
+  operationId: string;
+  requestedBy: string;
+  requiredAction: 'manual_review' | 'multi_approval';
+  quorumRequired: number;
+  expiresAt: string;
+  correlationId?: string;
+};
+
+type PolicyApprovalApprovedPayload = {
+  approvalId: string;
+  policyDecisionId: string;
+  correlationId?: string;
+};
+
+type PolicyApprovalRejectedPayload = {
+  approvalId: string;
+  policyDecisionId: string;
+  correlationId?: string;
+};
+
+type PolicyApprovalExpiredPayload = {
+  approvalId: string;
+  policyDecisionId: string;
+  correlationId?: string;
+};
+
+type PolicyApprovalCanceledPayload = {
+  approvalId: string;
+  policyDecisionId: string;
+  correlationId?: string;
+};
+
+type TaskOperationSuspendedPayload = {
+  suspendedOpId: string;
+  policyDecisionId: string;
+  action: string;
+  resource: string;
+  actor: string;
+  correlationId?: string;
+};
+
+type TaskOperationResumedPayload = {
+  suspendedOpId: string;
+  action: string;
+  resource: string;
+  taskId?: string;
+  correlationId?: string;
+};
+
+type TaskOperationResumeFailurePayload = {
+  suspendedOpId: string;
+  reason: string;
+  correlationId?: string;
+};
+```

@@ -55,6 +55,28 @@ MVP uses a narrower permission set than the long-term baseline:
 | `projection:read` | no | yes | yes | yes |
 | `projection:backfill` | no | no | yes | yes |
 | `projection:dlq-manage` | no | no | yes | yes |
+| `extension:read` | yes | yes | yes | yes |
+| `extension:register` | no | no | yes | yes |
+| `extension:enable` | no | no | yes | yes |
+| `extension:disable` | no | no | yes | yes |
+| `identity:read` | self | self | yes | yes |
+| `identity:token-inspect` | no | no | yes | yes |
+| `identity:token-issue` | no | no | no | yes |
+| `identity:token-revoke` | no | no | no | yes |
+| `secret:read-metadata` | no | no | yes | yes |
+| `secret:create` | no | no | no | yes |
+| `secret:rotate` | no | no | no | yes |
+| `secret:disable` | no | no | no | yes |
+| `secret:reference` | no | no | yes | yes |
+| `config:read` | yes | yes | yes | yes |
+| `config:draft` | no | no | yes | yes |
+| `config:validate` | no | yes | yes | yes |
+| `config:publish` | no | no | yes | yes |
+| `config:rollback` | no | no | yes | yes |
+| `policy:approval-read` | no | no | yes | yes |
+| `policy:approval-approve` | no | no | no | yes |
+| `policy:approval-reject` | no | no | no | yes |
+| `policy:approval-manage` | no | no | no | yes |
 
 MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
 
@@ -83,6 +105,21 @@ Rules:
 - Roles and permissions are read by M-Policy from PostgreSQL seed data.
 - Missing or invalid token returns `401`.
 - Valid token without required permission returns `403` and records a policy decision.
+
+### 2.2.1 Identity v0.2 Local Mode
+
+Phase 17 hardens local JWT mode without adding OIDC, SSO, browser sessions, MFA, or M-Identity.
+
+Rules:
+
+- Core owns actor records and actor token lifecycle.
+- every local actor JWT must include `jti`.
+- Core stores token metadata and revocation state, never token plaintext.
+- runtime token issue and revoke require `security-admin`.
+- M-* services verify JWT shape locally and call Core internal token introspection for revocation state.
+- M-* services must not read Core token tables directly.
+- Core introspection unavailable fails protected M-* external routes closed.
+- token plaintext is returned only once and must never be logged.
 
 ### 2.3 MVP Internal Service Authentication
 
@@ -126,6 +163,34 @@ MVP protected operations:
 | read Audit Log | security-admin | Full Log on denied access |
 | register service definition | admin | required |
 | reload internal service prototype | operator | required |
+| list pending approvals | admin / security-admin | none |
+| approve pending approval | security-admin | required |
+| reject pending approval | security-admin | required |
+| resume suspended operation | system | required |
+| register M-Extension manifest | admin | required |
+| enable M-Extension instance | admin | required |
+| disable M-Extension instance | admin | required |
+| issue actor token | security-admin | required before returning plaintext token |
+| revoke actor token | security-admin | required before status change |
+| create / rotate / disable secretRef | security-admin | required before mutation |
+| publish / rollback high-risk config | admin | required before mutation |
+
+### 2.4 Phase 12 Approval Security
+
+Phase 12 approval flow security rules:
+
+- approval queue ownership stays in M-Policy.
+- approval REST routes use Bearer auth (not internal token).
+- `policy:approval-read` allows admin and security-admin to list and view approvals.
+- `policy:approval-approve` and `policy:approval-reject` are security-admin only.
+- original actor cannot approve or reject their own pending operation.
+- duplicate vote from same actor is rejected.
+- approval timeout transitions to `expired`, not `rejected`.
+- quorum is fixed: manual review requires one security-admin; multi-approval requires two distinct security-admin actors.
+- approval state transitions and origin resume attempts write Audit Log.
+- list and detail reads do not write Audit Log.
+- M-Policy must not execute M-Task operations or hold M-Task business payloads.
+- M-Task must not decide approval quorum or mutate approval status directly.
 
 ---
 
@@ -171,6 +236,35 @@ Minimum checks:
 - Full Log for all rejected requests
 - Audit Log for rejected high-risk requests
 
+Phase 15 M-Extension may declare future webhook extension metadata, but it must not expose webhook ingress or execute webhook payloads. Webhook execution requires reopening this section with concrete source verification, replay protection, rate limit, Audit, and failure-mode tests.
+
+---
+
+## 5.1 M-Extension Boundary
+
+Phase 15 M-Extension security rules:
+
+- extensions are untrusted by default.
+- M-Extension Manifest v0.1 is a governance declaration only.
+- `controlPlaneOnly` must be `true`.
+- only `low` and `medium` risk manifests are accepted.
+- `high` and `critical` risk manifests are rejected as unsupported.
+- unknown requested permissions are rejected.
+- extensions cannot create new permissions.
+- `register`, `enable`, and `disable` require M-Policy.
+- allowed `register`, `enable`, and `disable` write Audit before persistence or transition.
+- Phase 15 does not create approval records for extension operations.
+- Phase 15 does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior.
+
+M-Extension manifests must not contain:
+
+- inline code.
+- executable command strings.
+- secret values.
+- raw webhook tokens.
+- Wasm binaries or loadable binary paths.
+- unversioned config blobs.
+
 ---
 
 ## 6. Secret Lifecycle
@@ -193,6 +287,28 @@ M-Log owns:
 - audit of secret operations
 
 Secrets must not appear in Timeline, Full Log payloads, OpenSearch projections, LLM prompts, or error messages.
+
+Phase 18 SecretRef v0.1 rules:
+
+- Core owns secretRef metadata and local v0.1 secret value storage entrypoints.
+- M-Policy authorizes create, rotate, disable, metadata read, and reference operations.
+- mutating secretRef operations write Audit before mutation.
+- external services receive only `secretRef`, not plaintext secret values.
+- production KMS / Vault integration is deferred.
+- no M-Secret service is created.
+
+---
+
+## 7. Config Lifecycle Boundary
+
+Phase 19 Config Lifecycle v0.1 rules:
+
+- Core owns the generic config lifecycle control plane.
+- domain services own domain-specific apply behavior.
+- config payloads must be schema validated, versioned, hash-addressed, published, applied, and acknowledged.
+- high-risk config publish / rollback requires M-Policy and Audit.
+- config payloads must use `secretRef`; plaintext secrets are prohibited.
+- M-UI config authoring and broad collaborative config editing are deferred.
 
 ### 6.1 Node Agent Tokens
 

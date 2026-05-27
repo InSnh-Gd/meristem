@@ -1,0 +1,190 @@
+# Phase 16 topology example only.
+# This file documents intended local process grouping; it is not a production deployment.
+# Current internal service URLs are loopback-oriented in code, so split-container runtime
+# requires follow-up configuration work before this can become an executable default.
+
+name: meristem-full-stack-example
+
+services:
+  postgres:
+    extends:
+      file: ../../docker-compose.yml
+      service: postgres
+
+  nats:
+    extends:
+      file: ../../docker-compose.yml
+      service: nats
+
+  opensearch:
+    extends:
+      file: ../../docker-compose.yml
+      service: opensearch
+    profiles:
+      - opensearch
+
+  redis:
+    extends:
+      file: ../../docker-compose.yml
+      service: redis
+    profiles:
+      - redis
+
+  apisix:
+    extends:
+      file: ../../docker-compose.yml
+      service: apisix
+    profiles:
+      - apisix
+
+  # The Bun services below intentionally use placeholder build commands.
+  # They are topology documentation until internal service URL configuration is split-container ready.
+  m-eventbus:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-eventbus"]
+    volumes:
+      - ../..:/workspace
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  m-policy:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-policy"]
+    volumes:
+      - ../..:/workspace
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+      MERISTEM_JWT_SECRET: change-me-local-jwt-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  m-log:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-log"]
+    volumes:
+      - ../..:/workspace
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      OPENSEARCH_URL: http://opensearch:9200
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  m-net:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-net"]
+    volumes:
+      - ../..:/workspace
+    ports:
+      - "8443:8443"
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+      MERISTEM_JOIN_PUBLIC_URL: https://localhost:8443
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  m-task:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-task"]
+    volumes:
+      - ../..:/workspace
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+      MERISTEM_JWT_SECRET: change-me-local-jwt-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  core:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:core"]
+    volumes:
+      - ../..:/workspace
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://meristem:meristem@postgres:5432/meristem
+      NATS_URL: ws://nats:4223
+      MERISTEM_INTERNAL_TOKEN: change-me-internal-shared-token
+      MERISTEM_JWT_SECRET: change-me-local-jwt-secret
+      MERISTEM_JOIN_PUBLIC_URL: https://localhost:8443
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    profiles:
+      - full-stack-example
+
+  m-ui-bff:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-ui-bff"]
+    volumes:
+      - ../..:/workspace
+    ports:
+      - "3200:3200"
+    environment:
+      MERISTEM_TASK_URL: http://m-task:3105
+      MERISTEM_JWT_SECRET: change-me-local-jwt-secret
+    depends_on:
+      core:
+        condition: service_started
+    profiles:
+      - full-stack-example
+
+  m-ui:
+    image: oven/bun:1
+    working_dir: /workspace
+    command: ["bun", "run", "dev:m-ui"]
+    volumes:
+      - ../..:/workspace
+    ports:
+      - "5173:5173"
+    depends_on:
+      m-ui-bff:
+        condition: service_started
+    profiles:
+      - full-stack-example
+

@@ -4,6 +4,8 @@
 
 This document applies to authoritative configuration changes. The current service reload prototype is a narrower runtime control path and does not replace this state machine; see `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
+Phase 19 implements the first v0.1 subset of this lifecycle. It is intentionally narrower than a broad configuration platform or UI authoring system.
+
 ---
 
 ## 1. State Machine
@@ -22,6 +24,20 @@ draft
 
 No implementation may skip validation, versioning, publish, apply, and ack.
 
+Phase 19 supports this executable subset:
+
+```text
+draft
+-> validated
+-> published
+-> applied
+
+validated -> failed
+published -> failed
+applied -> rolled_back
+failed -> rolled_back
+```
+
 ---
 
 ## 2. Config Record
@@ -39,6 +55,8 @@ type MConfigRecord = {
   rollbackVersion?: string;
 };
 ```
+
+Phase 19 config payloads must not contain plaintext secret values. Use `secretRef` for secret-bearing configuration.
 
 ---
 
@@ -66,6 +84,13 @@ type MConfigRecord = {
 | M-Policy rule | required | required |
 | secret-related config | required | required |
 | SDUI schema | required if it exposes privileged action | Full, Audit if high-risk |
+
+Phase 19 ownership rules:
+
+- Core owns generic config records, versions, transitions, and apply acknowledgements.
+- domain services own domain-specific apply behavior.
+- M-Policy authorizes protected publish / rollback.
+- M-Log records Timeline, Full, and Audit facts.
 
 ---
 

@@ -24,6 +24,7 @@
 | User | Core / M-Policy | base identity; exact auth provider remains separate |
 | Role | M-Policy | RBAC baseline |
 | Permission | M-Policy | resource/action/scope based |
+| Actor / ActorToken / ActorTokenRevocation | Core | Phase 17 Identity v0.2 local-mode actor and token lifecycle state |
 | Node | Core / M-Net | Core registers; M-Net updates reachability |
 | NodeCredential | Core | hashed per-node agent credentials |
 | Network | M-Net | logical node network owned by M-Net |
@@ -31,8 +32,11 @@
 | ServiceDefinition | Core | service contract entrypoint |
 | ConfigVersion | Core / config subsystem | published config state |
 | SecretRef | Core | value storage backend is implementation detail |
+| SecretRefVersion / SecretRefTransition | Core | Phase 18 secretRef metadata, local value version, and lifecycle transition state |
+| ConfigRecord / ConfigApplyAck / ConfigTransition | Core | Phase 19 generic Config Lifecycle v0.1 authoritative state |
 | TaskRequest / TaskTransition / TaskResult / TaskCancellation | M-Task | Phase 11 canonical task lifecycle state |
 | PolicyDecision | M-Policy | decision fact; high-risk copies into Audit Log |
+| ExtensionDefinition / ExtensionInstance / ExtensionTransition | M-Extension | Phase 15 control-plane registry and `system/default` instance state; no execution runtime state |
 
 The MVP concrete schema is defined in `docs/data/POSTGRES-SCHEMA-MVP.md`.
 
@@ -64,6 +68,8 @@ NATS KV is the default cache. Redis / KeyDB can be introduced only when one of t
 - external component requires Redis protocol
 
 Introducing Redis / KeyDB requires a dependency note and failure behavior.
+
+Phase 16 provides a Redis optional compose profile only. It does not introduce a runtime adapter or move any cache, session, lock, rate-limit, task queue, or coordination state to Redis. KeyDB remains a compatible candidate but has no Phase 16 profile.
 
 ---
 
@@ -124,3 +130,180 @@ Phase 10.1 Projection Platform Track 新增三张 PostgreSQL 表，均归属 M-L
 | `created_at` | timestamptz | UTC |
 
 All three tables are authoritative state owned by M-Log and must not be used as cache or event state.
+
+---
+
+## 6. Phase 15 M-Extension State Tables
+
+Phase 15 adds three PostgreSQL authoritative tables owned by M-Extension.
+
+### `extension_definitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | extension id from manifest |
+| `manifest_version` | text | `m-extension-manifest@0.1.0` |
+| `kind` | text | declaration kind only |
+| `display_name` | text | operator-visible name |
+| `owner` | text | manifest owner |
+| `license` | text | declared license |
+| `manifest` | jsonb | validated governance manifest |
+| `declared_capabilities` | jsonb | string array |
+| `requested_permissions` | jsonb | known Meristem permissions only |
+| `risk_class` | text | `low` or `medium` in Phase 15 |
+| `status` | text | `registered`, `rejected`, `deprecated` |
+| `registered_by` | text | actor subject |
+| `policy_decision_id` | text | M-Policy decision id |
+| `correlation_id` | text | optional trace correlation |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+### `extension_instances`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | instance UUID |
+| `extension_id` | text | references extension definition |
+| `scope_type` | text | only `system` in Phase 15 |
+| `scope_id` | text | only `default` in Phase 15 |
+| `status` | text | `disabled`, `enabled`, `enable_failed`, `disable_failed` |
+| `enabled_by` | text | actor subject when enabled |
+| `disabled_by` | text | actor subject when disabled |
+| `policy_decision_id` | text | latest M-Policy decision id |
+| `correlation_id` | text | optional trace correlation |
+| `last_error` | text | failure reason when terminal failure status is set |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `enabled_at` | timestamptz | set when enabled |
+| `disabled_at` | timestamptz | set when disabled |
+
+### `extension_transitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition UUID |
+| `extension_id` | text | extension definition id |
+| `instance_id` | text | instance id when transition is instance-scoped |
+| `from_status` | text | previous status |
+| `to_status` | text | next status |
+| `actor` | text | actor subject |
+| `reason` | text | optional operator reason |
+| `policy_decision_id` | text | M-Policy decision id |
+| `correlation_id` | text | optional trace correlation |
+| `created_at` | timestamptz | UTC |
+
+These tables must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state.
+
+---
+
+## 7. Phase 17 Identity v0.2 State Tables
+
+Core owns these PostgreSQL authoritative tables:
+
+```text
+actors
+actor_tokens
+actor_token_revocations
+```
+
+Rules:
+
+- token plaintext is never stored.
+- `jti` is the revocation key.
+- M-* services must use Core introspection and must not read these tables directly.
+
+---
+
+## 8. Phase 18 SecretRef State Tables
+
+Core owns these PostgreSQL authoritative tables:
+
+```text
+secret_refs
+secret_ref_versions
+secret_ref_transitions
+```
+
+Rules:
+
+- metadata must be non-secret.
+- secret plaintext must not be returned after create / rotate.
+- secret values must not appear in logs, projections, UI errors, LLM prompts, or event payloads.
+- production KMS / Vault storage remains deferred.
+
+---
+
+## 9. Phase 19 Config Lifecycle State Tables
+
+Core owns these PostgreSQL authoritative tables:
+
+```text
+config_records
+config_versions
+config_apply_acks
+config_transitions
+```
+
+Rules:
+
+- configuration state is authoritative in PostgreSQL.
+- event subjects notify lifecycle changes but are not the source of truth.
+- config payloads must not contain secret plaintext; use `secretRef`.
+- OpenSearch may project lifecycle facts but must not become source of truth.
+
+## 7. Phase 12 Approval State Tables
+
+Phase 12 adds three PostgreSQL authoritative tables owned by two services.
+
+### M-Policy-Owned Tables
+
+#### `policy_approvals`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | approval UUID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `origin_service` | text | `m-task` in Phase 12 |
+| `operation_id` | text | origin operation identifier by convention |
+| `requested_by` | text | actor who triggered the blocked operation |
+| `required_action` | text | `manual_review` or `multi_approval` |
+| `status` | text | `pending`, `approved`, `rejected`, `expired`, `canceled` |
+| `quorum_required` | integer | 1 for manual review, 2 for multi-approval |
+| `expires_at` | timestamptz | UTC |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | set on terminal state |
+
+#### `policy_approval_votes`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | vote UUID |
+| `approval_id` | text | references `policy_approvals.id` |
+| `actor` | text | voter actor ID |
+| `vote` | text | `approve` or `reject` |
+| `reason` | text nullable | optional operator reason |
+| `created_at` | timestamptz | UTC |
+| unique | `(approval_id, actor)` | each actor can vote once per approval |
+
+### M-Task-Owned Table
+
+#### `task_suspended_operations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | suspended operation UUID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `action` | text | `task.submit`, `task.cancel`, or `task.retry` |
+| `requested_by` | text | actor who triggered the operation |
+| `resource` | text | target resource identifier |
+| `sanitized_payload` | jsonb | operation context without secrets |
+| `correlation_id` | text | request correlation |
+| `idempotency_key` | text | prevents duplicate resume |
+| `status` | text | `suspended`, `resumed`, `rejected`, `expired` |
+| `expires_at` | timestamptz | UTC |
+| `created_at` | timestamptz | UTC |
+| `resumed_at` | timestamptz nullable | set when resumed |
+| `terminal_reason` | text nullable | rejection, expiration, or error reason |
+
+`policy_approvals.operation_id` references the origin operation by convention, not by cross-service foreign key. PostgreSQL may be shared, but service ownership remains explicit.

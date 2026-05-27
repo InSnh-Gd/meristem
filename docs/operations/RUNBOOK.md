@@ -28,6 +28,9 @@ bun install
 docker compose up -d postgres nats
 # Phase 10: optionally start OpenSearch for log search
 # docker compose --profile opensearch up -d opensearch
+# Phase 16 optional deployment pack profiles
+# docker compose --profile redis up -d redis
+# docker compose --profile apisix up -d apisix
 bun run db:migrate
 bun run db:seed
 bun run lint
@@ -76,20 +79,25 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-EventBus | `3103` | loopback HTTP + Eden + internal token; publishes to NATS |
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
 | M-Task | `3105` | canonical Phase 11 task API `/api/v0/tasks` |
+| M-Extension | `3106` | planned Phase 15 extension control-plane API |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | M-UI | `5173` or framework default | SvelteKit dev server |
+| M-UI BFF | `3200` | UI-facing BFF dev server |
 | NATS TCP | `4222` | server-side listen port; not the default Bun client transport |
 | NATS WebSocket | `4223` | private Bun transport for internal services only |
 | PostgreSQL | `55432` host -> `5432` container | local write model; avoids common host PostgreSQL conflicts |
 | OpenSearch | `9200` | later phase only |
+| Redis | `6379` | optional Phase 16 cache candidate only |
+| APISIX | `9080` | optional Phase 16 edge gateway example |
 
 Ports are provisional until the project scaffold defines them.
 
 Public exposure rule:
 
 - public deployment exposes only `8443`
-- `3000`, `3101`, `3102`, `3103`, `3104`, `3105`, PostgreSQL, `4222`, and `4223` stay private or loopback-only
+- `3000`, `3101`, `3102`, `3103`, `3104`, `3105`, `3106`, PostgreSQL, NATS, OpenSearch, and Redis stay private or loopback-only unless an explicit local optional profile documents otherwise
 - exposing `3000 + 4223` for remote validation is now a development exception, not the target topology
+- APISIX profile may expose only explicit external-route allowlists from `ops/apisix/apisix.yaml`; it must not expose `/internal/v0/*`
 
 ---
 
@@ -99,6 +107,7 @@ Public exposure rule:
 |----------|---------|---------|
 | `MERISTEM_CORE_URL` | CLI target Core URL | `http://localhost:3000` |
 | `MERISTEM_TASK_URL` | BFF target M-Task URL | `http://127.0.0.1:3105` |
+| `MERISTEM_EXTENSION_URL` | CLI target M-Extension URL | `http://127.0.0.1:3106` |
 | `MERISTEM_TOKEN` | CLI bearer token | none |
 | `MERISTEM_JOIN_PUBLIC_URL` | public join ingress base URL used by Core ticket issuance | `https://localhost:8443` |
 | `MERISTEM_JOIN_INGRESS_PORT` | public M-Net join ingress port | `8443` |
@@ -131,6 +140,8 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID. Roles and
 | Policy unavailable | M-Policy health | fail closed for protected operations |
 | NATS unavailable | M-EventBus health | degrade event-dependent capabilities |
 | OpenSearch unavailable | read model health | writes continue; queries degrade |
+| Redis unavailable | optional cache candidate health | no current runtime impact; future adapter must define fallback or fail-closed behavior |
+| APISIX unavailable | optional edge path | direct Bun dev routes remain available |
 | Leaf Node abnormal | node status, recent Audit / Full Log | revoke or shrink permissions |
 
 ---
@@ -170,3 +181,9 @@ Compatibility note:
 
 - `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` remain available for `session.resume` and operator recovery flows.
 - `meristem node issue-token` is no longer the primary public join flow.
+
+Phase 16 optional deployment pack:
+
+- detailed profile commands and failure behavior live in `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`.
+- APISIX, Redis, and OpenSearch profiles are optional and must not become test or local development prerequisites.
+- `ops/compose/full-stack.example.yml` is topology documentation, not a production deployment or CI gate.
