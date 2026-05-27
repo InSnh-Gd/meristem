@@ -1,7 +1,8 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { eq } from 'drizzle-orm'
+import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { policyDecisions, rolePermissions as rolePermissionTable, userRoles } from '../../../packages/db/src/schema.ts'
+import { policyDecisions, policyApprovals, policyApprovalVotes, rolePermissions as rolePermissionTable, userRoles } from '../../../packages/db/src/schema.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   createInternalFetcher,
@@ -11,10 +12,11 @@ import {
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
 import { decidePermission } from '../../../packages/policy/src/index.ts'
-import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
+import type { ActorId, ApprovalStatus, Permission, PolicyApproval, PolicyApprovalVote, PolicyDecision } from '../../../packages/contracts/src/index.ts'
 import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import { createPolicyApp, type PolicyAuthorizeInput } from './app.ts'
+import { createApprovalRoutes, type ApprovalStore } from './approvals.ts'
 
 initTelemetry('m-policy')
 
@@ -108,6 +110,145 @@ async function getDecision(id: string): Promise<PolicyDecision | null> {
     : null
 }
 
+/**
+ * PostgreSQL adapter for policy_approvals 和 policy_approval_votes；
+ * 审批状态和投票记录的唯一权威写路径。
+ */
+const approvalStore: ApprovalStore = {
+  async listApprovals(status) {
+    const query = status
+      ? db.select().from(policyApprovals).where(eq(policyApprovals.status, status))
+      : db.select().from(policyApprovals)
+    const rows = await query
+    return rows.map((row) => ({
+      id: row.id,
+      policyDecisionId: row.policyDecisionId,
+      originService: row.originService as PolicyApproval['originService'],
+      operationId: row.operationId,
+      requestedBy: row.requestedBy as ActorId,
+      requiredAction: row.requiredAction as PolicyApproval['requiredAction'],
+      status: row.status as ApprovalStatus,
+      quorumRequired: row.quorumRequired,
+      expiresAt: row.expiresAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      ...(row.completedAt ? { completedAt: row.completedAt.toISOString() } : {})
+    }))
+  },
+  async getApproval(id) {
+    const [row] = await db.select().from(policyApprovals).where(eq(policyApprovals.id, id)).limit(1)
+    if (!row) return null
+    return {
+      id: row.id,
+      policyDecisionId: row.policyDecisionId,
+      originService: row.originService as PolicyApproval['originService'],
+      operationId: row.operationId,
+      requestedBy: row.requestedBy as ActorId,
+      requiredAction: row.requiredAction as PolicyApproval['requiredAction'],
+      status: row.status as ApprovalStatus,
+      quorumRequired: row.quorumRequired,
+      expiresAt: row.expiresAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      ...(row.completedAt ? { completedAt: row.completedAt.toISOString() } : {})
+    }
+  },
+  async getVotes(approvalId) {
+    const rows = await db.select().from(policyApprovalVotes).where(eq(policyApprovalVotes.approvalId, approvalId))
+    return rows.map((row) => ({
+      id: row.id,
+      approvalId: row.approvalId,
+      actor: row.actor as ActorId,
+      vote: row.vote as PolicyApprovalVote['vote'],
+      ...(row.reason ? { reason: row.reason } : {}),
+      createdAt: row.createdAt.toISOString()
+    }))
+  },
+  async addVote(approvalId, actor, vote, reason) {
+    const row = {
+      id: crypto.randomUUID(),
+      approvalId,
+      actor,
+      vote,
+      reason: reason ?? null,
+      createdAt: new Date()
+    }
+    await db.insert(policyApprovalVotes).values(row)
+    return {
+      id: row.id,
+      approvalId,
+      actor,
+      vote,
+      ...(reason ? { reason } : {}),
+      createdAt: row.createdAt.toISOString()
+    }
+  },
+  async updateApprovalStatus(id, status, completedAt) {
+    const now = new Date()
+    await db.update(policyApprovals).set({
+      status,
+      updatedAt: now,
+      ...(completedAt ? { completedAt: new Date(completedAt) } : {})
+    }).where(eq(policyApprovals.id, id))
+    return this.getApproval(id)
+  }
+}
+
+const approvalRoutes = createApprovalRoutes({
+  auth: {
+    async verify(token) {
+      const secret = process.env.MERISTEM_JWT_SECRET
+      if (!secret) return { ok: false as const, code: 'auth.unconfigured', message: 'MERISTEM_JWT_SECRET is required' }
+      const result = await verifyLocalToken({ token, secret })
+      if (!result.ok) return { ok: false as const, code: result.code, message: result.message }
+      return { ok: true as const, actor: result.actor }
+    }
+  },
+  approvals: approvalStore,
+  log: {
+    async writeTimeline(input) {
+      const traceId = currentTraceId()
+      const event = createEventEnvelope({
+        type: 'log.timeline',
+        source: 'm-policy',
+        payload: input,
+        ...(traceId ? { traceId } : {})
+      })
+      await eventBus.internal.v0.publish.post({ subject: 'log.timeline.v0', event })
+    },
+    async writeFull(input) {
+      const traceId = currentTraceId()
+      const event = createEventEnvelope({
+        type: 'log.full',
+        source: 'm-policy',
+        payload: input,
+        ...(traceId ? { traceId } : {})
+      })
+      await eventBus.internal.v0.publish.post({ subject: 'log.full.v0', event })
+    },
+    async writeAudit(input) {
+      const traceId = currentTraceId()
+      const event = createEventEnvelope({
+        type: 'audit.entry.created',
+        source: 'm-policy',
+        payload: input,
+        ...(traceId ? { traceId } : {})
+      })
+      await eventBus.internal.v0.publish.post({ subject: 'audit.entry.created.v0', event })
+    }
+  },
+  events: {
+    async publish(subject, payload) {
+      const event = createEventEnvelope({
+        type: subject.replace(/\.v0$/, ''),
+        source: 'm-policy',
+        payload
+      })
+      await eventBus.internal.v0.publish.post({ subject, event })
+    }
+  }
+})
+
 const app = createPolicyApp({
   async readiness() {
     const postgresReady = await client`select 1`
@@ -120,7 +261,9 @@ const app = createPolicyApp({
   getDecision
 })
 
-const server = serveHttpApp('m-policy', app.fetch)
+// Phase 12: 将审批路由挂载到 M-Policy 主服务上，外部审批 API 使用 Bearer auth。
+const mergedApp = app.use(approvalRoutes)
+const server = serveHttpApp('m-policy', mergedApp.fetch)
 
 // 退出顺序先停 HTTP，再关数据库和 telemetry，避免正在处理的授权请求半途丢失。
 process.on('SIGINT', () => {

@@ -525,3 +525,81 @@ export type BackfillResult = {
   lastCursor: ProjectionCursor | null
   status: ProjectorJobStatus
 }
+
+// ---- Phase 12 Approval Execution Flow 类型 ----
+// 来源：docs/roadmap/PHASE-12.md
+
+// 审批记录生命周期状态：pending → approved | rejected | expired | canceled
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'canceled'
+
+// 审批所需的投票类型
+export type ApprovalVote = 'approve' | 'reject'
+
+// 审批来源服务，Phase 12 仅支持 M-Task
+export type ApprovalOriginService = 'm-task'
+
+// Phase 12 支持的发起操作：task.submit、task.cancel、task.retry
+export type ApprovalOriginAction = 'task.submit' | 'task.cancel' | 'task.retry'
+
+// M-Policy 拥有的审批记录
+export type PolicyApproval = {
+  id: string
+  policyDecisionId: string
+  originService: ApprovalOriginService
+  operationId: string
+  requestedBy: ActorId
+  requiredAction: 'manual_review' | 'multi_approval'
+  status: ApprovalStatus
+  quorumRequired: number
+  expiresAt: string
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+}
+
+// 审批投票记录
+export type PolicyApprovalVote = {
+  id: string
+  approvalId: string
+  actor: ActorId
+  vote: ApprovalVote
+  reason?: string
+  createdAt: string
+}
+
+// M-Task 拥有的挂起操作记录
+export type SuspendedOperationStatus = 'suspended' | 'resumed' | 'rejected' | 'expired'
+
+export type TaskSuspendedOperation = {
+  id: string
+  policyDecisionId: string
+  action: ApprovalOriginAction
+  requestedBy: ActorId
+  resource: string
+  sanitizedPayload: unknown
+  correlationId: string
+  idempotencyKey: string
+  status: SuspendedOperationStatus
+  expiresAt: string
+  createdAt: string
+  resumedAt?: string
+  terminalReason?: string
+}
+
+// 审批列表和详情 REST 响应
+export type ApprovalListResponse = {
+  approvals: PolicyApproval[]
+}
+
+export type ApprovalDetailResponse = PolicyApproval & {
+  votes: PolicyApprovalVote[]
+}
+
+export type ApprovalActionRequest = {
+  reason?: string
+}
+
+export type ApprovalActionResponse = {
+  approval: PolicyApproval
+  votes: PolicyApprovalVote[]
+}
