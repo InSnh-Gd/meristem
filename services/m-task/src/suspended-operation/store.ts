@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
-import type { ActorId, ApprovalOriginAction, TaskSuspendedOperation, SuspendedOperationStatus } from '../../../packages/contracts/src/index.ts'
-import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { taskSuspendedOperations, policyDecisions } from '../../../packages/db/src/schema.ts'
+import type { ActorId, ApprovalOriginAction, TaskSuspendedOperation, SuspendedOperationStatus } from '../../../../packages/contracts/src/index.ts'
+import type { MeristemDb } from '../../../../packages/db/src/client.ts'
+import { taskSuspendedOperations, policyDecisions } from '../../../../packages/db/src/schema.ts'
 
 // M-Task 拥有的挂起操作存储端口；M-Policy 不直接读写此表。
 export type SuspendedOperationStore = {
