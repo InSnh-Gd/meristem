@@ -1,6 +1,6 @@
 # Phase 11 - M-Task and M-Policy Risk Foundation
 
-> Status: Draft. Phase 11 closes the MVP task loop by promoting task lifecycle ownership toward `M-Task` and then uses M-Task control actions as the first concrete target for M-Policy risk foundations.
+> Status: Accepted v0.1 closure baseline. Phase 11 closes the MVP task loop by promoting task lifecycle ownership to `M-Task` and then uses M-Task control actions as the first concrete target for M-Policy risk foundations.
 
 Phase 11 has two coupled goals:
 
@@ -19,7 +19,42 @@ Phase 11.3 - End-to-End MVP Closure
 
 `Phase 11` remains the umbrella for the post-MVP foundation work. The numbered subphases are the implementation and acceptance units.
 
+## 0.0 v0.1 Closure Position
+
+Phase 11 is the final v0.1 closure phase. Earlier MVP work proved the Core-owned noop task path; Phase 11 replaces that historical path with the current v0.1 baseline:
+
+```text
+M-Task owns canonical task REST / OpenAPI.
+M-Task owns task lifecycle state in PostgreSQL.
+M-Task owns task lifecycle events.
+M-Task owns task Timeline / Full / Audit behavior for task actions.
+M-Policy owns authorization and risk decisions.
+M-Net owns node-agent delivery and reachability.
+Core no longer owns canonical task routes, task state, task events, or task log facts.
+```
+
+This phase is complete only when documentation, tests, contracts, CLI behavior, service definitions, seed data, and local smoke evidence all agree on that owner split.
+
 ## 0.1 Subphase Map
+
+### Current Implementation Register
+
+The current repository already contains the main Phase 11 cutover artifacts:
+
+- `services/m-task/` exposes the canonical `/api/v0/tasks` route family and `/api/v0/task-definitions`.
+- `packages/auth` provides shared JWT bearer parsing and actor primitives used outside Core-private middleware.
+- `packages/db` defines M-Task-owned task tables and seed data removes the historical `task:assign` permission.
+- Core route and OpenAPI tests assert that Core no longer exposes canonical task routes.
+- M-Task contract tests cover submit, list, read, cancel, policy blocking, risk output, retry `not_implemented_for_phase`, task lifecycle events, Timeline, Full, and Audit behavior.
+- CLI tests and contracts use `meristem task submit --node <node-id> --type noop`, `cancel`, `status`, `list`, and `retry`.
+- e2e tests start the real service stack, call Core for node state, call M-Task directly for task submission, and assert viewer denial.
+
+Remaining v0.1 closure work is verification, not redesign:
+
+- run the full Bun gate set listed in `docs/testing/TESTING.md`.
+- run or explicitly record skip conditions for the infrastructure-backed e2e smoke when PostgreSQL or NATS is unavailable.
+- keep `retry` as policy-aware `not_implemented_for_phase`; do not implement real retry execution in v0.1.
+- keep approval queues, approval APIs, operation resume, LLM explanation, leases, distributed worker coordination, Redis queues, and production migration compatibility out of v0.1.
 
 ### Phase 11.1 - M-Task Service Cutover
 
@@ -715,12 +750,15 @@ Phase 11 draft does not include:
 
 ## 8. Completion Criteria
 
-Phase 11 can be considered ready for implementation when:
+Phase 11 can be considered complete for v0.1 when:
 
-- `M-Task` Service Definition is written.
-- Task lifecycle state machine is documented.
-- Permissions and RBAC defaults are documented.
-- REST, Eden, CLI, event, and Effect Schema contracts are drafted.
-- Audit / Timeline / Full Log behavior is documented.
-- Core-owned task orchestration is removed from the canonical task path.
-- Tests are defined for the new M-Task behavior and for absence of accidental Core task ownership.
+- `M-Task` Service Definition is accepted and matches implementation.
+- Task lifecycle state machine, cancel semantics, timeout semantics, and retry `not_implemented_for_phase` behavior are documented.
+- Permissions and RBAC defaults use `task:read`, `task:submit`, `task:cancel`, `task:retry`, and `task:manage`; `task:assign` is absent from current seed data and contracts.
+- REST, Eden, CLI, event, PostgreSQL, security, runbook, and Effect Schema contracts describe M-Task as the current task owner.
+- Audit / Timeline / Full Log behavior is implemented and tested for task submit, cancel, policy block, retry rejection, and dependency degradation paths.
+- Core-owned task orchestration is removed from the canonical task path and Core OpenAPI does not expose `/api/v0/tasks`.
+- Contract, CLI, failure-mode, integration, and e2e tests cover the M-Task-owned path and the absence of accidental Core task ownership.
+- The final local smoke uses real Bun service processes, PostgreSQL, NATS, HTTP / WebSocket boundaries, and M-Task `/api/v0/tasks` as the task entrypoint.
+
+Phase 11 is not complete merely because the service exists. It is complete only when the verification evidence proves the owner split and the v0.1 smoke loop.
