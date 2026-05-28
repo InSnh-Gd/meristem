@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
-import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
+import type { ActorId, OperationDangerLevel, Permission, PolicyDecision, RiskFactor } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 
@@ -10,6 +10,11 @@ export type PolicyAuthorizeInput = {
   resource: string
   correlationId?: string
   traceId?: string
+  risk?: {
+    operationDangerLevel: OperationDangerLevel
+    suspicionScore: number
+    riskFactors: string[]
+  }
 }
 
 export type PolicyAppDeps = {
@@ -72,7 +77,12 @@ export function createPolicyApp(deps: PolicyAppDeps) {
           action: t.UnionEnum(permissions),
           resource: t.String(),
           correlationId: t.Optional(t.String()),
-          traceId: t.Optional(t.String())
+          traceId: t.Optional(t.String()),
+          risk: t.Optional(t.Object({
+            operationDangerLevel: t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Literal('critical')]),
+            suspicionScore: t.Number(),
+            riskFactors: t.Array(t.String())
+          }))
         }),
         response: {
           200: t.Object({

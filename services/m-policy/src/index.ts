@@ -3,20 +3,22 @@ import { eq } from 'drizzle-orm'
 import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import { policyDecisions, policyApprovals, policyApprovalVotes, rolePermissions as rolePermissionTable, userRoles } from '../../../packages/db/src/schema.ts'
-import { createEventEnvelope } from '../../../packages/events/src/index.ts'
+import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
+import { createDynamicRouteAdapter } from '../../../packages/internal-http/src/dynamic-routes.ts'
 import {
   createInternalFetcher,
   fetchReadyState,
+  internalRequestHeaders,
   internalServicePorts,
   serveHttpApp,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
 import { decidePermission } from '../../../packages/policy/src/index.ts'
-import type { ActorId, ApprovalStatus, Permission, PolicyApproval, PolicyApprovalVote, PolicyDecision } from '../../../packages/contracts/src/index.ts'
+import type { ActorId, ApprovalStatus, Permission, PolicyApproval, PolicyApprovalVote, PolicyDecision, RiskFactor } from '../../../packages/contracts/src/index.ts'
 import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import { createPolicyApp, type PolicyAuthorizeInput } from './app.ts'
-import { createApprovalRoutes, type ApprovalStore } from './approvals.ts'
+import { createApprovalRoutes, type ApprovalStore } from './approval/index.ts'
 
 initTelemetry('m-policy')
 
@@ -24,6 +26,10 @@ const { db, client } = createDb()
 // M-Policy 通过内部 Eden client 发布事件，保持同步授权边界和异步事件边界分离。
 const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
   fetcher: createInternalFetcher()
+})
+const taskRoutes = createDynamicRouteAdapter({
+  baseUrl: serviceUrl('m-task'),
+  traceHeaders: () => internalRequestHeaders()
 })
 
 /**
@@ -49,8 +55,21 @@ async function authorize(input: PolicyAuthorizeInput): Promise<PolicyDecision> {
     resource: input.resource,
     permissions: await permissionsForActor(input.actor)
   })
+  const riskEscalation = draft.result === 'allow' && input.risk && input.action.startsWith('task:')
+    ? input.risk.operationDangerLevel === 'critical' || input.risk.suspicionScore >= 85
+      ? { result: 'require_multi_approval' as const, requiredAction: 'multi_approval' as const, reasons: [...draft.reasons, 'risk_requires_multi_approval'] }
+      : input.risk.operationDangerLevel === 'high' || input.risk.suspicionScore >= 70
+        ? { result: 'require_manual_review' as const, requiredAction: 'manual_review' as const, reasons: [...draft.reasons, 'risk_requires_manual_review'] }
+        : null
+    : null
   const decision: PolicyDecision = {
     ...draft,
+    ...(riskEscalation ?? {}),
+    ...(input.risk ? {
+      operationDangerLevel: input.risk.operationDangerLevel,
+      suspicionScore: input.risk.suspicionScore,
+      riskFactors: input.risk.riskFactors as RiskFactor[]
+    } : {}),
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString()
   }
@@ -164,6 +183,36 @@ const approvalStore: ApprovalStore = {
       createdAt: row.createdAt.toISOString()
     }))
   },
+  async createApproval(input) {
+    const now = new Date()
+    const row = {
+      id: crypto.randomUUID(),
+      policyDecisionId: input.policyDecisionId,
+      originService: input.originService,
+      operationId: input.operationId,
+      requestedBy: input.requestedBy,
+      requiredAction: input.requiredAction,
+      status: 'pending',
+      quorumRequired: input.requiredAction === 'multi_approval' ? 2 : 1,
+      expiresAt: new Date(input.expiresAt),
+      createdAt: now,
+      updatedAt: now
+    }
+    await db.insert(policyApprovals).values(row)
+    return {
+      id: row.id,
+      policyDecisionId: row.policyDecisionId,
+      originService: row.originService,
+      operationId: row.operationId,
+      requestedBy: row.requestedBy as ActorId,
+      requiredAction: row.requiredAction,
+      status: row.status as ApprovalStatus,
+      quorumRequired: row.quorumRequired,
+      expiresAt: row.expiresAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString()
+    }
+  },
   async addVote(approvalId, actor, vote, reason) {
     const row = {
       id: crypto.randomUUID(),
@@ -204,6 +253,7 @@ const approvalRoutes = createApprovalRoutes({
       return { ok: true as const, actor: result.actor }
     }
   },
+  permissionsForActor,
   approvals: approvalStore,
   log: {
     async writeTimeline(input) {
@@ -238,14 +288,22 @@ const approvalRoutes = createApprovalRoutes({
     }
   },
   events: {
-    async publish(subject, payload) {
-      const event = createEventEnvelope({
-        type: subject.replace(/\.v0$/, ''),
-        source: 'm-policy',
-        payload
-      })
-      await eventBus.internal.v0.publish.post({ subject, event })
+    async publish(subject, event) {
+      const envelope = event as MEventEnvelope
+      await eventBus.internal.v0.publish.post({ subject, event: envelope })
     }
+  },
+  async onApproved(approval) {
+    if (approval.originService !== 'm-task') return
+    const result = await taskRoutes.postJson(`/internal/v0/task-operations/${approval.operationId}/resume`, {
+      body: {
+        approvalId: approval.id,
+        policyDecisionId: approval.policyDecisionId,
+        approvalStatus: approval.status,
+        approvalExpiresAt: approval.expiresAt
+      }
+    })
+    if (!result.ok) throw new Error(result.error.message)
   }
 })
 
