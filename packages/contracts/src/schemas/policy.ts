@@ -51,7 +51,7 @@ export const PolicyApprovalVoteSchema = Schema.Struct({
 })
 export type PolicyApprovalVoteFromSchema = typeof PolicyApprovalVoteSchema.Type
 
-export const SuspendedOperationStatusSchema = Schema.Literal('suspended', 'resumed', 'rejected', 'expired')
+export const SuspendedOperationStatusSchema = Schema.Literal('suspended', 'resumed', 'rejected', 'expired', 'resume_failed')
 export type SuspendedOperationStatusFromSchema = typeof SuspendedOperationStatusSchema.Type
 
 export const TaskSuspendedOperationSchema = Schema.Struct({

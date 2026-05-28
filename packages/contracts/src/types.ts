@@ -203,6 +203,13 @@ export type MTaskPolicyDecision = {
   reasons: string[]
 }
 
+export type TaskPolicyBlockResponse = {
+  policyDecision: MTaskPolicyDecision & { result: Exclude<TaskPolicyResult, 'allow'> }
+  risk: TaskRiskSummary
+  approvalId?: string
+  operationId?: string
+}
+
 export type SubmitTaskResponse = {
   task: MTask
   policyDecisionId: string
@@ -568,7 +575,7 @@ export type PolicyApprovalVote = {
 }
 
 // M-Task 拥有的挂起操作记录
-export type SuspendedOperationStatus = 'suspended' | 'resumed' | 'rejected' | 'expired'
+export type SuspendedOperationStatus = 'suspended' | 'resumed' | 'rejected' | 'expired' | 'resume_failed'
 
 export type TaskSuspendedOperation = {
   id: string
@@ -602,4 +609,17 @@ export type ApprovalActionRequest = {
 export type ApprovalActionResponse = {
   approval: PolicyApproval
   votes: PolicyApprovalVote[]
+}
+
+export type CreateApprovalRequest = {
+  policyDecisionId: string
+  originService: ApprovalOriginService
+  operationId: string
+  requestedBy: ActorId
+  requiredAction: 'manual_review' | 'multi_approval'
+  expiresAt: string
+}
+
+export type CreateApprovalResponse = {
+  approval: PolicyApproval
 }
