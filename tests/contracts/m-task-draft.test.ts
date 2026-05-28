@@ -7,7 +7,9 @@ describe('M-Task Phase 11 alignment', () => {
     const coreApp = await Bun.file('apps/core/src/app.ts').text()
     const taskApp = await Bun.file('services/m-task/src/app.ts').text()
 
-    expect(phase11).toContain('Status: Draft')
+    expect(phase11).toContain('Status: Accepted v0.1 closure baseline')
+    expect(phase11).toContain('M-Task owns canonical task REST / OpenAPI')
+    expect(phase11).toContain('Core no longer owns canonical task routes, task state, task events, or task log facts')
     expect(phase11).toContain('Phase 11.1 - M-Task Service Cutover')
     expect(phase11).toContain('Phase 11.2 - M-Policy Risk Foundation')
     expect(phase11).toContain('Phase 11.3 - End-to-End MVP Closure')

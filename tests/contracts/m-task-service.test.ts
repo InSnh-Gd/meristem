@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
-import { createMTaskApp, createInMemoryMTaskDeps } from '../../services/m-task/src/app.ts'
+import { createMTaskApp } from '../../services/m-task/src/app.ts'
+import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
 
 describe('M-Task Phase 11 service cutover', () => {
   it('removes Core as the canonical task REST owner', async () => {
