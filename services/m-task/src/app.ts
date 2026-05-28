@@ -1,13 +1,13 @@
 import { Elysia, t } from 'elysia'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
-import { err, ok, type Result } from '../../../packages/common/src/result.ts'
-import { actorIds, permissions, type ActorId, type ApprovalOriginAction, type AuditLog, type FullLog, type MTask, type MTaskPolicyDecision, type OperationDangerLevel, type Permission, type PolicyResult, type RiskFactor, type SubmitTaskRequest, type TaskPolicyResult, type TaskRiskSummary, type TaskSuspendedOperation, type TimelineLog } from '../../../packages/contracts/src/index.ts'
+import { ok, type Result } from '../../../packages/common/src/result.ts'
+import { actorIds, permissions, type ActorId, type ApprovalOriginAction, type AuditLog, type CreateApprovalResponse, type FullLog, type MTask, type MTaskPolicyDecision, type OperationDangerLevel, type Permission, type RiskFactor, type SubmitTaskRequest, type TaskPolicyBlockResponse, type TaskPolicyResult, type TaskRiskSummary, type TaskSuspendedOperation, type TimelineLog } from '../../../packages/contracts/src/index.ts'
 import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
-import { decidePermission, rolePermissions } from '../../../packages/policy/src/index.ts'
+import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 
 type ServiceError = { code: string; message: string }
-type DeliveryMode = 'complete' | 'queued'
+export type DeliveryMode = 'complete' | 'queued'
 type BlockingTaskPolicyDecision = MTaskPolicyDecision & { result: Exclude<TaskPolicyResult, 'allow'> }
 export type MTaskCreateInput = SubmitTaskRequest & {
   actor: ActorId
@@ -36,6 +36,9 @@ export type MTaskDeps = {
   events: {
     publish(subject: string, event: MEventEnvelope): Promise<Result<{ eventId: string }, ServiceError>>
   }
+  approvals?: {
+    create(input: { policyDecisionId: string; operationId: string; requestedBy: ActorId; requiredAction: 'manual_review' | 'multi_approval'; expiresAt: string }): Promise<Result<CreateApprovalResponse, ServiceError>>
+  }
   delivery: MTaskDeliveryPort
   storage: {
     create(input: MTaskCreateInput): Promise<MTask>
@@ -53,6 +56,12 @@ export type MTaskDeps = {
 }
 
 type AuthContext = { actor: ActorId; correlationId: string }
+type SuspendedSubmitPayload = {
+  action: 'task:submit'
+  request: SubmitTaskRequest
+  risk: TaskRiskSummary
+}
+const operationDangerLevels: readonly OperationDangerLevel[] = ['low', 'medium', 'high', 'critical']
 
 const apiErrorSchema = t.Object({
   error: t.Object({
@@ -98,7 +107,9 @@ const policyBlockSchema = t.Object({
     requiredAction: t.Optional(t.Union([t.Literal('manual_review'), t.Literal('multi_approval'), t.Undefined()])),
     reasons: t.Array(t.String())
   }),
-  risk: riskSchema
+  risk: riskSchema,
+  approvalId: t.Optional(t.String()),
+  operationId: t.Optional(t.String())
 })
 
 const retryNotImplementedSchema = t.Object({
@@ -138,7 +149,7 @@ function riskFor(input: { action: Permission; type: 'noop' }): TaskRiskSummary {
   return { operationDangerLevel, suspicionScore: baseScore[operationDangerLevel], riskFactors }
 }
 
-function requiredActionFor(result: TaskPolicyResult): MTaskPolicyDecision['requiredAction'] | undefined {
+export function requiredActionFor(result: TaskPolicyResult): MTaskPolicyDecision['requiredAction'] | undefined {
   if (result === 'require_manual_review') return 'manual_review'
   if (result === 'require_multi_approval') return 'multi_approval'
   return undefined
@@ -150,7 +161,59 @@ async function decideOrThrow(deps: MTaskDeps, input: { actor: ActorId; action: P
   return decision.value
 }
 
-async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: Permission; resource: string; decision: MTaskPolicyDecision; risk: TaskRiskSummary; correlationId: string }): Promise<{ status: 403 | 409; body: { policyDecision: BlockingTaskPolicyDecision; risk: TaskRiskSummary } } | null> {
+function submitPayloadFrom(value: unknown): SuspendedSubmitPayload | null {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as { action?: unknown; request?: unknown; risk?: unknown }
+  if (candidate.action !== 'task:submit') return null
+  if (!candidate.request || typeof candidate.request !== 'object') return null
+  const request = candidate.request as { nodeId?: unknown; type?: unknown; timeoutAt?: unknown }
+  if (typeof request.nodeId !== 'string' || request.type !== 'noop') return null
+  if (request.timeoutAt !== undefined && typeof request.timeoutAt !== 'string') return null
+  if (!candidate.risk || typeof candidate.risk !== 'object') return null
+  const risk = candidate.risk as { operationDangerLevel?: unknown; suspicionScore?: unknown; riskFactors?: unknown }
+  if (typeof risk.operationDangerLevel !== 'string' || !operationDangerLevels.includes(risk.operationDangerLevel as OperationDangerLevel) || typeof risk.suspicionScore !== 'number' || !Array.isArray(risk.riskFactors)) return null
+  if (!risk.riskFactors.every((item) => typeof item === 'string')) return null
+  return {
+    action: 'task:submit',
+    request: {
+      nodeId: request.nodeId,
+      type: 'noop',
+      ...(request.timeoutAt ? { timeoutAt: request.timeoutAt } : {})
+    },
+    risk: {
+      operationDangerLevel: risk.operationDangerLevel as OperationDangerLevel,
+      suspicionScore: risk.suspicionScore,
+      riskFactors: risk.riskFactors as RiskFactor[]
+    }
+  }
+}
+
+async function executeApprovedSubmit(deps: MTaskDeps, input: { request: SubmitTaskRequest; actor: ActorId; correlationId: string; policyDecisionId: string; risk: TaskRiskSummary; auditResult: string }): Promise<MTask> {
+  await deps.log.writeAudit({ actor: input.actor, action: 'task.submit', resource: `node:${input.request.nodeId}`, decisionId: input.policyDecisionId, result: input.auditResult, correlationId: input.correlationId, payload: { risk: input.risk } })
+  const accepted = await deps.storage.create({ ...input.request, actor: input.actor, correlationId: input.correlationId, policyDecisionId: input.policyDecisionId, risk: input.risk })
+  await publishTaskEvent(deps, 'task.requested.v0', 'task.requested', accepted, input.correlationId)
+  const queued = await transitionWithTimeline(deps, accepted.id, 'queued', input.correlationId)
+  await publishTaskEvent(deps, 'task.queued.v0', 'task.queued', queued, input.correlationId)
+
+  const delivered = await deps.delivery.submitDelivery({ nodeId: queued.nodeId, taskId: queued.id, correlationId: input.correlationId })
+  if (!delivered.ok) {
+    const failed = await transitionWithTimeline(deps, queued.id, 'failed', input.correlationId)
+    await deps.log.writeFull({ level: 'warn', source: 'm-task', message: delivered.error.message, correlationId: input.correlationId, payload: { taskId: failed.id } })
+    await publishTaskEvent(deps, 'task.failed.v0', 'task.failed', failed, input.correlationId)
+    return failed
+  }
+  if ('queued' in delivered.value) return queued
+
+  const dispatched = await transitionWithTimeline(deps, queued.id, 'dispatched', input.correlationId)
+  await publishTaskEvent(deps, 'task.dispatched.v0', 'task.dispatched', dispatched, input.correlationId)
+  const running = await transitionWithTimeline(deps, queued.id, 'running', input.correlationId)
+  await publishTaskEvent(deps, 'task.running.v0', 'task.running', running, input.correlationId)
+  const completed = await transitionWithTimeline(deps, queued.id, 'completed', input.correlationId, { completedAt: delivered.value.completedAt })
+  await publishTaskEvent(deps, 'task.completed.v0', 'task.completed', completed, input.correlationId)
+  return completed
+}
+
+async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: Permission; resource: string; decision: MTaskPolicyDecision; risk: TaskRiskSummary; correlationId: string; submitRequest?: SubmitTaskRequest }): Promise<{ status: 403 | 409; body: TaskPolicyBlockResponse } | null> {
   if (input.decision.result === 'allow') return null
   const blockingDecision = input.decision as BlockingTaskPolicyDecision
 
@@ -175,22 +238,44 @@ async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: P
   // M-Task 创建挂起操作记录，等待审批通过后 resume。
   if (blockingDecision.result !== 'deny' && deps.suspendedOps) {
     const idempotencyKey = crypto.randomUUID()
-    await deps.suspendedOps.create({
+    const expiresAt = new Date(Date.now() + 3600_000).toISOString()
+    const suspendedOp = await deps.suspendedOps.create({
       policyDecisionId: blockingDecision.decisionId,
       action: input.action.replace(':', '.') as ApprovalOriginAction,
       requestedBy: input.actor,
       resource: input.resource,
-      sanitizedPayload: { action: input.action, resource: input.resource, risk: input.risk },
+      sanitizedPayload: input.action === 'task:submit' && input.submitRequest
+        ? { action: input.action, request: input.submitRequest, risk: input.risk }
+        : { action: input.action, resource: input.resource, risk: input.risk },
       correlationId: input.correlationId,
       idempotencyKey,
-      expiresAt: new Date(Date.now() + 3600_000).toISOString()
+      expiresAt
     })
+    const approval = deps.approvals && blockingDecision.requiredAction
+      ? await deps.approvals.create({
+          policyDecisionId: blockingDecision.decisionId,
+          operationId: suspendedOp.id,
+          requestedBy: input.actor,
+          requiredAction: blockingDecision.requiredAction,
+          expiresAt
+        })
+      : null
+    if (approval && !approval.ok) throw Object.assign(new Error(approval.error.message), { status: 503, code: approval.error.code, correlationId: input.correlationId })
     await deps.events.publish('task.operation.suspended.v0', createEventEnvelope({
       type: 'task.operation.suspended',
       source: 'm-task',
       correlationId: input.correlationId,
-      payload: { decisionId: blockingDecision.decisionId, action: input.action, resource: input.resource, actor: input.actor }
+      payload: { suspendedOpId: suspendedOp.id, decisionId: blockingDecision.decisionId, action: input.action, resource: input.resource, actor: input.actor }
     }))
+    return {
+      status: 409,
+      body: {
+        policyDecision: blockingDecision,
+        risk: input.risk,
+        operationId: suspendedOp.id,
+        ...(approval?.ok ? { approvalId: approval.value.approval.id } : {})
+      }
+    }
   }
 
   return {
@@ -246,32 +331,10 @@ export function createMTaskApp(deps: MTaskDeps) {
       const auth = await requireActor(deps, headers)
       const risk = riskFor({ action: 'task:submit', type: body.type })
       const decision = await decideOrThrow(deps, { actor: auth.actor, action: 'task:submit', resource: `node:${body.nodeId}`, risk, correlationId: auth.correlationId })
-      const blocked = await blockIfNeeded(deps, { actor: auth.actor, action: 'task:submit', resource: `node:${body.nodeId}`, decision, risk, correlationId: auth.correlationId })
+      const blocked = await blockIfNeeded(deps, { actor: auth.actor, action: 'task:submit', resource: `node:${body.nodeId}`, decision, risk, correlationId: auth.correlationId, submitRequest: body })
       if (blocked) return status(blocked.status, blocked.body)
 
-      await deps.log.writeAudit({ actor: auth.actor, action: 'task.submit', resource: `node:${body.nodeId}`, decisionId: decision.decisionId, result: decision.result, correlationId: auth.correlationId, payload: { risk } })
-      const accepted = await deps.storage.create({ ...body, actor: auth.actor, correlationId: auth.correlationId, policyDecisionId: decision.decisionId, risk })
-      await publishTaskEvent(deps, 'task.requested.v0', 'task.requested', accepted, auth.correlationId)
-      const queued = await transitionWithTimeline(deps, accepted.id, 'queued', auth.correlationId)
-      await publishTaskEvent(deps, 'task.queued.v0', 'task.queued', queued, auth.correlationId)
-
-      const delivered = await deps.delivery.submitDelivery({ nodeId: queued.nodeId, taskId: queued.id, correlationId: auth.correlationId })
-      if (!delivered.ok) {
-        const failed = await transitionWithTimeline(deps, queued.id, 'failed', auth.correlationId)
-        await deps.log.writeFull({ level: 'warn', source: 'm-task', message: delivered.error.message, correlationId: auth.correlationId, payload: { taskId: failed.id } })
-        await publishTaskEvent(deps, 'task.failed.v0', 'task.failed', failed, auth.correlationId)
-        return { task: failed, policyDecisionId: decision.decisionId, correlationId: auth.correlationId, risk }
-      }
-      if ('queued' in delivered.value) {
-        return { task: queued, policyDecisionId: decision.decisionId, correlationId: auth.correlationId, risk }
-      }
-
-      const dispatched = await transitionWithTimeline(deps, queued.id, 'dispatched', auth.correlationId)
-      await publishTaskEvent(deps, 'task.dispatched.v0', 'task.dispatched', dispatched, auth.correlationId)
-      const running = await transitionWithTimeline(deps, queued.id, 'running', auth.correlationId)
-      await publishTaskEvent(deps, 'task.running.v0', 'task.running', running, auth.correlationId)
-      const completed = await transitionWithTimeline(deps, queued.id, 'completed', auth.correlationId, { completedAt: delivered.value.completedAt })
-      await publishTaskEvent(deps, 'task.completed.v0', 'task.completed', completed, auth.correlationId)
+      const completed = await executeApprovedSubmit(deps, { request: body, actor: auth.actor, correlationId: auth.correlationId, policyDecisionId: decision.decisionId, risk, auditResult: decision.result })
       return { task: completed, policyDecisionId: decision.decisionId, correlationId: auth.correlationId, risk }
     }), {
       body: t.Object({ nodeId: t.String({ minLength: 1 }), type: t.Literal('noop'), timeoutAt: t.Optional(t.String()) }),
@@ -328,11 +391,21 @@ export function createMTaskApp(deps: MTaskDeps) {
     // M-Task 执行安全检查、幂等检查和过期检查，不重跑 M-Policy 风险决策。
     .post(
       '/internal/v0/task-operations/:id/resume',
-      async ({ params, headers, status }) => {
+      async ({ params, body, headers, status }) => {
         const auth = correlationIdFromHeaders(headers)
+        const internalAuth = validateInternalRequest(headers)
+        if (!internalAuth.ok) return status(401, { error: internalAuth.error })
         if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_for_phase', message: 'suspended operations not supported' } })
         const suspendedOp = await deps.suspendedOps.get(params.id)
         if (!suspendedOp) return status(404, { error: { code: 'task.suspended_op_not_found', message: 'suspended operation not found', correlationId: auth } })
+        if (body.approvalStatus !== 'approved' || body.policyDecisionId !== suspendedOp.policyDecisionId) {
+          await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'resume attempted without matching approved approval', correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id, approvalId: body.approvalId } })
+          return status(409, { error: { code: 'task.resume_unapproved', message: 'approval does not match suspended operation', correlationId: suspendedOp.correlationId } })
+        }
+        if (new Date(body.approvalExpiresAt) < new Date()) {
+          await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'approval_expired')
+          return status(409, { error: { code: 'task.resume_expired', message: 'approval has expired', correlationId: suspendedOp.correlationId } })
+        }
         if (suspendedOp.status !== 'suspended') {
           await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'resume attempted on non-suspended operation', correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id, status: suspendedOp.status } })
           return status(409, { error: { code: 'task.resume_conflict', message: `operation is ${suspendedOp.status}`, correlationId: suspendedOp.correlationId } })
@@ -350,22 +423,23 @@ export function createMTaskApp(deps: MTaskDeps) {
 
         try {
           if (suspendedOp.action === 'task.submit') {
-            // task.submit 的恢复不经过完整 submit 路径，直接检查任务存在性后继续
-            resultTask = await deps.storage.get(resourceId)
-            if (!resultTask) {
-              await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'target_task_not_found')
+            // task.submit 在审批前不会创建 task；恢复时必须用挂起 payload 重放提交执行语义。
+            const payload = submitPayloadFrom(suspendedOp.sanitizedPayload)
+            if (!payload) {
+              await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', 'invalid_submit_payload')
               await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
                 type: 'task.operation.resume.failure',
                 source: 'm-task',
                 correlationId: suspendedOp.correlationId,
-                payload: { opId: suspendedOp.id, reason: 'target_task_not_found' }
+                payload: { opId: suspendedOp.id, reason: 'invalid_submit_payload' }
               }))
-              return status(409, { error: { code: 'task.resume_stale', message: 'target task not found', correlationId: suspendedOp.correlationId } })
+              return status(409, { error: { code: 'task.resume_stale', message: 'submit payload is not resumable', correlationId: suspendedOp.correlationId } })
             }
+            resultTask = await executeApprovedSubmit(deps, { request: payload.request, actor: suspendedOp.requestedBy, correlationId: suspendedOp.correlationId, policyDecisionId: suspendedOp.policyDecisionId, risk: payload.risk, auditResult: 'approved_resume' })
           } else if (suspendedOp.action === 'task.cancel' || suspendedOp.action === 'task.retry') {
             resultTask = await deps.storage.get(resourceId)
             if (!resultTask) {
-              await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'target_task_not_found')
+              await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', 'target_task_not_found')
               await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
                 type: 'task.operation.resume.failure',
                 source: 'm-task',
@@ -377,7 +451,7 @@ export function createMTaskApp(deps: MTaskDeps) {
             if (suspendedOp.action === 'task.cancel') {
               const terminalStatuses: MTask['status'][] = ['completed', 'failed', 'canceled', 'timed_out']
               if (terminalStatuses.includes(resultTask.status)) {
-                await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'task_in_terminal_state')
+                await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', 'task_in_terminal_state')
                 await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
                   type: 'task.operation.resume.failure',
                   source: 'm-task',
@@ -407,7 +481,7 @@ export function createMTaskApp(deps: MTaskDeps) {
           return { resumed: true, suspendedOpId: suspendedOp.id, task: resultTask }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'resume failed'
-          await deps.suspendedOps.transition(suspendedOp.id, 'expired', `resume_error: ${message}`)
+          await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', `resume_error: ${message}`)
           await deps.log.writeFull({ level: 'error', source: 'm-task', message: `resume failed: ${message}`, correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id, error: message } })
           await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
             type: 'task.operation.resume.failure',
@@ -419,6 +493,12 @@ export function createMTaskApp(deps: MTaskDeps) {
         }
       }, {
         params: t.Object({ id: t.String({ minLength: 1 }) }),
+        body: t.Object({
+          approvalId: t.String({ minLength: 1 }),
+          policyDecisionId: t.String({ minLength: 1 }),
+          approvalStatus: t.Literal('approved'),
+          approvalExpiresAt: t.String({ minLength: 1 })
+        }),
         response: {
           200: t.Object({ resumed: t.Boolean(), suspendedOpId: t.String(), task: t.Nullable(taskSchema) }),
           401: apiErrorSchema,
@@ -431,127 +511,3 @@ export function createMTaskApp(deps: MTaskDeps) {
 }
 
 export type MTaskApp = ReturnType<typeof createMTaskApp>
-
-export type InMemoryMTaskOptions = {
-  actor?: ActorId
-  deliveryMode?: DeliveryMode
-  forcePolicyResult?: Exclude<PolicyResult, 'allow'>
-}
-
-export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTaskDeps & {
-  __testing: {
-    publishedSubjects(): string[]
-    auditActions(): string[]
-    timelineSummaries(): string[]
-    fullMessages(): string[]
-  }
-} {
-  const actor = options.actor ?? 'operator'
-  const tasks: MTask[] = [
-    {
-      id: 'task-existing',
-      nodeId: 'node-leaf-1',
-      leafNodeId: 'node-leaf-1',
-      type: 'noop',
-      status: 'failed',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ]
-  const published: Array<{ subject: string; event: MEventEnvelope }> = []
-  const timeline: TimelineLog[] = []
-  const full: FullLog[] = []
-  const audit: AuditLog[] = []
-
-  return {
-    auth: {
-      async verify() {
-        return ok({ actor })
-      }
-    },
-    policy: {
-      async decide(input) {
-        const draft = decidePermission({ actor: input.actor, action: input.action, resource: input.resource, permissions: rolePermissions[input.actor] as readonly Permission[] })
-        const forced = options.forcePolicyResult
-        const result = forced ?? draft.result
-        return ok({
-          decisionId: crypto.randomUUID(),
-          result,
-          requiredAction: requiredActionFor(result),
-          reasons: forced ? [`forced:${forced}`] : draft.reasons
-        })
-      }
-    },
-    log: {
-      async writeTimeline(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        timeline.push(entry)
-        return ok(entry)
-      },
-      async writeFull(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        full.push(entry)
-        return ok(entry)
-      },
-      async writeAudit(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        audit.push(entry)
-        return ok(entry)
-      }
-    },
-    events: {
-      async publish(subject, event) {
-        published.push({ subject, event })
-        return ok({ eventId: event.id })
-      }
-    },
-    delivery: {
-      async submitDelivery() {
-        return options.deliveryMode === 'queued'
-          ? ok({ queued: true as const })
-          : ok({ completedAt: new Date().toISOString() })
-      },
-      async cancelDelivery() {
-        return ok('cancelAccepted')
-      }
-    },
-    storage: {
-      async create(input) {
-        const now = new Date().toISOString()
-        const task: MTask = {
-          id: crypto.randomUUID(),
-          nodeId: input.nodeId,
-          leafNodeId: input.nodeId,
-          type: input.type,
-          status: 'accepted',
-          createdAt: now,
-          updatedAt: now,
-          ...(input.timeoutAt ? { timeoutAt: input.timeoutAt } : {})
-        }
-        tasks.push(task)
-        return task
-      },
-      async list() {
-        return [...tasks]
-      },
-      async get(id) {
-        return tasks.find((task) => task.id === id) ?? null
-      },
-      async transition(id, status, patch = {}) {
-        const task = tasks.find((candidate) => candidate.id === id)
-        if (!task) return null
-        task.status = status
-        task.updatedAt = new Date().toISOString()
-        if (patch.completedAt) task.completedAt = patch.completedAt
-        if (patch.canceledAt) task.canceledAt = patch.canceledAt
-        return task
-      }
-    },
-    __testing: {
-      publishedSubjects: () => published.map((entry) => entry.subject),
-      auditActions: () => audit.map((entry) => entry.action),
-      timelineSummaries: () => timeline.map((entry) => entry.summary),
-      fullMessages: () => full.map((entry) => entry.message)
-    }
-  }
-}
