@@ -912,12 +912,51 @@ Rules:
 
 ## 13. Phase 12 M-Task Resume (Internal)
 
+### `POST /internal/v0/policy/approvals`
+
+Internal endpoint called by source services after they create a suspended operation. M-Policy owns the approval record and quorum state; source services keep the suspended operation payload and resume behavior.
+
+```ts
+type CreateApprovalRequest = {
+  policyDecisionId: string;
+  originService: 'm-task';
+  operationId: string;
+  requestedBy: ActorId;
+  requiredAction: 'manual_review' | 'multi_approval';
+  expiresAt: string;
+};
+
+type CreateApprovalResponse = {
+  approval: PolicyApproval;
+};
+```
+
+Rules:
+
+- requires internal service authentication.
+- creates a `pending` approval with fixed Phase 12 quorum.
+- writes Audit and Timeline facts for approval creation.
+- emits `policy.approval.created.v0` after the authoritative row is written.
+
 ### `POST /internal/v0/task-operations/:id/resume`
 
 Internal endpoint called by M-Policy when approval is granted.
 
+```ts
+type TaskOperationResumeRequest = {
+  approvalId: string;
+  policyDecisionId: string;
+  approvalStatus: 'approved';
+  approvalExpiresAt: string;
+};
+```
+
 Rules:
 
+- requires internal service authentication.
+- approval status must be `approved`.
+- approval policy decision id must match the suspended operation policy decision id.
+- approval expiry must not be in the past.
 - only processes `suspended` operations.
 - expired operations cannot be resumed.
 - performs stale-state checks (target task must exist).

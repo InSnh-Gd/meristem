@@ -299,7 +299,7 @@ M-Task publishes:
 ```text
 task.operation.suspended.v0
 task.operation.resumed.v0
-task.operation.resume_failed.v0
+task.operation.resume.failure.v0
 ```
 
 Phase 12A does not publish vote-level events such as `policy.approval.vote.cast.v0`. Vote facts live in PostgreSQL and Audit Log.
@@ -350,7 +350,7 @@ idempotency conflict
 dependency failure
 ```
 
-Approval authorization and resume execution are distinct facts. `policy.approval.approved.v0` does not imply the origin operation executed; `task.operation.resumed.v0` or `task.operation.resume_failed.v0` records the business execution result.
+Approval authorization and resume execution are distinct facts. `policy.approval.approved.v0` does not imply the origin operation executed; `task.operation.resumed.v0` or `task.operation.resume.failure.v0` records the business execution result.
 
 ---
 
