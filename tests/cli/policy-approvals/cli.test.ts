@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'bun:test'
-import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
-import type { ApprovalListResponse, ApprovalDetailResponse, ApprovalActionResponse } from '../../packages/contracts/src/index.ts'
+import { createCliRunner } from '../../../apps/m-cli/src/cli.ts'
+import type { ApprovalListResponse, ApprovalDetailResponse, ApprovalActionResponse, PolicyApprovalVote } from '../../../packages/contracts/src/index.ts'
 
 // Phase 12 CLI 审批命令测试：覆盖 list、show、approve、reject 命令和错误路径。
 
 describe('meristem policy approvals CLI', () => {
+  function approvalVote(input: { id: string; approvalId: string; vote: 'approve' | 'reject'; reason?: string }): PolicyApprovalVote {
+    return {
+      id: input.id,
+      approvalId: input.approvalId,
+      actor: 'security-admin',
+      vote: input.vote,
+      ...(input.reason ? { reason: input.reason } : {}),
+      createdAt: new Date().toISOString()
+    }
+  }
+
   it('lists pending approvals', async () => {
     const calls: string[] = []
     const cli = createCliRunner({
@@ -86,7 +97,7 @@ describe('meristem policy approvals CLI', () => {
             updatedAt: new Date().toISOString(),
             completedAt: new Date().toISOString()
           },
-          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'approve', reason, createdAt: new Date().toISOString() }]
+          votes: [approvalVote({ id: 'vote-1', approvalId: id, vote: 'approve', ...(reason ? { reason } : {}) })]
         } satisfies ApprovalActionResponse
       }
     })
@@ -118,7 +129,7 @@ describe('meristem policy approvals CLI', () => {
             updatedAt: new Date().toISOString(),
             completedAt: new Date().toISOString()
           },
-          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'reject', reason, createdAt: new Date().toISOString() }]
+          votes: [approvalVote({ id: 'vote-1', approvalId: id, vote: 'reject', ...(reason ? { reason } : {}) })]
         } satisfies ApprovalActionResponse
       }
     })
