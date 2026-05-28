@@ -17,6 +17,8 @@ The following objects must carry explicit versions:
 - M-Policy Rule
 - M-Log Schema
 - Config Schema
+- SecretRef
+- Identity Token
 - M-Extension Manifest
 - Webhook Payload
 - BFF Contract
@@ -43,7 +45,10 @@ MVP concrete contracts:
 | Effect Schema | exported schema module + semver | `ProjectionHealth@0.1.0` |
 | Service Definition | `version` field | `0.1.0` |
 | Config Schema | `schemaVersion` | `0.1.0` |
+| SecretRef | `version` | `secret-ref@0.1.0` |
+| Identity Token | `jti` + issuer/audience contract | `identity-token@0.2.0` |
 | M-Net Profile | `profileVersion` | `m-net-cn@0.1.0` |
+| M-Extension Manifest | `manifestVersion` | `m-extension-manifest@0.1.0` |
 | Webhook Payload | header + payload field | `X-Meristem-Webhook-Version`, `version` |
 
 ---

@@ -54,6 +54,18 @@ bun run skill-hygiene
 bun run nodejs-ban
 ```
 
+Phase 16 optional deployment pack static checks:
+
+```bash
+docker compose config
+docker compose --profile opensearch config
+docker compose --profile redis config
+docker compose --profile apisix config
+rg -n "/internal/v0|/api/v0/\*" ops/apisix/apisix.yaml
+```
+
+APISIX, Redis, and OpenSearch profiles must not become prerequisites for the standard test suite.
+
 No core capability is complete until these pass or an explicit documented exception exists.
 Any new capability must also add or extend e2e coverage in `tests/e2e/`.
 
@@ -118,6 +130,10 @@ MVP-specific contract tests:
 - heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
 - Phase 9 UI contract tests prove M-UI BFF route schema, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
+- Phase 15 M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
+- Phase 17 Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
+- Phase 18 SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
+- Phase 19 Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
 
 ---
 
@@ -154,6 +170,17 @@ MVP failure-mode tests:
 - non-reloadable service returns `409`.
 - reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
 - agent task submitment without an active token returns `409`.
+- M-Extension registration rejects unknown requested permissions.
+- M-Extension registration rejects high and critical risk manifests.
+- M-Extension register / enable / disable fail closed when M-Policy is unavailable or denies the actor.
+- M-Extension register / enable / disable fail closed when required Audit cannot be written.
+- M-Extension does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior in Phase 15.
+- revoked actor token is denied and cannot authorize protected routes.
+- Core token introspection unavailable fails protected external M-* routes closed.
+- token plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, or CLI stderr/stdout except the one-time issue response.
+- secret plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, events, or error envelopes.
+- config publish / rollback fail closed when M-Policy or Audit is unavailable for protected domains.
+- config payloads containing plaintext secret fields are rejected.
 - Effect workflow tests cover typed failure mapping for task submitment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
 
 ---
@@ -211,7 +238,7 @@ MERISTEM_TOKEN=<operator-token> bun run meristem network join --network <network
 MERISTEM_TOKEN=<operator-token> bun run meristem network members --network <network-id>
 MERISTEM_TOKEN=<operator-token> bun run meristem service list
 MERISTEM_TOKEN=<operator-token> bun run meristem service reload --service m-log --reason smoke-test
-MERISTEM_TOKEN=<operator-token> bun run meristem task submit --leaf <leaf-node-id> --type noop
+MERISTEM_TOKEN=<operator-token> bun run meristem task submit --node <leaf-node-id> --type noop
 MERISTEM_TOKEN=<operator-token> bun run meristem log timeline
 MERISTEM_TOKEN=<security-admin-token> bun run meristem audit list
 ```

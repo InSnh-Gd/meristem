@@ -95,6 +95,161 @@ Returns service summaries. Built-in services include live runtime data; register
 
 Service reload is defined in `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
+### Follow-on M-* Service REST Ownership
+
+Some post-MVP external routes are owned directly by M-* services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their phase document states otherwise.
+
+Examples:
+
+- M-Net owns network profile routes from Phase 13.
+- M-Policy owns approval routes from Phase 12.
+- M-Extension owns extension control-plane routes from Phase 15.
+
+---
+
+## 3.1 M-Extension Control Plane Routes
+
+Phase 15 M-Extension routes are owned by `m-extension`, not Core.
+
+### `GET /api/v0/extensions`
+
+Protected by `extension:read`.
+
+Returns extension definitions and `system/default` instance summaries.
+
+### `GET /api/v0/extensions/:id`
+
+Protected by `extension:read`.
+
+Returns one extension definition and its `system/default` instance state.
+
+### `POST /api/v0/extensions/register`
+
+Protected by `extension:register`.
+
+```ts
+type RegisterExtensionRequest = {
+  manifest: MExtensionManifestV01;
+  reason?: string;
+};
+```
+
+Rules:
+
+- manifest must be version `m-extension-manifest@0.1.0`.
+- manifest must be `controlPlaneOnly: true`.
+- only declaration kinds are accepted.
+- unknown requested permissions are rejected.
+- `high` and `critical` risk manifests are rejected in Phase 15.
+- allowed registration writes Audit before persistence.
+- registration does not install code or create an execution runtime.
+
+### `POST /api/v0/extensions/:id/enable`
+
+Protected by `extension:enable`.
+
+```ts
+type EnableExtensionRequest = {
+  scopeType?: "system";
+  scopeId?: "default";
+  reason?: string;
+};
+```
+
+Rules:
+
+- Phase 15 only accepts `scopeType = "system"` and `scopeId = "default"`.
+- M-Policy allow is required.
+- allowed enable writes Audit before the state transition.
+- enable does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior.
+
+### `POST /api/v0/extensions/:id/disable`
+
+Protected by `extension:disable`.
+
+```ts
+type DisableExtensionRequest = {
+  scopeType?: "system";
+  scopeId?: "default";
+  reason?: string;
+};
+```
+
+Rules:
+
+- Phase 15 only accepts `scopeType = "system"` and `scopeId = "default"`.
+- M-Policy allow is required.
+- allowed disable writes Audit before the state transition.
+- disable does not create an approval record.
+
+---
+
+## 3.2 Identity v0.2 Local Mode Routes
+
+Phase 17 identity routes are owned by Core. They do not introduce M-Identity.
+
+```text
+GET  /api/v0/identity/actors
+GET  /api/v0/identity/actors/:id
+POST /api/v0/identity/tokens
+GET  /api/v0/identity/tokens/:jti
+POST /api/v0/identity/tokens/:jti/revoke
+POST /internal/v0/identity/tokens/introspect
+```
+
+Rules:
+
+- runtime token issue and revoke require `security-admin`.
+- token issue writes Audit before returning plaintext token.
+- token plaintext is returned only once and must never be stored or logged.
+- introspection is internal-only and returns revocation status without token plaintext.
+- M-* services must use introspection instead of reading Core token tables.
+
+---
+
+## 3.3 SecretRef v0.1 Routes
+
+Phase 18 secretRef routes are owned by Core. They do not introduce M-Secret.
+
+```text
+GET  /api/v0/secrets
+GET  /api/v0/secrets/:id
+POST /api/v0/secrets
+POST /api/v0/secrets/:id/rotate
+POST /api/v0/secrets/:id/disable
+POST /internal/v0/secrets/:id/reference
+```
+
+Rules:
+
+- external read routes return metadata only.
+- create / rotate / disable require M-Policy and Audit.
+- plaintext secret values must never be echoed in responses after create / rotate.
+- secret values must never appear in error envelopes, logs, events, OpenSearch projections, UI errors, or LLM prompts.
+
+---
+
+## 3.4 Config Lifecycle v0.1 Routes
+
+Phase 19 config lifecycle routes are owned by Core.
+
+```text
+GET  /api/v0/configs
+GET  /api/v0/configs/:id
+POST /api/v0/configs/drafts
+POST /api/v0/configs/:id/validate
+POST /api/v0/configs/:id/publish
+POST /api/v0/configs/:id/rollback
+POST /internal/v0/configs/:id/apply-ack
+```
+
+Rules:
+
+- config payloads must be schema validated, versioned, hash-addressed, published, applied, and acknowledged.
+- high-risk publish / rollback requires M-Policy and Audit.
+- plaintext secrets are prohibited; use `secretRef`.
+- domain services apply config through declared internal contracts and must not mutate Core config tables directly.
+
 ---
 
 ## 4. Nodes
@@ -695,3 +850,78 @@ OpenAPI must include:
 - protected endpoint permission metadata
 - error response schema
 - API version `v0`
+
+## 12. Phase 12 Approval Routes (M-Policy External)
+
+Phase 12 M-Policy owns the external approval REST surface. These routes use Bearer authentication and are mounted on the M-Policy service.
+
+### `GET /api/v0/policy/approvals`
+
+Permission: `policy:approval-read` (admin + security-admin).
+
+Returns pending approval records. List and detail reads do not write Audit Log.
+
+```ts
+type ApprovalListResponse = {
+  approvals: PolicyApproval[];
+};
+```
+
+### `GET /api/v0/policy/approvals/:id`
+
+Permission: `policy:approval-read` (admin + security-admin).
+
+Returns one approval record with its votes.
+
+```ts
+type ApprovalDetailResponse = PolicyApproval & {
+  votes: PolicyApprovalVote[];
+};
+```
+
+### `POST /api/v0/policy/approvals/:id/approve`
+
+Permission: `policy:approval-approve` (security-admin only).
+
+```ts
+type ApprovalActionRequest = {
+  reason?: string;
+};
+```
+
+Rules:
+
+- approval must be in `pending` status.
+- approval must not be expired.
+- original actor cannot approve their own operation.
+- duplicate vote from same actor is rejected.
+- manual review approves with one valid security-admin vote.
+- multi approval approves with two distinct security-admin votes.
+- approval state transitions write Audit Log.
+
+### `POST /api/v0/policy/approvals/:id/reject`
+
+Permission: `policy:approval-reject` (security-admin only).
+
+Rules:
+
+- one reject vote rejects both manual and multi approval.
+- same self-approval and duplicate restrictions as approve.
+
+---
+
+## 13. Phase 12 M-Task Resume (Internal)
+
+### `POST /internal/v0/task-operations/:id/resume`
+
+Internal endpoint called by M-Policy when approval is granted.
+
+Rules:
+
+- only processes `suspended` operations.
+- expired operations cannot be resumed.
+- performs stale-state checks (target task must exist).
+- performs safety checks (terminal tasks cannot be canceled).
+- records `resumed` or `resume_failed` in suspended operation.
+- emits `task.operation.resumed.v0` or `task.operation.resume.failure.v0` events.
+- writes Audit Log for resume attempts.

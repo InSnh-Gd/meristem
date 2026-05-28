@@ -1,0 +1,124 @@
+# Phase 16 optional APISIX example.
+# This file is an explicit edge allowlist. Do not add catch-all /api/v0/* routes.
+# Only routes declared as external REST contracts may be exposed here.
+
+upstreams:
+  - id: meristem-core
+    nodes:
+      "host.docker.internal:3000": 1
+    type: roundrobin
+  - id: meristem-m-task
+    nodes:
+      "host.docker.internal:3105": 1
+    type: roundrobin
+  - id: meristem-m-policy
+    nodes:
+      "host.docker.internal:3101": 1
+    type: roundrobin
+  - id: meristem-m-net
+    nodes:
+      "host.docker.internal:3104": 1
+    type: roundrobin
+  - id: meristem-m-extension
+    nodes:
+      "host.docker.internal:3106": 1
+    type: roundrobin
+  - id: meristem-join-ingress
+    nodes:
+      "host.docker.internal:8443": 1
+    type: roundrobin
+
+routes:
+  - id: core-health
+    uri: /api/v0/health
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+  - id: core-ready
+    uri: /api/v0/ready
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+  - id: core-status
+    uri: /api/v0/status
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+  - id: core-nodes
+    uris:
+      - /api/v0/nodes
+      - /api/v0/nodes/*
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+      limit-count:
+        count: 120
+        time_window: 60
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+  - id: core-node-tickets
+    uri: /api/v0/node-tickets
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+      limit-count:
+        count: 30
+        time_window: 60
+        rejected_code: 429
+        key_type: var
+        key: remote_addr
+  - id: core-networks
+    uris:
+      - /api/v0/networks
+      - /api/v0/networks/*
+    upstream_id: meristem-core
+    plugins:
+      request-id: {}
+  - id: m-task-tasks
+    uris:
+      - /api/v0/tasks
+      - /api/v0/tasks/*
+    upstream_id: meristem-m-task
+    plugins:
+      request-id: {}
+  - id: m-policy-approvals
+    uris:
+      - /api/v0/policy/approvals
+      - /api/v0/policy/approvals/*
+    upstream_id: meristem-m-policy
+    plugins:
+      request-id: {}
+  - id: m-net-network-profiles
+    uris:
+      - /api/v0/network-profiles
+      - /api/v0/network-profiles/*
+    upstream_id: meristem-m-net
+    plugins:
+      request-id: {}
+  - id: m-net-network-profile-set
+    uri: /api/v0/networks/*/profile
+    upstream_id: meristem-m-net
+    plugins:
+      request-id: {}
+  - id: m-extension-extensions
+    uris:
+      - /api/v0/extensions
+      - /api/v0/extensions/*
+    upstream_id: meristem-m-extension
+    plugins:
+      request-id: {}
+  - id: m-net-join-ingress
+    uri: /join/v0/*
+    upstream_id: meristem-join-ingress
+    plugins:
+      request-id: {}
+
+# Explicitly not routed:
+# - /internal/v0/*
+# - M-Policy /internal/v0/authorize
+# - M-Log internal write endpoints
+# - NATS, PostgreSQL, OpenSearch, Redis
+# - any route absent from docs/contracts/REST-API-MVP.md or its follow-on phase docs
+
+#END

@@ -1,6 +1,9 @@
 import { edenTreaty } from '@elysiajs/eden'
 import type { CoreApp } from '../../core/src/app.ts'
 import type {
+  ApprovalListResponse,
+  ApprovalDetailResponse,
+  ApprovalActionResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -28,6 +31,7 @@ import type { CliClient } from './cli.ts'
 type CliConfig = {
   coreUrl: string
   taskUrl: string
+  policyUrl: string
   token: string | undefined
 }
 
@@ -99,6 +103,11 @@ export function createCoreClient(config: CliConfig): CliClient {
   })
   const taskRoutes = createDynamicRouteAdapter({
     baseUrl: config.taskUrl,
+    defaultHeaders: headers,
+    traceHeaders: () => injectTraceHeaders({})
+  })
+  const policyRoutes = createDynamicRouteAdapter({
+    baseUrl: config.policyUrl,
     defaultHeaders: headers,
     traceHeaders: () => injectTraceHeaders({})
   })
@@ -203,6 +212,27 @@ export function createCoreClient(config: CliConfig): CliClient {
       const result = await coreRoutes.postJson('/api/v0/projection/dlq/:id/skip', { params: { id: dlqId } })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
+    },
+    // Phase 12: 审批客户端方法直接调用 M-Policy 外部审批 API，不经过 Core 转发。
+    listApprovals: async () => {
+      const result = await policyRoutes.getJson<ApprovalListResponse>('/api/v0/policy/approvals')
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    getApproval: async (id) => {
+      const result = await policyRoutes.getJson<ApprovalDetailResponse>(`/api/v0/policy/approvals/${id}`)
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    approveApproval: async (id, reason) => {
+      const result = await policyRoutes.postJson<ApprovalActionResponse>(`/api/v0/policy/approvals/${id}/approve`, { body: reason ? { reason } : {} })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    rejectApproval: async (id, reason) => {
+      const result = await policyRoutes.postJson<ApprovalActionResponse>(`/api/v0/policy/approvals/${id}/reject`, { body: reason ? { reason } : {} })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
     }
   }
 }
@@ -212,6 +242,7 @@ export function configFromEnv(): CliConfig {
   return {
     coreUrl: process.env.MERISTEM_CORE_URL ?? 'http://localhost:3000',
     taskUrl: process.env.MERISTEM_TASK_URL ?? 'http://127.0.0.1:3105',
+    policyUrl: process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:3103',
     token: process.env.MERISTEM_TOKEN
   }
 }

@@ -1,4 +1,7 @@
 import type {
+  ApprovalListResponse,
+  ApprovalDetailResponse,
+  ApprovalActionResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -46,6 +49,10 @@ export type CliClient = {
   listDLQ?(index?: string): Promise<{ records: DLQRecord[] }>
   replayDLQ?(dlqId: string): Promise<unknown>
   skipDLQ?(dlqId: string): Promise<unknown>
+  listApprovals?(): Promise<ApprovalListResponse>
+  getApproval?(id: string): Promise<ApprovalDetailResponse>
+  approveApproval?(id: string, reason?: string): Promise<ApprovalActionResponse>
+  rejectApproval?(id: string, reason?: string): Promise<ApprovalActionResponse>
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -270,9 +277,41 @@ export function createCliRunner(client: CliClient) {
           throw new Error('usage: meristem projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>')
         }
 
+        // Phase 12: 审批命令通过 M-Policy 外部审批 API 操作审批队列。
+        if (command === 'policy' && subcommand === 'approvals') {
+          const action = args[2]
+          if (action === 'list') {
+            const listApprovals = requireMethod(client.listApprovals, 'listApprovals')
+            return { exitCode: 0, stdout: encode(await listApprovals()), stderr: '' }
+          }
+          if (action === 'show') {
+            const id = args[3]
+            if (!id) throw new Error('usage: meristem policy approvals show <approval-id>')
+            const getApproval = requireMethod(client.getApproval, 'getApproval')
+            return { exitCode: 0, stdout: encode(await getApproval(id)), stderr: '' }
+          }
+          if (action === 'approve') {
+            const id = args[3]
+            if (!id) throw new Error('usage: meristem policy approvals approve <approval-id> [--reason <text>]')
+            const reasonFlagIndex = args.indexOf('--reason')
+            const reason = reasonFlagIndex >= 0 ? args[reasonFlagIndex + 1] : undefined
+            const approveApproval = requireMethod(client.approveApproval, 'approveApproval')
+            return { exitCode: 0, stdout: encode(await approveApproval(id, reason)), stderr: '' }
+          }
+          if (action === 'reject') {
+            const id = args[3]
+            if (!id) throw new Error('usage: meristem policy approvals reject <approval-id> [--reason <text>]')
+            const reasonFlagIndex = args.indexOf('--reason')
+            const reason = reasonFlagIndex >= 0 ? args[reasonFlagIndex + 1] : undefined
+            const rejectApproval = requireMethod(client.rejectApproval, 'rejectApproval')
+            return { exitCode: 0, stdout: encode(await rejectApproval(id, reason)), stderr: '' }
+          }
+          throw new Error('usage: meristem policy approvals list | policy approvals show <approval-id> | policy approvals approve <approval-id> [--reason <text>] | policy approvals reject <approval-id> [--reason <text>]')
+        }
+
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

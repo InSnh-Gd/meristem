@@ -29,6 +29,14 @@ export const projectionPermissions = [
   'projection:dlq-manage'
 ] as const
 
-export const permissions = [...basePermissions, ...projectionPermissions] as const
+// Phase 12: 审批流程权限，M-Policy 外部审批 API 专用。
+export const approvalPermissions = [
+  'policy:approval-read',
+  'policy:approval-approve',
+  'policy:approval-reject',
+  'policy:approval-manage'
+] as const
+
+export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions] as const
 
 export type Permission = typeof permissions[number]

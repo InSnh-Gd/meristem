@@ -9,6 +9,7 @@
 - Binary name: `meristem`.
 - Default Core URL: `http://localhost:3000`.
 - Core URL can be overridden by `MERISTEM_CORE_URL`.
+- Follow-on service URLs can be overridden by service-specific environment variables such as `MERISTEM_TASK_URL`, `MERISTEM_POLICY_URL`, `MERISTEM_MNET_URL`, and `MERISTEM_EXTENSION_URL` when a command is owned by an external M-* service.
 - Actor is selected by a locally signed JWT in `MERISTEM_TOKEN`.
 - Output defaults to human-readable text.
 - `--json` returns JSON for scripts.
@@ -176,6 +177,162 @@ Rules:
 - unknown services return `404`.
 - `--reason` is optional and is forwarded to the internal lifecycle endpoint.
 
+### `meristem extension list`
+
+Permission: `extension:read`.
+
+Lists Phase 15 extension definitions and system-scoped instance state through M-Extension.
+
+Rules:
+
+- uses `MERISTEM_EXTENSION_URL` when set.
+- does not call Core as a facade for extension state.
+
+### `meristem extension show <id>`
+
+Permission: `extension:read`.
+
+Shows one extension definition and its `system/default` instance state when present.
+
+### `meristem extension register <manifest-file>`
+
+Permission: `extension:register`.
+
+Registers one `MExtensionManifestV01` document with M-Extension.
+
+Rules:
+
+- manifest must be `controlPlaneOnly: true`.
+- only `low` and `medium` risk classes are accepted in Phase 15.
+- unknown requested permissions fail registration.
+- successful registration writes Audit before persistence.
+- this command does not install code, load Wasm, create webhook ingress, bind secrets, or execute callbacks.
+
+### `meristem extension enable <id>`
+
+Permission: `extension:enable`.
+
+Enables the extension instance for `system/default` scope.
+
+Rules:
+
+- Phase 15 does not support node, network, service, tenant, or user scopes.
+- successful enable writes Audit before the state transition.
+- this command does not execute extension runtime behavior.
+
+### `meristem extension disable <id>`
+
+Permission: `extension:disable`.
+
+Disables the extension instance for `system/default` scope.
+
+Rules:
+
+- successful disable writes Audit before the state transition.
+- disable is immediate after M-Policy allow and does not create an approval record.
+
+### `meristem identity actor list`
+
+Permission: `identity:read`.
+
+Lists Identity v0.2 local-mode actors.
+
+### `meristem identity actor show <actor-id>`
+
+Permission: `identity:read`.
+
+Shows one local actor record.
+
+### `meristem identity token issue --actor <actor-id> --ttl <duration> --purpose <text>`
+
+Permission: `identity:token-issue`.
+
+Issues a local actor token. Only `security-admin` can issue runtime tokens.
+
+Rules:
+
+- token plaintext is returned once.
+- issue writes Audit before returning plaintext.
+- token metadata includes `jti`, actor, issuedBy, purpose, issuedAt, and expiresAt.
+
+### `meristem identity token inspect <jti>`
+
+Permission: `identity:token-inspect`.
+
+Shows token metadata and revocation status without token plaintext.
+
+### `meristem identity token revoke <jti> --reason <text>`
+
+Permission: `identity:token-revoke`.
+
+Revokes one local actor token by `jti` and writes Audit before status change.
+
+### `meristem secret list`
+
+Permission: `secret:read-metadata`.
+
+Lists secretRef metadata only.
+
+### `meristem secret show <secret-ref-id>`
+
+Permission: `secret:read-metadata`.
+
+Shows one secretRef metadata record. It must not print secret plaintext.
+
+### `meristem secret create --name <name> --scope system|service|node --value-stdin`
+
+Permission: `secret:create`.
+
+Creates a secretRef and reads plaintext from stdin. The command returns only secretRef metadata.
+
+### `meristem secret rotate <secret-ref-id> --value-stdin --reason <text>`
+
+Permission: `secret:rotate`.
+
+Rotates a secret value and writes Audit before mutation. The command must not print plaintext.
+
+### `meristem secret disable <secret-ref-id> --reason <text>`
+
+Permission: `secret:disable`.
+
+Disables a secretRef and writes Audit before mutation.
+
+### `meristem config list`
+
+Permission: `config:read`.
+
+Lists Config Lifecycle v0.1 records.
+
+### `meristem config show <config-id>`
+
+Permission: `config:read`.
+
+Shows one config record and lifecycle state.
+
+### `meristem config draft --domain <domain> --file <path>`
+
+Permission: `config:draft`.
+
+Creates a config draft from a local file. Plaintext secrets are prohibited; use `secretRef`.
+
+### `meristem config validate <config-id>`
+
+Permission: `config:validate`.
+
+Validates config schema and computes deterministic hash.
+
+### `meristem config publish <config-id> --reason <text>`
+
+Permission: `config:publish`.
+
+Publishes a validated config. High-risk domains require M-Policy and Audit.
+
+### `meristem config rollback <config-id> --to <version> --reason <text>`
+
+Permission: `config:rollback`.
+
+Rolls back to a known version. High-risk domains require M-Policy and Audit.
+
 ### `meristem log timeline`
 
 Permission: `timeline:read`.
@@ -268,3 +425,44 @@ Expected:
 - viewer node registration fails
 - operator audit list fails
 - security-admin audit list succeeds
+
+### `meristem policy approvals list`
+
+Permission: `policy:approval-read` (admin + security-admin).
+
+Lists pending approval records.
+
+Rules:
+
+- uses `MERISTEM_POLICY_URL` when set.
+- does not write Audit Log for list reads.
+
+### `meristem policy approvals show <approval-id>`
+
+Permission: `policy:approval-read` (admin + security-admin).
+
+Shows one approval record with its votes.
+
+### `meristem policy approvals approve <approval-id> [--reason <text>]`
+
+Permission: `policy:approval-approve` (security-admin only).
+
+Approves a pending approval. Writes Audit Log.
+
+Rules:
+
+- original actor cannot approve their own operation.
+- duplicate vote from same actor is rejected.
+- non-zero exit on missing permission, self-approval, duplicate vote, or expired approval.
+
+### `meristem policy approvals reject <approval-id> [--reason <text>]`
+
+Permission: `policy:approval-reject` (security-admin only).
+
+Rejects a pending approval. Writes Audit Log.
+
+Rules:
+
+- one reject vote rejects the approval.
+- same self-approval and duplicate restrictions as approve.
+- non-zero exit on missing permission, self-approval, duplicate vote, or expired approval.

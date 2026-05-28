@@ -271,3 +271,53 @@ export const projectionDLQ = pgTable('projection_dlq', {
   retries: integer('retries').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 })
+
+// Phase 12 Approval Execution Flow 表组
+// 来源：docs/roadmap/PHASE-12.md §5
+
+// M-Policy 拥有的审批记录表；approval queue 所有权留在 M-Policy。
+export const policyApprovals = pgTable('policy_approvals', {
+  id: text('id').primaryKey(),
+  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  originService: text('origin_service').notNull(),
+  operationId: text('operation_id').notNull(),
+  requestedBy: text('requested_by').notNull(),
+  requiredAction: text('required_action').notNull(),
+  status: text('status').notNull(),
+  quorumRequired: integer('quorum_required').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true })
+})
+
+// M-Policy 拥有的审批投票表；每个 actor 对同一审批只能投一次票。
+export const policyApprovalVotes = pgTable(
+  'policy_approval_votes',
+  {
+    id: text('id').primaryKey(),
+    approvalId: text('approval_id').notNull().references(() => policyApprovals.id),
+    actor: text('actor').notNull(),
+    vote: text('vote').notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [uniqueIndex('policy_approval_votes_approval_actor_unique').on(table.approvalId, table.actor)]
+)
+
+// M-Task 拥有的挂起操作表；记录被 M-Policy 阻塞的 task 操作。
+export const taskSuspendedOperations = pgTable('task_suspended_operations', {
+  id: text('id').primaryKey(),
+  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  action: text('action').notNull(),
+  requestedBy: text('requested_by').notNull(),
+  resource: text('resource').notNull(),
+  sanitizedPayload: jsonb('sanitized_payload'),
+  correlationId: text('correlation_id').notNull(),
+  idempotencyKey: text('idempotency_key').notNull(),
+  status: text('status').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  resumedAt: timestamp('resumed_at', { withTimezone: true }),
+  terminalReason: text('terminal_reason')
+})

@@ -1,4 +1,4 @@
-import { projectionPermissions } from '../../contracts/src/index.ts'
+import { approvalPermissions, projectionPermissions } from '../../contracts/src/index.ts'
 import type { ActorId, Permission, PolicyDecision, PolicyResult } from '../../contracts/src/index.ts'
 
 // PolicyInput 保持纯数据形状，让 RBAC 决策函数可以脱离数据库和 HTTP 边界独立复用。
@@ -15,7 +15,7 @@ export type PolicyDecisionDraft = Omit<PolicyDecision, 'id' | 'createdAt'>
 export const rolePermissions: Record<ActorId, readonly Permission[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
   operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'policy:approval-read', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -33,6 +33,7 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     'network:read',
     'network:create',
     'network:join',
+    ...approvalPermissions,
     ...projectionPermissions
   ]
 }

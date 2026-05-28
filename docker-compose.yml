@@ -44,3 +44,34 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Phase 16 optional cache backend candidate. Redis is not a default dependency.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    profiles:
+      - redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Phase 16 optional edge gateway example. APISIX must not become an auth or policy root.
+  apisix:
+    image: apache/apisix:3.9.1-debian
+    ports:
+      - "9080:9080"
+    volumes:
+      - ./ops/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./ops/apisix/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles:
+      - apisix
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9080/api/v0/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

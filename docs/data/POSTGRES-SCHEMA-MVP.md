@@ -22,8 +22,8 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 |-------|--------|
 | Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` historical compatibility table |
 | M-Net | `networks`, `network_memberships` |
-| M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations` |
-| M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions` |
+| M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
+| M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
 
 ### `users`
@@ -269,6 +269,58 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `correlation_id` | text nullable | |
 | `trace_id` | text nullable | |
 | `payload` | jsonb nullable | secrets forbidden |
+
+---
+
+### Phase 12 Approval Tables
+
+#### `policy_approvals`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | approval UUID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `origin_service` | text | `m-task` in Phase 12 |
+| `operation_id` | text | origin operation by convention |
+| `requested_by` | text | actor who triggered the blocked operation |
+| `required_action` | text | `manual_review` or `multi_approval` |
+| `status` | text | `pending`, `approved`, `rejected`, `expired`, `canceled` |
+| `quorum_required` | integer | 1 for manual review, 2 for multi-approval |
+| `expires_at` | timestamptz | UTC |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | set on terminal state |
+
+#### `policy_approval_votes`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | vote UUID |
+| `approval_id` | text | references `policy_approvals.id` |
+| `actor` | text | voter actor ID |
+| `vote` | text | `approve` or `reject` |
+| `reason` | text nullable | optional operator reason |
+| `created_at` | timestamptz | UTC |
+
+Unique constraint: `(approval_id, actor)` — each actor can vote once per approval.
+
+#### `task_suspended_operations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | suspended operation UUID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `action` | text | `task.submit`, `task.cancel`, or `task.retry` |
+| `requested_by` | text | actor who triggered the operation |
+| `resource` | text | target resource identifier |
+| `sanitized_payload` | jsonb | operation context without secrets |
+| `correlation_id` | text | request correlation |
+| `idempotency_key` | text | prevents duplicate resume |
+| `status` | text | `suspended`, `resumed`, `rejected`, `expired` |
+| `expires_at` | timestamptz | UTC |
+| `created_at` | timestamptz | UTC |
+| `resumed_at` | timestamptz nullable | set when resumed |
+| `terminal_reason` | text nullable | rejection, expiration, or error reason |
 
 ---
 

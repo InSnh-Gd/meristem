@@ -83,6 +83,16 @@ The current implementation target starts with the Core + Stem/Leaf node MVP and 
 | `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
 | `roadmap/PHASE-10.1.md` | projection platform track for projector metadata, cursor, retry, DLQ, backfill, and health |
 | `roadmap/PHASE-11.md` | M-Task service cutover, M-Policy risk foundation, and v0.1 MVP closure |
+| `roadmap/PHASE-12.md` | M-Policy approval execution flow and M-Task suspended-operation resume |
+| `roadmap/PHASE-13.md` | M-Net CN control-plane Regional Profile lifecycle |
+| `roadmap/PHASE-14.md` | formal M-UI, SDUI v0.2 route contracts, and M-UI BFF display contracts |
+| `roadmap/PHASE-15.md` | M-Extension control-plane registry, manifest, policy, lifecycle, REST, and CLI contracts |
+| `roadmap/PHASE-16.md` | optional deployment pack for compose profiles, APISIX, Redis, OpenSearch, and local topology examples |
+| `roadmap/PHASE-17.md` | Identity v0.2 local mode hardening with Core-owned token lifecycle and revocation |
+| `roadmap/PHASE-18.md` | SecretRef v0.1 control plane split across Core, M-Policy, and M-Log |
+| `roadmap/PHASE-19.md` | Config Lifecycle v0.1 draft, validate, publish, apply, ack, and rollback contracts |
+| `roadmap/PHASE-20.md` | v0.1 acceptance closure matrix, drift audit, smoke plan, and deferred work audit |
+| `roadmap/DEFERRED-WORK.md` | deferred work register for intentionally delayed phase follow-up items |
 | `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
 | `contracts/EDEN-MVP.md` | internal Eden MVP contract |
 | `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |

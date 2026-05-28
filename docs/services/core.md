@@ -41,6 +41,8 @@ Core must not own:
 - OpenSearch read model implementation
 - complex business microservice logic
 - full cloud-function platform
+- production identity provider behavior
+- standalone M-Secret responsibilities
 
 
 
@@ -103,6 +105,13 @@ Core 源码位于 `apps/core/src/`，按职责拆分为以下模块：
 | `node:issue-token` | issue or rotate per-node runtime token | high |
 | `service:register` | register service definition | high |
 | `service:reload` | request reload for a reloadable internal service | high |
+| `identity:token-issue` | issue local actor token | high |
+| `identity:token-revoke` | revoke local actor token | high |
+| `secret:create` | create secretRef | high |
+| `secret:rotate` | rotate secretRef value | high |
+| `secret:disable` | disable secretRef | high |
+| `config:publish` | publish config version | high |
+| `config:rollback` | rollback config version | high |
 
 ---
 
@@ -165,3 +174,9 @@ For the pre-Phase-11 MVP, Core also owned orchestration for:
 After Phase 11, Core no longer owns canonical task routes, task lifecycle state, task lifecycle events, or task log facts. M-Task owns `/api/v0/tasks`, M-Task PostgreSQL tables, task lifecycle events, and task control policy/log behavior.
 
 Core must not implement real network connectivity for MVP. Node flow remains logical records and events only; task delivery is coordinated by M-Task through M-Net.
+
+Phase 17-19 Core ownership additions:
+
+- Phase 17: Core owns Identity v0.2 local-mode actor records, actor token lifecycle, `jti` revocation, and internal token introspection. Core does not become a production identity provider.
+- Phase 18: Core owns secretRef metadata and local v0.1 secret value entrypoints. Core does not become M-Secret or a production KMS / Vault.
+- Phase 19: Core owns the generic Config Lifecycle v0.1 control plane. Domain services own domain-specific apply behavior.
