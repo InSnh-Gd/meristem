@@ -86,7 +86,7 @@ describe('meristem policy approvals CLI', () => {
             updatedAt: new Date().toISOString(),
             completedAt: new Date().toISOString()
           },
-          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'approve', reason, createdAt: new Date().toISOString() }]
+          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'approve', ...(reason ? { reason } : {}), createdAt: new Date().toISOString() }]
         } satisfies ApprovalActionResponse
       }
     })
@@ -118,7 +118,7 @@ describe('meristem policy approvals CLI', () => {
             updatedAt: new Date().toISOString(),
             completedAt: new Date().toISOString()
           },
-          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'reject', reason, createdAt: new Date().toISOString() }]
+          votes: [{ id: 'vote-1', approvalId: id, actor: 'security-admin', vote: 'reject', ...(reason ? { reason } : {}), createdAt: new Date().toISOString() }]
         } satisfies ApprovalActionResponse
       }
     })

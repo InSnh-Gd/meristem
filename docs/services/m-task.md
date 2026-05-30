@@ -26,6 +26,8 @@ Owns:
 - task delivery coordination through M-Net
 - task Timeline / Full / Audit behavior defined by action and outcome
 - task policy and risk requirements in cooperation with M-Policy
+- Phase 12 suspended operation state for task operations blocked by `require_manual_review` or `require_multi_approval`
+- internal resume/reject execution for approved or rejected policy approvals
 
 Must not own:
 
@@ -43,6 +45,7 @@ Must not own:
 | Contract | Path / Subject | Version | Notes |
 |----------|----------------|---------|-------|
 | REST | `/api/v0/tasks`, `/api/v0/task-definitions` | `v0` | Canonical external task API after Phase 11.1 |
+| Internal REST | `/internal/v0/task-operations/:id/resume`, `/internal/v0/task-operations/:id/reject` | `v0` | M-Policy approval callbacks; requires `x-meristem-internal-token` |
 | OpenAPI | M-Task OpenAPI document | `v0` | Task routes must be tagged as M-Task owned |
 | Eden | `@meristem/contracts/m-task` | `0.1.0` | Internal TypeScript contract for M-CLI / M-UI / service clients |
 | Effect Schema | `packages/contracts/src/schemas/tasks.ts` | `0.1.0` | Executable task contracts and drift checks |
@@ -57,6 +60,8 @@ GET  /api/v0/tasks/:id
 POST /api/v0/tasks/:id/cancel
 POST /api/v0/tasks/:id/retry
 GET  /api/v0/task-definitions
+POST /internal/v0/task-operations/:id/resume
+POST /internal/v0/task-operations/:id/reject
 ```
 
 ---
@@ -142,7 +147,8 @@ Audit is defined by M-Task action and outcome rules. High risk alone does not cr
 - Protected operations call M-Policy before execution.
 - RBAC denial fails closed.
 - M-Policy risk output may return `allow`, `deny`, `require_manual_review`, or `require_multi_approval` for Phase 11 task actions.
-- `require_manual_review` and `require_multi_approval` create a pending policy decision and block execution; Phase 11 does not implement approval queues or operation resume.
+- `require_manual_review` and `require_multi_approval` create an M-Task suspended operation plus an M-Policy approval record, then block execution until M-Policy calls the internal resume or reject endpoint.
+- Internal approval callbacks do not rerun risk decision; they validate internal auth, suspended operation state, expiration, idempotency, and target task freshness.
 - Audit writes are required only for explicitly defined M-Task actions and outcomes.
 
 ---
@@ -157,5 +163,7 @@ Audit is defined by M-Task action and outcome rules. High risk alone does not cr
 - M-Task coordinates delivery through M-Net and never calls node-agent sessions directly.
 - `submit`, best-effort `cancel`, and timeout worker behavior are implemented.
 - `retry` returns a policy-aware `not_implemented_for_phase` response without executing retry.
+- Approval-required operations create `task_suspended_operations`, call M-Policy approval creation, and publish `task.operation.suspended.v0`.
+- Approved callbacks transition suspended operations to `resumed` or `resume_failed`; rejected callbacks transition to `rejected` without executing the original operation.
 - Timeline / Full / Audit behavior follows this Service Definition.
 - Tests cover auth, RBAC, risk escalation, state transitions, event publication, logging, timeout worker, cancellation, retry not implemented, and dependency failure paths.

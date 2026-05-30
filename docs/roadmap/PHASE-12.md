@@ -187,7 +187,7 @@ canceled
 Suspended operation statuses:
 
 ```text
-pending_approval
+suspended
 resumed
 rejected
 expired
@@ -200,7 +200,7 @@ Timeout semantics:
 - Expired approvals transition to `expired`, not `rejected`.
 - `rejected` means an explicit security-admin reject vote was accepted.
 - Origin services may cancel suspended operations when the source operation is no longer meaningful.
-- Resume accepts only `approved` approvals and `pending_approval` suspended operations.
+- Resume accepts only `approved` approvals and `suspended` suspended operations.
 
 Default expiry:
 
@@ -249,7 +249,7 @@ M-Task resume checks:
 approval.status === approved
 approval.policyDecisionId matches suspendedOperation.policyDecisionId
 approval.expiresAt has not expired
-suspendedOperation.status === pending_approval
+suspendedOperation.status === suspended
 operationId has not already resumed
 idempotencyKey has not been consumed
 target resource still exists
