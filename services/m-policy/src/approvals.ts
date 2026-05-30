@@ -1,13 +1,22 @@
 import { Elysia, t } from 'elysia'
-import { actorIds } from '../../../packages/contracts/src/index.ts'
+import { actorIds, type Permission } from '../../../packages/contracts/src/index.ts'
 import type { ActorId, ApprovalActionResponse, ApprovalDetailResponse, ApprovalListResponse, ApprovalStatus, PolicyApproval, PolicyApprovalVote } from '../../../packages/contracts/src/index.ts'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
-
-type ServiceError = { code: string; message: string }
+import { createEventEnvelope } from '../../../packages/events/src/index.ts'
+import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 
 // 审批端口抽象，M-Policy 实际实现通过 DB adapter 连接 PostgreSQL。
 export type ApprovalStore = {
+  createApproval(input: {
+    policyDecisionId: string
+    originService: PolicyApproval['originService']
+    operationId: string
+    requestedBy: ActorId
+    requiredAction: PolicyApproval['requiredAction']
+    quorumRequired: number
+    expiresAt: string
+  }): Promise<PolicyApproval>
   listApprovals(status?: ApprovalStatus): Promise<PolicyApproval[]>
   getApproval(id: string): Promise<PolicyApproval | null>
   getVotes(approvalId: string): Promise<PolicyApprovalVote[]>
@@ -28,7 +37,9 @@ export type ApprovalDeps = {
   events: {
     publish(subject: string, event: unknown): Promise<unknown>
   }
+  authorize(actor: ActorId, permission: Permission, resource: string): Promise<boolean>
   onApproved?: (approval: PolicyApproval) => Promise<void>
+  onRejected?: (approval: PolicyApproval) => Promise<void>
 }
 
 const apiErrorSchema = t.Object({
@@ -94,6 +105,11 @@ async function requireExternalActor(deps: ApprovalDeps, headers: Record<string, 
   return verified.actor
 }
 
+async function requirePermission(deps: ApprovalDeps, actor: ActorId, permission: Permission, resource: string): Promise<void> {
+  if (await deps.authorize(actor, permission, resource)) return
+  throw Object.assign(new Error('permission denied'), { status: 403, code: 'policy.denied' })
+}
+
 /**
  * evaluateQuorum 根据当前投票状态判断审批是否达到 quorum。
  * manual_review 只需一票 approve；multi_approval 需要两个不同 security-admin 的 approve。
@@ -109,18 +125,101 @@ function evaluateQuorum(approval: PolicyApproval, votes: PolicyApprovalVote[]): 
   return null
 }
 
+function approvalEventSubject(status: ApprovalStatus | 'created'): string {
+  return `policy.approval.${status}.v0`
+}
+
+async function publishApprovalEvent(deps: ApprovalDeps, approval: PolicyApproval, status: ApprovalStatus | 'created'): Promise<void> {
+  await deps.events.publish(approvalEventSubject(status), createEventEnvelope({
+    type: `policy.approval.${status}`,
+    source: 'm-policy',
+    subject: approval.id,
+    correlationId: approval.operationId,
+    payload: {
+      approvalId: approval.id,
+      policyDecisionId: approval.policyDecisionId,
+      originService: approval.originService,
+      operationId: approval.operationId,
+      requestedBy: approval.requestedBy,
+      requiredAction: approval.requiredAction,
+      status: approval.status
+    }
+  }))
+}
+
+async function expireApproval(deps: ApprovalDeps, approval: PolicyApproval): Promise<PolicyApproval> {
+  const now = new Date().toISOString()
+  const expired = await deps.approvals.updateApprovalStatus(approval.id, 'expired', now)
+  const finalApproval = expired ?? { ...approval, status: 'expired' as const, completedAt: now, updatedAt: now }
+  await deps.log.writeAudit({ actor: 'system', action: 'policy.approval.expire', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'expired', correlationId: approval.operationId })
+  await deps.log.writeTimeline({ summary: `approval ${approval.id} expired`, subject: 'policy.approval.expired', correlationId: approval.operationId })
+  await publishApprovalEvent(deps, finalApproval, 'expired')
+  return finalApproval
+}
+
+async function expireDueApprovals(deps: ApprovalDeps): Promise<void> {
+  const pending = await deps.approvals.listApprovals('pending')
+  const now = Date.now()
+  for (const approval of pending) {
+    if (new Date(approval.expiresAt).getTime() < now) {
+      try {
+        await expireApproval(deps, approval)
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        await deps.log.writeFull({ level: 'error', source: 'm-policy', message: `expireApproval failed for ${approval.id}: ${message}`, correlationId: approval.operationId })
+      }
+    }
+  }
+}
+
 /**
  * M-Policy 外部审批 REST API，Bearer auth + M-Policy 权限。
  * 审批状态转换和 resume 行为通过 onApproved 回调通知来源服务。
  */
 export function createApprovalRoutes(deps: ApprovalDeps) {
   return new Elysia({ prefix: '/api/v0/policy/approvals' })
+    .onError(({ error, set }) => {
+      const maybe = error as Error & { status?: number; code?: string; correlationId?: string }
+      if (maybe.status && maybe.code) {
+        set.status = maybe.status
+        return { error: { code: maybe.code, message: maybe.message, correlationId: maybe.correlationId } }
+      }
+      return undefined
+    })
+    .post(
+      '/',
+      async ({ body, headers }) => {
+        const actor = await requireExternalActor(deps, headers)
+        await requirePermission(deps, actor, 'policy:approval-manage', 'policy:approvals')
+        return withExtractedSpan('m-policy', 'm-policy.approval.create', headers, async () => {
+          const approval = await deps.approvals.createApproval(body)
+          await deps.log.writeAudit({ actor, action: 'policy.approval.create', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'pending', correlationId: approval.operationId })
+          await deps.log.writeTimeline({ summary: `approval ${approval.id} created`, subject: 'policy.approval.created', correlationId: approval.operationId })
+          await publishApprovalEvent(deps, approval, 'created')
+          return { approval } satisfies { approval: PolicyApproval }
+        })
+      },
+      {
+        body: t.Object({
+          policyDecisionId: t.String(),
+          originService: t.Literal('m-task'),
+          operationId: t.String(),
+          requestedBy: t.UnionEnum(actorIds),
+          requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
+          quorumRequired: t.Number(),
+          expiresAt: t.String()
+        }),
+        response: { 200: t.Object({ approval: approvalSchema }), 401: apiErrorSchema, 403: apiErrorSchema }
+      }
+    )
     // 审批列表读取不在 Audit Log 路径上，只返回当前状态。
     .get(
       '/',
-      async ({ headers, status }) => {
+      async ({ headers }) => {
         const actor = await requireExternalActor(deps, headers)
+        await requirePermission(deps, actor, 'policy:approval-read', 'policy:approvals')
         return withExtractedSpan('m-policy', 'm-policy.approval.list', headers, async () => {
+          await expireDueApprovals(deps)
           const approvals = await deps.approvals.listApprovals()
           return { approvals } satisfies ApprovalListResponse
         })
@@ -137,7 +236,9 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       '/:id',
       async ({ params, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
+        await requirePermission(deps, actor, 'policy:approval-read', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.get', headers, async () => {
+          await expireDueApprovals(deps)
           const approval = await deps.approvals.getApproval(params.id)
           if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
           const votes = await deps.approvals.getVotes(approval.id)
@@ -160,13 +261,13 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       '/:id/approve',
       async ({ params, body, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
+        await requirePermission(deps, actor, 'policy:approval-approve', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.approve', headers, async () => {
           const approval = await deps.approvals.getApproval(params.id)
           if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
           if (approval.status !== 'pending') return status(409, { error: { code: 'approval.not_pending', message: `approval is ${approval.status}` } })
           if (new Date(approval.expiresAt) < new Date()) {
-            await deps.approvals.updateApprovalStatus(approval.id, 'expired')
-            await deps.log.writeTimeline({ summary: `approval ${approval.id} expired`, subject: 'policy.approval.expired', correlationId: approval.operationId })
+            await expireApproval(deps, approval)
             return status(409, { error: { code: 'approval.expired', message: 'approval has expired' } })
           }
           if (approval.requestedBy === actor) {
@@ -174,7 +275,7 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
             return status(403, { error: { code: 'approval.self_vote_denied', message: 'original actor cannot approve their own operation' } })
           }
           try {
-            const vote = await deps.approvals.addVote(approval.id, actor, 'approve', body.reason)
+            await deps.approvals.addVote(approval.id, actor, 'approve', body.reason)
             const votes = await deps.approvals.getVotes(approval.id)
             const terminal = evaluateQuorum(approval, votes)
             if (terminal) {
@@ -183,6 +284,7 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
               await deps.log.writeAudit({ actor, action: 'policy.approval.approve', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: terminal })
               await deps.log.writeTimeline({ summary: `approval ${approval.id} ${terminal}`, subject: `policy.approval.${terminal}`, correlationId: approval.operationId })
               const updatedApproval = await deps.approvals.getApproval(approval.id)
+              if (updatedApproval) await publishApprovalEvent(deps, updatedApproval, terminal)
               if (updatedApproval && deps.onApproved && terminal === 'approved') {
                 await deps.onApproved(updatedApproval)
               }
@@ -218,12 +320,13 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       '/:id/reject',
       async ({ params, body, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
+        await requirePermission(deps, actor, 'policy:approval-reject', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.reject', headers, async () => {
           const approval = await deps.approvals.getApproval(params.id)
           if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
           if (approval.status !== 'pending') return status(409, { error: { code: 'approval.not_pending', message: `approval is ${approval.status}` } })
           if (new Date(approval.expiresAt) < new Date()) {
-            await deps.approvals.updateApprovalStatus(approval.id, 'expired')
+            await expireApproval(deps, approval)
             return status(409, { error: { code: 'approval.expired', message: 'approval has expired' } })
           }
           if (approval.requestedBy === actor) {
@@ -231,13 +334,15 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
             return status(403, { error: { code: 'approval.self_vote_denied', message: 'original actor cannot reject their own operation' } })
           }
           try {
-            const vote = await deps.approvals.addVote(approval.id, actor, 'reject', body.reason)
+            await deps.approvals.addVote(approval.id, actor, 'reject', body.reason)
             const now = new Date().toISOString()
             await deps.approvals.updateApprovalStatus(approval.id, 'rejected', now)
             await deps.log.writeAudit({ actor, action: 'policy.approval.reject', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'rejected' })
             await deps.log.writeTimeline({ summary: `approval ${approval.id} rejected`, subject: 'policy.approval.rejected', correlationId: approval.operationId })
             const votes = await deps.approvals.getVotes(approval.id)
             const updatedApproval = await deps.approvals.getApproval(approval.id)
+            if (updatedApproval) await publishApprovalEvent(deps, updatedApproval, 'rejected')
+            if (updatedApproval && deps.onRejected) await deps.onRejected(updatedApproval)
             return { approval: updatedApproval ?? approval, votes } satisfies ApprovalActionResponse
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
@@ -263,6 +368,34 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
     )
 }
 
+export function createInternalApprovalRoutes(deps: ApprovalDeps) {
+  return new Elysia({ prefix: '/internal/v0/policy/approvals' })
+    .post(
+      '/',
+      async ({ body, headers, status }) => {
+        const internalAuth = validateInternalRequest(headers)
+        if (!internalAuth.ok) return status(401, { error: internalAuth.error })
+        const approval = await deps.approvals.createApproval(body)
+        await deps.log.writeAudit({ actor: 'system', action: 'policy.approval.create', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'pending', correlationId: approval.operationId })
+        await deps.log.writeTimeline({ summary: `approval ${approval.id} created`, subject: 'policy.approval.created', correlationId: approval.operationId })
+        await publishApprovalEvent(deps, approval, 'created')
+        return { approval }
+      },
+      {
+        body: t.Object({
+          policyDecisionId: t.String(),
+          originService: t.Literal('m-task'),
+          operationId: t.String(),
+          requestedBy: t.UnionEnum(actorIds),
+          requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
+          quorumRequired: t.Number(),
+          expiresAt: t.String()
+        }),
+        response: { 200: t.Object({ approval: approvalSchema }), 401: apiErrorSchema }
+      }
+    )
+}
+
 export type ApprovalRoutes = ReturnType<typeof createApprovalRoutes>
 
 /**
@@ -273,6 +406,24 @@ export function createInMemoryApprovalStore(initialApprovals: PolicyApproval[] =
   const votes: PolicyApprovalVote[] = []
 
   return {
+    async createApproval(input) {
+      const now = new Date().toISOString()
+      const approval: PolicyApproval = {
+        id: crypto.randomUUID(),
+        policyDecisionId: input.policyDecisionId,
+        originService: input.originService,
+        operationId: input.operationId,
+        requestedBy: input.requestedBy,
+        requiredAction: input.requiredAction,
+        status: 'pending',
+        quorumRequired: input.quorumRequired,
+        expiresAt: input.expiresAt,
+        createdAt: now,
+        updatedAt: now
+      }
+      approvals.push(approval)
+      return approval
+    },
     async listApprovals(status) {
       return status ? approvals.filter((a) => a.status === status) : [...approvals]
     },

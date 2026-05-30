@@ -7,6 +7,7 @@ import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   createInternalFetcher,
   fetchReadyState,
+  internalRequestHeaders,
   internalServicePorts,
   serveHttpApp,
   serviceUrl
@@ -16,7 +17,7 @@ import type { ActorId, ApprovalStatus, Permission, PolicyApproval, PolicyApprova
 import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import { createPolicyApp, type PolicyAuthorizeInput } from './app.ts'
-import { createApprovalRoutes, type ApprovalStore } from './approvals.ts'
+import { createApprovalRoutes, createInternalApprovalRoutes, type ApprovalDeps, type ApprovalStore } from './approvals.ts'
 
 initTelemetry('m-policy')
 
@@ -115,6 +116,36 @@ async function getDecision(id: string): Promise<PolicyDecision | null> {
  * 审批状态和投票记录的唯一权威写路径。
  */
 const approvalStore: ApprovalStore = {
+  async createApproval(input) {
+    const now = new Date()
+    const row = {
+      id: crypto.randomUUID(),
+      policyDecisionId: input.policyDecisionId,
+      originService: input.originService,
+      operationId: input.operationId,
+      requestedBy: input.requestedBy,
+      requiredAction: input.requiredAction,
+      status: 'pending',
+      quorumRequired: input.quorumRequired,
+      expiresAt: new Date(input.expiresAt),
+      createdAt: now,
+      updatedAt: now
+    }
+    await db.insert(policyApprovals).values(row)
+    return {
+      id: row.id,
+      policyDecisionId: row.policyDecisionId,
+      originService: row.originService as PolicyApproval['originService'],
+      operationId: row.operationId,
+      requestedBy: row.requestedBy as ActorId,
+      requiredAction: row.requiredAction as PolicyApproval['requiredAction'],
+      status: row.status as ApprovalStatus,
+      quorumRequired: row.quorumRequired,
+      expiresAt: row.expiresAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString()
+    }
+  },
   async listApprovals(status) {
     const query = status
       ? db.select().from(policyApprovals).where(eq(policyApprovals.status, status))
@@ -194,7 +225,7 @@ const approvalStore: ApprovalStore = {
   }
 }
 
-const approvalRoutes = createApprovalRoutes({
+const approvalDeps: ApprovalDeps = {
   auth: {
     async verify(token) {
       const secret = process.env.MERISTEM_JWT_SECRET
@@ -246,8 +277,29 @@ const approvalRoutes = createApprovalRoutes({
       })
       await eventBus.internal.v0.publish.post({ subject, event })
     }
+  },
+  async authorize(actor, permission, resource) {
+    const decision = decidePermission({ actor, action: permission, resource, permissions: await permissionsForActor(actor) })
+    return decision.result === 'allow'
+  },
+  async onApproved(approval) {
+    const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/resume`, {
+      method: 'POST',
+      headers: internalRequestHeaders()
+    })
+    if (!response.ok) throw new Error('m-task resume failed')
+  },
+  async onRejected(approval) {
+    const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/reject`, {
+      method: 'POST',
+      headers: internalRequestHeaders()
+    })
+    if (!response.ok) throw new Error('m-task reject failed')
   }
-})
+}
+
+const approvalRoutes = createApprovalRoutes(approvalDeps)
+const internalApprovalRoutes = createInternalApprovalRoutes(approvalDeps)
 
 const app = createPolicyApp({
   async readiness() {
@@ -261,8 +313,7 @@ const app = createPolicyApp({
   getDecision
 })
 
-// Phase 12: 将审批路由挂载到 M-Policy 主服务上，外部审批 API 使用 Bearer auth。
-const mergedApp = app.use(approvalRoutes)
+const mergedApp = app.use(approvalRoutes).use(internalApprovalRoutes)
 const server = serveHttpApp('m-policy', mergedApp.fetch)
 
 // 退出顺序先停 HTTP，再关数据库和 telemetry，避免正在处理的授权请求半途丢失。

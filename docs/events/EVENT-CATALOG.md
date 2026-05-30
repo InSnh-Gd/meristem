@@ -330,6 +330,7 @@ type ConfigRolledBackPayload = ConfigLifecyclePayload & { rollbackVersion: strin
 | `task.operation.suspended.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationSuspendedPayload` | at-least-once |
 | `task.operation.resumed.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationResumedPayload` | at-least-once |
 | `task.operation.resume.failure.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationResumeFailurePayload` | at-least-once |
+| `task.operation.rejected.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationRejectedPayload` | at-least-once |
 
 Approval authorization and resume execution are distinct facts. `policy.approval.approved.v0` does not imply the origin operation executed; `task.operation.resumed.v0` or `task.operation.resume.failure.v0` records the business execution result.
 
@@ -390,6 +391,13 @@ type TaskOperationResumedPayload = {
 type TaskOperationResumeFailurePayload = {
   suspendedOpId: string;
   reason: string;
+  correlationId?: string;
+};
+
+type TaskOperationRejectedPayload = {
+  suspendedOpId: string;
+  action: string;
+  resource: string;
   correlationId?: string;
 };
 ```

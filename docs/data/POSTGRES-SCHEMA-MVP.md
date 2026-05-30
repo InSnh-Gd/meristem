@@ -316,7 +316,7 @@ Unique constraint: `(approval_id, actor)` — each actor can vote once per appro
 | `sanitized_payload` | jsonb | operation context without secrets |
 | `correlation_id` | text | request correlation |
 | `idempotency_key` | text | prevents duplicate resume |
-| `status` | text | `suspended`, `resumed`, `rejected`, `expired` |
+| `status` | text | `suspended`, `resumed`, `rejected`, `expired`, `resume_failed` |
 | `expires_at` | timestamptz | UTC |
 | `created_at` | timestamptz | UTC |
 | `resumed_at` | timestamptz nullable | set when resumed |

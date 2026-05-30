@@ -1,5 +1,7 @@
 // 对外统一从单一入口导出契约类型，避免调用方绕过版本化 contract 层直接散读内部文件。
 export * from './types.ts'
+export * from './types/projection.ts'
+export * from './types/approval.ts'
 export * from './literals.ts'
 export * from './schemas/identity.ts'
 export * from './schemas/policy.ts'

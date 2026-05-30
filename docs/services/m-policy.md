@@ -23,6 +23,8 @@ v0 owns:
 - Audit Log integration for permission changes and denials
 - internal loopback HTTP + Eden authorization API for Core
 - `policy.decision.created.v0` publication through M-EventBus
+- Phase 12 approval queue state, votes, quorum evaluation, expiration, and lifecycle events
+- external approval REST API for operators and internal approval creation API for M-Task
 
 Later phases add:
 
@@ -61,6 +63,8 @@ type MPolicyDecisionResult =
 - High-risk decision process must be written to Audit Log.
 - If RBAC fails, protected operations fail closed.
 - If risk algorithm fails, fallback is RBAC + operation danger level + conservative policy.
+- Approval routes must enforce `policy:approval-read`, `policy:approval-approve`, `policy:approval-reject`, or `policy:approval-manage` before returning or mutating approval state.
+- Approved/rejected/expired approval transitions must publish `policy.approval.*.v0` and write Audit + Timeline facts.
 
 ---
 
@@ -71,9 +75,12 @@ type MPolicyDecisionResult =
 - CLI command can call policy check.
 - Permission denial writes Full Log and Audit Log where required.
 - Policy tests cover allow, deny, missing role, missing resource, and failure-closed behavior.
+- Approval tests cover list/detail/create, approve/reject, self-vote denial, duplicate vote denial, expiration, event publication, and M-Task resume/reject callbacks.
 
 Current MVP boundary:
 
 - listens on `http://127.0.0.1:3101`
 - requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
 - exposes `/health`, `/ready`, `/internal/v0/authorize`, `/internal/v0/decisions/:id`
+- exposes external `/api/v0/policy/approvals`, `/api/v0/policy/approvals/:id`, `/api/v0/policy/approvals/:id/approve`, and `/api/v0/policy/approvals/:id/reject`
+- exposes internal `/internal/v0/policy/approvals` for M-Task-owned suspended operations to create M-Policy-owned approval records
