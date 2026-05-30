@@ -1,10 +1,12 @@
 import { err, ok } from '../../../packages/common/src/result.ts'
 import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { internalServicePorts, serveHttpApp } from '../../../packages/internal-http/src/index.ts'
+import { internalRequestHeaders, internalServicePorts, serveHttpApp, serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
-import { createInMemoryMTaskDeps, createMTaskApp } from './app.ts'
+import { createMTaskApp } from './app.ts'
 import { createDbMTaskStorage } from './storage-adapter.ts'
+import { createDbSuspendedOperationStore } from './suspended-operations.ts'
+import { createInMemoryMTaskDeps } from './testing.ts'
 
 initTelemetry('m-task')
 
@@ -15,6 +17,19 @@ const deps = createInMemoryMTaskDeps({ actor: 'operator' })
 const app = createMTaskApp({
   ...deps,
   storage: createDbMTaskStorage(db),
+  suspendedOps: createDbSuspendedOperationStore(db),
+  approvals: {
+    async create(input) {
+      const response = await fetch(`${serviceUrl('m-policy')}/internal/v0/policy/approvals`, {
+        method: 'POST',
+        headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
+        body: JSON.stringify(input)
+      })
+      if (!response.ok) return err({ code: 'approval.create_failed', message: 'failed to create policy approval' })
+      const body = await response.json() as { approval: { id: string } }
+      return ok({ approvalId: body.approval.id })
+    }
+  },
   auth: {
     async verify(token: string) {
       const secret = process.env.MERISTEM_JWT_SECRET

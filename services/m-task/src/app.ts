@@ -1,13 +1,12 @@
 import { Elysia, t } from 'elysia'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
-import { err, ok, type Result } from '../../../packages/common/src/result.ts'
-import { actorIds, permissions, type ActorId, type ApprovalOriginAction, type AuditLog, type FullLog, type MTask, type MTaskPolicyDecision, type OperationDangerLevel, type Permission, type PolicyResult, type RiskFactor, type SubmitTaskRequest, type TaskPolicyResult, type TaskRiskSummary, type TaskSuspendedOperation, type TimelineLog } from '../../../packages/contracts/src/index.ts'
+import { ok, type Result } from '../../../packages/common/src/result.ts'
+import type { ActorId, ApprovalOriginAction, AuditLog, FullLog, MTask, MTaskPolicyDecision, OperationDangerLevel, Permission, RiskFactor, SubmitTaskRequest, TaskPolicyResult, TaskRiskSummary, TaskSuspendedOperation, TimelineLog } from '../../../packages/contracts/src/index.ts'
 import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
-import { decidePermission, rolePermissions } from '../../../packages/policy/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
+import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 
 type ServiceError = { code: string; message: string }
-type DeliveryMode = 'complete' | 'queued'
 type BlockingTaskPolicyDecision = MTaskPolicyDecision & { result: Exclude<TaskPolicyResult, 'allow'> }
 export type MTaskCreateInput = SubmitTaskRequest & {
   actor: ActorId
@@ -35,6 +34,9 @@ export type MTaskDeps = {
   }
   events: {
     publish(subject: string, event: MEventEnvelope): Promise<Result<{ eventId: string }, ServiceError>>
+  }
+  approvals?: {
+    create(input: { policyDecisionId: string; originService: 'm-task'; operationId: string; requestedBy: ActorId; requiredAction: 'manual_review' | 'multi_approval'; quorumRequired: number; expiresAt: string }): Promise<Result<{ approvalId: string }, ServiceError>>
   }
   delivery: MTaskDeliveryPort
   storage: {
@@ -138,12 +140,6 @@ function riskFor(input: { action: Permission; type: 'noop' }): TaskRiskSummary {
   return { operationDangerLevel, suspicionScore: baseScore[operationDangerLevel], riskFactors }
 }
 
-function requiredActionFor(result: TaskPolicyResult): MTaskPolicyDecision['requiredAction'] | undefined {
-  if (result === 'require_manual_review') return 'manual_review'
-  if (result === 'require_multi_approval') return 'multi_approval'
-  return undefined
-}
-
 async function decideOrThrow(deps: MTaskDeps, input: { actor: ActorId; action: Permission; resource: string; risk: TaskRiskSummary; correlationId: string }): Promise<MTaskPolicyDecision> {
   const decision = await deps.policy.decide(input)
   if (!decision.ok) throw Object.assign(new Error(decision.error.message), { status: 503, code: decision.error.code, correlationId: input.correlationId })
@@ -175,7 +171,7 @@ async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: P
   // M-Task 创建挂起操作记录，等待审批通过后 resume。
   if (blockingDecision.result !== 'deny' && deps.suspendedOps) {
     const idempotencyKey = crypto.randomUUID()
-    await deps.suspendedOps.create({
+    const suspendedOp = await deps.suspendedOps.create({
       policyDecisionId: blockingDecision.decisionId,
       action: input.action.replace(':', '.') as ApprovalOriginAction,
       requestedBy: input.actor,
@@ -185,6 +181,18 @@ async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: P
       idempotencyKey,
       expiresAt: new Date(Date.now() + 3600_000).toISOString()
     })
+    if (deps.approvals && blockingDecision.requiredAction) {
+      const approval = await deps.approvals.create({
+        policyDecisionId: blockingDecision.decisionId,
+        originService: 'm-task',
+        operationId: suspendedOp.id,
+        requestedBy: input.actor,
+        requiredAction: blockingDecision.requiredAction,
+        quorumRequired: blockingDecision.requiredAction === 'multi_approval' ? 2 : 1,
+        expiresAt: suspendedOp.expiresAt
+      })
+      if (!approval.ok) throw Object.assign(new Error(approval.error.message), { status: 503, code: approval.error.code, correlationId: input.correlationId })
+    }
     await deps.events.publish('task.operation.suspended.v0', createEventEnvelope({
       type: 'task.operation.suspended',
       source: 'm-task',
@@ -329,6 +337,8 @@ export function createMTaskApp(deps: MTaskDeps) {
     .post(
       '/internal/v0/task-operations/:id/resume',
       async ({ params, headers, status }) => {
+        const internalAuth = validateInternalRequest(headers)
+        if (!internalAuth.ok) return status(401, { error: internalAuth.error })
         const auth = correlationIdFromHeaders(headers)
         if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_for_phase', message: 'suspended operations not supported' } })
         const suspendedOp = await deps.suspendedOps.get(params.id)
@@ -350,22 +360,20 @@ export function createMTaskApp(deps: MTaskDeps) {
 
         try {
           if (suspendedOp.action === 'task.submit') {
-            // task.submit 的恢复不经过完整 submit 路径，直接检查任务存在性后继续
-            resultTask = await deps.storage.get(resourceId)
-            if (!resultTask) {
-              await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'target_task_not_found')
-              await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
-                type: 'task.operation.resume.failure',
-                source: 'm-task',
-                correlationId: suspendedOp.correlationId,
-                payload: { opId: suspendedOp.id, reason: 'target_task_not_found' }
-              }))
-              return status(409, { error: { code: 'task.resume_stale', message: 'target task not found', correlationId: suspendedOp.correlationId } })
-            }
+            // task.submit 被策略阻塞时任务尚未创建，审批通过后在此创建任务
+            const payload = suspendedOp.sanitizedPayload as { action: string; resource: string; risk: TaskRiskSummary }
+            resultTask = await deps.storage.create({
+              nodeId: resourceId,
+              type: 'noop',
+              actor: suspendedOp.requestedBy,
+              correlationId: suspendedOp.correlationId,
+              policyDecisionId: suspendedOp.policyDecisionId,
+              risk: payload.risk
+            })
           } else if (suspendedOp.action === 'task.cancel' || suspendedOp.action === 'task.retry') {
             resultTask = await deps.storage.get(resourceId)
             if (!resultTask) {
-              await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'target_task_not_found')
+              await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', 'target_task_not_found')
               await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
                 type: 'task.operation.resume.failure',
                 source: 'm-task',
@@ -377,7 +385,7 @@ export function createMTaskApp(deps: MTaskDeps) {
             if (suspendedOp.action === 'task.cancel') {
               const terminalStatuses: MTask['status'][] = ['completed', 'failed', 'canceled', 'timed_out']
               if (terminalStatuses.includes(resultTask.status)) {
-                await deps.suspendedOps.transition(suspendedOp.id, 'expired', 'task_in_terminal_state')
+                await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', 'task_in_terminal_state')
                 await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
                   type: 'task.operation.resume.failure',
                   source: 'm-task',
@@ -407,7 +415,7 @@ export function createMTaskApp(deps: MTaskDeps) {
           return { resumed: true, suspendedOpId: suspendedOp.id, task: resultTask }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'resume failed'
-          await deps.suspendedOps.transition(suspendedOp.id, 'expired', `resume_error: ${message}`)
+          await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', `resume_error: ${message}`)
           await deps.log.writeFull({ level: 'error', source: 'm-task', message: `resume failed: ${message}`, correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id, error: message } })
           await deps.events.publish('task.operation.resume.failure.v0', createEventEnvelope({
             type: 'task.operation.resume.failure',
@@ -428,130 +436,39 @@ export function createMTaskApp(deps: MTaskDeps) {
           501: apiErrorSchema
         }
       })
+    .post(
+      '/internal/v0/task-operations/:id/reject',
+      async ({ params, headers, status }) => {
+        const internalAuth = validateInternalRequest(headers)
+        if (!internalAuth.ok) return status(401, { error: internalAuth.error })
+        const correlationId = correlationIdFromHeaders(headers)
+        if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_for_phase', message: 'suspended operations not supported' } })
+        const suspendedOp = await deps.suspendedOps.get(params.id)
+        if (!suspendedOp) return status(404, { error: { code: 'task.suspended_op_not_found', message: 'suspended operation not found', correlationId } })
+        if (suspendedOp.status !== 'suspended') return status(409, { error: { code: 'task.reject_conflict', message: `operation is ${suspendedOp.status}`, correlationId: suspendedOp.correlationId } })
+        await deps.suspendedOps.transition(suspendedOp.id, 'rejected', 'approval_rejected')
+        await deps.log.writeAudit({ actor: 'system', action: 'task.operation.reject', resource: suspendedOp.resource, decisionId: suspendedOp.policyDecisionId, result: 'rejected', correlationId: suspendedOp.correlationId })
+        await deps.log.writeTimeline({ summary: `operation rejected: ${suspendedOp.action} on ${suspendedOp.resource}`, subject: 'task.operation.rejected', correlationId: suspendedOp.correlationId })
+        await deps.events.publish('task.operation.rejected.v0', createEventEnvelope({
+          type: 'task.operation.rejected',
+          source: 'm-task',
+          correlationId: suspendedOp.correlationId,
+          payload: { opId: suspendedOp.id, action: suspendedOp.action, resource: suspendedOp.resource }
+        }))
+        return { rejected: true, suspendedOpId: suspendedOp.id }
+      },
+      {
+        params: t.Object({ id: t.String({ minLength: 1 }) }),
+        response: {
+          200: t.Object({ rejected: t.Boolean(), suspendedOpId: t.String() }),
+          401: apiErrorSchema,
+          404: apiErrorSchema,
+          409: apiErrorSchema,
+          501: apiErrorSchema
+        }
+      }
+    )
 }
 
 export type MTaskApp = ReturnType<typeof createMTaskApp>
-
-export type InMemoryMTaskOptions = {
-  actor?: ActorId
-  deliveryMode?: DeliveryMode
-  forcePolicyResult?: Exclude<PolicyResult, 'allow'>
-}
-
-export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTaskDeps & {
-  __testing: {
-    publishedSubjects(): string[]
-    auditActions(): string[]
-    timelineSummaries(): string[]
-    fullMessages(): string[]
-  }
-} {
-  const actor = options.actor ?? 'operator'
-  const tasks: MTask[] = [
-    {
-      id: 'task-existing',
-      nodeId: 'node-leaf-1',
-      leafNodeId: 'node-leaf-1',
-      type: 'noop',
-      status: 'failed',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ]
-  const published: Array<{ subject: string; event: MEventEnvelope }> = []
-  const timeline: TimelineLog[] = []
-  const full: FullLog[] = []
-  const audit: AuditLog[] = []
-
-  return {
-    auth: {
-      async verify() {
-        return ok({ actor })
-      }
-    },
-    policy: {
-      async decide(input) {
-        const draft = decidePermission({ actor: input.actor, action: input.action, resource: input.resource, permissions: rolePermissions[input.actor] as readonly Permission[] })
-        const forced = options.forcePolicyResult
-        const result = forced ?? draft.result
-        return ok({
-          decisionId: crypto.randomUUID(),
-          result,
-          requiredAction: requiredActionFor(result),
-          reasons: forced ? [`forced:${forced}`] : draft.reasons
-        })
-      }
-    },
-    log: {
-      async writeTimeline(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        timeline.push(entry)
-        return ok(entry)
-      },
-      async writeFull(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        full.push(entry)
-        return ok(entry)
-      },
-      async writeAudit(input) {
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
-        audit.push(entry)
-        return ok(entry)
-      }
-    },
-    events: {
-      async publish(subject, event) {
-        published.push({ subject, event })
-        return ok({ eventId: event.id })
-      }
-    },
-    delivery: {
-      async submitDelivery() {
-        return options.deliveryMode === 'queued'
-          ? ok({ queued: true as const })
-          : ok({ completedAt: new Date().toISOString() })
-      },
-      async cancelDelivery() {
-        return ok('cancelAccepted')
-      }
-    },
-    storage: {
-      async create(input) {
-        const now = new Date().toISOString()
-        const task: MTask = {
-          id: crypto.randomUUID(),
-          nodeId: input.nodeId,
-          leafNodeId: input.nodeId,
-          type: input.type,
-          status: 'accepted',
-          createdAt: now,
-          updatedAt: now,
-          ...(input.timeoutAt ? { timeoutAt: input.timeoutAt } : {})
-        }
-        tasks.push(task)
-        return task
-      },
-      async list() {
-        return [...tasks]
-      },
-      async get(id) {
-        return tasks.find((task) => task.id === id) ?? null
-      },
-      async transition(id, status, patch = {}) {
-        const task = tasks.find((candidate) => candidate.id === id)
-        if (!task) return null
-        task.status = status
-        task.updatedAt = new Date().toISOString()
-        if (patch.completedAt) task.completedAt = patch.completedAt
-        if (patch.canceledAt) task.canceledAt = patch.canceledAt
-        return task
-      }
-    },
-    __testing: {
-      publishedSubjects: () => published.map((entry) => entry.subject),
-      auditActions: () => audit.map((entry) => entry.action),
-      timelineSummaries: () => timeline.map((entry) => entry.summary),
-      fullMessages: () => full.map((entry) => entry.message)
-    }
-  }
-}
+export { createInMemoryMTaskDeps } from './testing.ts'
