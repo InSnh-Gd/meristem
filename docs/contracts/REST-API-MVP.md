@@ -252,6 +252,92 @@ Rules:
 
 ---
 
+## 3.5 Phase 13 Network Profile Routes (M-Net External)
+
+Phase 13 network profile routes are owned by M-Net, not Core. These routes use Bearer authentication and are mounted on the M-Net service.
+
+### `GET /api/v0/network-profiles`
+
+Protected by `network:profile-read`.
+
+Returns available Regional Network Profile definitions.
+
+```ts
+type NetworkProfileDefinition = {
+  profileVersion: string;
+  region: string;
+  displayName: string;
+  schemaVersion: string;
+  status: "available";
+  rules: Record<string, unknown>;
+  capabilities: {
+    realDerpRelay: boolean;
+    realTcpInterconnect: boolean;
+    realUdpPathSwitching: boolean;
+    controlPlaneOnly: boolean;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+type NetworkProfileListResponse = {
+  profiles: NetworkProfileDefinition[];
+};
+```
+
+### `GET /api/v0/network-profiles/:profileVersion`
+
+Protected by `network:profile-read`.
+
+Returns one profile definition or `404`.
+
+```ts
+type NetworkProfileDetailResponse = NetworkProfileDefinition;
+```
+
+### `POST /api/v0/networks/:id/profile`
+
+Set the Regional Network Profile for one logical network.
+
+```ts
+type SetNetworkProfileRequest = {
+  profileVersion: "m-net-default@0.1.0" | "m-net-cn@0.1.0";
+  reason: string;
+};
+```
+
+Permissions:
+
+- Setting `m-net-cn@0.1.0` requires `network:profile-enable`.
+- Setting `m-net-default@0.1.0` (disabling CN) requires `network:profile-disable`.
+
+Rules:
+
+- M-Net verifies external JWT bearer auth at its own boundary.
+- M-Net calls M-Policy for profile enable / disable authorization.
+- M-Net calls M-Log for Timeline / Full / Audit facts.
+- M-Net calls M-EventBus for profile lifecycle events.
+- enabling M-Net CN requires Phase 12 approval: M-Policy returns `require_manual_review`, M-Net creates a suspended operation, and the request returns `202` with `approvalId` and `operationId`.
+- disabling M-Net CN is immediate with M-Policy allow + Audit, no approval required.
+- disable is allowed as a recovery path from `failed` state.
+- M-Net exposes OpenAPI for these external routes.
+- Core may aggregate readiness but must not own or facade profile routes.
+
+```ts
+type SetNetworkProfileResponse = {
+  networkId: string;
+  fromProfileVersion: string;
+  toProfileVersion: string;
+  status: "enabled" | "disabled" | "pending_approval";
+  approvalId?: string;
+  operationId?: string;
+  policyDecisionId: string;
+  correlationId: string;
+};
+```
+
+---
+
 ## 4. Nodes
 
 ### `POST /api/v0/node-tickets`

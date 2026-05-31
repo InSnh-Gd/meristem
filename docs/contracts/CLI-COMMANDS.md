@@ -121,6 +121,49 @@ Permission: `network:read`.
 
 Lists network members with node kind, membership mode, and joined time.
 
+### `meristem network profile list`
+
+Permission: `network:profile-read`.
+
+Lists available Regional Network Profile definitions.
+
+Rules:
+
+- uses `MERISTEM_MNET_URL` when set.
+- routes through M-Net, not Core.
+
+### `meristem network profile show <profile-version>`
+
+Permission: `network:profile-read`.
+
+Shows one Regional Network Profile definition with its rules and capabilities.
+
+### `meristem network profile enable --network <network-id> --profile m-net-cn@0.1.0 --reason <text>`
+
+Permission: `network:profile-enable`.
+
+Requests enabling M-Net CN on one logical network.
+
+Rules:
+
+- uses `MERISTEM_MNET_URL` when set.
+- enable requires Phase 12 approval; the command returns a pending approval with `approvalId` and `operationId`.
+- the security-admin must approve through `meristem policy approvals approve` before the profile is applied.
+- non-zero exit on missing permission, invalid network, or unsupported profile version.
+
+### `meristem network profile disable --network <network-id> --reason <text>`
+
+Permission: `network:profile-disable`.
+
+Disables M-Net CN on one network and rolls back to `m-net-default@0.1.0`.
+
+Rules:
+
+- uses `MERISTEM_MNET_URL` when set.
+- disable is immediate with M-Policy allow + Audit; no approval is required.
+- disable is allowed from `failed` state as a recovery path.
+- non-zero exit on missing permission, network not found, or profile not enabled (`409 profile.not_enabled`).
+
 ### `meristem task submit --node <node-id> --type noop`
 
 Permission: `task:submit`.
