@@ -77,6 +77,9 @@ MVP uses a narrower permission set than the long-term baseline:
 | `policy:approval-approve` | no | no | no | yes |
 | `policy:approval-reject` | no | no | no | yes |
 | `policy:approval-manage` | no | no | no | yes |
+| `network:profile-read` | no | yes | yes | yes |
+| `network:profile-enable` | no | no | yes | yes |
+| `network:profile-disable` | no | no | yes | yes |
 
 MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
 
@@ -174,6 +177,9 @@ MVP protected operations:
 | revoke actor token | security-admin | required before status change |
 | create / rotate / disable secretRef | security-admin | required before mutation |
 | publish / rollback high-risk config | admin | required before mutation |
+| list / view network profile definitions | operator | none |
+| enable M-Net CN on a network | admin / security-admin | required (suspended operation + approval) |
+| disable M-Net CN on a network | admin / security-admin | required before execution |
 
 ### 2.4 Phase 12 Approval Security
 
@@ -191,6 +197,25 @@ Phase 12 approval flow security rules:
 - list and detail reads do not write Audit Log.
 - M-Policy must not execute M-Task operations or hold M-Task business payloads.
 - M-Task must not decide approval quorum or mutate approval status directly.
+
+### 2.5 Phase 13 Network Profile Security
+
+Phase 13 network profile lifecycle security rules:
+
+- `network:profile-read` allows operator, admin, and security-admin to list and view Regional Network Profile definitions.
+- `network:profile-enable` allows admin and security-admin to request M-Net CN enable on one network.
+- `network:profile-disable` allows admin and security-admin to disable M-Net CN and roll back to default.
+- M-Net CN enable requires Phase 12 approval: the request creates a suspended operation and an approval record; the profile is applied only after security-admin approval and M-Net resume.
+- M-Net CN disable is an immediate risk-reduction path guarded by M-Policy allow + Audit Log; it does not require an approval flow.
+- disable is allowed from `failed` state as a recovery path.
+- M-Policy owns approval records and quorum; M-Net owns suspended operations, profile state, transitions, and per-network applied profile.
+- enabling M-Net CN is per network, not global.
+- profile transitions write Audit Log for every state change.
+- M-Net must not execute real DERP, TCP, UDP, Headscale, or path-selection data-plane behavior.
+- profile events are emitted after PostgreSQL state changes and must not be treated as the source of truth.
+- Audit must distinguish approval authorization from profile application: an approved M-Policy approval does not imply M-Net successfully applied the profile.
+- missing or revoked `network:profile-enable` or `network:profile-disable` returns `403`.
+- M-Net CN disabled network must not appear as M-Net CN active in any read path.
 
 ---
 
