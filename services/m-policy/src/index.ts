@@ -283,18 +283,34 @@ const approvalDeps: ApprovalDeps = {
     return decision.result === 'allow'
   },
   async onApproved(approval) {
-    const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/resume`, {
-      method: 'POST',
-      headers: internalRequestHeaders()
-    })
-    if (!response.ok) throw new Error('m-task resume failed')
+    if (approval.originService === 'm-net') {
+      const response = await fetch(`${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/resume`, {
+        method: 'POST',
+        headers: internalRequestHeaders()
+      })
+      if (!response.ok) throw new Error('m-net resume failed')
+    } else {
+      const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/resume`, {
+        method: 'POST',
+        headers: internalRequestHeaders()
+      })
+      if (!response.ok) throw new Error('m-task resume failed')
+    }
   },
   async onRejected(approval) {
-    const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/reject`, {
-      method: 'POST',
-      headers: internalRequestHeaders()
-    })
-    if (!response.ok) throw new Error('m-task reject failed')
+    if (approval.originService === 'm-net') {
+      const response = await fetch(`${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/reject`, {
+        method: 'POST',
+        headers: internalRequestHeaders()
+      })
+      if (!response.ok) throw new Error('m-net reject failed')
+    } else {
+      const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/reject`, {
+        method: 'POST',
+        headers: internalRequestHeaders()
+      })
+      if (!response.ok) throw new Error('m-task reject failed')
+    }
   }
 }
 

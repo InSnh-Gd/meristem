@@ -4,9 +4,9 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | '
 
 export type ApprovalVote = 'approve' | 'reject'
 
-export type ApprovalOriginService = 'm-task'
+export type ApprovalOriginService = 'm-task' | 'm-net'
 
-export type ApprovalOriginAction = 'task.submit' | 'task.cancel' | 'task.retry'
+export type ApprovalOriginAction = 'task.submit' | 'task.cancel' | 'task.retry' | 'mnet.profile.enable'
 
 export type PolicyApproval = {
   id: string

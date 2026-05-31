@@ -16,10 +16,10 @@ export type ApprovalStatusFromSchema = typeof ApprovalStatusSchema.Type
 export const ApprovalVoteTypeSchema = Schema.Literal('approve', 'reject')
 export type ApprovalVoteTypeFromSchema = typeof ApprovalVoteTypeSchema.Type
 
-export const ApprovalOriginServiceSchema = Schema.Literal('m-task')
+export const ApprovalOriginServiceSchema = Schema.Literal('m-task', 'm-net')
 export type ApprovalOriginServiceFromSchema = typeof ApprovalOriginServiceSchema.Type
 
-export const ApprovalOriginActionSchema = Schema.Literal('task.submit', 'task.cancel', 'task.retry')
+export const ApprovalOriginActionSchema = Schema.Literal('task.submit', 'task.cancel', 'task.retry', 'mnet.profile.enable')
 export type ApprovalOriginActionFromSchema = typeof ApprovalOriginActionSchema.Type
 
 export const RequiredActionSchema = Schema.Literal('manual_review', 'multi_approval')

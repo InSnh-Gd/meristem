@@ -202,7 +202,7 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       {
         body: t.Object({
           policyDecisionId: t.String(),
-          originService: t.Literal('m-task'),
+          originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
           operationId: t.String(),
           requestedBy: t.UnionEnum(actorIds),
           requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
@@ -384,7 +384,7 @@ export function createInternalApprovalRoutes(deps: ApprovalDeps) {
       {
         body: t.Object({
           policyDecisionId: t.String(),
-          originService: t.Literal('m-task'),
+          originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
           operationId: t.String(),
           requestedBy: t.UnionEnum(actorIds),
           requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
