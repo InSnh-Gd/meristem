@@ -37,6 +37,12 @@ export const approvalPermissions = [
   'policy:approval-manage'
 ] as const
 
-export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions] as const
+export const networkProfilePermissions = [
+  'network:profile-read',
+  'network:profile-enable',
+  'network:profile-disable'
+] as const
+
+export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions] as const
 
 export type Permission = typeof permissions[number]
