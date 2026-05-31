@@ -13,7 +13,7 @@
 
 ## 2. Responsibility
 
-M-Net owns node interconnection, path selection, network policy, DERP / UDP / TCP strategy, node reachability, Leaf Node interconnect range, and regional network profiles.
+M-Net owns node interconnection, path selection, network policy, DERP / UDP / TCP strategy, node reachability, Leaf Node interconnect range, and Regional Network Profile control-plane lifecycle.
 
 M-Net owns actual networking behavior. M-EventBus carries network events, status synchronization, and strategy notifications.
 
@@ -29,6 +29,7 @@ Current implemented scope:
 - node-agent heartbeat, log forward, and task result frames over the M-Net session protocol
 - node reachability and runtime status updates
 - offline transition on heartbeat timeout
+- Phase 13 Regional Network Profile control-plane lifecycle (see §4)
 
 Still not implemented:
 
@@ -36,7 +37,7 @@ Still not implemented:
 - Headscale control plane
 - active reachability probing beyond control-plane heartbeat
 - path selection
-- regional profile rollout
+- regional profile data-plane rollout
 
 Public exposure rule:
 
@@ -56,17 +57,36 @@ Public exposure rule:
 
 ---
 
-## 4. M-Net CN
+## 4. M-Net Regional Profile (Phase 13)
 
-M-Net CN is the first Regional Network Profile and belongs to the M-Extension boundary.
+M-Net owns the Regional Network Profile control-plane lifecycle:
+
+- profile definition registration (`m-net-default@0.1.0`, `m-net-cn@0.1.0`).
+- per-network applied profile state, transitions, and suspended enable operations.
+- external network-profile REST API and OpenAPI (not Core-facaded).
+- profile lifecycle events published through M-EventBus.
+
+### M-Net CN
+
+M-Net CN is the first Regional Network Profile. Phase 13 implements the control-plane lifecycle only; data-plane behavior is deferred.
+
+Profile definition `m-net-cn@0.1.0`:
+
+- region: `cn`.
+- `controlPlaneOnly: true`. Contains no real endpoints, secrets, relay assignments, routes, or probes.
+- enabling M-Net CN is per network, not global.
+- enabling requires Phase 12 approval and M-Net resume.
+- disabling is immediate with M-Policy allow + Audit (risk-reduction path, no approval flow).
+- disable is allowed from `failed` state as a recovery path.
 
 Rules:
 
-- Asian Stem Nodes may act as DERP servers.
-- Mainland nodes without public network access must use TCP interconnect.
-- Asian Stem Nodes also connect to Core Node over TCP.
-- Enabling M-Net CN must be controlled by M-Policy.
-- M-Net CN changes must write M-Log and Audit Log where risk requires it.
+- Asian Stem Nodes may act as DERP servers (placeholder only in Phase 13).
+- Mainland nodes without public network access must use TCP interconnect (placeholder only).
+- Asian Stem Nodes also connect to Core Node over TCP (placeholder only).
+- Public DERP fallback must be configurable and disableable.
+- M-Net CN changes write M-Log and Audit Log where risk requires it.
+- Enabling M-Net CN does not start DERP relays, TCP tunnels, UDP path switching, or active probing.
 
 ---
 
@@ -89,6 +109,15 @@ Current Core-driven logical-network events:
 - `mnet.network.created.v0`
 - `mnet.membership.joined.v0`
 - `node.join-ticket.created.v0`
+
+Currently published Phase 13 profile lifecycle events:
+
+- `mnet.profile.enable.requested.v0`
+- `mnet.profile.enabled.v0`
+- `mnet.profile.disable.requested.v0`
+- `mnet.profile.disabled.v0`
+- `mnet.profile.apply_failed.v0`
+- `mnet.profile.enable.canceled.v0`
 
 Current MVP runtime boundary:
 
@@ -123,3 +152,14 @@ Phase 6 logical-network done criteria:
 - operators can join healthy nodes to networks
 - leaf joins stay restricted and require a stem member
 - logical network create/join writes Audit and Timeline entries
+
+Phase 13 profile lifecycle done criteria:
+
+- M-Net owns profile definitions, per-network profile state, transitions, and suspended profile-enable operations.
+- `m-net-cn@0.1.0` is defined as control-plane-only and contains no real endpoint, secret, route, or probe data.
+- M-Net exposes the external profile REST API and OpenAPI.
+- M-CLI supports network profile list / show / enable / disable through the service URL resolver.
+- M-Net CN enable requires Phase 12 approval and resumes through M-Net.
+- M-Net CN disable executes immediately with M-Policy allow + Audit.
+- Events, Audit, Timeline, and Full Log behavior match `docs/roadmap/PHASE-13.md`.
+- Contract, failure-mode, integration, CLI, and e2e gates pass or document infrastructure skip conditions.

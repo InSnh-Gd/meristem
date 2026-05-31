@@ -134,6 +134,7 @@ MVP-specific contract tests:
 - Phase 17 Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
 - Phase 18 SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
 - Phase 19 Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
+- Phase 13 M-Net profile contract tests prove profile Effect Schema decode / encode, external REST route schemas and OpenAPI output, CLI network profile command contract, and profile event subject and payload schemas match the docs.
 
 ---
 
@@ -182,6 +183,14 @@ MVP failure-mode tests:
 - config publish / rollback fail closed when M-Policy or Audit is unavailable for protected domains.
 - config payloads containing plaintext secret fields are rejected.
 - Effect workflow tests cover typed failure mapping for task submitment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
+- Audit unavailable blocks profile disable and enable request.
+- M-Policy unavailable fails profile operations closed.
+- approval creation failure leaves network profile unchanged.
+- resume stale current profile fails without applying CN.
+- duplicate resume is rejected by idempotency.
+- event publish failure writes Full Log and does not create false state.
+- operator can read profiles but cannot enable / disable.
+- disable in default state returns `409 profile.not_enabled`.
 
 ---
 

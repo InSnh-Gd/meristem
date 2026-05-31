@@ -1,5 +1,7 @@
 # Phase 13 - M-Net CN Regional Profile Control Plane
 
+> **Status: Complete** — ADR-024 accepted. M-Net owns profile definitions, per-network state, transitions, and suspended operations. External REST API, CLI, events, Audit, and Timeline behavior match this spec.
+
 > Goal: implement M-Net CN as the first auditable Regional Network Profile control plane without implementing real DERP, TCP, UDP, Headscale, or path-selection data-plane behavior.
 
 ---
