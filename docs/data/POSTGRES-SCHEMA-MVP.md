@@ -21,7 +21,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | Owner | Tables |
 |-------|--------|
 | Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` historical compatibility table |
-| M-Net | `networks`, `network_memberships` |
+| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
@@ -220,6 +220,74 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `joined_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
 
+### Phase 13 M-Net Profile Tables
+
+#### `mnet_profile_definitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | profile definition ID |
+| `profile_version` | text | e.g. `m-net-default@0.1.0`, `m-net-cn@0.1.0` |
+| `region` | text | regional scope |
+| `schema_version` | text | profile schema version |
+| `definition` | jsonb | full profile definition with rules and capabilities |
+| `status` | text | `available` |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `mnet_network_profile_states`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text | references `networks.id` |
+| `profile_version` | text | applied profile version |
+| `status` | text | `disabled`, `enabling`, `enabled`, `disabling`, `failed` |
+| `enabled_by` | text | actor ID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `applied_at` | timestamptz nullable | when profile was applied |
+| `disabled_at` | timestamptz nullable | when profile was disabled |
+| `last_error` | text nullable | last error message |
+| `updated_at` | timestamptz | UTC |
+
+#### `mnet_profile_transitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition row ID |
+| `network_id` | text | references `networks.id` |
+| `from_profile_version` | text nullable | previous profile version |
+| `to_profile_version` | text | target profile version |
+| `from_status` | text nullable | previous state |
+| `to_status` | text | target state |
+| `actor` | text | actor ID |
+| `reason` | text nullable | transition cause |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `created_at` | timestamptz | UTC |
+
+#### `mnet_suspended_operations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | suspended operation UUID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `action` | text | `profile.enable` |
+| `network_id` | text | references `networks.id` |
+| `from_profile_version` | text | current profile version |
+| `to_profile_version` | text | requested profile version |
+| `requested_by` | text | actor ID |
+| `reason` | text | operator reason |
+| `correlation_id` | text | request correlation |
+| `idempotency_key` | text | prevents duplicate resume |
+| `status` | text | `suspended`, `resumed`, `resume_failed`, `expired` |
+| `expires_at` | timestamptz | UTC |
+| `created_at` | timestamptz | UTC |
+| `resumed_at` | timestamptz nullable | set when resumed |
+| `terminal_reason` | text nullable | expiration or error reason |
+
+`networks.profile_version` remains the operator-visible current profile for a network. The M-Net profile state table records lifecycle metadata around that profile assignment.
+
 ### `policy_decisions`
 
 | Column | Type | Notes |
@@ -344,6 +412,9 @@ node:issue-token
 network:read
 network:create
 network:join
+network:profile-read
+network:profile-enable
+network:profile-disable
 task:submit
 timeline:read
 log:read-full
