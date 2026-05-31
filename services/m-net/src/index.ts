@@ -30,9 +30,12 @@ import type {
   SessionResumeMessage,
   SessionTaskResultMessage
 } from '../../../packages/contracts/src/index.ts'
+import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import type { EventBusApp } from '../../m-eventbus/src/app.ts'
 import type { LogApp } from '../../m-log/src/app.ts'
 import { createMNetApp, type MNetServiceError, type MNetServiceResult } from './app.ts'
+import { createInMemoryProfileStore } from './profile-store.ts'
+import { createInMemorySuspendedOperationStore } from './suspended-operations.ts'
 import {
   authorizeSessionMessage,
   deriveHeartbeatTransition,
@@ -64,6 +67,38 @@ const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
 const logService = edenTreaty<LogApp>(serviceUrl('m-log'), {
   fetcher: createInternalFetcher()
 })
+
+// Phase 13: 内存存储实例，待 Phase 14 替换为 PostgreSQL adapter
+const profileStore = createInMemoryProfileStore()
+const suspendedOps = createInMemorySuspendedOperationStore()
+
+/**
+ * Phase 13 审批回调客户端：调用 M-Policy 内部端点创建审批。
+ * 降级模式返回成功（内存模式），生产环境通过 internal HTTP 调用 M-Policy。
+ */
+const approvalClient = {
+  async create(input: {
+    policyDecisionId: string; originService: string; operationId: string;
+    requestedBy: string; requiredAction: string; quorumRequired: number; expiresAt: string
+  }): Promise<{ ok: true; value: { approvalId: string } } | { ok: false; error: { code: string; message: string } }> {
+    try {
+      const response = await createInternalFetcher()(`${serviceUrl('m-policy')}/internal/v0/policy/approvals`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input)
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string } }
+        return { ok: false, error: { code: body.error?.code ?? 'approval.create_failed', message: body.error?.message ?? 'failed to create approval' } }
+      }
+      const data = await response.json() as { approval: { id: string } }
+      return { ok: true, value: { approvalId: data.approval.id } }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      return { ok: false, error: { code: 'approval.create_failed', message } }
+    }
+  }
+}
 
 const activeSessions = new Map<string, ServerWebSocket<JoinSessionData>>()
 const activeSessionIds = new Map<string, string>()
@@ -298,6 +333,51 @@ async function writeAudit(resource: string, action: string, correlationId?: stri
   if (response.error || !response.data) throw new Error('failed to write audit entry')
 }
 
+const profileEvents = {
+  async publish(subject: string, type: string, payload: unknown, correlationId?: string): Promise<void> {
+    const event = createEventEnvelope({
+      type,
+      source: 'm-net',
+      payload,
+      ...(correlationId ? { correlationId } : {})
+    })
+    const response = await eventBus.internal.v0.publish.post({ subject, event })
+    if (response.error || !response.data) throw new Error(`failed to publish ${subject}`)
+  }
+}
+
+const profileLog = {
+  async writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void> {
+    const response = await logService.internal.v0.timeline.post({
+      summary,
+      ...(subject ? { subject } : {}),
+      ...(correlationId ? { correlationId } : {})
+    })
+    if (response.error || !response.data) throw new Error('failed to write timeline')
+  },
+  async writeFull(level: string, message: string, correlationId?: string, payload?: unknown): Promise<void> {
+    const response = await logService.internal.v0.full.post({
+      level: level as 'debug' | 'info' | 'warn' | 'error',
+      source: 'm-net',
+      message,
+      ...(correlationId ? { correlationId } : {}),
+      ...(payload === undefined ? {} : { payload })
+    })
+    if (response.error || !response.data) throw new Error('failed to write full log')
+  },
+  async writeAudit(actor: ActorId, action: string, resource: string, result: string, correlationId?: string, payload?: unknown): Promise<void> {
+    const response = await logService.internal.v0.audit.post({
+      actor,
+      action,
+      resource,
+      result: result as 'success' | 'failure' | 'deny' | 'pending' | 'allow' | 'canceled',
+      ...(correlationId ? { correlationId } : {}),
+      ...(payload === undefined ? {} : { payload })
+    })
+    if (response.error || !response.data) throw new Error('failed to write audit')
+  }
+}
+
 /**
  * 运行 token 校验只依赖 PostgreSQL 中的 active 哈希记录，不信任节点自报身份或活动 session 状态本身。
  */
@@ -524,13 +604,18 @@ async function createNetwork(input: CreateNetworkRequest): Promise<MNetServiceRe
   const network: typeof networks.$inferInsert = {
     id: crypto.randomUUID(),
     name: input.name,
-    profileVersion: input.profileVersion ?? 'm-net-default@0.1.0',
+    profileVersion: 'm-net-default@0.1.0',
     status: 'active',
     createdAt: now,
     updatedAt: now
   }
 
   await db.insert(networks).values(network)
+  // Phase 13: seed profile state for new network
+  await profileStore.setNetworkState(network.id, {
+    profileVersion: network.profileVersion,
+    status: 'disabled'
+  })
   return ok(mapNetwork(network))
 }
 
@@ -766,7 +851,35 @@ const app = createMNetApp({
   listNetworks,
   joinNetwork,
   listMembers,
-  executeNoop
+  executeNoop,
+  profileStore,
+  suspendedOps,
+  approvals: approvalClient,
+  events: profileEvents,
+  log: profileLog,
+  networkUpdater: {
+    async setProfileVersion(networkId, profileVersion) {
+      await db.update(networks).set({ profileVersion, updatedAt: new Date() }).where(eq(networks.id, networkId))
+    }
+  },
+  policyAuthorize: {
+    async authorize(actor, action, resource) {
+      try {
+        const response = await createInternalFetcher()(`${serviceUrl('m-policy')}/internal/v0/authorize`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ actor, action, resource })
+        })
+        if (!response.ok) {
+          return { result: 'deny' as const, id: crypto.randomUUID(), reasons: ['policy service unavailable'] }
+        }
+        const data = await response.json() as { decision: { result: string; id: string; reasons: string[] } }
+        return { result: data.decision.result as 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval', id: data.decision.id, reasons: data.decision.reasons }
+      } catch {
+        return { result: 'deny' as const, id: crypto.randomUUID(), reasons: ['policy service unreachable'] }
+      }
+    }
+  }
 })
 
 const internalServer = serveHttpApp('m-net', app.fetch)
