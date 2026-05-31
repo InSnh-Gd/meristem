@@ -35,6 +35,10 @@ export type CliClient = {
   listNetworks?(): Promise<unknown>
   joinNetwork?(input: { networkId: string; nodeId: string }): Promise<JoinNetworkResponse>
   listNetworkMembers?(networkId: string): Promise<unknown>
+  listNetworkProfiles?(): Promise<unknown>
+  getNetworkProfile?(profileVersion: string): Promise<unknown>
+  enableNetworkProfile?(networkId: string, profileVersion: string, reason: string): Promise<unknown>
+  disableNetworkProfile?(networkId: string, reason: string): Promise<unknown>
   submitTask?(input: { nodeId: string; type: 'noop' }): Promise<SubmitTaskResponse>
   cancelTask?(taskId: string): Promise<TaskControlResponse>
   getTask?(taskId: string): Promise<TaskStatusResponse>
@@ -170,6 +174,34 @@ export function createCliRunner(client: CliClient) {
           const networkId = requireArg(args, '--network')
           const listNetworkMembers = requireMethod(client.listNetworkMembers, 'listNetworkMembers')
           return { exitCode: 0, stdout: encode(await listNetworkMembers(networkId)), stderr: '' }
+        }
+
+        if (command === 'network' && subcommand === 'profile') {
+          const action = args[2]
+          if (action === 'list') {
+            const listNetworkProfiles = requireMethod(client.listNetworkProfiles, 'listNetworkProfiles')
+            return { exitCode: 0, stdout: encode(await listNetworkProfiles()), stderr: '' }
+          }
+          if (action === 'show') {
+            const profileVersion = args[3]
+            if (!profileVersion) throw new Error('usage: meristem network profile show <profile-version>')
+            const getNetworkProfile = requireMethod(client.getNetworkProfile, 'getNetworkProfile')
+            return { exitCode: 0, stdout: encode(await getNetworkProfile(profileVersion)), stderr: '' }
+          }
+          if (action === 'enable') {
+            const networkId = requireArg(args, '--network')
+            const profileVersion = requireArg(args, '--profile')
+            const reason = requireArg(args, '--reason')
+            const enableNetworkProfile = requireMethod(client.enableNetworkProfile, 'enableNetworkProfile')
+            return { exitCode: 0, stdout: encode(await enableNetworkProfile(networkId, profileVersion, reason)), stderr: '' }
+          }
+          if (action === 'disable') {
+            const networkId = requireArg(args, '--network')
+            const reason = requireArg(args, '--reason')
+            const disableNetworkProfile = requireMethod(client.disableNetworkProfile, 'disableNetworkProfile')
+            return { exitCode: 0, stdout: encode(await disableNetworkProfile(networkId, reason)), stderr: '' }
+          }
+          throw new Error('usage: meristem network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text>')
         }
 
         if (command === 'task' && subcommand === 'submit') {
@@ -311,7 +343,7 @@ export function createCliRunner(client: CliClient) {
 
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

@@ -32,6 +32,7 @@ type CliConfig = {
   coreUrl: string
   taskUrl: string
   policyUrl: string
+  mnetUrl: string
   token: string | undefined
 }
 
@@ -111,6 +112,11 @@ export function createCoreClient(config: CliConfig): CliClient {
     defaultHeaders: headers,
     traceHeaders: () => injectTraceHeaders({})
   })
+  const mnetRoutes = createDynamicRouteAdapter({
+    baseUrl: config.mnetUrl,
+    defaultHeaders: headers,
+    traceHeaders: () => injectTraceHeaders({})
+  })
   const networkRoutes = client.api.v0.networks as Record<
     string,
     {
@@ -160,6 +166,30 @@ export function createCoreClient(config: CliConfig): CliClient {
       const route = networkRoutes[networkId]
       if (!route) throw new Error('network route unavailable')
       return unwrap(route.members.get({ $headers: headers }))
+    },
+    listNetworkProfiles: async () => {
+      const result = await mnetRoutes.getJson('/api/v0/network-profiles')
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    getNetworkProfile: async (profileVersion) => {
+      const result = await mnetRoutes.getJson(`/api/v0/network-profiles/${profileVersion}`)
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    enableNetworkProfile: async (networkId, profileVersion, reason) => {
+      const result = await mnetRoutes.postJson(`/api/v0/networks/${networkId}/profile`, {
+        body: { profileVersion, reason }
+      })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    disableNetworkProfile: async (networkId, reason) => {
+      const result = await mnetRoutes.postJson(`/api/v0/networks/${networkId}/profile`, {
+        body: { profileVersion: 'm-net-default@0.1.0', reason }
+      })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
     },
     submitTask: async (input) => {
       const result = await taskRoutes.postJson<SubmitTaskResponse>('/api/v0/tasks', { body: input })
@@ -243,6 +273,7 @@ export function configFromEnv(): CliConfig {
     coreUrl: process.env.MERISTEM_CORE_URL ?? 'http://localhost:3000',
     taskUrl: process.env.MERISTEM_TASK_URL ?? 'http://127.0.0.1:3105',
     policyUrl: process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:3103',
+    mnetUrl: process.env.MERISTEM_MNET_URL ?? 'http://127.0.0.1:3104',
     token: process.env.MERISTEM_TOKEN
   }
 }
