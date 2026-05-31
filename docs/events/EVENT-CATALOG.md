@@ -400,4 +400,44 @@ type TaskOperationRejectedPayload = {
   resource: string;
   correlationId?: string;
 };
+
+### Phase 13 M-Net Profile Lifecycle Events
+
+| Subject | Type | Publisher | Subscribers | Payload Schema | Delivery |
+|---------|------|-----------|-------------|----------------|----------|
+| `mnet.profile.enable.requested.v0` | event | M-Net | M-Policy, M-Log, M-UI BFF | `MNetProfileEnableRequestedPayload` | at-least-once |
+| `mnet.profile.enabled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileEnabledPayload` | at-least-once |
+| `mnet.profile.disable.requested.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileDisableRequestedPayload` | at-least-once |
+| `mnet.profile.disabled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileDisabledPayload` | at-least-once |
+| `mnet.profile.apply_failed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileApplyFailedPayload` | at-least-once |
+| `mnet.profile.enable.canceled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileEnableCanceledPayload` | at-least-once |
+
+All profile events use singular `profile` in the subject. Events are emitted after PostgreSQL state changes; they are not the source of truth.
+
+Events published by M-Net through M-EventBus; subscribers consume through NATS.
+
+```ts
+type MNetProfileEventPayload = {
+  networkId: string;
+  fromProfileVersion: string;
+  toProfileVersion: string;
+  actor: string;
+  policyDecisionId: string;
+  approvalId?: string;
+  operationId?: string;
+  correlationId: string;
+  reason: string;
+  controlPlaneOnly: true;
+};
+
+type MNetProfileEnableRequestedPayload = MNetProfileEventPayload;
+type MNetProfileEnabledPayload = MNetProfileEventPayload;
+type MNetProfileDisableRequestedPayload = MNetProfileEventPayload;
+type MNetProfileDisabledPayload = MNetProfileEventPayload;
+
+type MNetProfileApplyFailedPayload = MNetProfileEventPayload & {
+  errorCode: string;
+};
+
+type MNetProfileEnableCanceledPayload = MNetProfileEventPayload;
 ```
