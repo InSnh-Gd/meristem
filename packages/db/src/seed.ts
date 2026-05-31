@@ -36,6 +36,9 @@ const permissions = [
   ['network:read', 'read logical network state'],
   ['network:create', 'create logical networks'],
   ['network:join', 'join nodes to logical networks'],
+  ['network:profile-read', 'read network regional profile definitions and state'],
+  ['network:profile-enable', 'enable network regional profile for a network'],
+  ['network:profile-disable', 'disable network regional profile for a network'],
   ['projection:read', 'read projection health and DLQ state'],
   ['projection:backfill', 'execute projection backfills'],
   ['projection:dlq-manage', 'replay or skip projection DLQ records']
@@ -43,8 +46,8 @@ const permissions = [
 
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', ...projectionPermissions],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'projection:read'],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -62,6 +65,9 @@ const rolePermissions: Record<string, readonly string[]> = {
     'network:read',
     'network:create',
     'network:join',
+    'network:profile-read',
+    'network:profile-enable',
+    'network:profile-disable',
     ...projectionPermissions
   ]
 }
@@ -123,6 +129,81 @@ await sql.begin(async (tx) => {
       description = excluded.description,
       danger_level = excluded.danger_level,
       default_timeout_seconds = excluded.default_timeout_seconds,
+      updated_at = excluded.updated_at
+  `
+
+  await tx`
+    insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
+    values (
+      'mnet-profile-definition-default-v0-1-0',
+      'm-net-default@0.1.0',
+      'global',
+      'mnet-profile@0.1.0',
+      ${JSON.stringify({
+        profileVersion: 'm-net-default@0.1.0',
+        region: 'global',
+        displayName: 'M-Net Default',
+        schemaVersion: 'mnet-profile@0.1.0',
+        status: 'available',
+        rules: {
+          defaultInterconnect: { mode: 'placeholder' }
+        },
+        capabilities: {
+          realDerpRelay: false,
+          realTcpInterconnect: false,
+          realUdpPathSwitching: false,
+          controlPlaneOnly: false
+        }
+      })}::jsonb,
+      'available',
+      ${now},
+      ${now}
+    )
+    on conflict (id) do update set
+      profile_version = excluded.profile_version,
+      region = excluded.region,
+      schema_version = excluded.schema_version,
+      definition = excluded.definition,
+      status = excluded.status,
+      updated_at = excluded.updated_at
+  `
+
+  await tx`
+    insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
+    values (
+      'mnet-profile-definition-cn-v0-1-0',
+      'm-net-cn@0.1.0',
+      'cn',
+      'mnet-profile@0.1.0',
+      ${JSON.stringify({
+        profileVersion: 'm-net-cn@0.1.0',
+        region: 'cn',
+        displayName: 'M-Net CN',
+        schemaVersion: 'mnet-profile@0.1.0',
+        status: 'available',
+        rules: {
+          mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' },
+          asianStemToCore: { interconnect: 'tcp_required' },
+          asianStemDerp: { allowed: true, mode: 'placeholder' },
+          publicDerpFallback: { configurable: true, defaultEnabled: false }
+        },
+        capabilities: {
+          realDerpRelay: false,
+          realTcpInterconnect: false,
+          realUdpPathSwitching: false,
+          controlPlaneOnly: true
+        }
+      })}::jsonb,
+      'available',
+      ${now},
+      ${now}
+    )
+    on conflict (id) do update set
+      profile_version = excluded.profile_version,
+      region = excluded.region,
+      schema_version = excluded.schema_version,
+      definition = excluded.definition,
+      status = excluded.status,
       updated_at = excluded.updated_at
   `
 })

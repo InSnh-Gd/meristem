@@ -249,6 +249,70 @@ await sql.begin(async (tx) => {
       payload jsonb
     )
   `
+  await tx`
+    create table if not exists mnet_profile_definitions (
+      id text primary key,
+      profile_version text not null,
+      region text not null,
+      schema_version text not null,
+      definition jsonb not null,
+      status text not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create unique index if not exists mnet_profile_definitions_profile_version_unique
+    on mnet_profile_definitions (profile_version)
+  `
+  await tx`
+    create table if not exists mnet_network_profile_states (
+      network_id text primary key references networks(id),
+      profile_version text not null,
+      status text not null,
+      enabled_by text,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      applied_at timestamptz,
+      disabled_at timestamptz,
+      last_error text,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mnet_profile_transitions (
+      id text primary key,
+      network_id text not null references networks(id),
+      from_profile_version text not null,
+      to_profile_version text not null,
+      from_status text not null,
+      to_status text not null,
+      actor text not null,
+      reason text,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mnet_suspended_operations (
+      id text primary key,
+      policy_decision_id text not null references policy_decisions(id),
+      action text not null,
+      network_id text not null references networks(id),
+      from_profile_version text not null,
+      to_profile_version text not null,
+      requested_by text not null,
+      reason text,
+      correlation_id text not null,
+      idempotency_key text not null,
+      status text not null,
+      expires_at timestamptz not null,
+      created_at timestamptz not null,
+      resumed_at timestamptz,
+      terminal_reason text
+    )
+  `
 })
 
 await sql.end()
