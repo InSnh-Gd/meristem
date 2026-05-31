@@ -36,18 +36,24 @@ Allowed component kinds:
 
 ```ts
 type MUiComponentKind =
+  | "TimelinePanel"
+  | "NodeListPanel"
+  | "NodeDetailPanel"
+  | "AuditLedger"
+  | "ServiceListPanel"
+  | "CommandWellPanel"
+  | "StateSourceBadge"
+  | "RouteHeader"
   | "NodeMap"
   | "ServiceRegistryTable"
   | "TimelineStream"
-  | "AuditLedger"
   | "PolicyDecisionPanel"
-  | "CommandWell"
-  | "ConfigLifecycleStepper"
+  | "KeyValueInspector"
+  | "FilterBar"
   | "TraceLink"
   | "RawEnvelopeView"
   | "InlineOperationalAlert"
-  | "KeyValueInspector"
-  | "EventStreamTable";
+  | "DecisionQueueSummary";
 ```
 
 Forbidden kinds:
@@ -187,7 +193,7 @@ const controlRoomRoute: MUiRouteSchema = {
       // co-renders ServiceRegistryTable and TimelineStream below NodeMap
     },
     inspector: { kind: "KeyValueInspector" },
-    commandWell: { kind: "CommandWell" }
+    commandWell: { kind: "CommandWellPanel" }
   }
 };
 ```
@@ -196,7 +202,7 @@ const controlRoomRoute: MUiRouteSchema = {
 
 - `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
 - `PolicyDecisionPanel`: Not implemented in Phase 9; only a minimal summary is shown inline after command execution.
-- `CommandWell` only surfaces one command (`noop`) against reachable Leaf nodes with `task:submit`.
+- `CommandWellPanel` only surfaces one command (`noop`) against reachable Leaf nodes with `task:submit`.
 
 **Phase 9 state sources**:
 
@@ -205,3 +211,46 @@ const controlRoomRoute: MUiRouteSchema = {
 - Audit entries: audit projection (via Core, post-filtered by BFF for `audit:read`)
 - Command eligibility: derived from session permissions + node state (BFF, display-only)
 - Policy decision summary: policy projection (via Core, trimmed by BFF)
+
+---
+
+## 8. Phase 14 Formal Route Set
+
+Phase 14 replaces the single demo route with 7 formal SDUI v0.2 routes, each with state source declarations and degraded state support.
+
+### 8.1 Route Registry
+
+The BFF publishes `GET /api/v0/routes` as an SDUI v0.2 registry:
+
+```ts
+type SduiV02RouteRegistry = {
+  schemaVersion: "sdui@0.2.0";
+  routes: SduiV02Route[];
+};
+```
+
+### 8.2 Required Routes
+
+| Route ID | Primary Components | State Sources |
+|---|---|---|
+| control-room.overview | NodeMap, ServiceRegistryTable, TimelineStream, InlineOperationalAlert | authoritative, event, log, audit |
+| nodes.index | NodeListPanel, KeyValueInspector, TraceLink | authoritative, event |
+| nodes.detail | KeyValueInspector, TimelineStream, RawEnvelopeView | authoritative, event, log |
+| timeline.index | TimelineStream, TraceLink | event, log |
+| audit.index | AuditLedger, TraceLink, RawEnvelopeView | audit |
+| policy.decisions | PolicyDecisionPanel, DecisionQueueSummary | policy, audit |
+| services.index | ServiceRegistryTable, KeyValueInspector | authoritative |
+
+### 8.3 New Shared Components (Phase 14)
+
+`StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`.
+
+### 8.4 Degraded State
+
+Each route may declare `degradedState: { enabled: boolean; reason: string }`. When `enabled: true`, `InlineOperationalAlert` must render on the route surface; M-UI must not suppress degradation visibility.
+
+### 8.5 Phase 14 Gates
+
+- SDUI v0.2 contract tests verify all 7 route IDs, component allowlist, forbidden kind rejection, state source presence.
+- UI contract tests (`test:ui-contract`) enforce token-only styling, forbidden component names, BFF-only data boundary, CommandWell-only high-risk actions.
+- BFF contract tests cover route registry, display data endpoints, generic command eligibility/execute, OpenAPI exposure.

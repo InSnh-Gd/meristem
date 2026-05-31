@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { appState } from '$lib/stores.svelte.ts'
   import NavRail from '$lib/components/NavRail.svelte'
   import TokenInput from '$lib/components/TokenInput.svelte'
@@ -6,16 +7,25 @@
 
   let { children } = $props<{ children: import('svelte').Snippet }>()
 
-  const navItems = $derived([
-    { id: 'overview', label: '概览', enabled: true },
-    { id: 'nodes', label: '节点', enabled: false },
-    { id: 'logs', label: '日志', enabled: false },
-    appState.overview?.auditAccessible
-      ? { id: 'audit', label: '审计', enabled: true }
-      : { id: 'audit', label: '审计', enabled: false, disabledReason: '需要 audit:read 权限' },
-    { id: 'services', label: '服务', enabled: false }
-  ])
-  let selectedNav = $state('overview')
+  /** SDUI route id → SvelteKit path 映射，不含动态路由（如 /nodes/:id）。 */
+  const ROUTE_PATH_MAP: Record<string, string> = {
+    'control-room.overview': '/control-room',
+    'nodes.index': '/nodes',
+    'timeline.index': '/timeline',
+    'audit.index': '/audit',
+    'policy.decisions': '/policy/decisions',
+    'services.index': '/services'
+  }
+
+  const navItems = $derived((appState.routes?.routes ?? []).map((route) => ({
+    id: route.id,
+    label: route.title,
+    enabled: true,
+    path: ROUTE_PATH_MAP[route.id]
+  })))
+  const selectedNav = $derived(
+    navItems.find((item) => item.path && page.url.pathname.startsWith(item.path))?.id ?? ''
+  )
 </script>
 
 <div class="shell">
@@ -25,11 +35,7 @@
   </header>
   <div class="shell-body">
     <nav class="shell-nav">
-      <NavRail
-        items={navItems}
-        selected={selectedNav}
-        onSelect={(id: string) => selectedNav = id}
-      />
+      <NavRail items={navItems} selected={selectedNav} />
     </nav>
     <main class="shell-primary">
       {#if appState.error}

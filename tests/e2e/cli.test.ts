@@ -22,6 +22,8 @@ if (!infraOk) {
   let operatorToken = ''
   let viewerToken = ''
   let securityAdminToken = ''
+  let leafName = ''
+  let networkName = ''
 
   describe('e2e: CLI', () => {
     beforeAll(async () => {
@@ -31,6 +33,22 @@ if (!infraOk) {
       operatorToken = stack.operatorToken
       viewerToken = stack.viewerToken
       securityAdminToken = stack.securityAdminToken
+      leafName = `e2e-cli-leaf-${Date.now()}`
+      networkName = `e2e-cli-net-${Date.now()}`
+      const leaf = await runTextCommand([
+        'meristem',
+        'node',
+        'register',
+        '--kind',
+        'leaf',
+        '--name',
+        leafName,
+        '--mode',
+        'simulated'
+      ], { MERISTEM_TOKEN: operatorToken })
+      expect(JSON.parse(leaf)).toHaveProperty('node')
+      const network = await runTextCommand(['meristem', 'network', 'create', '--name', networkName], { MERISTEM_TOKEN: operatorToken })
+      expect(JSON.parse(network)).toHaveProperty('network')
     }, 60_000)
 
     afterAll(async () => {
@@ -47,13 +65,13 @@ if (!infraOk) {
       it('node list returns nodes', async () => {
         const out = await runTextCommand(['meristem', 'node', 'list'], { MERISTEM_TOKEN: operatorToken })
         const body = JSON.parse(out) as { nodes: Array<{ name: string }> }
-        expect(body.nodes.some((n) => n.name === 'e2e-leaf')).toBe(true)
+        expect(body.nodes.some((n) => n.name === leafName)).toBe(true)
       })
 
       it('network list returns networks', async () => {
         const out = await runTextCommand(['meristem', 'network', 'list'], { MERISTEM_TOKEN: operatorToken })
         const body = JSON.parse(out) as { networks: Array<{ name: string }> }
-        expect(body.networks.some((n) => n.name === 'e2e-net')).toBe(true)
+        expect(body.networks.some((n) => n.name === networkName)).toBe(true)
       })
 
       it('log timeline returns entries', async () => {

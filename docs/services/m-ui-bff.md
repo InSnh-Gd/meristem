@@ -18,6 +18,9 @@ What this service owns:
 - Deriving disabled/enabled command state for the M-UI CommandWell from Core-visible permission and node state
 - Forwarding confirmed noop task execution to M-Task `POST /api/v0/tasks`
 - Returning a trimmed Minimal Policy Decision Summary from Core policy decision records
+- Publishing the SDUI v0.2 Phase 14 route registry
+- Returning display-shaped node, timeline, audit, policy decision, and service lists with state-source annotations
+- Exposing generic CommandWell endpoints for BFF-known command IDs only
 - Exposing its own minimal OpenAPI document for the M-UI frontend
 
 What this service must not own:
@@ -45,9 +48,19 @@ What this service must not own:
 | GET | `/health` | public | BFF liveness check |
 | GET | `/ready` | public | Probes Core `/api/v0/health` |
 | GET | `/api/v0/overview` | Bearer | Aggregates session, status, nodes, services, timeline |
-| GET | `/api/v0/nodes/:id` | Bearer | Pass-through to Core node detail |
+| GET | `/api/v0/routes` | Bearer | Returns the SDUI v0.2 Phase 14 route registry |
+| GET | `/api/v0/routes/:id` | Bearer | Returns one registered SDUI route or 404 |
+| GET | `/api/v0/nodes` | Bearer | Pass-through display list from Core node records |
+| GET | `/api/v0/nodes/:id` | Bearer | Display-shaped node detail with state source annotation |
+| GET | `/api/v0/timeline` | Bearer | Pass-through display list from Core Timeline Log |
+| GET | `/api/v0/audit` | Bearer | Pass-through display list from Core Audit Log; Core enforces `audit:read` |
+| GET | `/api/v0/policy/decisions` | Bearer | Display-shaped policy decision list via Core boundary |
+| GET | `/api/v0/policy/decisions/:id` | Bearer | Full policy decision with state source annotation |
+| GET | `/api/v0/services` | Bearer | Display-shaped service lifecycle summary list via Core boundary |
 | POST | `/api/v0/commands/noop` | Bearer | Derives disabled/enabled state, does NOT execute |
 | POST | `/api/v0/commands/noop/execute` | Bearer | Forwards confirmed noop to M-Task `POST /api/v0/tasks` |
+| POST | `/api/v0/commands/:commandId/eligibility` | Bearer | Generic CommandWell eligibility for BFF-known commands |
+| POST | `/api/v0/commands/:commandId/execute` | Bearer | Generic CommandWell execution for BFF-known commands |
 | GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for Phase 9 UI display |
 
 `GET /api/v0/policy/decisions/:id/summary` calls Core `GET /api/v0/policy/decisions/:id` with the caller's Bearer token and returns only:
@@ -122,6 +135,8 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 - Disabled command reasons must be visible but must not create Audit facts.
 - Core error envelopes must be preserved when forwarded to the UI.
 - Minimal Policy Decision Summary must be trimmed from Core policy decision data and must not expose policy internals.
+- Generic command routes must validate `commandId` against BFF-known contracts and must not expose arbitrary backend forwarding.
+- Display list responses may annotate state sources, but must not cache or mutate the underlying facts.
 
 ## 11. Done Criteria
 

@@ -133,6 +133,36 @@ await sql.begin(async (tx) => {
     )
   `
   await tx`
+    create table if not exists policy_approvals (
+      id text primary key,
+      policy_decision_id text not null references policy_decisions(id),
+      origin_service text not null,
+      operation_id text not null,
+      requested_by text not null,
+      required_action text not null,
+      status text not null,
+      quorum_required integer not null,
+      expires_at timestamptz not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null,
+      completed_at timestamptz
+    )
+  `
+  await tx`
+    create table if not exists policy_approval_votes (
+      id text primary key,
+      approval_id text not null references policy_approvals(id),
+      actor text not null,
+      vote text not null,
+      reason text,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create unique index if not exists policy_approval_votes_approval_actor_unique
+    on policy_approval_votes (approval_id, actor)
+  `
+  await tx`
     create table if not exists task_definitions (
       id text primary key,
       type text not null,
@@ -191,6 +221,23 @@ await sql.begin(async (tx) => {
       correlation_id text,
       requested_at timestamptz not null,
       completed_at timestamptz
+    )
+  `
+  await tx`
+    create table if not exists task_suspended_operations (
+      id text primary key,
+      policy_decision_id text not null references policy_decisions(id),
+      action text not null,
+      requested_by text not null,
+      resource text not null,
+      sanitized_payload jsonb,
+      correlation_id text not null,
+      idempotency_key text not null,
+      status text not null,
+      expires_at timestamptz not null,
+      created_at timestamptz not null,
+      resumed_at timestamptz,
+      terminal_reason text
     )
   `
   await tx`

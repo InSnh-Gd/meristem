@@ -4,9 +4,36 @@ import { openapi } from '@elysiajs/openapi'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId, Permission, CoreMode, CoreDependencies, MNode,
-  ServiceSummary, TimelineLog, MinimalPolicyDecisionSummary
+  ServiceSummary, TimelineLog, MinimalPolicyDecisionSummary,
+  AuditLog, PolicyDecision, CommandWellEligibility
 } from '../../../packages/contracts/src/index.ts'
 import { deriveNoopCommandEligibility, missingPermissionCommandEligibility, targetMissingCommandEligibility } from './command-well/eligibility.ts'
+import { PHASE_14_ROUTE_REGISTRY } from './routes/route-registry.ts'
+
+type StateSourceMetadata = {
+  sourceType: 'authoritative' | 'event' | 'cache' | 'read-model' | 'log' | 'audit' | 'policy'
+  sourceId: string
+  correlationId?: string
+  traceId?: string
+}
+
+type GenericNoopEligibility =
+  | {
+      state: 'enabled'
+      command: {
+        id: 'task.noop.submit'
+        label: string
+        action: Permission
+        resource: string
+        risk: 'medium'
+        requiredPermissions: readonly Permission[]
+        requiresPolicy: boolean
+        requiresAudit: boolean
+      }
+    }
+  | Extract<CommandWellEligibility, { state: 'disabled' }>
+
+const GENERIC_NOOP_COMMAND_ID = 'task.noop.submit'
 
 export type MUiBffDeps = {
   coreBaseUrl: string
@@ -64,6 +91,24 @@ function passthroughCoreError(result: { ok: boolean; status: number; data: unkno
   })
 }
 
+/** 给展示数据附加状态来源，BFF 只标注来源，不成为事实源。 */
+function withStateSource<T extends object>(value: T, stateSource: StateSourceMetadata): T & { stateSource: StateSourceMetadata } {
+  return { ...value, stateSource }
+}
+
+/** 泛型 CommandWell 使用 Phase 14 命令 ID，底层仍复用 Phase 9 noop 判定事实。 */
+function toGenericNoopEligibility(eligibility: CommandWellEligibility): GenericNoopEligibility {
+  if (eligibility.state === 'disabled') return eligibility
+  return {
+    state: 'enabled',
+    command: {
+      ...eligibility.command,
+      id: GENERIC_NOOP_COMMAND_ID,
+      requiredPermissions: [...eligibility.command.requiredPermissions]
+    }
+  }
+}
+
 /**
  * createMUiBffApp 构建 M-UI 的 BFF Elysia 应用。
  * BFF 是面向 SvelteKit shell 的公开入口，不参与内部 loopback 认证。
@@ -74,8 +119,11 @@ export function createMUiBffApp(deps: MUiBffDeps) {
   const tf = (path: string, token?: string, init?: RequestInit) => serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init)
 
   return new Elysia()
-    .use(cors({ origin: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["content-type", "authorization"], credentials: true }))
+    .use(cors({ origin: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["content-type", "authorization"], credentials: true })) // 开发环境允许任意 origin；生产部署需替换为具体允许域名
     .use(openapi({
+      path: '/openapi-ui',
+      specPath: '/openapi',
+      provider: null,
       documentation: {
         info: { title: 'Meristem M-UI BFF API', version: 'v0' }
       }
@@ -84,6 +132,133 @@ export function createMUiBffApp(deps: MUiBffDeps) {
     .get('/ready', async () => {
       const result = await cf('/api/v0/health', undefined)
       return { ready: result.ok }
+    })
+
+    // route registry：先通过 Core session 验证 Bearer token，再发布本 BFF 的 SDUI v0.2 展示契约。
+    .get('/api/v0/routes', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const sessionRes = await cf('/api/v0/session', token)
+      if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+      return PHASE_14_ROUTE_REGISTRY
+    }, {
+      detail: { summary: 'Read SDUI v0.2 route registry' }
+    })
+    // route lookup：只返回已注册的 Phase 14 route，未知 id 按 BFF 合同返回 404。
+    .get('/api/v0/routes/:id', async ({ params, headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const sessionRes = await cf('/api/v0/session', token)
+      if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+
+      const route = PHASE_14_ROUTE_REGISTRY.routes.find((candidate) => candidate.id === params.id)
+      if (!route) return bffError(404, 'route.not_found', 'route not found')
+      return { route }
+    }, {
+      params: t.Object({ id: t.String({ minLength: 1 }) }),
+      detail: { summary: 'Read one SDUI v0.2 route definition' }
+    })
+
+    // nodes display：转发 Core 权威节点列表，并为 UI 增加状态来源标注。
+    .get('/api/v0/nodes', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf('/api/v0/nodes', token)
+      if (!result.ok) return passthroughCoreError(result)
+      const nodes = (result.data as { nodes: MNode[] }).nodes.map((node) =>
+        withStateSource(node, { sourceType: 'authoritative', sourceId: `core:/api/v0/nodes/${node.id}` })
+      )
+      return {
+        nodes,
+        stateSource: { sourceType: 'authoritative', sourceId: 'core:/api/v0/nodes' } satisfies StateSourceMetadata
+      }
+    }, {
+      detail: { summary: 'Read display-shaped node list' }
+    })
+
+    // timeline display：Timeline 事实来自 Core/M-Log，BFF 只补充 display source。
+    .get('/api/v0/timeline', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf('/api/v0/logs/timeline', token)
+      if (!result.ok) return passthroughCoreError(result)
+      const entries = (result.data as { entries: TimelineLog[] }).entries.map((entry) =>
+        withStateSource(entry, {
+          sourceType: 'log',
+          sourceId: `core:/api/v0/logs/timeline/${entry.id}`,
+          ...(entry.correlationId ? { correlationId: entry.correlationId } : {})
+        })
+      )
+      return {
+        entries,
+        stateSource: { sourceType: 'log', sourceId: 'core:/api/v0/logs/timeline' } satisfies StateSourceMetadata
+      }
+    }, {
+      detail: { summary: 'Read display-shaped timeline entries' }
+    })
+
+    // audit display：Core 继续执行 audit:read，BFF 透传拒绝并只标注允许读取的审计事实来源。
+    .get('/api/v0/audit', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf('/api/v0/audit', token)
+      if (!result.ok) return passthroughCoreError(result)
+      const entries = (result.data as { entries: AuditLog[] }).entries.map((entry) =>
+        withStateSource(entry, {
+          sourceType: 'audit',
+          sourceId: `core:/api/v0/audit/${entry.id}`,
+          ...(entry.correlationId ? { correlationId: entry.correlationId } : {})
+        })
+      )
+      return {
+        entries,
+        stateSource: { sourceType: 'audit', sourceId: 'core:/api/v0/audit' } satisfies StateSourceMetadata
+      }
+    }, {
+      detail: { summary: 'Read display-shaped audit entries' }
+    })
+
+    // policy decisions display：优先走 Core 列表端点；旧 Core 尚未提供时返回空列表但保留 policy 来源。
+    .get('/api/v0/policy/decisions', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf('/api/v0/policy/decisions', token)
+      if (!result.ok && result.status !== 404) return passthroughCoreError(result)
+      const decisions = result.ok
+        ? (result.data as { decisions: PolicyDecision[] }).decisions.map((decision) =>
+            withStateSource(decision, { sourceType: 'policy', sourceId: `core:/api/v0/policy/decisions/${decision.id}` })
+          )
+        : []
+      return {
+        decisions,
+        stateSource: { sourceType: 'policy', sourceId: 'core:/api/v0/policy/decisions' } satisfies StateSourceMetadata
+      }
+    }, {
+      detail: { summary: 'Read display-shaped policy decision list' }
+    })
+
+    // services display：转发 Core 服务生命周期摘要，保留 Core 作为权威来源。
+    .get('/api/v0/services', async ({ headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf('/api/v0/services', token)
+      if (!result.ok) return passthroughCoreError(result)
+      const services = (result.data as { services: ServiceSummary[] }).services.map((service) =>
+        withStateSource(service, { sourceType: 'authoritative', sourceId: `core:/api/v0/services/${service.id}` })
+      )
+      return {
+        services,
+        stateSource: { sourceType: 'authoritative', sourceId: 'core:/api/v0/services' } satisfies StateSourceMetadata
+      }
+    }, {
+      detail: { summary: 'Read display-shaped service list' }
     })
 
     // overview 聚合控制台主页面数据：会话、状态、节点、服务、时间线、审计（按权限）。
@@ -126,7 +301,16 @@ export function createMUiBffApp(deps: MUiBffDeps) {
         services,
         timeline,
         auditAccessible,
-        audit: auditEntries
+        audit: auditEntries,
+        stateSources: {
+          session: 'authoritative' as const,
+          core: 'authoritative' as const,
+          dependencies: 'authoritative' as const,
+          nodes: 'authoritative' as const,
+          services: 'authoritative' as const,
+          timeline: 'log' as const,
+          audit: 'audit' as const
+        }
       }
     })
     .get('/api/v0/nodes/:id', async ({ params, headers }) => {
@@ -137,7 +321,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       // 调用 Core 节点详情端点
       const result = await cf(`/api/v0/nodes/${params.id}`, token)
       if (!result.ok) return passthroughCoreError(result)
-      return result.data
+      return { ...(result.data as Record<string, unknown>), stateSource: { sourceType: 'authoritative', sourceId: `core:/api/v0/nodes/${params.id}` } }
     }, {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       detail: { summary: 'Read single node detail' }
@@ -169,6 +353,20 @@ export function createMUiBffApp(deps: MUiBffDeps) {
     }, {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       detail: { summary: 'Read policy decision summary (reasons redacted)' }
+    })
+    // 完整策略决策详情，带 stateSource 标注，供 policy.decisions 路由使用。
+    .get('/api/v0/policy/decisions/:id', async ({ params, headers }) => {
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await cf(`/api/v0/policy/decisions/${params.id}`, token)
+      if (!result.ok) return passthroughCoreError(result)
+      return withStateSource((result.data as { decision: MinimalPolicyDecisionSummary }).decision, {
+        sourceType: 'policy', sourceId: `core:/api/v0/policy/decisions/${params.id}`
+      })
+    }, {
+      params: t.Object({ id: t.String({ minLength: 1 }) }),
+      detail: { summary: 'Read full policy decision with state source' }
     })
 
     // noop 命令状态派生：检查权限、节点类型和可达性，不执行实际操作。
@@ -216,6 +414,59 @@ export function createMUiBffApp(deps: MUiBffDeps) {
     }, {
       body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
       detail: { summary: 'Execute noop task against a Leaf node' }
+    })
+    // 泛型命令可用性：只接受 BFF 明确声明的命令 ID，避免任意后端路径转发。
+    .post('/api/v0/commands/:commandId/eligibility', async ({ params, body, headers }) => {
+      if (params.commandId !== GENERIC_NOOP_COMMAND_ID) {
+        return bffError(400, 'command.unknown', 'unknown command id')
+      }
+
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const [sessionRes, nodeRes] = await Promise.all([
+        cf('/api/v0/session', token),
+        cf(`/api/v0/nodes/${body.leafNodeId}`, token)
+      ])
+
+      if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+      const session = sessionRes.data as { actor: ActorId; permissions: Permission[] }
+
+      if (!session.permissions.includes('task:submit')) {
+        return toGenericNoopEligibility(missingPermissionCommandEligibility())
+      }
+
+      if (!nodeRes.ok) {
+        if (nodeRes.status === 404) return toGenericNoopEligibility(targetMissingCommandEligibility())
+        return passthroughCoreError(nodeRes)
+      }
+
+      const node = (nodeRes.data as { node: MNode }).node
+      return toGenericNoopEligibility(deriveNoopCommandEligibility(session, node))
+    }, {
+      params: t.Object({ commandId: t.String({ minLength: 1 }) }),
+      body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
+      detail: { summary: 'Derive generic CommandWell eligibility' }
+    })
+    // 泛型命令执行：只把 task.noop.submit 映射到 M-Task noop，不做开放式代理。
+    .post('/api/v0/commands/:commandId/execute', async ({ params, body, headers }) => {
+      if (params.commandId !== GENERIC_NOOP_COMMAND_ID) {
+        return bffError(400, 'command.unknown', 'unknown command id')
+      }
+
+      const token = bearerTokenFromHeaders(headers)
+      if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+      const result = await tf('/api/v0/tasks', token, {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: body.leafNodeId, type: 'noop' })
+      })
+      if (!result.ok) return passthroughCoreError(result)
+      return result.data
+    }, {
+      params: t.Object({ commandId: t.String({ minLength: 1 }) }),
+      body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
+      detail: { summary: 'Execute generic CommandWell command' }
     })
 }
 

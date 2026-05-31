@@ -1,3 +1,8 @@
+import type {
+  AuditData, CommandState, GenericCommandParams, NodeListData, PolicyDecisionData,
+  OverviewData, PolicyDecisionSummary, RouteRegistry, ServiceListData, TaskResult, TimelineData
+} from './types'
+
 const BFF_URL = 'http://localhost:3200'
 
 type BffErrorEnvelope = {
@@ -34,11 +39,11 @@ export function formatBffError(error: unknown, fallback: string): string {
   return code ? `${message} (${code})` : message
 }
 
-async function bffFetch(
+async function bffFetch<T>(
   path: string,
   token: string,
   init?: RequestInit
-): Promise<unknown> {
+): Promise<T> {
   const normalizedToken = normalizeBearerTokenInput(token)
   const response = await fetch(`${BFF_URL}${path}`, {
     ...init,
@@ -56,27 +61,60 @@ async function bffFetch(
       }))
     throw body
   }
-  return response.json()
+  const body: unknown = await response.json()
+  return body as T
 }
 
 export function fetchOverview(token: string) {
-  return bffFetch('/api/v0/overview', token)
+  return bffFetch<OverviewData>('/api/v0/overview', token)
+}
+
+export function fetchRoutes(token: string) {
+  return bffFetch<RouteRegistry>('/api/v0/routes', token)
+}
+
+export function fetchNodes(token: string) {
+  return bffFetch<NodeListData>('/api/v0/nodes', token)
+}
+
+export function fetchTimeline(token: string) {
+  return bffFetch<TimelineData>('/api/v0/timeline', token)
+}
+
+export function fetchAudit(token: string) {
+  return bffFetch<AuditData>('/api/v0/audit', token)
+}
+
+export function fetchPolicyDecisions(token: string) {
+  return bffFetch<PolicyDecisionData>('/api/v0/policy/decisions', token)
+}
+
+export function fetchServices(token: string) {
+  return bffFetch<ServiceListData>('/api/v0/services', token)
 }
 
 export function fetchCommandState(token: string, leafNodeId: string) {
-  return bffFetch('/api/v0/commands/noop', token, {
+  return fetchCommandEligibility(token, 'task.noop.submit', { leafNodeId })
+}
+
+export function fetchCommandEligibility(token: string, commandId: string, params: GenericCommandParams) {
+  return bffFetch<CommandState>(`/api/v0/commands/${encodeURIComponent(commandId)}/eligibility`, token, {
     method: 'POST',
-    body: JSON.stringify({ leafNodeId })
+    body: JSON.stringify(params)
   })
 }
 
 export function executeNoop(token: string, leafNodeId: string) {
-  return bffFetch('/api/v0/commands/noop/execute', token, {
+  return executeCommand(token, 'task.noop.submit', { leafNodeId })
+}
+
+export function executeCommand(token: string, commandId: string, params: GenericCommandParams) {
+  return bffFetch<TaskResult>(`/api/v0/commands/${encodeURIComponent(commandId)}/execute`, token, {
     method: 'POST',
-    body: JSON.stringify({ leafNodeId })
+    body: JSON.stringify(params)
   })
 }
 
 export function fetchPolicySummary(token: string, decisionId: string) {
-  return bffFetch(`/api/v0/policy/decisions/${decisionId}/summary`, token)
+  return bffFetch<{ decision: PolicyDecisionSummary }>(`/api/v0/policy/decisions/${decisionId}/summary`, token)
 }

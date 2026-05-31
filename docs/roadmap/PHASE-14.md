@@ -96,12 +96,12 @@ Required routes:
 
 | Route | Primary Purpose | Required Components |
 |-------|-----------------|---------------------|
-| `control-room.overview` | Current M network orientation | NodeMap, TimelineStream, ServiceRegistryTable, InlineOperationalAlert |
+| `control-room.overview` | Current M network orientation | NodeMap, TimelineStream, ServiceRegistryTable, InlineOperationalAlert, CommandWellPanel |
 | `nodes.index` | Node state scanning and filtering | NodeMap or table, KeyValueInspector, TraceLink |
 | `nodes.detail` | One node's operational state | KeyValueInspector, TimelineStream, RawEnvelopeView |
 | `timeline.index` | Human-readable operational events | TimelineStream, TraceLink, filters |
 | `audit.index` | High-trust audit facts | AuditLedger, TraceLink, RawEnvelopeView |
-| `policy.decisions` | Policy decisions and pending outcomes | PolicyDecisionPanel, AuditLedger links |
+| `policy.decisions` | Policy decisions and pending outcomes | PolicyDecisionPanel, DecisionQueueSummary |
 | `services.index` | Service definitions and runtime state | ServiceRegistryTable, KeyValueInspector |
 
 Routes may ship with read-only command surfaces first. Mutating commands require explicit CommandWell definitions, policy requirements, and Audit behavior before becoming executable.
@@ -115,24 +115,28 @@ Phase 14 extends the SDUI route contract beyond the Phase 9 demo.
 Required additions:
 
 ```ts
+// 与 packages/contracts/src/schemas/ui.ts 中 SduiV02RouteSchema 一致
 type MUiRouteSchemaV02 = {
   id: string;
-  version: "v0.2";
   title: string;
-  layout: "three-zone" | "single-surface";
   requiredPermissions: string[];
-  stateSources: MUiStateSource[];
-  regions: {
-    navigation?: MUiComponentRef;
-    primary: MUiComponentRef;
-    inspector?: MUiComponentRef;
-    commandWell?: MUiComponentRef;
-  };
-  degradedState?: {
+  stateSources: ("authoritative" | "event" | "cache" | "read-model" | "log" | "audit" | "policy")[];
+  degradedState: {
+    enabled: boolean;
     reason: string;
-    allowedActions: string[];
-    source: MUiStateSource;
   };
+  components: {
+    kind: SduiV02ComponentKind;
+    id: string;
+  }[];
+};
+```
+
+Registry shape (`SduiV02RouteRegistrySchema`):
+```ts
+type SduiV02RouteRegistry = {
+  schemaVersion: "sdui@0.2.0";
+  routes: MUiRouteSchemaV02[];
 };
 ```
 

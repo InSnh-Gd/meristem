@@ -1,5 +1,5 @@
 import { createSqlClient } from './client.ts'
-import { projectionPermissions } from '../../contracts/src/index.ts'
+import { approvalPermissions, projectionPermissions } from '../../contracts/src/index.ts'
 
 // 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
@@ -36,6 +36,10 @@ const permissions = [
   ['network:read', 'read logical network state'],
   ['network:create', 'create logical networks'],
   ['network:join', 'join nodes to logical networks'],
+  ['policy:approval-read', 'read pending approvals'],
+  ['policy:approval-approve', 'approve pending operations'],
+  ['policy:approval-reject', 'reject pending operations'],
+  ['policy:approval-manage', 'manage approval records'],
   ['network:profile-read', 'read network regional profile definitions and state'],
   ['network:profile-enable', 'enable network regional profile for a network'],
   ['network:profile-disable', 'disable network regional profile for a network'],
@@ -47,7 +51,7 @@ const permissions = [
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read'],
   operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'projection:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', ...projectionPermissions],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', 'policy:approval-read', ...projectionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -68,6 +72,7 @@ const rolePermissions: Record<string, readonly string[]> = {
     'network:profile-read',
     'network:profile-enable',
     'network:profile-disable',
+    ...approvalPermissions,
     ...projectionPermissions
   ]
 }

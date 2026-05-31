@@ -1,27 +1,33 @@
 <script lang="ts">
-  type NavItem = { id: string; label: string; enabled: boolean; disabledReason?: string }
+  type NavItem = { id: string; label: string; enabled: boolean; path?: string; disabledReason?: string }
 
-  let { items, selected, onSelect } = $props<{
+  let { items, selected } = $props<{
     items: NavItem[]
     selected: string
-    onSelect: (id: string) => void
   }>()
 </script>
 
 <div class="nav-rail">
   {#each items as item}
-    <button
-      class="nav-item"
-      class:active={item.id === selected}
-      class:disabled={!item.enabled}
-      onclick={() => item.enabled && onSelect(item.id)}
-      title={!item.enabled ? (item.disabledReason ?? '功能尚未实现') : undefined}
-    >
-      <span class="nav-label">{item.label}</span>
-      {#if !item.enabled}
+    {#if item.enabled && item.path}
+      <a
+        class="nav-item"
+        class:active={item.id === selected}
+        href={item.path}
+        data-sveltekit-preload-data="off"
+      >
+        <span class="nav-label">{item.label}</span>
+      </a>
+    {:else}
+      <button
+        class="nav-item disabled"
+        title={item.disabledReason ?? '功能尚未实现'}
+        aria-disabled="true"
+      >
+        <span class="nav-label">{item.label}</span>
         <span class="nav-disabled-reason">{item.disabledReason ?? '未实现'}</span>
-      {/if}
-    </button>
+      </button>
+    {/if}
   {/each}
 </div>
 

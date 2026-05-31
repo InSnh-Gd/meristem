@@ -897,6 +897,12 @@ HTTP schema validation
 - 不同实现共享同一语义测试。
 - 性能实现不能改变语义。
 
+### 8.7.1 测试命令（Bun-only）
+
+```bash
+bun run test:ui-contract
+```
+
 ### 8.8 Definition of Done
 
 任何核心能力完成前，必须满足：

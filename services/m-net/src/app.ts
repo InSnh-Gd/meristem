@@ -377,6 +377,7 @@ export function createMNetApp(deps: MNetAppDeps) {
           suspendedOp.correlationId
         )
         await deps.log?.writeTimeline(`profile enabled for network ${suspendedOp.networkId}`, 'mnet.profile.enabled', suspendedOp.correlationId)
+        await deps.log?.writeFull('info', `profile enabled for network ${suspendedOp.networkId}`, suspendedOp.correlationId, { profileVersion: suspendedOp.toProfileVersion, operationId: suspendedOp.id })
         await deps.log?.writeAudit('system', 'mnet.profile.enable.resume.attempt', `network:${suspendedOp.networkId}`, 'success', suspendedOp.correlationId)
         await deps.log?.writeAudit('system', 'mnet.profile.enable.success', `network:${suspendedOp.networkId}`, 'success', suspendedOp.correlationId, { profileVersion: suspendedOp.toProfileVersion })
 
@@ -535,6 +536,7 @@ export function createMNetApp(deps: MNetAppDeps) {
             suspendedOp.correlationId
           )
           await deps.log?.writeTimeline(`profile enable requested for network ${params.id}`, 'mnet.profile.enable.requested', suspendedOp.correlationId)
+          await deps.log?.writeFull('info', `profile enable requested for network ${params.id}`, suspendedOp.correlationId, { profileVersion, operationId: suspendedOp.id })
           await deps.log?.writeAudit(actor, 'mnet.profile.enable.request', `network:${params.id}`, 'pending', suspendedOp.correlationId, { profileVersion, operationId: suspendedOp.id })
 
           return {
@@ -605,6 +607,7 @@ export function createMNetApp(deps: MNetAppDeps) {
             disableCorrelationId
           )
           await deps.log?.writeTimeline(`profile disabled for network ${params.id}`, 'mnet.profile.disabled', disableCorrelationId)
+          await deps.log?.writeFull('info', `profile disabled for network ${params.id}`, disableCorrelationId, { profileVersion })
           await deps.log?.writeAudit(actor, 'mnet.profile.disable.success', `network:${params.id}`, 'success', disableCorrelationId, { profileVersion })
 
           return { status: 'disabled', profileVersion, correlationId: disableCorrelationId }

@@ -22,6 +22,7 @@ if (!infraOk) {
   let operatorToken = ''
   let viewerToken = ''
   let securityAdminToken = ''
+  let leafName = ''
 
   describe('e2e: BFF', () => {
     beforeAll(async () => {
@@ -31,6 +32,12 @@ if (!infraOk) {
       operatorToken = stack.operatorToken
       viewerToken = stack.viewerToken
       securityAdminToken = stack.securityAdminToken
+      leafName = `e2e-bff-leaf-${Date.now()}`
+      const leaf = await coreFetch('/api/v0/nodes', operatorToken, {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'leaf', name: leafName, mode: 'simulated' })
+      })
+      expect(leaf.ok).toBe(true)
     }, 60_000)
 
     afterAll(async () => {
@@ -119,7 +126,7 @@ if (!infraOk) {
       it('enabled for reachable leaf with operator', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === 'e2e-leaf')
+        const leaf = nodes.find((n) => n.name === leafName)
         expect(leaf).toBeDefined()
         const res = await bffFetch('/api/v0/commands/noop', operatorToken, {
           method: 'POST',
@@ -149,7 +156,7 @@ if (!infraOk) {
       it('returns task result', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === 'e2e-leaf')
+        const leaf = nodes.find((n) => n.name === leafName)
         expect(leaf).toBeDefined()
         const res = await bffFetch('/api/v0/commands/noop/execute', operatorToken, {
           method: 'POST',
@@ -169,6 +176,89 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { node: { id: string } }
         expect(body.node.id).toBe(nodes[0].id)
+      })
+    })
+
+    describe('Phase 14 BFF routes', () => {
+      it('GET /api/v0/routes returns route list', async () => {
+        const res = await bffFetch('/api/v0/routes', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { routes: Array<{ id: string }> }
+        expect(Array.isArray(body.routes)).toBe(true)
+        expect(body.routes.some((route) => route.id === 'control-room.overview')).toBe(true)
+      })
+
+      it('GET /api/v0/routes/:id returns a known route', async () => {
+        const res = await bffFetch('/api/v0/routes/control-room.overview', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { route: { id: string } }
+        expect(body.route.id).toBe('control-room.overview')
+      })
+
+      it('GET /api/v0/routes/:id returns 404 for an unknown route', async () => {
+        const res = await bffFetch('/api/v0/routes/unknown.route', operatorToken)
+        expect(res.status).toBe(404)
+      })
+
+      it('GET /api/v0/nodes returns node array', async () => {
+        const res = await bffFetch('/api/v0/nodes', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { nodes: Array<{ id: string; name: string }> }
+        expect(Array.isArray(body.nodes)).toBe(true)
+        expect(body.nodes.some((node) => node.name === leafName)).toBe(true)
+      })
+
+      it('GET /api/v0/timeline returns timeline entries', async () => {
+        const res = await bffFetch('/api/v0/timeline', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { entries: Array<{ id: string }> }
+        expect(Array.isArray(body.entries)).toBe(true)
+      })
+
+      it('GET /api/v0/audit returns audit entries for security admin', async () => {
+        const res = await bffFetch('/api/v0/audit', securityAdminToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { entries: Array<{ id: string }> }
+        expect(Array.isArray(body.entries)).toBe(true)
+      })
+
+      it('GET /api/v0/policy/decisions returns decision list', async () => {
+        const res = await bffFetch('/api/v0/policy/decisions', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { decisions: Array<{ id: string }> }
+        expect(Array.isArray(body.decisions)).toBe(true)
+      })
+
+      it('GET /api/v0/services returns service list', async () => {
+        const res = await bffFetch('/api/v0/services', operatorToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { services: Array<{ id: string }> }
+        expect(Array.isArray(body.services)).toBe(true)
+      })
+
+      it('POST /api/v0/commands/task.noop.submit/eligibility returns command eligibility', async () => {
+        const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
+        const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
+        const leaf = nodes.find((node) => node.name === leafName)
+        expect(leaf).toBeDefined()
+        if (!leaf) throw new Error(`missing e2e leaf: ${leafName}`)
+
+        const res = await bffFetch('/api/v0/commands/task.noop.submit/eligibility', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ leafNodeId: leaf.id })
+        })
+        expect(res.ok).toBe(true)
+        const body = res.data as { state: string; command: { id: string } }
+        expect(body.state).toBe('enabled')
+        expect(body.command.id).toBe('task.noop.submit')
+      })
+
+      it('POST /api/v0/commands/unknown/eligibility returns 400', async () => {
+        const res = await bffFetch('/api/v0/commands/unknown/eligibility', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ leafNodeId: 'leaf-placeholder' })
+        })
+        expect(res.status).toBe(400)
       })
     })
   })

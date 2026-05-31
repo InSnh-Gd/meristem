@@ -36,6 +36,7 @@ describe('e2e: m-net profile lifecycle', () => {
   let devAll: ManagedProcess | null = null
   let bffProcess: ManagedProcess | null = null
   let operatorToken = ''
+  let adminToken = ''
   let securityAdminToken = ''
 
   beforeAll(async () => {
@@ -44,6 +45,7 @@ describe('e2e: m-net profile lifecycle', () => {
     devAll = stack.devAll
     bffProcess = stack.bffProcess
     operatorToken = stack.operatorToken
+    adminToken = stack.adminToken
     securityAdminToken = stack.securityAdminToken
   }, 60_000)
 
@@ -61,7 +63,7 @@ describe('e2e: m-net profile lifecycle', () => {
     const created = createNetwork.data as { network: { id: string } }
     const networkId = created.network.id
 
-    const enable = await mnetFetch(`/api/v0/networks/${networkId}/profile`, operatorToken, {
+    const enable = await mnetFetch(`/api/v0/networks/${networkId}/profile`, adminToken, {
       method: 'POST',
       body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'e2e approval flow enable' })
     })
@@ -93,10 +95,11 @@ describe('e2e: m-net profile lifecycle', () => {
     })
     expect(approve.status).toBe(200)
 
-    const activeState = await coreFetch(`/api/v0/networks/${networkId}`, operatorToken)
+    const activeState = await coreFetch('/api/v0/networks', operatorToken)
     expect(activeState.status).toBe(200)
-    const networkAfterEnable = activeState.data as { network: { profileVersion: string } }
-    expect(networkAfterEnable.network.profileVersion).toBe('m-net-cn@0.1.0')
+    const networksAfterEnable = activeState.data as { networks: Array<{ id: string; profileVersion: string }> }
+    const networkAfterEnable = networksAfterEnable.networks.find((network) => network.id === networkId)
+    expect(networkAfterEnable?.profileVersion).toBe('m-net-cn@0.1.0')
 
     const timeline = await coreFetch('/api/v0/logs/timeline', operatorToken)
     expect(timeline.status).toBe(200)
@@ -113,16 +116,17 @@ describe('e2e: m-net profile lifecycle', () => {
     const auditEntries = (audit.data as { entries: Array<{ correlationId?: string; action?: string }> }).entries
     expect(auditEntries.some((entry) => entry.correlationId === correlationId && entry.action === 'mnet.profile.enable.success')).toBe(true)
 
-    const disable = await mnetFetch(`/api/v0/networks/${networkId}/profile`, operatorToken, {
+    const disable = await mnetFetch(`/api/v0/networks/${networkId}/profile`, adminToken, {
       method: 'POST',
       body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'e2e disable back to default' })
     })
     expect(disable.status).toBe(200)
 
-    const finalState = await coreFetch(`/api/v0/networks/${networkId}`, operatorToken)
+    const finalState = await coreFetch('/api/v0/networks', operatorToken)
     expect(finalState.status).toBe(200)
-    const networkAfterDisable = finalState.data as { network: { profileVersion: string } }
-    expect(networkAfterDisable.network.profileVersion).toBe('m-net-default@0.1.0')
+    const networksAfterDisable = finalState.data as { networks: Array<{ id: string; profileVersion: string }> }
+    const networkAfterDisable = networksAfterDisable.networks.find((network) => network.id === networkId)
+    expect(networkAfterDisable?.profileVersion).toBe('m-net-default@0.1.0')
   }, 90_000)
 
   it('documents skip condition when PostgreSQL or NATS is unavailable', () => {

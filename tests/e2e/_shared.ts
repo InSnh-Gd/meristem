@@ -58,6 +58,7 @@ export async function startFullStack(): Promise<{
   devAll: ManagedProcess
   bffProcess: ManagedProcess
   operatorToken: string
+  adminToken: string
   viewerToken: string
   securityAdminToken: string
 }> {
@@ -71,12 +72,15 @@ export async function startFullStack(): Promise<{
   if (certsExit !== 0) throw new Error(`certs failed:\n${certs.stderr}`)
 
   const operatorToken = await runTextCommand(['token:mint', '--actor', 'operator'])
+  const adminToken = await runTextCommand(['token:mint', '--actor', 'admin'])
   const viewerToken = await runTextCommand(['token:mint', '--actor', 'viewer'])
   const securityAdminToken = await runTextCommand(['token:mint', '--actor', 'security-admin'])
 
   const devAll = startProcess(['bun', 'run', 'dev:all'], { env: baseEnv })
   await waitFor(
-    () => devAll.stdout.includes('meristem-core listening on http://localhost:3000'),
+    () =>
+      devAll.stdout.includes('meristem-core listening on http://localhost:3000') ||
+      devAll.stdout.includes('meristem-core listening on http://127.0.0.1:3000'),
     { label: 'core startup', timeoutMs: 20_000, intervalMs: 100 }
   )
   await waitFor(
@@ -94,7 +98,7 @@ export async function startFullStack(): Promise<{
     { label: 'bff startup', timeoutMs: 10_000, intervalMs: 100 }
   )
 
-  return { devAll, bffProcess, operatorToken, viewerToken, securityAdminToken }
+  return { devAll, bffProcess, operatorToken, adminToken, viewerToken, securityAdminToken }
 }
 
 /**

@@ -32,6 +32,7 @@
     "test:e2e": "bun test --timeout=30000 tests/e2e",
     "test:failure-modes": "bun test tests/failure-modes",
     "test:integration": "bun test tests/integration",
+    "test:ui-contract": "bun test tests/ui-contract",
     "test:opensearch-contracts": "bun test tests/contracts/opensearch-search.test.ts",
     "test:opensearch-failure-modes": "bun test tests/failure-modes/opensearch.test.ts",
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",

@@ -10,6 +10,7 @@
     "tests/cli/**/*.ts",
     "tests/failure-modes/**/*.ts",
     "tests/integration/**/*.ts",
+    "tests/ui-contract/**/*.ts",
     "tests/helpers/**/*.ts"
   ]
 }
