@@ -416,6 +416,139 @@ await sql.begin(async (tx) => {
       created_at timestamptz not null
     )
   `
+  await tx`
+    create table if not exists actors (
+      id text primary key,
+      display_name text not null,
+      status text not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists actor_tokens (
+      jti text primary key,
+      actor_id text not null references actors(id),
+      issuer text not null,
+      audience text not null,
+      issued_at timestamptz not null,
+      expires_at timestamptz not null,
+      issued_by text not null,
+      purpose text not null,
+      status text not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create unique index if not exists actor_tokens_jti_unique
+    on actor_tokens (jti)
+  `
+  await tx`
+    create table if not exists actor_token_revocations (
+      jti text primary key references actor_tokens(jti),
+      revoked_at timestamptz not null,
+      revoked_by text not null,
+      reason text not null,
+      correlation_id text
+    )
+  `
+  await tx`
+    create table if not exists secret_refs (
+      id text primary key,
+      name text not null,
+      scope text not null,
+      status text not null,
+      created_by text not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null,
+      metadata jsonb not null
+    )
+  `
+  await tx`
+    create table if not exists secret_ref_versions (
+      id text primary key,
+      secret_ref_id text not null references secret_refs(id),
+      version text not null,
+      value_ciphertext text not null,
+      created_by text not null,
+      created_at timestamptz not null,
+      disabled_at timestamptz
+    )
+  `
+  await tx`
+    create table if not exists secret_ref_transitions (
+      id text primary key,
+      secret_ref_id text not null references secret_refs(id),
+      from_status text not null,
+      to_status text not null,
+      actor text not null,
+      reason text,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists config_records (
+      id text primary key,
+      config_version text not null,
+      schema_version text not null,
+      config_hash text not null,
+      domain text not null,
+      target_scope jsonb not null,
+      status text not null,
+      payload jsonb not null,
+      created_by text not null,
+      created_at timestamptz not null,
+      published_by text,
+      published_at timestamptz,
+      rollback_version text,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists config_versions (
+      id text primary key,
+      config_id text not null references config_records(id),
+      version text not null,
+      config_hash text not null,
+      payload jsonb not null,
+      status text not null,
+      created_by text not null,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists config_transitions (
+      id text primary key,
+      config_id text not null references config_records(id),
+      from_status text not null,
+      to_status text not null,
+      actor text not null,
+      reason text,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists config_apply_acks (
+      id text primary key,
+      config_id text not null references config_records(id),
+      version text not null,
+      target_service text not null,
+      status text not null,
+      error text,
+      acked_at timestamptz,
+      expires_at timestamptz,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create unique index if not exists config_apply_acks_service_unique
+    on config_apply_acks (config_id, target_service)
+  `
 })
 
 await sql.end()

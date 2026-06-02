@@ -78,6 +78,40 @@ export const nodeJoinTickets = pgTable('node_join_tickets', {
   redeemedNodeId: text('redeemed_node_id').references(() => nodes.id)
 })
 
+export const actors = pgTable('actors', {
+  id: text('id').primaryKey(),
+  displayName: text('display_name').notNull(),
+  status: text('status').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+})
+
+export const actorTokens = pgTable(
+  'actor_tokens',
+  {
+    jti: text('jti').primaryKey(),
+    actorId: text('actor_id').notNull().references(() => actors.id),
+    issuer: text('issuer').notNull(),
+    audience: text('audience').notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    issuedBy: text('issued_by').notNull(),
+    purpose: text('purpose').notNull(),
+    status: text('status').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [uniqueIndex('actor_tokens_jti_unique').on(table.jti)]
+)
+
+export const actorTokenRevocations = pgTable('actor_token_revocations', {
+  jti: text('jti').primaryKey().references(() => actorTokens.jti),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }).notNull(),
+  revokedBy: text('revoked_by').notNull(),
+  reason: text('reason').notNull(),
+  correlationId: text('correlation_id')
+})
+
 // service_definitions 当前主要承载内建服务与生命周期原型所需的最小元数据。
 export const serviceDefinitions = pgTable('service_definitions', {
   id: text('id').primaryKey(),
@@ -89,7 +123,7 @@ export const serviceDefinitions = pgTable('service_definitions', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
 })
 
-// tasks 是 Phase 11 前 Core-owned MVP 路径的历史兼容表；canonical task state 由 M-Task 表组持有。
+// tasks 是 Core-owned MVP 路径的历史兼容表；canonical task state 由 M-Task 表组持有。
 export const tasks = pgTable('tasks', {
   id: text('id').primaryKey(),
   leafNodeId: text('leaf_node_id').notNull().references(() => nodes.id),
@@ -107,7 +141,7 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
   node: one(nodes, { fields: [tasks.leafNodeId], references: [nodes.id] }),
 }))
 
-// M-Task 表组是 Phase 11 后任务生命周期的权威写模型，不再由 Core tasks 表承载 canonical state。
+// M-Task 表组是任务生命周期的权威写模型，不再由 Core tasks 表承载 canonical state。
 export const taskDefinitions = pgTable('task_definitions', {
   id: text('id').primaryKey(),
   type: text('type').notNull(),
@@ -266,7 +300,7 @@ export const mnetSuspendedOperationsRelations = relations(mnetSuspendedOperation
   policyDecision: one(policyDecisions, { fields: [mnetSuspendedOperations.policyDecisionId], references: [policyDecisions.id] })
 }))
 
-// M-Extension Phase 15 表组只保存控制面声明和 system/default 实例状态，不保存执行代码或 secret 明文。
+// M-Extension 表组只保存控制面声明和 system/default 实例状态，不保存执行代码或 secret 明文。
 export const extensionDefinitions = pgTable('extension_definitions', {
   id: text('id').primaryKey(),
   manifestVersion: text('manifest_version').notNull(),
@@ -320,6 +354,95 @@ export const extensionTransitions = pgTable('extension_transitions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 })
 
+export const secretRefs = pgTable('secret_refs', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  scope: text('scope').notNull(),
+  status: text('status').notNull(),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  metadata: jsonb('metadata').notNull()
+})
+
+export const secretRefVersions = pgTable('secret_ref_versions', {
+  id: text('id').primaryKey(),
+  secretRefId: text('secret_ref_id').notNull().references(() => secretRefs.id),
+  version: text('version').notNull(),
+  valueCiphertext: text('value_ciphertext').notNull(),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  disabledAt: timestamp('disabled_at', { withTimezone: true })
+})
+
+export const secretRefTransitions = pgTable('secret_ref_transitions', {
+  id: text('id').primaryKey(),
+  secretRefId: text('secret_ref_id').notNull().references(() => secretRefs.id),
+  fromStatus: text('from_status').notNull(),
+  toStatus: text('to_status').notNull(),
+  actor: text('actor').notNull(),
+  reason: text('reason'),
+  policyDecisionId: text('policy_decision_id').references(() => policyDecisions.id),
+  correlationId: text('correlation_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+})
+
+export const configRecords = pgTable('config_records', {
+  id: text('id').primaryKey(),
+  configVersion: text('config_version').notNull(),
+  schemaVersion: text('schema_version').notNull(),
+  configHash: text('config_hash').notNull(),
+  domain: text('domain').notNull(),
+  targetScope: jsonb('target_scope').notNull(),
+  status: text('status').notNull(),
+  payload: jsonb('payload').notNull(),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  publishedBy: text('published_by'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  rollbackVersion: text('rollback_version'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+})
+
+export const configVersions = pgTable('config_versions', {
+  id: text('id').primaryKey(),
+  configId: text('config_id').notNull().references(() => configRecords.id),
+  version: text('version').notNull(),
+  configHash: text('config_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+  status: text('status').notNull(),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+})
+
+export const configTransitions = pgTable('config_transitions', {
+  id: text('id').primaryKey(),
+  configId: text('config_id').notNull().references(() => configRecords.id),
+  fromStatus: text('from_status').notNull(),
+  toStatus: text('to_status').notNull(),
+  actor: text('actor').notNull(),
+  reason: text('reason'),
+  policyDecisionId: text('policy_decision_id').references(() => policyDecisions.id),
+  correlationId: text('correlation_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+})
+
+export const configApplyAcks = pgTable(
+  'config_apply_acks',
+  {
+    id: text('id').primaryKey(),
+    configId: text('config_id').notNull().references(() => configRecords.id),
+    version: text('version').notNull(),
+    targetService: text('target_service').notNull(),
+    status: text('status').notNull(),
+    error: text('error'),
+    ackedAt: timestamp('acked_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [uniqueIndex('config_apply_acks_service_unique').on(table.configId, table.targetService)]
+)
+
 // policy_decisions、timeline/full/audit logs 分别对应授权事实与三级日志事实。
 export const policyDecisions = pgTable('policy_decisions', {
   id: text('id').primaryKey(),
@@ -363,8 +486,7 @@ export const auditLogs = pgTable('audit_logs', {
   payload: jsonb('payload')
 })
 
-// Phase 10.1 Projection Platform 表：projector_jobs 记录投影作业生命周期
-// 来源：docs/roadmap/PHASE-10.1.md §2.1
+// Projection Platform 表：projector_jobs 记录投影作业生命周期
 export const projectorJobs = pgTable('projector_jobs', {
   id: text('id').primaryKey(),
   type: text('type').notNull(), // backfill | incremental | repair
@@ -379,8 +501,7 @@ export const projectorJobs = pgTable('projector_jobs', {
   completedAt: timestamp('completed_at', { withTimezone: true })
 })
 
-// Phase 10.1 Projection Platform：projection_cursors 持久化 per-index 投影游标
-// 来源：docs/roadmap/PHASE-10.1.md §2.3
+// Projection Platform：projection_cursors 持久化 per-index 投影游标
 export const projectionCursors = pgTable('projection_cursors', {
   index: text('index').primaryKey(), // 索引名作为主键，每个索引一个 cursor
   factId: text('fact_id').notNull(),
@@ -388,8 +509,7 @@ export const projectionCursors = pgTable('projection_cursors', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
 })
 
-// Phase 10.1 Projection Platform：projection_dlq 持久化死信队列
-// 来源：docs/roadmap/PHASE-10.1.md §2.4
+// Projection Platform：projection_dlq 持久化死信队列
 export const projectionDLQ = pgTable('projection_dlq', {
   id: text('id').primaryKey(),
   jobId: text('job_id').notNull(),
@@ -401,8 +521,7 @@ export const projectionDLQ = pgTable('projection_dlq', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 })
 
-// Phase 12 Approval Execution Flow 表组
-// 来源：docs/roadmap/PHASE-12.md §5
+// Approval Execution Flow 表组
 
 // M-Policy 拥有的审批记录表；approval queue 所有权留在 M-Policy。
 export const policyApprovals = pgTable('policy_approvals', {
@@ -450,3 +569,54 @@ export const taskSuspendedOperations = pgTable('task_suspended_operations', {
   resumedAt: timestamp('resumed_at', { withTimezone: true }),
   terminalReason: text('terminal_reason')
 })
+
+export const actorsRelations = relations(actors, ({ many }) => ({
+  tokens: many(actorTokens),
+}))
+
+export const actorTokensRelations = relations(actorTokens, ({ one }) => ({
+  actor: one(actors, { fields: [actorTokens.actorId], references: [actors.id] }),
+  revocation: one(actorTokenRevocations, { fields: [actorTokens.jti], references: [actorTokenRevocations.jti] })
+}))
+
+export const actorTokenRevocationsRelations = relations(actorTokenRevocations, ({ one }) => ({
+  token: one(actorTokens, { fields: [actorTokenRevocations.jti], references: [actorTokens.jti] })
+}))
+
+export const policyDecisionsRelations = relations(policyDecisions, ({ many }) => ({
+  secretRefTransitions: many(secretRefTransitions),
+  configTransitions: many(configTransitions)
+}))
+
+export const secretRefsRelations = relations(secretRefs, ({ many }) => ({
+  versions: many(secretRefVersions),
+  transitions: many(secretRefTransitions)
+}))
+
+export const secretRefVersionsRelations = relations(secretRefVersions, ({ one }) => ({
+  secretRef: one(secretRefs, { fields: [secretRefVersions.secretRefId], references: [secretRefs.id] })
+}))
+
+export const secretRefTransitionsRelations = relations(secretRefTransitions, ({ one }) => ({
+  secretRef: one(secretRefs, { fields: [secretRefTransitions.secretRefId], references: [secretRefs.id] }),
+  policyDecision: one(policyDecisions, { fields: [secretRefTransitions.policyDecisionId], references: [policyDecisions.id] })
+}))
+
+export const configRecordsRelations = relations(configRecords, ({ many }) => ({
+  versions: many(configVersions),
+  transitions: many(configTransitions),
+  applyAcks: many(configApplyAcks)
+}))
+
+export const configVersionsRelations = relations(configVersions, ({ one }) => ({
+  config: one(configRecords, { fields: [configVersions.configId], references: [configRecords.id] })
+}))
+
+export const configTransitionsRelations = relations(configTransitions, ({ one }) => ({
+  config: one(configRecords, { fields: [configTransitions.configId], references: [configRecords.id] }),
+  policyDecision: one(policyDecisions, { fields: [configTransitions.policyDecisionId], references: [policyDecisions.id] })
+}))
+
+export const configApplyAcksRelations = relations(configApplyAcks, ({ one }) => ({
+  config: one(configRecords, { fields: [configApplyAcks.configId], references: [configRecords.id] })
+}))
