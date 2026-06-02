@@ -1,6 +1,7 @@
 import { CoreError } from './core-error.ts'
 import { Elysia } from 'elysia'
 import { openapi } from '@elysiajs/openapi'
+import { redactSecrets } from '../../../packages/common/src/secret-redaction.ts'
 import type { CoreDeps } from './types.ts'
 import { healthRoutes } from './routes/health.ts'
 import { servicesRoutes } from './routes/services.ts'
@@ -10,6 +11,7 @@ import { logsRoutes } from './routes/logs.ts'
 import { policyRoutes } from './routes/policy.ts'
 import { projectionRoutes } from './routes/projection.ts'
 import { identity } from './routes/identity.ts'
+import { secrets, secretReference } from './routes/secrets.ts'
 
 export function createCoreApp(deps: CoreDeps) {
   const degradedEventOpen = { value: false }
@@ -29,7 +31,7 @@ export function createCoreApp(deps: CoreDeps) {
       }
       if (code === 'VALIDATION') {
         set.status = 400
-        return { error: { code: 'VALIDATION', message: error.message } }
+        return { error: { code: 'VALIDATION', message: redactSecrets(error.message) } }
       }
       if (code === 'NOT_FOUND') {
         set.status = 404
@@ -61,6 +63,8 @@ export function createCoreApp(deps: CoreDeps) {
     .use(policyRoutes(deps))
     .use(projectionRoutes(deps))
     .use(identity(deps))
+    .use(secrets(deps))
+    .use(secretReference(deps))
 }
 
 export type CoreApp = ReturnType<typeof createCoreApp>
