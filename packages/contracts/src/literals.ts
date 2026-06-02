@@ -29,7 +29,7 @@ export const projectionPermissions = [
   'projection:dlq-manage'
 ] as const
 
-// Phase 12: 审批流程权限，M-Policy 外部审批 API 专用。
+// 审批流程权限，M-Policy 外部审批 API 专用。
 export const approvalPermissions = [
   'policy:approval-read',
   'policy:approval-approve',
@@ -57,6 +57,29 @@ export const extensionPermission = {
   disable: extensionPermissions[3]
 } as const
 
-export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions, ...extensionPermissions] as const
+export const identityPermissions = [
+  'identity:read',
+  'identity:token-issue',
+  'identity:token-revoke',
+  'identity:token-inspect'
+] as const
+
+export const secretPermissions = [
+  'secret:read-metadata',
+  'secret:create',
+  'secret:rotate',
+  'secret:disable',
+  'secret:reference'
+] as const
+
+export const configPermissions = [
+  'config:read',
+  'config:draft',
+  'config:validate',
+  'config:publish',
+  'config:rollback'
+] as const
+
+export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions, ...extensionPermissions, ...identityPermissions, ...secretPermissions, ...configPermissions] as const
 
 export type Permission = typeof permissions[number]
