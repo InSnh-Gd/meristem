@@ -47,7 +47,7 @@ type ConfigCliMethods = {
   getApplyAck?(configId: string): Promise<{ acks: ConfigApplyAck[] }>
 }
 
-function statusMock() {
+async function statusMock() {
   return {
     core: { id: 'meristem-core', version: '0.1.0', mode: 'normal' as const },
     dependencies: {
@@ -380,7 +380,7 @@ describe('meristem CLI — config', () => {
   it('fails draft when payload contains plaintext token', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      draftConfig: async (input: { domain: string; payload: Record<string, unknown> }) => {
+      draftConfig: async (_input: { domain: string; payload: Record<string, unknown> }) => {
         calls.push('config:draft:called')
         return {
           config: {

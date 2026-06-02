@@ -59,7 +59,7 @@ export type PolicyPort = {
 
 /**
  * LogPort 固定提供 Timeline / Full / Audit 三层日志接口，防止调用方绕开分级语义。
- * Phase 10 新增 OpenSearch 搜索方法。
+ * 新增 OpenSearch 搜索方法。
  */
 export type LogPort = {
   writeTimeline(input: Omit<TimelineLog, 'id' | 'timestamp'>): Promise<Result<TimelineLog, ServiceError>>
@@ -129,7 +129,7 @@ export type CoreStorage = {
 
 /**
  * ProjectionPort 暴露投影平台操作，Core 通过内部 HTTP 调用 M-Log 投影端点。
- * Phase 10.1 来源：docs/roadmap/PHASE-10.1.md
+
  */
 export type ProjectionPort = {
   getHealth(): Promise<Result<ProjectionHealth[], ServiceError>>
@@ -137,6 +137,43 @@ export type ProjectionPort = {
   listDLQ(index?: string): Promise<Result<DLQRecord[], ServiceError>>
   replayDLQ(dlqId: string): Promise<Result<boolean, ServiceError>>
   skipDLQ(dlqId: string): Promise<Result<boolean, ServiceError>>
+}
+
+/**
+ * IdentityPort 收敛 Core 自持 actor 与 token 生命周期，避免外层直接接触身份表结构。
+ */
+export type IdentityPort = {
+  listActors(): Promise<Result<Array<{ id: string; displayName: string; status: string; createdAt: string; updatedAt: string }>, ServiceError>>
+  getActor(id: string): Promise<Result<{ id: string; displayName: string; status: string; createdAt: string; updatedAt: string } | null, ServiceError>>
+  issueToken(input: { actor: string; ttl: string; purpose: string; correlationId: string }): Promise<Result<{ jti: string; token: string; expiresAt: string; actor: string }, ServiceError>>
+  inspectToken(jti: string): Promise<Result<{ jti: string; actor: string; issuer: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string; status: string; revokedAt?: string; revokedBy?: string; revokeReason?: string } | null, ServiceError>>
+  revokeToken(jti: string, input: { reason: string; correlationId: string }): Promise<Result<{ jti: string; status: string; revokedAt: string; revokedBy: string }, ServiceError>>
+  introspect(jti: string): Promise<Result<{ active: boolean; actor?: string; jti?: string }, ServiceError>>
+}
+
+/**
+ * SecretRefPort 仅暴露 metadata 与版本引用，禁止把明文 secret 泄漏给 Core 外部调用方。
+ */
+export type SecretRefPort = {
+  list(): Promise<Result<Array<{ id: string; name: string; scope: string; status: string; createdBy: string; createdAt: string; metadata: Record<string, string> }>, ServiceError>>
+  get(id: string): Promise<Result<{ id: string; name: string; scope: string; status: string; createdBy: string; createdAt: string; updatedAt: string; metadata: Record<string, string> } | null, ServiceError>>
+  create(input: { name: string; scope: string; value: string; metadata?: Record<string, string>; correlationId: string }): Promise<Result<{ id: string; name: string; status: string; createdAt: string }, ServiceError>>
+  rotate(id: string, input: { value: string; reason: string; correlationId: string }): Promise<Result<{ id: string; version: string; status: string; rotatedAt: string }, ServiceError>>
+  disable(id: string, input: { reason: string; correlationId: string }): Promise<Result<{ id: string; status: string; disabledAt: string }, ServiceError>>
+  reference(id: string): Promise<Result<{ id: string; currentVersion: string; status: string; metadata: Record<string, string> }, ServiceError>>
+}
+
+/**
+ * ConfigPort 暴露配置草稿、校验、发布、回滚与 apply ack 生命周期，不让路由层操作内部状态机细节。
+ */
+export type ConfigPort = {
+  list(): Promise<Result<Array<{ id: string; configVersion: string; domain: string; status: string; createdBy: string; createdAt: string }>, ServiceError>>
+  get(id: string): Promise<Result<{ id: string; configVersion: string; schemaVersion: string; configHash: string; domain: string; targetScope: string[]; status: string; payload: unknown; createdBy: string; createdAt: string; publishedBy?: string; publishedAt?: string; rollbackVersion?: string; updatedAt: string } | null, ServiceError>>
+  draft(input: { domain: string; payload: unknown; targetScope?: string[]; correlationId: string }): Promise<Result<{ id: string; configVersion: string; status: string; createdAt: string }, ServiceError>>
+  validate(id: string): Promise<Result<{ id: string; status: string }, ServiceError>>
+  publish(id: string, input: { reason: string; correlationId: string }): Promise<Result<{ id: string; configVersion: string; status: string; publishedAt: string; publishedBy: string }, ServiceError>>
+  rollback(id: string, input: { toVersion: string; reason: string; correlationId: string }): Promise<Result<{ id: string; status: string }, ServiceError>>
+  applyAck(id: string, input: { version: string; targetService: string; status: string; error?: string; correlationId: string }): Promise<Result<{ ackId: string; status: string; ackedAt: string }, ServiceError>>
 }
 
 /**
@@ -154,5 +191,8 @@ export type CoreDeps = {
   agentTasks: AgentTaskPort
   services: ServiceLifecyclePort
   projection: ProjectionPort
+  identity: IdentityPort
+  secrets: SecretRefPort
+  config: ConfigPort
   storage: CoreStorage
 }

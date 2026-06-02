@@ -2,6 +2,7 @@ import { createDb } from '../../../packages/db/src/client.ts'
 import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
+import { err } from '../../../packages/common/src/result.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
 import type { CoreDeps } from './types.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
@@ -53,6 +54,9 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     }
   }
   const storage = createDbStorage(db, readinessChecks)
+  const identityUnavailable = { code: 'identity.unavailable', message: 'Identity port not implemented' }
+  const secretUnavailable = { code: 'secret.unavailable', message: 'SecretRef port not implemented' }
+  const configUnavailable = { code: 'config.unavailable', message: 'Config port not implemented' }
   return {
     startedAt: Date.now(),
     version: '0.1.0',
@@ -65,6 +69,69 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     agentTasks: createHttpAgentTaskPort(),
     services: createServiceLifecyclePort(storage, readinessChecks),
     projection: createHttpProjectionPort(),
+    identity: {
+      async listActors() {
+        return err(identityUnavailable)
+      },
+      async getActor() {
+        return err(identityUnavailable)
+      },
+      async issueToken() {
+        return err(identityUnavailable)
+      },
+      async inspectToken() {
+        return err(identityUnavailable)
+      },
+      async revokeToken() {
+        return err(identityUnavailable)
+      },
+      async introspect() {
+        return err(identityUnavailable)
+      }
+    },
+    secrets: {
+      async list() {
+        return err(secretUnavailable)
+      },
+      async get() {
+        return err(secretUnavailable)
+      },
+      async create() {
+        return err(secretUnavailable)
+      },
+      async rotate() {
+        return err(secretUnavailable)
+      },
+      async disable() {
+        return err(secretUnavailable)
+      },
+      async reference() {
+        return err(secretUnavailable)
+      }
+    },
+    config: {
+      async list() {
+        return err(configUnavailable)
+      },
+      async get() {
+        return err(configUnavailable)
+      },
+      async draft() {
+        return err(configUnavailable)
+      },
+      async validate() {
+        return err(configUnavailable)
+      },
+      async publish() {
+        return err(configUnavailable)
+      },
+      async rollback() {
+        return err(configUnavailable)
+      },
+      async applyAck() {
+        return err(configUnavailable)
+      }
+    },
     storage,
     async close() {
       await client.end()
