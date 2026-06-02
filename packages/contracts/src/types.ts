@@ -62,6 +62,40 @@ export type SessionResponse = {
   permissions: Permission[]
 }
 
+export type IdentityActorStatus = 'active' | 'disabled'
+export type IdentityTokenStatus = 'active' | 'revoked' | 'expired'
+
+export interface IdentityActorV02 {
+  readonly id: 'viewer' | 'operator' | 'admin' | 'security-admin'
+  readonly displayName: string
+  readonly status: IdentityActorStatus
+  readonly createdAt: string
+  readonly updatedAt: string
+}
+
+export interface ActorTokenV02 {
+  readonly jti: string
+  readonly actor: IdentityActorV02['id']
+  readonly issuer: 'meristem-local'
+  readonly audience: 'meristem-core' | 'meristem-service'
+  readonly issuedAt: string
+  readonly expiresAt: string
+  readonly issuedBy: IdentityActorV02['id']
+  readonly purpose: string
+  readonly status: IdentityTokenStatus
+  readonly revokedAt?: string
+  readonly revokedBy?: IdentityActorV02['id']
+  readonly revokeReason?: string
+}
+
+export interface TokenIntrospectionResult {
+  readonly active: boolean
+  readonly actor?: IdentityActorV02['id']
+  readonly jti?: string
+  readonly status?: IdentityTokenStatus
+  readonly expiresAt?: string
+}
+
 // Ready 与 Health 明确分离：前者表示依赖可用性，后者只表示进程存活。
 export type ReadyResponse = {
   ready: boolean
@@ -98,7 +132,7 @@ export type ServiceReloadResponse = {
   correlationId: string
 }
 
-// 节点运行态从 Phase 8 开始同时表达部署模式、可达性和生命周期状态。
+// 节点运行态同时表达部署模式、可达性和生命周期状态。
 export type NodeKind = 'stem' | 'leaf'
 export type NodeMode = 'agent' | 'simulated'
 export type NodeReachability = 'unknown' | 'reachable' | 'unreachable'
@@ -168,7 +202,7 @@ export type RiskFactor =
   | 'outside_expected_scope'
   | 'audit_visibility'
 
-// Phase 11 起 M-Task 拥有 canonical task lifecycle。
+// M-Task 拥有 canonical task lifecycle。
 export type SubmitTaskRequest = {
   nodeId: string
   type: TaskType
@@ -227,7 +261,7 @@ export type TaskControlResponse = {
 
 export type TaskRetryNotImplementedResponse = {
   error: {
-    code: 'not_implemented_for_phase'
+    code: 'not_implemented_yet'
     message: string
   }
   decisionId: string
@@ -248,7 +282,7 @@ export type NodeAgentTaskExecuteResponse = {
   completedAt: string
 }
 
-// Phase 8 steady-state frames are session-scoped: only the handshake carries runtime secrets.
+// Steady-state frames are session-scoped: only the handshake carries runtime secrets.
 export type JoinRedeemMessage = {
   type: 'join.redeem'
   ticket: string
