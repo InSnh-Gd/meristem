@@ -83,7 +83,7 @@ const rolePermissions: Record<string, readonly string[]> = {
 }
 
 await sql.begin(async (tx) => {
-  // Phase 11 移除 task:assign；先清理历史 seed 残留，避免会话权限返回无效字面量。
+  // 移除 task:assign；先清理历史 seed 残留，避免会话权限返回无效字面量。
   await tx`delete from role_permissions where permission_id = 'task:assign'`
   await tx`delete from permissions where id = 'task:assign'`
 
@@ -131,10 +131,22 @@ await sql.begin(async (tx) => {
     }
   }
 
-  // M-Task Phase 11 默认只开放 noop 定义；更多任务类型必须显式扩展定义和风险语义。
+  // Seed identity actors for v0.2 token lifecycle
+  for (const [id, displayName] of users) {
+    await tx`
+      insert into actors (id, display_name, status, created_at, updated_at)
+      values (${id}, ${displayName}, 'active', ${now}, ${now})
+      on conflict (id) do update set
+        display_name = excluded.display_name,
+        status = excluded.status,
+        updated_at = excluded.updated_at
+    `
+  }
+
+  // M-Task 默认只开放 noop 定义；更多任务类型必须显式扩展定义和风险语义。
   await tx`
     insert into task_definitions (id, type, version, description, danger_level, default_timeout_seconds, created_at, updated_at)
-    values ('task-definition-noop-v0', 'noop', 'v0', 'Phase 11 noop task', 'medium', 30, ${now}, ${now})
+    values ('task-definition-noop-v0', 'noop', 'v0', 'M-Task noop task', 'medium', 30, ${now}, ${now})
     on conflict (id) do update set
       description = excluded.description,
       danger_level = excluded.danger_level,

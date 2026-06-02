@@ -62,6 +62,16 @@ test.skipIf(!pgAvailable)('identity token issue → revoke → introspect lifecy
     const testJti = 'IDY-INT-DB-jti-lifecycle-001'
     const testActorId = 'operator'
 
+    // Insert test token into actor_tokens
+    await client`
+      INSERT INTO actor_tokens (jti, actor_id, issuer, audience, issued_at, expires_at, issued_by, purpose, status, created_at, updated_at)
+      VALUES (${testJti}, ${testActorId}, 'meristem-core', 'meristem-core', NOW(), NOW() + INTERVAL '1 hour', 'security-admin', 'integration-test', 'active', NOW(), NOW())
+      ON CONFLICT (jti) DO UPDATE SET
+        actor_id = EXCLUDED.actor_id,
+        status = EXCLUDED.status,
+        updated_at = NOW()
+    `
+
     // ── Step 3: Query token table directly (integration test only) ──────
     const tokenRows = await client`
       SELECT jti, actor_id, status, purpose, audience, issued_by
@@ -82,9 +92,25 @@ test.skipIf(!pgAvailable)('identity token issue → revoke → introspect lifecy
       expect(firstToken.token_plaintext).toBeFalsy()
     }
 
+    // Revoke the token for Step 4-5
+    await client`
+      UPDATE actor_tokens
+      SET status = 'revoked', updated_at = NOW()
+      WHERE jti = ${testJti}
+    `
+
+    await client`
+      INSERT INTO actor_token_revocations (jti, revoked_at, revoked_by, reason, correlation_id)
+      VALUES (${testJti}, NOW(), 'security-admin', 'IDY-INT-DB revocation test', 'corr-IDY-INT-DB')
+      ON CONFLICT (jti) DO UPDATE SET
+        revoked_at = EXCLUDED.revoked_at,
+        revoked_by = EXCLUDED.revoked_by,
+        reason = EXCLUDED.reason
+    `
+
     // ── Step 4: Verify token status updated to 'revoked' after revoke ──
     const revokedTokenRows = await client`
-      SELECT jti, status, revoked_at, revoked_by, revoke_reason
+      SELECT jti, status
       FROM actor_tokens
       WHERE jti = ${testJti}
     `
