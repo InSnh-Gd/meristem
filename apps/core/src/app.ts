@@ -9,6 +9,7 @@ import { nodesRoutes } from './routes/nodes.ts'
 import { logsRoutes } from './routes/logs.ts'
 import { policyRoutes } from './routes/policy.ts'
 import { projectionRoutes } from './routes/projection.ts'
+import { identity } from './routes/identity.ts'
 
 export function createCoreApp(deps: CoreDeps) {
   const degradedEventOpen = { value: false }
@@ -59,6 +60,7 @@ export function createCoreApp(deps: CoreDeps) {
     .use(logsRoutes(deps))
     .use(policyRoutes(deps))
     .use(projectionRoutes(deps))
+    .use(identity(deps))
 }
 
 export type CoreApp = ReturnType<typeof createCoreApp>

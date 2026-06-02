@@ -23,7 +23,30 @@ export async function requireActor(
   if (!verified.ok) {
     const code = 'error' in verified ? verified.error.code : verified.code
     const message = 'error' in verified ? verified.error.message : verified.message
-    throw new CoreError(401, code, message, correlationId)
+
+    // 当认证层能确认 actor 与 jti 且 token 已撤销时，先补写审计事实，再对外保持 401 fail-closed。
+    if (
+      code === 'identity.token.revoked'
+      && 'actor' in verified
+      && typeof verified.actor === 'string'
+      && 'jti' in verified
+      && typeof verified.jti === 'string'
+    ) {
+      await deps.log.writeAudit({
+        actor: verified.actor as ActorId,
+        action: 'identity:token-revoke',
+        resource: `identity:token:${verified.jti}`,
+        result: 'deny',
+        correlationId,
+        payload: {
+          jti: verified.jti,
+          reason: 'revoked_token_use_denied'
+        }
+      })
+    }
+
+    const status = code === 'identity.introspection.unavailable' ? 503 : 401
+    throw new CoreError(status, code, message, correlationId)
   }
   const actor = 'value' in verified ? verified.value.actor : verified.actor
   return { actor, correlationId }

@@ -129,6 +129,21 @@ function encodeMockJwt(payload: { jti: string; actor: string }): string {
   return `mock-jwt.${encodeURIComponent(JSON.stringify(payload))}.sig`
 }
 
+function decodeMockJwt(token: string): { jti: string; actor: string } | null {
+  const match = /^mock-jwt\.([^.]*)\.sig$/.exec(token)
+  if (!match || !match[1]) return null
+
+  try {
+    const decoded = JSON.parse(decodeURIComponent(match[1])) as { jti?: unknown; actor?: unknown }
+    if (typeof decoded.jti !== 'string' || typeof decoded.actor !== 'string') {
+      return null
+    }
+    return { jti: decoded.jti, actor: decoded.actor }
+  } catch {
+    return null
+  }
+}
+
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -296,8 +311,72 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
     version: '0.1.0-test',
     joinIngressPublicUrl: 'https://localhost:8443',
     auth: {
-      async verify() {
-        return { ok: true as const, actor }
+      async verify(token) {
+        const staticActor = token === 'viewer-token'
+          ? 'viewer'
+          : token === 'operator-token'
+            ? 'operator'
+            : token === 'admin-token'
+              ? 'admin'
+              : token === 'security-admin-token'
+                ? 'security-admin'
+                : token === 'test-token'
+                  ? actor
+                  : null
+
+        if (staticActor) {
+          if (options.introspectionAvailable === false || (options.policyAvailable === false && token === 'IDY-FM-INTROSPECT-down-token')) {
+            return { ok: false as const, code: 'identity.introspection.unavailable', message: 'identity introspection unavailable' }
+          }
+          return { ok: true as const, actor: staticActor }
+        }
+
+        if (options.policyAvailable === false && token === 'IDY-FM-INTROSPECT-down-token') {
+          return { ok: false as const, code: 'identity.introspection.unavailable', message: 'identity introspection unavailable' }
+        }
+
+        const decoded = decodeMockJwt(token)
+        if (decoded === null) {
+          return { ok: false as const, code: 'invalid_token', message: 'JWT verification failed' }
+        }
+
+        const record = actorTokens.find((candidate) => candidate.jti === decoded.jti && candidate.token === token)
+        if (!record) {
+          return { ok: false as const, code: 'invalid_token', message: 'JWT verification failed' }
+        }
+
+        const current = markExpiredToken(record)
+        if (current.status === 'revoked') {
+          return {
+            ok: false as const,
+            code: 'identity.token.revoked',
+            message: 'identity token has been revoked',
+            actor: current.actor,
+            jti: current.jti
+          }
+        }
+        if (current.status === 'expired') {
+          return {
+            ok: false as const,
+            code: 'expired_token',
+            message: 'JWT has expired',
+            actor: current.actor,
+            jti: current.jti
+          }
+        }
+
+        const actorRecord = actors.find((candidate) => candidate.id === current.actor)
+        if (!actorRecord || actorRecord.status !== 'active') {
+          return {
+            ok: false as const,
+            code: 'invalid_actor',
+            message: 'identity actor is not active',
+            actor: current.actor,
+            jti: current.jti
+          }
+        }
+
+        return { ok: true as const, actor: current.actor }
       },
       async getPermissions() {
         return ok((rolePermissions[actor] ?? []) as Permission[])
@@ -342,7 +421,12 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         if (options.auditAvailable === false) {
           return err({ code: 'audit.unavailable', message: 'Audit Log unavailable' })
         }
-        const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...input }
+        const entry = {
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          summary: `${input.action} ${input.resource}`,
+          ...input
+        }
         audit.unshift(entry)
         return ok(entry)
       },

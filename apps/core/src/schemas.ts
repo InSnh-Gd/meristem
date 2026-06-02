@@ -173,6 +173,7 @@ export const fullLogSchema = t.Object({
 export const auditLogSchema = t.Object({
   id: t.String(),
   timestamp: t.String(),
+  summary: t.Optional(t.String()),
   actor: t.Union([
     t.Literal('viewer'),
     t.Literal('operator'),
