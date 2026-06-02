@@ -353,5 +353,198 @@ if (!infraOk) {
         expect(body.decision.actor).toBe('operator')
       })
     })
+
+    describe('identity v0.2', () => {
+      it('security-admin lists actors', async () => {
+        // FAILS RED: identity routes not mounted in Core app yet → 404
+        const res = await coreFetch('/api/v0/identity/actors', securityAdminToken)
+        expect(res.status).toBe(200)
+        const body = res.data as { actors: Array<{ id: string; displayName: string; status: string }> }
+        expect(Array.isArray(body.actors)).toBe(true)
+        expect(body.actors.length).toBeGreaterThan(0)
+        expect(body.actors.some((a) => a.id === 'operator')).toBe(true)
+      })
+
+      it('operator cannot list actors (identity:read self only, not all)', async () => {
+        const res = await coreFetch('/api/v0/identity/actors', operatorToken)
+        // FAILS RED: identity routes not mounted → 404
+        expect(res.status).toBe(403)
+      })
+
+      it('security-admin issues a token for operator', async () => {
+        // FAILS RED: identity routes not mounted → 404
+        const res = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({
+            actor: 'operator',
+            ttl: '1h',
+            purpose: 'E2E-IDY-ISSUE smoke test'
+          })
+        })
+        expect(res.status).toBe(201)
+        const body = res.data as {
+          token: string
+          jti: string
+          actor: string
+          issuer: string
+          audience: string
+          purpose: string
+          status: string
+        }
+        expect(typeof body.token).toBe('string')
+        expect(typeof body.jti).toBe('string')
+        expect(body.actor).toBe('operator')
+        expect(body.issuer).toBe('meristem-local')
+        expect(body.audience).toBe('meristem-core')
+        expect(body.purpose).toBe('E2E-IDY-ISSUE smoke test')
+        expect(body.status).toBe('active')
+        // Token must be a JWT with 3 dot-separated parts
+        expect(body.token.split('.').length).toBe(3)
+      })
+
+      it('operator cannot issue tokens (lacks identity:token-issue)', async () => {
+        const res = await coreFetch('/api/v0/identity/tokens', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({
+            actor: 'viewer',
+            ttl: '1h',
+            purpose: 'E2E-IDY-ISSUE unauthorized'
+          })
+        })
+        // FAILS RED: identity routes not mounted → 404
+        // Once wired: operator lacks identity:token-issue → 403
+        expect(res.status).toBe(403)
+      })
+
+      it('viewer cannot issue tokens', async () => {
+        const res = await coreFetch('/api/v0/identity/tokens', viewerToken, {
+          method: 'POST',
+          body: JSON.stringify({
+            actor: 'operator',
+            ttl: '1h',
+            purpose: 'E2E-IDY-ISSUE viewer attempt'
+          })
+        })
+        // FAILS RED: identity routes not mounted → 404
+        expect(res.status).toBe(403)
+      })
+
+      it('security-admin issues → inspects → revokes token lifecycle', async () => {
+        // ── Issue ──
+        const issueRes = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({
+            actor: 'operator',
+            ttl: '1h',
+            purpose: 'E2E-IDY-LIFECYCLE full test'
+          })
+        })
+        // FAILS RED: identity routes not mounted → 404
+        expect(issueRes.status).toBe(201)
+        const issueBody = issueRes.data as { token: string; jti: string; status: string }
+
+        expect(issueBody.status).toBe('active')
+        const issuedJti = issueBody.jti
+        const issuedToken = issueBody.token
+
+        // ── Inspect ──
+        const inspectRes = await coreFetch(
+          `/api/v0/identity/tokens/${issuedJti}`,
+          securityAdminToken
+        )
+        expect(inspectRes.status).toBe(200)
+        const inspectBody = inspectRes.data as {
+          jti: string
+          actor: string
+          purpose: string
+          status: string
+        }
+        expect(inspectBody.jti).toBe(issuedJti)
+        expect(inspectBody.actor).toBe('operator')
+        expect(inspectBody.status).toBe('active')
+        expect(inspectBody.purpose).toBe('E2E-IDY-LIFECYCLE full test')
+        // Token inspect must never return plaintext
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect((inspectBody as any).token).toBeUndefined()
+
+        // ── Revoke ──
+        const revokeRes = await coreFetch(
+          `/api/v0/identity/tokens/${issuedJti}/revoke`,
+          securityAdminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ reason: 'E2E-IDY-LIFECYCLE manual revoke' })
+          }
+        )
+        expect(revokeRes.status).toBe(200)
+        const revokeBody = revokeRes.data as {
+          token: { jti: string; status: string; revokeReason: string }
+        }
+        expect(revokeBody.token.jti).toBe(issuedJti)
+        expect(revokeBody.token.status).toBe('revoked')
+        expect(revokeBody.token.revokeReason).toBe('E2E-IDY-LIFECYCLE manual revoke')
+
+        // ── Inspect after revoke ──
+        const inspectAfterRes = await coreFetch(
+          `/api/v0/identity/tokens/${issuedJti}`,
+          securityAdminToken
+        )
+        expect(inspectAfterRes.status).toBe(200)
+        const inspectAfterBody = inspectAfterRes.data as { status: string }
+        expect(inspectAfterBody.status).toBe('revoked')
+
+        // ── Use revoked token → 401 ──
+        const useRevokedRes = await coreFetch('/api/v0/status', issuedToken)
+        // FAILS RED: revoked token check not active without identity routes
+        // Once wired: using a revoked token → 401
+        expect(useRevokedRes.status).toBe(401)
+
+        // ── operator cannot revoke tokens ──
+        const operatorRevokeRes = await coreFetch(
+          `/api/v0/identity/tokens/${issuedJti}/revoke`,
+          operatorToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ reason: 'E2E-IDY-LIFECYCLE operator attempt' })
+          }
+        )
+        expect(operatorRevokeRes.status).toBe(403)
+      })
+
+      it('issue fails without required fields', async () => {
+        // Missing actor
+        const res = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({ ttl: '1h', purpose: 'missing actor' })
+        })
+        // FAILS RED: identity routes not mounted → 404
+        // Once wired: validation fails → 400
+        expect(res.status).toBe(400)
+
+        // Missing purpose
+        const res2 = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({ actor: 'operator', ttl: '1h' })
+        })
+        expect(res2.status).toBe(400)
+      })
+
+      it('token inspect returns 404 for non-existent jti', async () => {
+        const res = await coreFetch(
+          '/api/v0/identity/tokens/E2E-IDY-NONEXISTENT-jti',
+          securityAdminToken
+        )
+        // FAILS RED: identity routes not mounted → 404 (same as not-found)
+        // Once wired: non-existent jti → 404
+        expect(res.status).toBe(404)
+      })
+
+      it('missing auth returns 401 for identity endpoints', async () => {
+        const res = await coreFetch('/api/v0/identity/actors')
+        // FAILS RED: identity routes not mounted → 404
+        // Once wired: missing auth → 401
+        expect(res.status).toBe(401)
+      })
+    })
   })
 }
