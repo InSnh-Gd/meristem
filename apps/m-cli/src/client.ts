@@ -357,6 +357,39 @@ export function createCoreClient(config: CliConfig): CliClient {
         if (!result.ok) throw new Error(result.error.message)
         return result.value as { id: string; status: string; disabledAt: string }
       }
+    },
+    // 配置生命周期客户端方法通过 Core 的 config 控制面 API 操作配置记录。
+    config: {
+      async list(): Promise<Array<{ id: string; configVersion: string; domain: string; status: string; createdBy: string; createdAt: string }>> {
+        const result = await coreRoutes.getJson('/api/v0/configs')
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as Array<{ id: string; configVersion: string; domain: string; status: string; createdBy: string; createdAt: string }>
+      },
+      async get(id: string): Promise<{ id: string; configVersion: string; schemaVersion: string; configHash: string; domain: string; targetScope: string[]; status: string; payload: unknown; createdBy: string; createdAt: string; publishedBy?: string; publishedAt?: string; rollbackVersion?: string; updatedAt: string }> {
+        const result = await coreRoutes.getJson(`/api/v0/configs/${id}`)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; configVersion: string; schemaVersion: string; configHash: string; domain: string; targetScope: string[]; status: string; payload: unknown; createdBy: string; createdAt: string; publishedBy?: string; publishedAt?: string; rollbackVersion?: string; updatedAt: string }
+      },
+      async draft(input: { domain: string; payload: unknown; targetScope?: string[] }): Promise<{ id: string; configVersion: string; status: string; createdAt: string }> {
+        const result = await coreRoutes.postJson('/api/v0/configs/drafts', { body: input })
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; configVersion: string; status: string; createdAt: string }
+      },
+      async validate(id: string): Promise<{ id: string; status: string }> {
+        const result = await coreRoutes.postJson(`/api/v0/configs/${id}/validate`)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; status: string }
+      },
+      async publish(id: string, input: { reason: string }): Promise<{ id: string; configVersion: string; status: string; publishedAt: string; publishedBy: string }> {
+        const result = await coreRoutes.postJson(`/api/v0/configs/${id}/publish`, { body: input })
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; configVersion: string; status: string; publishedAt: string; publishedBy: string }
+      },
+      async rollback(id: string, input: { toVersion: string; reason: string }): Promise<{ id: string; status: string }> {
+        const result = await coreRoutes.postJson(`/api/v0/configs/${id}/rollback`, { body: input })
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; status: string }
+      }
     }
   }
 }

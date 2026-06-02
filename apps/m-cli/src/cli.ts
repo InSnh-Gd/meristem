@@ -83,6 +83,14 @@ export type CliClient = {
     rotate(id: string, input: { value: string; reason: string }): Promise<{ id: string; version: string; status: string; rotatedAt: string }>
     disable(id: string, input: { reason: string }): Promise<{ id: string; status: string; disabledAt: string }>
   }
+  config?: {
+    list(): Promise<Array<{ id: string; configVersion: string; domain: string; status: string; createdBy: string; createdAt: string }>>
+    get(id: string): Promise<{ id: string; configVersion: string; schemaVersion: string; configHash: string; domain: string; targetScope: string[]; status: string; payload: unknown; createdBy: string; createdAt: string; publishedBy?: string; publishedAt?: string; rollbackVersion?: string; updatedAt: string }>
+    draft(input: { domain: string; payload: unknown; targetScope?: string[] }): Promise<{ id: string; configVersion: string; status: string; createdAt: string }>
+    validate(id: string): Promise<{ id: string; status: string }>
+    publish(id: string, input: { reason: string }): Promise<{ id: string; configVersion: string; status: string; publishedAt: string; publishedBy: string }>
+    rollback(id: string, input: { toVersion: string; reason: string }): Promise<{ id: string; status: string }>
+  }
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -508,9 +516,57 @@ export function createCliRunner(client: CliClient) {
           throw new Error('usage: meristem secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text>')
         }
 
+        // 配置生命周期命令通过 Core 的 config 控制面 API 操作配置记录。
+        if (command === 'config') {
+          if (subcommand === 'list') {
+            const list = requireMethod(client.config?.list, 'config.list')
+            return { exitCode: 0, stdout: encode(await list()), stderr: '' }
+          }
+          if (subcommand === 'show') {
+            const configId = args[2]
+            if (!configId) throw new Error('usage: meristem config show <config-id>')
+            const get = requireMethod(client.config?.get, 'config.get')
+            return { exitCode: 0, stdout: encode(await get(configId)), stderr: '' }
+          }
+          if (subcommand === 'draft') {
+            const domain = requireArg(args, '--domain')
+            const fileFlagIndex = args.indexOf('--file')
+            const file = fileFlagIndex >= 0 ? args[fileFlagIndex + 1] : undefined
+            const targetScopeFlagIndex = args.indexOf('--target-scope')
+            const targetScope = targetScopeFlagIndex >= 0 ? args[targetScopeFlagIndex + 1]?.split(',') : undefined
+            const payload = file ? await Bun.file(file).text() : await readStdin()
+            const draft = requireMethod(client.config?.draft, 'config.draft')
+            const draftInput: { domain: string; payload: unknown; targetScope?: string[] } = { domain, payload: JSON.parse(payload) }
+            if (targetScope) draftInput.targetScope = targetScope
+            return { exitCode: 0, stdout: encode(await draft(draftInput)), stderr: '' }
+          }
+          if (subcommand === 'validate') {
+            const configId = args[2]
+            if (!configId) throw new Error('usage: meristem config validate <config-id>')
+            const validate = requireMethod(client.config?.validate, 'config.validate')
+            return { exitCode: 0, stdout: encode(await validate(configId)), stderr: '' }
+          }
+          if (subcommand === 'publish') {
+            const configId = args[2]
+            if (!configId) throw new Error('usage: meristem config publish <config-id> --reason <text>')
+            const reason = requireArg(args, '--reason')
+            const publish = requireMethod(client.config?.publish, 'config.publish')
+            return { exitCode: 0, stdout: encode(await publish(configId, { reason })), stderr: '' }
+          }
+          if (subcommand === 'rollback') {
+            const configId = args[2]
+            if (!configId) throw new Error('usage: meristem config rollback <config-id> --to <version> --reason <text>')
+            const toVersion = requireArg(args, '--to')
+            const reason = requireArg(args, '--reason')
+            const rollback = requireMethod(client.config?.rollback, 'config.rollback')
+            return { exitCode: 0, stdout: encode(await rollback(configId, { toVersion, reason })), stderr: '' }
+          }
+          throw new Error('usage: meristem config list | config show <config-id> | config draft --domain <domain> --file <path> [--target-scope <service1,service2>] | config validate <config-id> | config publish <config-id> --reason <text> | config rollback <config-id> --to <version> --reason <text>')
+        }
+
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id> | identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text> | secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id> | identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text> | secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text> | config list | config show <config-id> | config draft --domain <domain> --file <path> [--target-scope <service1,service2>] | config validate <config-id> | config publish <config-id> --reason <text> | config rollback <config-id> --to <version> --reason <text>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

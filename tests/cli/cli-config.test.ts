@@ -1,12 +1,31 @@
-import { describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { createCliRunner, type CliClient } from '../../apps/m-cli/src/cli.ts'
+
+const configPayloadFiles = [
+  '/tmp/test-config.json',
+  '/tmp/secret-config.json',
+  '/tmp/token-config.json',
+  '/tmp/test.json'
+] as const
+
+beforeAll(async () => {
+  await Bun.write('/tmp/test-config.json', JSON.stringify({ key: 'value' }))
+  await Bun.write('/tmp/secret-config.json', JSON.stringify({ password: 's3cret!', purpose: 'test' }))
+  await Bun.write('/tmp/token-config.json', JSON.stringify({ token: 'test-token-123' }))
+  await Bun.write('/tmp/test.json', JSON.stringify({ key: 'value' }))
+})
+afterAll(async () => {
+  for (const f of configPayloadFiles) {
+    await Bun.file(f).delete().catch(() => {})
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Config Lifecycle CLI tests
 //
-// Config CLI client methods will be added to CliClient type during Phase 19
-// CLI implementation. Tests use mocked versions cast through `unknown`.
-// Remove all casts when Phase 19 adds them to the type.
+// Tests exercise config list/show/draft/validate/publish/rollback through
+// mocked nested config methods on CliClient. The mock uses `unknown` cast
+// to bridge the gap between test fixtures and the production type.
 //
 // Sentinel prefix: CFG-CLI
 // ---------------------------------------------------------------------------
@@ -26,27 +45,6 @@ type ConfigRecord = {
   rollbackVersion?: string
 }
 
-type ConfigApplyAck = {
-  ackId: string
-  configId: string
-  configVersion: string
-  ackedBy: string
-  ackedAt: string
-  status: 'acked' | 'failed'
-  errorCode?: string
-  errorMessage?: string
-}
-
-type ConfigCliMethods = {
-  listConfigs?(): Promise<{ configs: ConfigRecord[] }>
-  getConfig?(id: string): Promise<{ config: ConfigRecord }>
-  draftConfig?(input: { domain: string; payload: Record<string, unknown> }): Promise<{ config: ConfigRecord }>
-  validateConfig?(id: string): Promise<{ config: ConfigRecord }>
-  publishConfig?(id: string, reason: string): Promise<{ config: ConfigRecord }>
-  rollbackConfig?(id: string, toVersion: string, reason: string): Promise<{ config: ConfigRecord }>
-  getApplyAck?(configId: string): Promise<{ acks: ConfigApplyAck[] }>
-}
-
 async function statusMock() {
   return {
     core: { id: 'meristem-core', version: '0.1.0', mode: 'normal' as const },
@@ -62,8 +60,16 @@ async function statusMock() {
   }
 }
 
-function configClient(methods: ConfigCliMethods): CliClient {
-  return { status: statusMock, ...methods } as unknown as CliClient
+/** Create a mock CliClient with nested config methods via unsafe cast. */
+function configClient(configMethods: {
+  list?(): Promise<unknown>
+  get?(id: string): Promise<unknown>
+  draft?(input: { domain: string; payload: Record<string, unknown> }): Promise<unknown>
+  validate?(id: string): Promise<unknown>
+  publish?(id: string, input: { reason: string }): Promise<unknown>
+  rollback?(id: string, input: { toVersion: string; reason: string }): Promise<unknown>
+}): CliClient {
+  return { status: statusMock, config: configMethods } as unknown as CliClient
 }
 
 function bareClient(): CliClient {
@@ -80,40 +86,37 @@ describe('meristem CLI — config', () => {
   it('lists configs through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      listConfigs: async () => {
+      list: async () => {
         calls.push('config:list')
-        return {
-          configs: [
-            {
-              id: 'cfg-001',
-              configVersion: '1.0.0',
-              schemaVersion: 'config@0.1.0',
-              configHash: 'abc123',
-              domain: 'core',
-              targetScope: ['m-net'],
-              status: 'published',
-              createdBy: 'admin',
-              createdAt: '2026-06-01T10:00:00.000Z'
-            },
-            {
-              id: 'cfg-002',
-              configVersion: '1.0.0',
-              schemaVersion: 'config@0.1.0',
-              configHash: 'def456',
-              domain: 'm-policy',
-              targetScope: ['m-policy'],
-              status: 'draft',
-              createdBy: 'operator',
-              createdAt: '2026-06-01T11:00:00.000Z'
-            }
-          ]
-        }
+        return [
+          {
+            id: 'cfg-001',
+            configVersion: '1.0.0',
+            schemaVersion: 'config@0.1.0',
+            configHash: 'abc123',
+            domain: 'core',
+            targetScope: ['m-net'],
+            status: 'published',
+            createdBy: 'admin',
+            createdAt: '2026-06-01T10:00:00.000Z'
+          },
+          {
+            id: 'cfg-002',
+            configVersion: '1.0.0',
+            schemaVersion: 'config@0.1.0',
+            configHash: 'def456',
+            domain: 'm-policy',
+            targetScope: ['m-policy'],
+            status: 'draft',
+            createdBy: 'operator',
+            createdAt: '2026-06-01T11:00:00.000Z'
+          }
+        ]
       }
     }))
 
     const result = await cli.run(['config', 'list'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:list'])
     expect(result.stdout).toContain('"id": "cfg-001"')
@@ -126,27 +129,24 @@ describe('meristem CLI — config', () => {
   it('shows a single config through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      getConfig: async (id: string) => {
+      get: async (id: string) => {
         calls.push('config:show:' + id)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'show-hash',
-            domain: 'core',
-            targetScope: ['m-net', 'm-policy'],
-            status: 'validated',
-            createdBy: 'admin',
-            createdAt: '2026-06-01T10:00:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'show-hash',
+          domain: 'core',
+          targetScope: ['m-net', 'm-policy'],
+          status: 'validated',
+          createdBy: 'admin',
+          createdAt: '2026-06-01T10:00:00.000Z'
         }
       }
     }))
 
     const result = await cli.run(['config', 'show', 'cfg-show-001'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:show:cfg-show-001'])
     expect(result.stdout).toContain('"id": "cfg-show-001"')
@@ -158,7 +158,6 @@ describe('meristem CLI — config', () => {
 
     const result = await cli.run(['config', 'show'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(1)
   })
 
@@ -167,20 +166,18 @@ describe('meristem CLI — config', () => {
   it('drafts a config through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      draftConfig: async (input: { domain: string; payload: Record<string, unknown> }) => {
+      draft: async (input: { domain: string; payload: Record<string, unknown> }) => {
         calls.push(`config:draft:${input.domain}`)
         return {
-          config: {
-            id: 'cfg-draft-001',
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'draft-hash-001',
-            domain: input.domain as ConfigRecord['domain'],
-            targetScope: ['m-net'],
-            status: 'draft',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id: 'cfg-draft-001',
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'draft-hash-001',
+          domain: input.domain as ConfigRecord['domain'],
+          targetScope: ['m-net'],
+          status: 'draft',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       }
     }))
@@ -191,7 +188,6 @@ describe('meristem CLI — config', () => {
       '--file', '/tmp/test-config.json'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:draft:core'])
     expect(result.stdout).toContain('"status": "draft"')
@@ -203,7 +199,6 @@ describe('meristem CLI — config', () => {
 
     const result = await cli.run(['config', 'draft', '--file', '/tmp/test.json'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(1)
   })
 
@@ -212,27 +207,24 @@ describe('meristem CLI — config', () => {
   it('validates a config through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      validateConfig: async (id: string) => {
+      validate: async (id: string) => {
         calls.push('config:validate:' + id)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'validated-hash-001',
-            domain: 'core',
-            targetScope: ['m-net'],
-            status: 'validated',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'validated-hash-001',
+          domain: 'core',
+          targetScope: ['m-net'],
+          status: 'validated',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       }
     }))
 
     const result = await cli.run(['config', 'validate', 'cfg-val-001'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:validate:cfg-val-001'])
     expect(result.stdout).toContain('"status": "validated"')
@@ -244,22 +236,20 @@ describe('meristem CLI — config', () => {
   it('publishes a config through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      publishConfig: async (id: string, reason: string) => {
-        calls.push(`config:publish:${id}:${reason}`)
+      publish: async (id: string, input: { reason: string }) => {
+        calls.push(`config:publish:${id}:${input.reason}`)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'pub-hash-001',
-            domain: 'core',
-            targetScope: ['m-net', 'm-policy'],
-            status: 'published',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z',
-            publishedBy: 'security-admin',
-            publishedAt: '2026-06-02T10:05:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'pub-hash-001',
+          domain: 'core',
+          targetScope: ['m-net', 'm-policy'],
+          status: 'published',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z',
+          publishedBy: 'security-admin',
+          publishedAt: '2026-06-02T10:05:00.000Z'
         }
       }
     }))
@@ -269,7 +259,6 @@ describe('meristem CLI — config', () => {
       '--reason', 'rollout opentelemetry config'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:publish:cfg-pub-001:rollout opentelemetry config'])
     expect(result.stdout).toContain('"status": "published"')
@@ -281,7 +270,6 @@ describe('meristem CLI — config', () => {
 
     const result = await cli.run(['config', 'publish', 'cfg-pub-001'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(1)
   })
 
@@ -290,23 +278,21 @@ describe('meristem CLI — config', () => {
   it('rolls back a config through mocked client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      rollbackConfig: async (id: string, toVersion: string, reason: string) => {
-        calls.push(`config:rollback:${id}:${toVersion}:${reason}`)
+      rollback: async (id: string, input: { toVersion: string; reason: string }) => {
+        calls.push(`config:rollback:${id}:${input.toVersion}:${input.reason}`)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'rb-hash-001',
-            domain: 'core',
-            targetScope: ['m-net'],
-            status: 'rolled_back',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z',
-            publishedBy: 'security-admin',
-            publishedAt: '2026-06-02T10:05:00.000Z',
-            rollbackVersion: toVersion
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'rb-hash-001',
+          domain: 'core',
+          targetScope: ['m-net'],
+          status: 'rolled_back',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z',
+          publishedBy: 'security-admin',
+          publishedAt: '2026-06-02T10:05:00.000Z',
+          rollbackVersion: input.toVersion
         }
       }
     }))
@@ -317,7 +303,6 @@ describe('meristem CLI — config', () => {
       '--reason', 'config caused m-net degradation'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
     expect(calls).toEqual(['config:rollback:cfg-rb-001:1.0.0:config caused m-net degradation'])
     expect(result.stdout).toContain('"status": "rolled_back"')
@@ -332,7 +317,6 @@ describe('meristem CLI — config', () => {
       '--reason', 'missing version'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(1)
   })
 
@@ -341,7 +325,7 @@ describe('meristem CLI — config', () => {
   it('fails draft when payload contains plaintext password', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      draftConfig: async (input: { domain: string; payload: Record<string, unknown> }) => {
+      draft: async (input: { domain: string; payload: Record<string, unknown> }) => {
         calls.push('config:draft:called')
         // Simulate server-side rejection of plaintext secret
         if (JSON.stringify(input.payload).includes('password')) {
@@ -350,17 +334,15 @@ describe('meristem CLI — config', () => {
           })
         }
         return {
-          config: {
-            id: 'cfg-sec-001',
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'sec-hash',
-            domain: input.domain as ConfigRecord['domain'],
-            targetScope: [],
-            status: 'draft',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id: 'cfg-sec-001',
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'sec-hash',
+          domain: input.domain as ConfigRecord['domain'],
+          targetScope: [],
+          status: 'draft',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       }
     }))
@@ -371,8 +353,6 @@ describe('meristem CLI — config', () => {
       '--file', '/tmp/secret-config.json'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
-    // When wired, the client should throw with a rejection error.
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('plaintext secret')
   })
@@ -380,20 +360,18 @@ describe('meristem CLI — config', () => {
   it('fails draft when payload contains plaintext token', async () => {
     const calls: string[] = []
     const cli = createCliRunner(configClient({
-      draftConfig: async (_input: { domain: string; payload: Record<string, unknown> }) => {
+      draft: async (_input: { domain: string; payload: Record<string, unknown> }) => {
         calls.push('config:draft:called')
         return {
-          config: {
-            id: 'cfg-tok-001',
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'tok-hash',
-            domain: 'core',
-            targetScope: [],
-            status: 'draft',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id: 'cfg-tok-001',
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'tok-hash',
+          domain: 'core',
+          targetScope: [],
+          status: 'draft',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       }
     }))
@@ -404,7 +382,6 @@ describe('meristem CLI — config', () => {
       '--file', '/tmp/token-config.json'
     ])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(0)
   })
 
@@ -415,7 +392,6 @@ describe('meristem CLI — config', () => {
 
     const result = await cli.run(['config', 'list'])
 
-    // FAILS RED: CLI runner does not dispatch 'config' commands yet.
     expect(result.exitCode).toBe(1)
   })
 
@@ -423,91 +399,81 @@ describe('meristem CLI — config', () => {
   it('full config lifecycle CLI flow with mocked client', async () => {
     const calls: string[] = []
     const client = configClient({
-      listConfigs: async () => {
+      list: async () => {
         calls.push('flow:list')
-        return { configs: [] }
+        return []
       },
-      getConfig: async (id: string) => {
+      get: async (id: string) => {
         calls.push('flow:show:' + id)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'flow-hash',
-            domain: 'core',
-            targetScope: ['m-net'],
-            status: 'draft',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'flow-hash',
+          domain: 'core',
+          targetScope: ['m-net'],
+          status: 'draft',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       },
-      draftConfig: async (input: { domain: string; payload: Record<string, unknown> }) => {
+      draft: async (input: { domain: string; payload: Record<string, unknown> }) => {
         calls.push('flow:draft:' + input.domain)
         return {
-          config: {
-            id: 'cfg-flow-001',
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'flow-hash',
-            domain: input.domain as ConfigRecord['domain'],
-            targetScope: [],
-            status: 'draft',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id: 'cfg-flow-001',
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'flow-hash',
+          domain: input.domain as ConfigRecord['domain'],
+          targetScope: [],
+          status: 'draft',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       },
-      validateConfig: async (id: string) => {
+      validate: async (id: string) => {
         calls.push('flow:validate:' + id)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'flow-hash-val',
-            domain: 'core',
-            targetScope: [],
-            status: 'validated',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'flow-hash-val',
+          domain: 'core',
+          targetScope: [],
+          status: 'validated',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z'
         }
       },
-      publishConfig: async (id: string, reason: string) => {
-        calls.push(`flow:publish:${id}:${reason}`)
+      publish: async (id: string, input: { reason: string }) => {
+        calls.push(`flow:publish:${id}:${input.reason}`)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'flow-hash-pub',
-            domain: 'core',
-            targetScope: [],
-            status: 'published',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z',
-            publishedBy: 'security-admin',
-            publishedAt: '2026-06-02T10:05:00.000Z'
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'flow-hash-pub',
+          domain: 'core',
+          targetScope: [],
+          status: 'published',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z',
+          publishedBy: 'security-admin',
+          publishedAt: '2026-06-02T10:05:00.000Z'
         }
       },
-      rollbackConfig: async (id: string, toVersion: string, reason: string) => {
-        calls.push(`flow:rollback:${id}:${toVersion}:${reason}`)
+      rollback: async (id: string, input: { toVersion: string; reason: string }) => {
+        calls.push(`flow:rollback:${id}:${input.toVersion}:${input.reason}`)
         return {
-          config: {
-            id,
-            configVersion: '1.0.0',
-            schemaVersion: 'config@0.1.0',
-            configHash: 'flow-hash-rb',
-            domain: 'core',
-            targetScope: [],
-            status: 'rolled_back',
-            createdBy: 'admin',
-            createdAt: '2026-06-02T10:00:00.000Z',
-            rollbackVersion: toVersion
-          }
+          id,
+          configVersion: '1.0.0',
+          schemaVersion: 'config@0.1.0',
+          configHash: 'flow-hash-rb',
+          domain: 'core',
+          targetScope: [],
+          status: 'rolled_back',
+          createdBy: 'admin',
+          createdAt: '2026-06-02T10:00:00.000Z',
+          rollbackVersion: input.toVersion
         }
       }
     })
