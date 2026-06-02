@@ -1,7 +1,7 @@
 import { injectTraceHeaders } from '../../telemetry/src/index.ts'
 
 // internal-http 是所有 loopback 内部服务共用的最小 HTTP 边界，不承担业务语义。
-export type InternalServiceName = 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net' | 'm-task'
+export type InternalServiceName = 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net' | 'm-task' | 'm-extension'
 
 export type ServedInternalApp = {
   name: InternalServiceName
@@ -15,10 +15,18 @@ export const internalServicePorts: Record<InternalServiceName, number> = {
   'm-log': 3102,
   'm-eventbus': 3103,
   'm-net': 3104,
-  'm-task': 3105
+  'm-task': 3105,
+  'm-extension': 3106
 }
 
 export const internalTokenHeaderName = 'x-meristem-internal-token'
+export const internalApiPaths = {
+  authorize: '/internal/v0/authorize',
+  timelineLog: '/internal/v0/timeline',
+  fullLog: '/internal/v0/full',
+  auditLog: '/internal/v0/audit',
+  publishEvent: '/internal/v0/publish'
+} as const
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
 type HeaderRecord = Record<string, string | undefined>

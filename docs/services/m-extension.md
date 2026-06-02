@@ -40,7 +40,7 @@ What M-Extension must not own:
 - outbound HTTP callback execution.
 - script or cloud-function runtime execution.
 
-Phase 15 is control-plane only. M-Extension may store future runtime declarations in manifests, but it must not execute them.
+Phase 15 is control-plane only. The manifest contract reserves future runtime fields, but accepted Phase 15 manifests reject those fields until runtime governance is implemented.
 
 ---
 

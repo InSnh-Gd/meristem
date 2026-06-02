@@ -136,7 +136,8 @@ function internalError<TStatus extends (code: never, body: never) => unknown>(
 async function verifyBearerAuth(headers: Record<string, string | undefined>): Promise<ActorId | null> {
   const token = extractBearerToken(headers.authorization)
   if (!token) return null
-  const secret = process.env.MERISTEM_JWT_SECRET ?? 'dev-secret'
+  const secret = process.env.MERISTEM_JWT_SECRET
+  if (!secret) return null
   const verified = await verifyLocalToken({ token, secret })
   if (!verified.ok) return null
   return verified.actor

@@ -19,3 +19,4 @@ doc-driven-ai/
 *.tmp
 *.orig
 .agent-sources/
+.omo/

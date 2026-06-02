@@ -2,6 +2,13 @@ import type {
   ApprovalListResponse,
   ApprovalDetailResponse,
   ApprovalActionResponse,
+  DisableExtensionRequest,
+  EnableExtensionRequest,
+  ExtensionDetailResponse,
+  ExtensionInstanceControlResponse,
+  ExtensionListResponse,
+  MExtensionManifestV01,
+  RegisterExtensionResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -57,6 +64,11 @@ export type CliClient = {
   getApproval?(id: string): Promise<ApprovalDetailResponse>
   approveApproval?(id: string, reason?: string): Promise<ApprovalActionResponse>
   rejectApproval?(id: string, reason?: string): Promise<ApprovalActionResponse>
+  listExtensions?(): Promise<ExtensionListResponse>
+  getExtension?(id: string): Promise<ExtensionDetailResponse>
+  registerExtension?(input: { manifest: MExtensionManifestV01; reason?: string }): Promise<RegisterExtensionResponse>
+  enableExtension?(id: string, input?: EnableExtensionRequest): Promise<ExtensionInstanceControlResponse>
+  disableExtension?(id: string, input?: DisableExtensionRequest): Promise<ExtensionInstanceControlResponse>
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -81,6 +93,10 @@ function requireArg(args: string[], flag: string): string {
  */
 function encode(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T> {
+  return await Bun.file(filePath).json() as T
 }
 
 /**
@@ -251,6 +267,46 @@ export function createCliRunner(client: CliClient) {
           return { exitCode: 0, stdout: encode(await reloadService(serviceId, reason)), stderr: '' }
         }
 
+        if (command === 'extension' && subcommand === 'list') {
+          const listExtensions = requireMethod(client.listExtensions, 'listExtensions')
+          return { exitCode: 0, stdout: encode(await listExtensions()), stderr: '' }
+        }
+
+        if (command === 'extension' && subcommand === 'show') {
+          const extensionId = args[2]
+          if (!extensionId) throw new Error('usage: meristem extension show <id>')
+          const getExtension = requireMethod(client.getExtension, 'getExtension')
+          return { exitCode: 0, stdout: encode(await getExtension(extensionId)), stderr: '' }
+        }
+
+        if (command === 'extension' && subcommand === 'register') {
+          const manifestFile = args[2]
+          if (!manifestFile) throw new Error('usage: meristem extension register <manifest-file> [--reason <text>]')
+          const reasonFlagIndex = args.indexOf('--reason')
+          const reason = reasonFlagIndex >= 0 ? args[reasonFlagIndex + 1] : undefined
+          const manifest = await readJsonFile<MExtensionManifestV01>(manifestFile)
+          const registerExtension = requireMethod(client.registerExtension, 'registerExtension')
+          return { exitCode: 0, stdout: encode(await registerExtension(reason ? { manifest, reason } : { manifest })), stderr: '' }
+        }
+
+        if (command === 'extension' && subcommand === 'enable') {
+          const extensionId = args[2]
+          if (!extensionId) throw new Error('usage: meristem extension enable <id> [--reason <text>]')
+          const reasonFlagIndex = args.indexOf('--reason')
+          const reason = reasonFlagIndex >= 0 ? args[reasonFlagIndex + 1] : undefined
+          const enableExtension = requireMethod(client.enableExtension, 'enableExtension')
+          return { exitCode: 0, stdout: encode(await enableExtension(extensionId, reason ? { reason } : {})), stderr: '' }
+        }
+
+        if (command === 'extension' && subcommand === 'disable') {
+          const extensionId = args[2]
+          if (!extensionId) throw new Error('usage: meristem extension disable <id> [--reason <text>]')
+          const reasonFlagIndex = args.indexOf('--reason')
+          const reason = reasonFlagIndex >= 0 ? args[reasonFlagIndex + 1] : undefined
+          const disableExtension = requireMethod(client.disableExtension, 'disableExtension')
+          return { exitCode: 0, stdout: encode(await disableExtension(extensionId, reason ? { reason } : {})), stderr: '' }
+        }
+
         if (command === 'log' && subcommand === 'timeline') {
           const listTimeline = requireMethod(client.listTimeline, 'listTimeline')
           return { exitCode: 0, stdout: encode(await listTimeline()), stderr: '' }
@@ -343,7 +399,7 @@ export function createCliRunner(client: CliClient) {
 
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

@@ -27,6 +27,8 @@ describe('Core REST MVP routes', () => {
     expect(body.paths['/api/v0/services']?.post?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/services']?.get?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/tasks']).toBeUndefined()
+    expect(body.paths['/api/v0/extensions']).toBeUndefined()
+    expect(body.paths['/api/v0/extensions/{id}']).toBeUndefined()
     expect(body.paths['/api/v0/logs/full']?.get?.security).toEqual([{ bearerAuth: [] }])
 
     expect(body.paths['/api/v0/status']?.get?.responses?.['200']).toBeDefined()

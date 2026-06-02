@@ -360,6 +360,62 @@ await sql.begin(async (tx) => {
       terminal_reason text
     )
   `
+  await tx`
+    create table if not exists extension_definitions (
+      id text primary key,
+      manifest_version text not null,
+      kind text not null,
+      display_name text not null,
+      owner text not null,
+      license text not null,
+      manifest jsonb not null,
+      declared_capabilities jsonb not null,
+      requested_permissions jsonb not null,
+      risk_class text not null,
+      status text not null,
+      registered_by text not null,
+      policy_decision_id text not null references policy_decisions(id),
+      correlation_id text not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists extension_instances (
+      id text primary key,
+      extension_id text not null references extension_definitions(id),
+      scope_type text not null,
+      scope_id text not null,
+      status text not null,
+      enabled_by text,
+      disabled_by text,
+      policy_decision_id text references policy_decisions(id),
+      correlation_id text,
+      last_error text,
+      created_at timestamptz not null,
+      updated_at timestamptz not null,
+      enabled_at timestamptz,
+      disabled_at timestamptz
+    )
+  `
+  await tx`
+    create unique index if not exists extension_instances_scope_unique
+    on extension_instances (extension_id, scope_type, scope_id)
+  `
+  await tx`
+    create table if not exists extension_transitions (
+      id text primary key,
+      extension_id text not null references extension_definitions(id),
+      instance_id text references extension_instances(id),
+      from_status text,
+      to_status text not null,
+      actor text not null,
+      reason text,
+      policy_decision_id text not null references policy_decisions(id),
+      correlation_id text not null,
+      created_at timestamptz not null
+    )
+  `
 })
 
 await sql.end()

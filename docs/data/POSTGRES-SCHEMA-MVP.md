@@ -23,6 +23,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` historical compatibility table |
 | M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
+| M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
 
@@ -288,6 +289,67 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 
 `networks.profile_version` remains the operator-visible current profile for a network. The M-Net profile state table records lifecycle metadata around that profile assignment.
 
+### Phase 15 M-Extension Tables
+
+#### `extension_definitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | extension ID from the manifest |
+| `manifest_version` | text | `m-extension-manifest@0.1.0` |
+| `kind` | text | control-plane declaration kind only |
+| `display_name` | text | operator-visible name |
+| `owner` | text | manifest owner |
+| `license` | text | declared license |
+| `manifest` | jsonb | validated governance manifest; no executable code or secret payloads |
+| `declared_capabilities` | jsonb | string array |
+| `requested_permissions` | jsonb | known Meristem permissions only |
+| `risk_class` | text | `low` or `medium` in Phase 15 |
+| `status` | text | `registered`, `rejected`, `deprecated` |
+| `registered_by` | text | actor subject |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `correlation_id` | text | request correlation |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `extension_instances`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | instance UUID |
+| `extension_id` | text | references `extension_definitions.id` |
+| `scope_type` | text | only `system` in Phase 15 |
+| `scope_id` | text | only `default` in Phase 15 |
+| `status` | text | `disabled`, `enabled`, `enable_failed`, `disable_failed` |
+| `enabled_by` | text nullable | actor subject when enabled |
+| `disabled_by` | text nullable | actor subject when disabled |
+| `policy_decision_id` | text nullable | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `last_error` | text nullable | failure reason when failure status is set |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `enabled_at` | timestamptz nullable | set when enabled |
+| `disabled_at` | timestamptz nullable | set when disabled |
+
+Unique constraint: `(extension_id, scope_type, scope_id)` — Phase 15 permits one `system/default` instance per extension definition.
+
+#### `extension_transitions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition UUID |
+| `extension_id` | text | references `extension_definitions.id` |
+| `instance_id` | text nullable | references `extension_instances.id` when instance-scoped |
+| `from_status` | text nullable | previous status |
+| `to_status` | text | next status |
+| `actor` | text | actor subject |
+| `reason` | text nullable | optional operator reason |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `correlation_id` | text | request correlation |
+| `created_at` | timestamptz | UTC |
+
+M-Extension tables are authoritative for Phase 15 extension definition and instance state. They must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state.
+
 ### `policy_decisions`
 
 | Column | Type | Notes |
@@ -415,6 +477,10 @@ network:join
 network:profile-read
 network:profile-enable
 network:profile-disable
+extension:read
+extension:register
+extension:enable
+extension:disable
 task:submit
 timeline:read
 log:read-full

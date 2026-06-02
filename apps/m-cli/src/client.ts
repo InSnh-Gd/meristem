@@ -4,6 +4,12 @@ import type {
   ApprovalListResponse,
   ApprovalDetailResponse,
   ApprovalActionResponse,
+  DisableExtensionRequest,
+  EnableExtensionRequest,
+  ExtensionDetailResponse,
+  ExtensionInstanceControlResponse,
+  ExtensionListResponse,
+  RegisterExtensionResponse,
   CreateNodeTicketResponse,
   CreateNetworkResponse,
   HealthResponse,
@@ -20,11 +26,12 @@ import type {
   TaskStatusResponse,
   StatusResponse,
   ProjectionHealth,
-  BackfillParams,
   BackfillResult,
   DLQRecord
 } from '../../../packages/contracts/src/index.ts'
+import { mExtensionApiRoutes } from '../../../packages/contracts/src/types/extension.ts'
 import { createDynamicRouteAdapter } from '../../../packages/internal-http/src/dynamic-routes.ts'
+import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { injectTraceHeaders } from '../../../packages/telemetry/src/index.ts'
 import type { CliClient } from './cli.ts'
 
@@ -33,6 +40,7 @@ type CliConfig = {
   taskUrl: string
   policyUrl: string
   mnetUrl: string
+  extensionUrl: string
   token: string | undefined
 }
 
@@ -114,6 +122,11 @@ export function createCoreClient(config: CliConfig): CliClient {
   })
   const mnetRoutes = createDynamicRouteAdapter({
     baseUrl: config.mnetUrl,
+    defaultHeaders: headers,
+    traceHeaders: () => injectTraceHeaders({})
+  })
+  const extensionRoutes = createDynamicRouteAdapter({
+    baseUrl: config.extensionUrl,
     defaultHeaders: headers,
     traceHeaders: () => injectTraceHeaders({})
   })
@@ -263,6 +276,31 @@ export function createCoreClient(config: CliConfig): CliClient {
       const result = await policyRoutes.postJson<ApprovalActionResponse>(`/api/v0/policy/approvals/${id}/reject`, { body: reason ? { reason } : {} })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
+    },
+    listExtensions: async () => {
+      const result = await extensionRoutes.getJson<ExtensionListResponse>(mExtensionApiRoutes.collection)
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    getExtension: async (id) => {
+      const result = await extensionRoutes.getJson<ExtensionDetailResponse>(mExtensionApiRoutes.detail, { params: { id } })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    registerExtension: async (input) => {
+      const result = await extensionRoutes.postJson<RegisterExtensionResponse>(mExtensionApiRoutes.register, { body: input })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    enableExtension: async (id, input?: EnableExtensionRequest) => {
+      const result = await extensionRoutes.postJson<ExtensionInstanceControlResponse>(mExtensionApiRoutes.enable, { params: { id }, body: input ?? {} })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    disableExtension: async (id, input?: DisableExtensionRequest) => {
+      const result = await extensionRoutes.postJson<ExtensionInstanceControlResponse>(mExtensionApiRoutes.disable, { params: { id }, body: input ?? {} })
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
     }
   }
 }
@@ -271,9 +309,10 @@ export function configFromEnv(): CliConfig {
   // CLI 运行配置保持最小化，只依赖 Core 地址和 Bearer Token。
   return {
     coreUrl: process.env.MERISTEM_CORE_URL ?? 'http://localhost:3000',
-    taskUrl: process.env.MERISTEM_TASK_URL ?? 'http://127.0.0.1:3105',
-    policyUrl: process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:3103',
-    mnetUrl: process.env.MERISTEM_MNET_URL ?? 'http://127.0.0.1:3104',
+    taskUrl: process.env.MERISTEM_TASK_URL ?? serviceUrl('m-task'),
+    policyUrl: process.env.MERISTEM_POLICY_URL ?? serviceUrl('m-policy'),
+    mnetUrl: process.env.MERISTEM_MNET_URL ?? serviceUrl('m-net'),
+    extensionUrl: process.env.MERISTEM_EXTENSION_URL ?? serviceUrl('m-extension'),
     token: process.env.MERISTEM_TOKEN
   }
 }

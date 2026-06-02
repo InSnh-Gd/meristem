@@ -17,6 +17,7 @@
     "dev:m-log": "bun run services/m-log/src/index.ts",
     "dev:m-net": "bun run services/m-net/src/index.ts",
     "dev:m-task": "bun run services/m-task/src/index.ts",
+    "dev:m-extension": "bun run services/m-extension/src/index.ts",
     "dev:m-policy": "bun run services/m-policy/src/index.ts",
     "dev:m-ui": "cd apps/m-ui && bun run dev",
     "dev:m-ui-bff": "bun run services/m-ui-bff/src/index.ts",

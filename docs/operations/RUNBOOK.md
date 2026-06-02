@@ -79,7 +79,7 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-EventBus | `3103` | loopback HTTP + Eden + internal token; publishes to NATS |
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
 | M-Task | `3105` | canonical Phase 11 task API `/api/v0/tasks` |
-| M-Extension | `3106` | planned Phase 15 extension control-plane API |
+| M-Extension | `3106` | Phase 15 extension control-plane API |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | M-UI | `5173` or framework default | SvelteKit dev server |
 | M-UI BFF | `3200` | UI-facing BFF dev server |

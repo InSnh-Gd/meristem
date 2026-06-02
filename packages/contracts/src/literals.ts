@@ -43,6 +43,20 @@ export const networkProfilePermissions = [
   'network:profile-disable'
 ] as const
 
-export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions] as const
+export const extensionPermissions = [
+  'extension:read',
+  'extension:register',
+  'extension:enable',
+  'extension:disable'
+] as const
+
+export const extensionPermission = {
+  read: extensionPermissions[0],
+  register: extensionPermissions[1],
+  enable: extensionPermissions[2],
+  disable: extensionPermissions[3]
+} as const
+
+export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions, ...extensionPermissions] as const
 
 export type Permission = typeof permissions[number]
