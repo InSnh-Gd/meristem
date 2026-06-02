@@ -69,6 +69,13 @@ export type CliClient = {
   registerExtension?(input: { manifest: MExtensionManifestV01; reason?: string }): Promise<RegisterExtensionResponse>
   enableExtension?(id: string, input?: EnableExtensionRequest): Promise<ExtensionInstanceControlResponse>
   disableExtension?(id: string, input?: DisableExtensionRequest): Promise<ExtensionInstanceControlResponse>
+  identity?: {
+    listActors(): Promise<Array<{ id: string; displayName: string; status: string }>>
+    getActor(id: string): Promise<{ id: string; displayName: string; status: string }>
+    issueToken(input: { actor: string; ttl: string; purpose: string }): Promise<{ jti: string; token: string; expiresAt: string; actor: string }>
+    inspectToken(jti: string): Promise<{ jti: string; actor: string; status: string; issuer: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string }>
+    revokeToken(jti: string, input: { reason: string }): Promise<{ jti: string; status: string; revokedAt: string; revokedBy: string }>
+  }
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -365,7 +372,7 @@ export function createCliRunner(client: CliClient) {
           throw new Error('usage: meristem projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>')
         }
 
-        // Phase 12: 审批命令通过 M-Policy 外部审批 API 操作审批队列。
+        // 审批命令通过 M-Policy 外部审批 API 操作审批队列。
         if (command === 'policy' && subcommand === 'approvals') {
           const action = args[2]
           if (action === 'list') {
@@ -397,9 +404,53 @@ export function createCliRunner(client: CliClient) {
           throw new Error('usage: meristem policy approvals list | policy approvals show <approval-id> | policy approvals approve <approval-id> [--reason <text>] | policy approvals reject <approval-id> [--reason <text>]')
         }
 
+        // 身份命令通过 Core 的 identity 控制面 API 操作 actor 和 token 生命周期。（Phase 17）
+        if (command === 'identity') {
+          if (subcommand === 'actor') {
+            const action = args[2]
+            if (action === 'list') {
+              const listActors = requireMethod(client.identity?.listActors, 'identity.listActors')
+              return { exitCode: 0, stdout: encode(await listActors()), stderr: '' }
+            }
+            if (action === 'show') {
+              const actorId = args[3]
+              if (!actorId) throw new Error('usage: meristem identity actor show <actor-id>')
+              const getActor = requireMethod(client.identity?.getActor, 'identity.getActor')
+              return { exitCode: 0, stdout: encode(await getActor(actorId)), stderr: '' }
+            }
+            throw new Error('usage: meristem identity actor list | identity actor show <actor-id>')
+          }
+          if (subcommand === 'token') {
+            const action = args[2]
+            if (action === 'issue') {
+              const actor = requireArg(args, '--actor')
+              const ttlFlagIndex = args.indexOf('--ttl')
+              const ttl = ttlFlagIndex >= 0 ? (args[ttlFlagIndex + 1] ?? '8h') : '8h'
+              const purpose = requireArg(args, '--purpose')
+              const issueToken = requireMethod(client.identity?.issueToken, 'identity.issueToken')
+              return { exitCode: 0, stdout: encode(await issueToken({ actor, ttl, purpose })), stderr: '' }
+            }
+            if (action === 'inspect') {
+              const jti = args[3]
+              if (!jti) throw new Error('usage: meristem identity token inspect <jti>')
+              const inspectToken = requireMethod(client.identity?.inspectToken, 'identity.inspectToken')
+              return { exitCode: 0, stdout: encode(await inspectToken(jti)), stderr: '' }
+            }
+            if (action === 'revoke') {
+              const jti = args[3]
+              if (!jti) throw new Error('usage: meristem identity token revoke <jti> --reason <text>')
+              const reason = requireArg(args, '--reason')
+              const revokeToken = requireMethod(client.identity?.revokeToken, 'identity.revokeToken')
+              return { exitCode: 0, stdout: encode(await revokeToken(jti, { reason })), stderr: '' }
+            }
+            throw new Error('usage: meristem identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>')
+          }
+          throw new Error('usage: meristem identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>')
+        }
+
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id> | identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

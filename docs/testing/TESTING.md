@@ -213,6 +213,53 @@ Phase 9 BFF contract additions:
 
 ---
 
+## 6.1 Phase 17 Identity v0.2 Test Coverage
+
+Identity v0.2 requires the following test coverage:
+
+**Contract Tests** (`tests/contracts/identity-v02.test.ts`):
+
+- IdentityActorV02 schema decode/encode.
+- ActorTokenV02 schema decode/encode, including revocation fields.
+- IssueTokenRequest, RevokeTokenRequest, and InternalIntrospectionRequest schema decode/encode.
+- IntrospectTokenResponse `active: false` for revoked, expired, and unknown jti.
+- Identity REST route schemas match `docs/contracts/REST-API-MVP.md`.
+- Identity CLI command outputs match `docs/contracts/CLI-COMMANDS.md`.
+
+**Failure-Mode Tests** (`tests/failure-modes/identity-revocation.test.ts`):
+
+- revoked actor token is denied and returns 403.
+- Core token introspection unavailable fails protected external M-* routes closed with 503.
+- token issue fails closed when Audit Log is unavailable.
+- token revoke fails closed when Audit Log is unavailable.
+- expired tokens are treated as revoked for authorization.
+- missing `jti` in JWT is rejected during verification.
+- operator and admin cannot issue actor tokens (403).
+- operator cannot inspect tokens (403).
+- token plaintext never appears in Timeline, Full, Audit, OpenSearch payloads, or CLI stderr/stdout except the one-time issue response.
+
+**CLI Tests** (`tests/cli/cli-identity.test.ts`):
+
+- `meristem identity actor list` returns actors.
+- `meristem identity actor show <id>` returns one actor or non-zero exit.
+- `meristem identity token issue` returns plaintext token with metadata.
+- `meristem identity token inspect <jti>` returns metadata without plaintext.
+- `meristem identity token revoke <jti>` returns confirmed revocation.
+- missing permission returns non-zero exit.
+
+**Integration Tests** (`tests/integration/identity-introspection.test.ts`):
+
+- M-* service calls Core introspection, receives correct `active` status.
+- introspection endpoint returns 401 for missing `x-meristem-internal-token`.
+
+**E2E Tests**:
+
+- full identity lifecycle: list actors → issue token → inspect token → revoke token → inspect revoked token.
+- auth failure-mode: viewer cannot call any identity route.
+- revoked token denied on protected route.
+
+---
+
 ## 7. MVP Acceptance Test Sequence
 
 Run after implementation scripts exist:

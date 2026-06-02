@@ -256,7 +256,7 @@ export function createCoreClient(config: CliConfig): CliClient {
       if (!result.ok) throw new Error(result.error.message)
       return result.value
     },
-    // Phase 12: 审批客户端方法直接调用 M-Policy 外部审批 API，不经过 Core 转发。
+    // 审批客户端方法直接调用 M-Policy 外部审批 API，不经过 Core 转发。
     listApprovals: async () => {
       const result = await policyRoutes.getJson<ApprovalListResponse>('/api/v0/policy/approvals')
       if (!result.ok) throw new Error(result.error.message)
@@ -301,6 +301,34 @@ export function createCoreClient(config: CliConfig): CliClient {
       const result = await extensionRoutes.postJson<ExtensionInstanceControlResponse>(mExtensionApiRoutes.disable, { params: { id }, body: input ?? {} })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
+    },
+    // 身份命令直接调用 Core 的 identity 控制面 API。（Phase 17）
+    identity: {
+      async listActors(): Promise<Array<{ id: string; displayName: string; status: string }>> {
+        const result = await coreRoutes.getJson('/api/v0/identity/actors')
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as Array<{ id: string; displayName: string; status: string }>
+      },
+      async getActor(id: string): Promise<{ id: string; displayName: string; status: string }> {
+        const result = await coreRoutes.getJson(`/api/v0/identity/actors/${id}`)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { id: string; displayName: string; status: string }
+      },
+      async issueToken(input: { actor: string; ttl: string; purpose: string }): Promise<{ jti: string; token: string; expiresAt: string; actor: string }> {
+        const result = await coreRoutes.postJson('/api/v0/identity/tokens', { body: input })
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { jti: string; token: string; expiresAt: string; actor: string }
+      },
+      async inspectToken(jti: string): Promise<{ jti: string; actor: string; status: string; issuer: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string }> {
+        const result = await coreRoutes.getJson(`/api/v0/identity/tokens/${jti}`)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { jti: string; actor: string; status: string; issuer: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string }
+      },
+      async revokeToken(jti: string, input: { reason: string }): Promise<{ jti: string; status: string; revokedAt: string; revokedBy: string }> {
+        const result = await coreRoutes.postJson(`/api/v0/identity/tokens/${jti}/revoke`, { body: input })
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value as { jti: string; status: string; revokedAt: string; revokedBy: string }
+      }
     }
   }
 }

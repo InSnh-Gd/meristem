@@ -113,16 +113,56 @@ Rules:
 
 Phase 17 hardens local JWT mode without adding OIDC, SSO, browser sessions, MFA, or M-Identity.
 
-Rules:
+**Token Lifecycle**:
 
-- Core owns actor records and actor token lifecycle.
-- every local actor JWT must include `jti`.
-- Core stores token metadata and revocation state, never token plaintext.
-- runtime token issue and revoke require `security-admin`.
+```text
+Issue (security-admin, writes Audit)
+  → status: "active"
+  → expiresAt elapses
+    → status: "expired"
+  OR revoke (security-admin, writes Audit)
+    → status: "revoked"
+```
+
+- Token plaintext exists only in the `POST /api/v0/identity/tokens` 201 response.
+- Token plaintext is returned only once and must never be stored, logged, or echoed in any other response.
+- Core stores only `token_hash` in PostgreSQL.
+- Mutations (issue, revoke) write Audit Log before state change.
+- If Audit Log is unavailable, the mutation fails closed and no token state change occurs.
+
+**Permission Model**:
+
+| Permission | viewer | operator | admin | security-admin |
+|------------|--------|----------|-------|----------------|
+| `identity:read` | self only | self only | yes | yes |
+| `identity:token-inspect` | no | no | yes | yes |
+| `identity:token-issue` | no | no | no | yes |
+| `identity:token-revoke` | no | no | no | yes |
+
+- `identity:read` for viewer and operator is restricted to their own actor record.
+- `identity:token-issue` and `identity:token-revoke` are security-admin only.
+
+**Fail-Closed Rules**:
+
+- Core token introspection unavailable fails protected external M-* routes closed (503).
+- Revoked token use fails closed with 403 and writes Full Log; if the actor and `jti` are known, it writes Audit Log.
+- Missing or invalid `jti` in a JWT is rejected during verification.
+- Expired tokens are treated equivalently to revoked tokens for authorization purposes.
+
+**M-* Service Verification**:
+
+```
+external request
+→ service verifies JWT signature / iss / aud / exp / sub / jti with packages/auth
+→ service calls Core POST /internal/v0/identity/tokens/introspect
+→ Core checks actor token state and revocation
+→ service calls M-Policy for authorization only if identity is active
+```
+
 - M-* services verify JWT shape locally and call Core internal token introspection for revocation state.
 - M-* services must not read Core token tables directly.
-- Core introspection unavailable fails protected M-* external routes closed.
-- token plaintext is returned only once and must never be logged.
+- Positive-result caching is allowed for at most 30 seconds keyed by `jti`.
+- Revoked, denied, expired, or invalid results must not be cached as active.
 
 ### 2.3 MVP Internal Service Authentication
 

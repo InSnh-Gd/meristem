@@ -199,7 +199,7 @@ Requests M-Task cancellation. Queued tasks cancel locally; dispatched or running
 
 Permission: `task:retry`.
 
-Runs auth, RBAC, and risk checks, then returns `not_implemented_for_phase` when policy allows the retry request.
+Runs auth, RBAC, and risk checks, then returns `not_implemented_yet` when policy allows the retry request.
 
 ### `meristem service list`
 
@@ -288,27 +288,35 @@ Shows one local actor record.
 
 ### `meristem identity token issue --actor <actor-id> --ttl <duration> --purpose <text>`
 
-Permission: `identity:token-issue`.
+Permission: `identity:token-issue` (security-admin only).
 
-Issues a local actor token. Only `security-admin` can issue runtime tokens.
+Issues a local actor token.
 
 Rules:
 
-- token plaintext is returned once.
+- Only `security-admin` can issue runtime tokens.
+- token plaintext is returned once and must never be logged.
 - issue writes Audit before returning plaintext.
+- issue fails closed when Audit Log is unavailable.
 - token metadata includes `jti`, actor, issuedBy, purpose, issuedAt, and expiresAt.
 
 ### `meristem identity token inspect <jti>`
 
-Permission: `identity:token-inspect`.
+Permission: `identity:token-inspect` (admin + security-admin).
 
 Shows token metadata and revocation status without token plaintext.
 
 ### `meristem identity token revoke <jti> --reason <text>`
 
-Permission: `identity:token-revoke`.
+Permission: `identity:token-revoke` (security-admin only).
 
-Revokes one local actor token by `jti` and writes Audit before status change.
+Revokes one local actor token by `jti`.
+
+Rules:
+
+- revoke writes Audit before changing token status.
+- revoke fails closed when Audit Log is unavailable.
+- Non-zero exit on missing permission, not-found jti, or Core unavailable.
 
 ### `meristem secret list`
 

@@ -188,22 +188,151 @@ Rules:
 
 Phase 17 identity routes are owned by Core. They do not introduce M-Identity.
 
-```text
-GET  /api/v0/identity/actors
-GET  /api/v0/identity/actors/:id
-POST /api/v0/identity/tokens
-GET  /api/v0/identity/tokens/:jti
-POST /api/v0/identity/tokens/:jti/revoke
-POST /internal/v0/identity/tokens/introspect
+External routes require Bearer authentication and M-Policy authorization. The internal introspection route requires `x-meristem-internal-token` and returns revocation status without token plaintext.
+
+### `GET /api/v0/identity/actors`
+
+Protected by `identity:read`.
+
+Returns all local-mode identity actors.
+
+```ts
+type IdentityActorRecord = {
+  id: "viewer" | "operator" | "admin" | "security-admin";
+  displayName: string;
+  status: "active" | "disabled";
+  createdAt: string;
+  updatedAt: string;
+};
+
+type IdentityActorListResponse = {
+  actors: IdentityActorRecord[];
+};
 ```
 
-Rules:
+**Error Responses**: 401, 403, 503.
 
-- runtime token issue and revoke require `security-admin`.
-- token issue writes Audit before returning plaintext token.
-- token plaintext is returned only once and must never be stored or logged.
-- introspection is internal-only and returns revocation status without token plaintext.
-- M-* services must use introspection instead of reading Core token tables.
+### `GET /api/v0/identity/actors/:id`
+
+Protected by `identity:read`.
+
+Returns one local-mode identity actor or `404`.
+
+```ts
+type IdentityActorResponse = {
+  actor: IdentityActorRecord;
+};
+```
+
+**Error Responses**: 401, 403, 404, 503.
+
+### `POST /api/v0/identity/tokens`
+
+Protected by `identity:token-issue` (security-admin only).
+
+Issues an actor token. Writes Audit before returning the plaintext token. Token plaintext is returned only once and must never be stored or logged.
+
+```ts
+type IssueTokenRequest = {
+  actor: "viewer" | "operator" | "admin" | "security-admin";
+  ttl: string;        // duration string, e.g. "1h", "7d"
+  purpose: string;    // human-readable reason for the token
+};
+
+type IssueTokenResponse = {
+  jti: string;
+  token: string;        // JWT plaintext, returned only once
+  expiresAt: string;
+  actor: "viewer" | "operator" | "admin" | "security-admin";
+  issuer: "meristem-local";
+  audience: "meristem-core";
+  purpose: string;
+  status: "active";
+};
+```
+
+**Error Responses**: 401, 403, 503.
+
+### `GET /api/v0/identity/tokens/:jti`
+
+Protected by `identity:token-inspect` (admin + security-admin).
+
+Returns token metadata and status without token plaintext.
+
+```ts
+type ActorTokenV02 = {
+  jti: string;
+  actor: "viewer" | "operator" | "admin" | "security-admin";
+  issuer: "meristem-local";
+  audience: "meristem-core" | "meristem-service";
+  issuedAt: string;
+  expiresAt: string;
+  issuedBy: "viewer" | "operator" | "admin" | "security-admin";
+  purpose: string;
+  status: "active" | "revoked" | "expired";
+  revokedAt?: string;
+  revokedBy?: "viewer" | "operator" | "admin" | "security-admin";
+  revokeReason?: string;
+};
+```
+
+**Error Responses**: 401, 403, 404, 503.
+
+### `POST /api/v0/identity/tokens/:jti/revoke`
+
+Protected by `identity:token-revoke` (security-admin only).
+
+Revokes one actor token by `jti`. Writes Audit before changing token status.
+
+```ts
+type RevokeTokenRequest = {
+  reason: string;
+};
+
+type RevokeTokenResponse = {
+  jti: string;
+  status: "revoked";
+  revokedAt: string;
+  revokedBy: "viewer" | "operator" | "admin" | "security-admin";
+  revokeReason: string;
+  token: {
+    jti: string;
+    status: "revoked";
+    revokedAt: string;
+    revokedBy: "viewer" | "operator" | "admin" | "security-admin";
+    revokeReason: string;
+  };
+};
+```
+
+**Error Responses**: 401, 403, 404, 503.
+
+### `POST /internal/v0/identity/tokens/introspect`
+
+Internal endpoint. Requires `x-meristem-internal-token`. Never returns token plaintext.
+
+M-* services must call this endpoint to verify revocation state instead of reading Core token tables directly. Core unavailable fails closed for protected external M-* routes.
+
+```ts
+type IntrospectTokenRequest = {
+  jti: string;
+};
+
+type IntrospectTokenResponse = {
+  jti?: string;
+  active: boolean;
+  actor?: "viewer" | "operator" | "admin" | "security-admin";
+};
+```
+
+**Error Responses**: 401 (invalid or missing internal token), 503 (Core unavailable).
+
+**Rules**:
+
+- `active: false` means the token is revoked, expired, or the jti is unknown.
+- positive-result caching is allowed for at most 30 seconds keyed by `jti`.
+- revoked, denied, expired, or unknown results must not be cached as active.
+- Core stores only the token hash; token plaintext is never persisted.
 
 ---
 
@@ -580,7 +709,7 @@ Cancels queued tasks directly and requests best-effort cancel for dispatched or 
 
 Protected by `task:retry`.
 
-Phase 11 returns `not_implemented_for_phase` after auth, RBAC, and risk checks allow the retry request.
+Phase 11 returns `not_implemented_yet` after auth, RBAC, and risk checks allow the retry request.
 
 ---
 
