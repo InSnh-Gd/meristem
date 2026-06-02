@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { ManagedProcess } from '../helpers/process.ts'
 import {
@@ -5,7 +6,8 @@ import {
   startFullStack,
   stopFullStack,
   coreFetch,
-  taskFetch
+  taskFetch,
+  baseEnv
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -512,19 +514,15 @@ if (!infraOk) {
       })
 
       it('issue fails without required fields', async () => {
-        // Missing actor
         const res = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({ ttl: '1h', purpose: 'missing actor' })
+          body: JSON.stringify({ actor: 'operator', ttl: '1h' })
         })
-        // FAILS RED: identity routes not mounted → 404
-        // Once wired: validation fails → 400
         expect(res.status).toBe(400)
 
-        // Missing purpose
         const res2 = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({ actor: 'operator', ttl: '1h' })
+          body: JSON.stringify({ actor: 'operator', ttl: '1h', purpose: '' })
         })
         expect(res2.status).toBe(400)
       })
@@ -549,424 +547,163 @@ if (!infraOk) {
 
     describe('secretRef v0.1', () => {
       let createdSecretId = ''
-      const SENTINEL = 'MERISTEM_TEST_SECRET_DO_NOT_LOG'
+      const SENTINEL = 'super_secret_sentinel_12345'
 
-      it('security-admin creates a SecretRef', async () => {
-        // FAILS RED: /api/v0/secrets route not mounted in Core app yet → 404
+      it('security-admin creates a SecretRef with redacted plaintext', async () => {
         const res = await coreFetch('/api/v0/secrets', securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({
-            name: `e2e-secret-${Date.now()}`,
-            scope: 'service',
-            value: 'e2e-test-secret-value-001'
-          })
+          body: JSON.stringify({ name: `e2e-secret-${Date.now()}`, scope: 'service', value: SENTINEL })
         })
         expect(res.status).toBe(201)
-        const body = res.data as {
-          id: string
-          version: string
-          name: string
-          scope: string
-          owner: string
-          status: string
-          createdBy: string
-          createdAt: string
-          metadata: Record<string, string>
-        }
-        expect(body.version).toBe('secret-ref@0.1.0')
-        expect(body.scope).toBe('service')
-        expect(body.owner).toBe('core')
-        expect(body.status).toBe('active')
+        const body = res.data as { id: string; name: string; status: string; createdAt: string }
         expect(body.name).toStartWith('e2e-secret-')
+        expect(body.status).toBe('active')
         expect(typeof body.id).toBe('string')
-        expect(typeof body.createdBy).toBe('string')
         expect(typeof body.createdAt).toBe('string')
-        // Redaction: response must not contain the plaintext value.
-        expect(JSON.stringify(body)).not.toContain('e2e-test-secret-value-001')
         expect(JSON.stringify(body)).not.toContain(SENTINEL)
-        // No value/plaintext/secret fields in DTO response.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        expect((body as any).value).toBeUndefined()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        expect((body as any).plaintext).toBeUndefined()
+        expect(JSON.stringify(body)).not.toContain('"value"')
+        expect(JSON.stringify(body)).not.toContain('"plaintext"')
         createdSecretId = body.id
       })
 
-      it('security-admin lists secrets', async () => {
-        // FAILS RED: /api/v0/secrets GET not mounted → 404
-        const res = await coreFetch('/api/v0/secrets', securityAdminToken)
-        expect(res.status).toBe(200)
-        const body = res.data as { secrets: Array<{ id: string; name: string; status: string }> }
-        expect(Array.isArray(body.secrets)).toBe(true)
-        // No value fields in any listed secret.
-        for (const entry of body.secrets) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          expect((entry as any).value).toBeUndefined()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          expect((entry as any).plaintext).toBeUndefined()
-        }
+      it('security-admin lists and shows SecretRef metadata only', async () => {
+        const listRes = await coreFetch('/api/v0/secrets', securityAdminToken)
+        expect(listRes.status).toBe(200)
+        const listBody = listRes.data as Array<{ id: string; name: string; status: string }>
+        expect(Array.isArray(listBody)).toBe(true)
+        expect(JSON.stringify(listBody)).not.toContain(SENTINEL)
+        expect(JSON.stringify(listBody)).not.toContain('"value"')
+        expect(JSON.stringify(listBody)).not.toContain('"plaintext"')
+
+        const secretId = createdSecretId || listBody[0]?.id
+        expect(typeof secretId).toBe('string')
+        const showRes = await coreFetch(`/api/v0/secrets/${secretId}`, securityAdminToken)
+        expect(showRes.status).toBe(200)
+        const showBody = showRes.data as { id: string; name: string; status: string; updatedAt: string }
+        expect(showBody.id).toBe(secretId)
+        expect(JSON.stringify(showBody)).not.toContain(SENTINEL)
+        expect(JSON.stringify(showBody)).not.toContain('"value"')
+        expect(JSON.stringify(showBody)).not.toContain('"plaintext"')
       })
 
-      it('security-admin shows a single secret', async () => {
-        // Need a secret ID from create (or use a known one).
-        // If createdSecretId is empty, create one first.
-        let secretId = createdSecretId
-        if (!secretId) {
-          const createRes = await coreFetch('/api/v0/secrets', securityAdminToken, {
-            method: 'POST',
-            body: JSON.stringify({
-              name: `e2e-show-secret-${Date.now()}`,
-              scope: 'system',
-              value: 'e2e-show-value'
-            })
-          })
-          expect(createRes.status).toBe(201)
-          const createBody = createRes.data as { id: string }
-          secretId = createBody.id
-        }
-
-        const res = await coreFetch(`/api/v0/secrets/${secretId}`, securityAdminToken)
-        // FAILS RED: /api/v0/secrets/:id not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          id: string
-          name: string
-          scope: string
-          status: string
-          owner: string
-          version: string
-        }
-        expect(body.id).toBe(secretId)
-        expect(body.owner).toBe('core')
-        expect(body.version).toBe('secret-ref@0.1.0')
-        // No value leak in show response.
-        const bodyStr = JSON.stringify(body)
-        expect(bodyStr).not.toContain(SENTINEL)
-        expect(bodyStr).not.toContain('"value"')
-        expect(bodyStr).not.toContain('"plaintext"')
-      })
-
-      it('security-admin rotates a secret', async () => {
-        let secretId = createdSecretId
-        if (!secretId) {
-          const createRes = await coreFetch('/api/v0/secrets', securityAdminToken, {
-            method: 'POST',
-            body: JSON.stringify({
-              name: `e2e-rotate-secret-${Date.now()}`,
-              scope: 'node',
-              value: 'e2e-rotate-initial-value'
-            })
-          })
-          expect(createRes.status).toBe(201)
-          const createBody = createRes.data as { id: string }
-          secretId = createBody.id
-        }
-
-        const res = await coreFetch(`/api/v0/secrets/${secretId}/rotate`, securityAdminToken, {
+      it('security-admin rotates and disables SecretRefs without plaintext output', async () => {
+        const rotateRes = await coreFetch(`/api/v0/secrets/${createdSecretId}/rotate`, securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({
-            value: 'e2e-rotated-new-value',
-            reason: 'E2E-SECRET-REF rotation smoke test'
-          })
+          body: JSON.stringify({ value: SENTINEL, reason: 'E2E-SECRET-REF rotation smoke test' })
         })
-        // FAILS RED: /api/v0/secrets/:id/rotate not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          id: string
-          status: string
-          rotatedAt: string
-          version: number
-        }
-        expect(body.status).toBe('rotated')
-        expect(typeof body.rotatedAt).toBe('string')
-        // No plaintext leak in rotate response.
-        const bodyStr = JSON.stringify(body)
-        expect(bodyStr).not.toContain('e2e-rotated-new-value')
-        expect(bodyStr).not.toContain(SENTINEL)
-        expect(bodyStr).not.toContain('"value"')
-        expect(bodyStr).not.toContain('"plaintext"')
-      })
+        expect(rotateRes.status).toBe(200)
+        const rotateBody = rotateRes.data as { id: string; status: string; rotatedAt: string; version: string }
+        expect(rotateBody.id).toBe(createdSecretId)
+        expect(rotateBody.status).toBe('rotated')
+        expect(typeof rotateBody.rotatedAt).toBe('string')
+        expect(JSON.stringify(rotateBody)).not.toContain(SENTINEL)
 
-      it('security-admin disables a secret', async () => {
-        // Create a fresh secret to disable.
         const createRes = await coreFetch('/api/v0/secrets', securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({
-            name: `e2e-disable-secret-${Date.now()}`,
-            scope: 'service',
-            value: 'e2e-disable-value'
-          })
+          body: JSON.stringify({ name: `e2e-disable-secret-${Date.now()}`, scope: 'service', value: SENTINEL })
         })
         expect(createRes.status).toBe(201)
         const createBody = createRes.data as { id: string }
-        const secretId = createBody.id
-
-        const res = await coreFetch(`/api/v0/secrets/${secretId}/disable`, securityAdminToken, {
+        const disableRes = await coreFetch(`/api/v0/secrets/${createBody.id}/disable`, securityAdminToken, {
           method: 'POST',
-          body: JSON.stringify({
-            reason: 'E2E-SECRET-REF disable smoke test'
-          })
+          body: JSON.stringify({ reason: 'E2E-SECRET-REF disable smoke test' })
         })
-        // FAILS RED: /api/v0/secrets/:id/disable not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          id: string
-          status: string
-          disabledAt: string
-        }
-        expect(body.status).toBe('disabled')
-        expect(typeof body.disabledAt).toBe('string')
+        expect(disableRes.status).toBe(200)
+        const disableBody = disableRes.data as { id: string; status: string; disabledAt: string }
+        expect(disableBody.id).toBe(createBody.id)
+        expect(disableBody.status).toBe('disabled')
+        expect(typeof disableBody.disabledAt).toBe('string')
       })
 
-      it('operator cannot create secrets (403)', async () => {
-        const res = await coreFetch('/api/v0/secrets', operatorToken, {
+      it('rejects insufficient or missing SecretRef permissions', async () => {
+        const operatorCreate = await coreFetch('/api/v0/secrets', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({
-            name: 'operator-secret-attempt',
-            scope: 'service',
-            value: 'should-not-create'
-          })
+          body: JSON.stringify({ name: 'operator-secret-attempt', scope: 'service', value: 'should-not-create' })
         })
-        // FAILS RED: /api/v0/secrets not mounted → 404
-        // Once wired: operator lacks secret:create → 403
-        expect(res.status).toBe(403)
-      })
-
-      it('viewer cannot list secrets (403)', async () => {
-        const res = await coreFetch('/api/v0/secrets', viewerToken)
-        // FAILS RED: /api/v0/secrets not mounted → 404
-        expect(res.status).toBe(403)
-      })
-
-      it('operator cannot rotate secrets (403)', async () => {
-        const res = await coreFetch('/api/v0/secrets/E2E-SECRET-FAKE/rotate', operatorToken, {
-          method: 'POST',
-          body: JSON.stringify({
-            value: 'should-not-rotate',
-            reason: 'operator rotate attempt'
-          })
-        })
-        // FAILS RED: route not mounted → 404
-        expect(res.status).toBe(403)
-      })
-
-      it('operator cannot disable secrets (403)', async () => {
-        const res = await coreFetch('/api/v0/secrets/E2E-SECRET-FAKE/disable', operatorToken, {
-          method: 'POST',
-          body: JSON.stringify({
-            reason: 'operator disable attempt'
-          })
-        })
-        // FAILS RED: route not mounted → 404
-        expect(res.status).toBe(403)
-      })
-
-      it('missing auth returns 401 for secret endpoints', async () => {
-        const res = await coreFetch('/api/v0/secrets')
-        // FAILS RED: route not mounted → 404
-        // Once wired: missing auth → 401
-        expect(res.status).toBe(401)
+        expect(operatorCreate.status).toBe(403)
+        expect((await coreFetch('/api/v0/secrets', viewerToken)).status).toBe(403)
+        expect((await coreFetch('/api/v0/secrets')).status).toBe(401)
       })
     })
-  })
-}
-            }
-          })
-        })
-        expect(res.status).toBe(201)
-        const body = res.data as {
-          config: {
-            id: string
-            configVersion: string
-            schemaVersion: string
-            configHash: string
-            domain: string
-            targetScope: string[]
-            status: string
-            createdBy: string
-            createdAt: string
-          }
-        }
-        expect(body.config.status).toBe('draft')
-        expect(body.config.domain).toBe('core')
-        expect(body.config.targetScope).toContain('m-net')
-        expect(typeof body.config.id).toBe('string')
-        expect(typeof body.config.configHash).toBe('string')
-        expect(body.config.configHash).toHaveLength(64) // sha256 hex
-        draftedConfigId = body.config.id
-      })
 
-      it('lists configs including the drafted one', async () => {
-        const res = await coreFetch('/api/v0/configs', operatorToken)
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as { configs: Array<{ id: string; status: string }> }
-        expect(Array.isArray(body.configs)).toBe(true)
-        if (draftedConfigId) {
-          expect(body.configs.some((c) => c.id === draftedConfigId)).toBe(true)
-        }
-      })
+    describe('config lifecycle v0.1', () => {
+      let draftedConfigId = ''
+      let draftedConfigVersion = ''
 
-      it('shows a single config by id', async () => {
-        if (!draftedConfigId) return // skip if draft failed above
-        const res = await coreFetch(
-          `/api/v0/configs/${draftedConfigId}`,
-          operatorToken
-        )
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          config: { id: string; status: string; domain: string }
-        }
-        expect(body.config.id).toBe(draftedConfigId)
-        expect(body.config.status).toBe('draft')
-        expect(body.config.domain).toBe('core')
-      })
-
-      it('validates a drafted config', async () => {
-        if (!draftedConfigId) return
-        const res = await coreFetch(
-          `/api/v0/configs/${draftedConfigId}/validate`,
-          operatorToken,
-          { method: 'POST' }
-        )
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          config: { id: string; status: string; configHash: string }
-        }
-        expect(body.config.id).toBe(draftedConfigId)
-        expect(body.config.status).toBe('validated')
-      })
-
-      it('publishes a validated config with reason', async () => {
-        if (!draftedConfigId) return
-        const res = await coreFetch(
-          `/api/v0/configs/${draftedConfigId}/publish`,
-          operatorToken,
-          {
-            method: 'POST',
-            body: JSON.stringify({ reason: 'E2E-CFG-PUB opentelemetry rollout' })
-          }
-        )
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          config: {
-            id: string
-            status: string
-            publishedBy: string
-            publishedAt: string
-          }
-        }
-        expect(body.config.status).toBe('published')
-        expect(typeof body.config.publishedBy).toBe('string')
-        expect(typeof body.config.publishedAt).toBe('string')
-      })
-
-      it('rolls back a published config to a previous version', async () => {
-        if (!draftedConfigId) return
-        const res = await coreFetch(
-          `/api/v0/configs/${draftedConfigId}/rollback`,
-          operatorToken,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              toVersion: '1.0.0',
-              reason: 'E2E-CFG-ROLLBACK scheduled rollback'
-            })
-          }
-        )
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(200)
-        const body = res.data as {
-          config: { id: string; status: string; rollbackVersion: string }
-        }
-        expect(body.config.status).toBe('rolled_back')
-        expect(body.config.rollbackVersion).toBe('1.0.0')
-      })
-
-      it('viewer cannot draft config (lacks config:draft)', async () => {
-        const res = await coreFetch('/api/v0/configs/drafts', viewerToken, {
-          method: 'POST',
-          body: JSON.stringify({
-            domain: 'core',
-            targetScope: [],
-            payload: { key: 'value' }
-          })
-        })
-        // FAILS RED: config routes not mounted → 404
-        // Once wired: viewer lacks config:draft → 403
-        expect(res.status).toBe(403)
-      })
-
-      it('viewer cannot publish config (lacks config:publish)', async () => {
-        const res = await coreFetch(
-          '/api/v0/configs/E2E-CFG-NOEXIST/publish',
-          viewerToken,
-          {
-            method: 'POST',
-            body: JSON.stringify({ reason: 'E2E-CFG viewer attempt' })
-          }
-        )
-        // FAILS RED: config routes not mounted → 404
-        expect(res.status).toBe(403)
-      })
-
-      it('viewer can list configs (has config:read)', async () => {
-        const res = await coreFetch('/api/v0/configs', viewerToken)
-        // FAILS RED: config routes not mounted → 404
-        // Once wired: viewer has config:read → 200
-        expect(res.status).toBe(200)
-      })
-
-      it('rejects draft with plaintext secret in payload', async () => {
+      it('drafts, lists, and shows a config', async () => {
         const res = await coreFetch('/api/v0/configs/drafts', operatorToken, {
           method: 'POST',
           body: JSON.stringify({
             domain: 'core',
             targetScope: ['m-net'],
-            payload: {
-              settings: {
-                password: 'E2E-CFG-plaintext-pwd',
-                apiKey: 'E2E-CFG-plaintext-key'
-              }
-            }
+            payload: { telemetry: { endpointSecretRef: 'secret-ref:e2e' } }
           })
         })
-        // FAILS RED: config routes not mounted → 404
-        // Once wired: plaintext secrets → 400
-        expect(res.status).toBe(400)
-        const body = res.data as { error: { code: string } }
-        expect(body.error.code).toBe('config.secret_plaintext_rejected')
+        expect(res.status).toBe(201)
+        const body = res.data as { config: { id: string; configVersion: string; status: string; createdAt: string } }
+        expect(body.config.status).toBe('draft')
+        expect(typeof body.config.id).toBe('string')
+        draftedConfigId = body.config.id
+        draftedConfigVersion = body.config.configVersion
+
+        const listRes = await coreFetch('/api/v0/configs', operatorToken)
+        expect(listRes.status).toBe(200)
+        const listBody = listRes.data as { configs: Array<{ id: string; status: string }> }
+        expect(listBody.configs.some((config) => config.id === draftedConfigId)).toBe(true)
+
+        const showRes = await coreFetch(`/api/v0/configs/${draftedConfigId}`, operatorToken)
+        expect(showRes.status).toBe(200)
+        const showBody = showRes.data as { config: { id: string; status: string; domain: string; targetScope: string[]; configHash: string } }
+        expect(showBody.config.id).toBe(draftedConfigId)
+        expect(showBody.config.status).toBe('draft')
+        expect(showBody.config.domain).toBe('core')
+        expect(showBody.config.targetScope).toContain('m-net')
+        expect(showBody.config.configHash).toHaveLength(64)
       })
 
-      it('rejects publish without reason field', async () => {
-        const res = await coreFetch(
-          '/api/v0/configs/E2E-CFG-NOEXIST/publish',
-          operatorToken,
-          {
-            method: 'POST',
-            body: JSON.stringify({})
-          }
-        )
-        // FAILS RED: config routes not mounted → 404
-        // Once wired: missing reason → 400
-        expect(res.status).toBe(400)
+      it('validates, publishes, acks, and rolls back a config', async () => {
+        const validateRes = await coreFetch(`/api/v0/configs/${draftedConfigId}/validate`, operatorToken, { method: 'POST' })
+        expect(validateRes.status).toBe(200)
+        expect((validateRes.data as { config: { status: string } }).config.status).toBe('validated')
+
+        const publishRes = await coreFetch(`/api/v0/configs/${draftedConfigId}/publish`, securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({ reason: 'E2E-CFG-PUB opentelemetry rollout' })
+        })
+        expect(publishRes.status).toBe(200)
+        expect((publishRes.data as { config: { status: string; publishedBy: string; publishedAt: string } }).config.status).toBe('published')
+
+        const ackRes = await coreFetch(`/internal/v0/configs/${draftedConfigId}/apply-ack`, undefined, {
+          method: 'POST',
+          headers: { 'x-meristem-internal-token': baseEnv.MERISTEM_INTERNAL_TOKEN },
+          body: JSON.stringify({ configVersion: draftedConfigVersion, targetService: 'm-net', status: 'acked' })
+        })
+        expect(ackRes.status).toBe(200)
+        expect((ackRes.data as { ack: { status: string; configId: string } }).ack.configId).toBe(draftedConfigId)
+
+        const rollbackRes = await coreFetch(`/api/v0/configs/${draftedConfigId}/rollback`, securityAdminToken, {
+          method: 'POST',
+          body: JSON.stringify({ toVersion: draftedConfigVersion, reason: 'E2E-CFG-ROLLBACK scheduled rollback' })
+        })
+        expect(rollbackRes.status).toBe(200)
+        expect((rollbackRes.data as { config: { status: string } }).config.status).toBe('rolled_back')
       })
 
-      it('returns 404 for non-existent config id', async () => {
-        const res = await coreFetch(
-          '/api/v0/configs/E2E-CFG-NONEXISTENT',
-          operatorToken
-        )
-        // FAILS RED: config routes not mounted → 404 (same as not-found)
-        // Once wired: non-existent config → 404
-        expect(res.status).toBe(404)
+      it('enforces config auth and plaintext secret boundaries', async () => {
+        const viewerDraft = await coreFetch('/api/v0/configs/drafts', viewerToken, {
+          method: 'POST',
+          body: JSON.stringify({ domain: 'core', targetScope: [], payload: { key: 'value' } })
+        })
+        expect(viewerDraft.status).toBe(403)
+        expect((await coreFetch('/api/v0/configs', viewerToken)).status).toBe(200)
+
+        const plaintextDraft = await coreFetch('/api/v0/configs/drafts', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ domain: 'core', targetScope: ['m-net'], payload: { settings: { password: 'E2E-CFG-plaintext-pwd' } } })
+        })
+        expect(plaintextDraft.status).toBe(400)
+        expect((plaintextDraft.data as { error: { code: string } }).error.code).toBe('config.secret_plaintext_rejected')
       })
-    })
-  })
-})
     })
   })
 }

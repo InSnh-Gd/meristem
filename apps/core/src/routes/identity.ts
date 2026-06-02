@@ -306,6 +306,9 @@ export const identity = (deps: CoreDeps) => {
     })
     // token 签发在返回明文前先完成 M-Policy 与 Audit，确保高风险控制操作 fail-closed。
     .post('/tokens', async ({ body, headers, set }) => {
+      if (!actorIds.includes(body.actor) || !body.ttl || !body.purpose) {
+        throw new CoreError(400, 'identity.token.invalid_request', 'actor, ttl, and purpose are required')
+      }
       const auth = await requireActor(deps, headers)
       const permission = await authorize(deps, {
         actor: auth.actor,

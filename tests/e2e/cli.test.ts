@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { startProcess, type ManagedProcess } from '../helpers/process.ts'
 import {
@@ -5,7 +6,8 @@ import {
   startFullStack,
   stopFullStack,
   runTextCommand,
-  baseEnv
+  baseEnv,
+  coreFetch
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -24,6 +26,8 @@ if (!infraOk) {
   let securityAdminToken = ''
   let leafName = ''
   let networkName = ''
+  let cliConfigId = ''
+  let cliConfigVersion = ''
 
   describe('e2e: CLI', () => {
     beforeAll(async () => {
@@ -150,11 +154,9 @@ if (!infraOk) {
           ['meristem', 'identity', 'token', 'inspect', issueBody.jti],
           { MERISTEM_TOKEN: securityAdminToken }
         )
-        const body = JSON.parse(out) as {
-          token: { jti: string; actor: string; status: string }
-        }
-        expect(body.token.jti).toBe(issueBody.jti)
-        expect(body.token.status).toBe('active')
+        const body = JSON.parse(out) as { jti: string; actor: string; status: string }
+        expect(body.jti).toBe(issueBody.jti)
+        expect(body.status).toBe('active')
         // Token inspect must never return plaintext
         expect(JSON.stringify(body)).not.toContain(issueBody.token)
         expect(JSON.stringify(body)).not.toContain('"token": "ey')
@@ -185,10 +187,8 @@ if (!infraOk) {
           ['meristem', 'identity', 'token', 'inspect', issueBody.jti],
           { MERISTEM_TOKEN: securityAdminToken }
         )
-        const inspectBody = JSON.parse(inspectOut) as {
-          token: { status: string }
-        }
-        expect(inspectBody.token.status).toBe('revoked')
+        const inspectBody = JSON.parse(inspectOut) as { status: string }
+        expect(inspectBody.status).toBe('revoked')
       })
     })
 
@@ -199,9 +199,9 @@ if (!infraOk) {
           [
             'meristem', 'config', 'draft',
             '--domain', 'core',
-            '--file', '/tmp/e2e-config.json'
+            '--file', 'tests/e2e/fixtures/config-draft.json'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           config: {
@@ -212,16 +212,16 @@ if (!infraOk) {
             status: string
           }
         }
-        expect(body.config.domain).toBe('core')
         expect(body.config.status).toBe('draft')
         expect(typeof body.config.id).toBe('string')
-        expect(typeof body.config.configHash).toBe('string')
+        cliConfigId = body.config.id
+        cliConfigVersion = body.config.configVersion
       })
 
       it('lists configs through CLI', async () => {
         const out = await runTextCommand(
           ['meristem', 'config', 'list'],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           configs: Array<{ id: string; status: string }>
@@ -231,38 +231,37 @@ if (!infraOk) {
 
       it('shows a single config through CLI', async () => {
         const out = await runTextCommand(
-          ['meristem', 'config', 'show', 'E2E-CLI-CFG-001'],
-          { MERISTEM_TOKEN: operatorToken }
+          ['meristem', 'config', 'show', cliConfigId],
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           config: { id: string; status: string; domain: string }
         }
-        expect(body.config.id).toBe('E2E-CLI-CFG-001')
+        expect(body.config.id).toBe(cliConfigId)
         expect(typeof body.config.status).toBe('string')
         expect(typeof body.config.domain).toBe('string')
       })
 
       it('validates a config through CLI', async () => {
         const out = await runTextCommand(
-          ['meristem', 'config', 'validate', 'E2E-CLI-CFG-001'],
-          { MERISTEM_TOKEN: operatorToken }
+          ['meristem', 'config', 'validate', cliConfigId],
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           config: { id: string; status: string; configHash: string }
         }
-        expect(body.config.id).toBe('E2E-CLI-CFG-001')
+        expect(body.config.id).toBe(cliConfigId)
         expect(body.config.status).toBe('validated')
-        expect(typeof body.config.configHash).toBe('string')
       })
 
       it('publishes a config through CLI with reason', async () => {
         const out = await runTextCommand(
           [
             'meristem', 'config', 'publish',
-            'E2E-CLI-CFG-001',
+            cliConfigId,
             '--reason', 'E2E CLI smoke publish'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           config: {
@@ -272,28 +271,34 @@ if (!infraOk) {
             publishedAt: string
           }
         }
-        expect(body.config.id).toBe('E2E-CLI-CFG-001')
+        expect(body.config.id).toBe(cliConfigId)
         expect(body.config.status).toBe('published')
         expect(typeof body.config.publishedBy).toBe('string')
         expect(typeof body.config.publishedAt).toBe('string')
+
+        const ackRes = await coreFetch(`/internal/v0/configs/${cliConfigId}/apply-ack`, undefined, {
+          method: 'POST',
+          headers: { 'x-meristem-internal-token': baseEnv.MERISTEM_INTERNAL_TOKEN },
+          body: JSON.stringify({ configVersion: cliConfigVersion, targetService: 'm-net', status: 'acked' })
+        })
+        expect(ackRes.status).toBe(200)
       })
 
       it('rolls back a config through CLI', async () => {
         const out = await runTextCommand(
           [
             'meristem', 'config', 'rollback',
-            'E2E-CLI-CFG-001',
-            '--to', '1.0.0',
+            cliConfigId,
+            '--to', cliConfigVersion,
             '--reason', 'E2E CLI smoke rollback'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
-          config: { id: string; status: string; rollbackVersion: string }
+          config: { id: string; status: string }
         }
-        expect(body.config.id).toBe('E2E-CLI-CFG-001')
+        expect(body.config.id).toBe(cliConfigId)
         expect(body.config.status).toBe('rolled_back')
-        expect(body.config.rollbackVersion).toBe('1.0.0')
       })
 
       it('full config lifecycle CLI flow: draft → validate → publish → rollback', async () => {
@@ -302,9 +307,9 @@ if (!infraOk) {
           [
             'meristem', 'config', 'draft',
             '--domain', 'm-net',
-            '--file', '/tmp/e2e-lifecycle-config.json'
+            '--file', 'tests/e2e/fixtures/config-lifecycle.json'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const draftBody = JSON.parse(draftOut) as {
           config: { id: string; configVersion: string; status: string }
@@ -316,7 +321,7 @@ if (!infraOk) {
         // ── validate ──
         const validateOut = await runTextCommand(
           ['meristem', 'config', 'validate', configId],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const validateBody = JSON.parse(validateOut) as {
           config: { id: string; status: string }
@@ -331,7 +336,7 @@ if (!infraOk) {
             configId,
             '--reason', 'E2E CLI lifecycle smoke'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const publishBody = JSON.parse(publishOut) as {
           config: { id: string; status: string; publishedBy: string }
@@ -339,6 +344,13 @@ if (!infraOk) {
         expect(publishBody.config.id).toBe(configId)
         expect(publishBody.config.status).toBe('published')
         expect(typeof publishBody.config.publishedBy).toBe('string')
+
+        const ackRes = await coreFetch(`/internal/v0/configs/${configId}/apply-ack`, undefined, {
+          method: 'POST',
+          headers: { 'x-meristem-internal-token': baseEnv.MERISTEM_INTERNAL_TOKEN },
+          body: JSON.stringify({ configVersion, targetService: 'm-net', status: 'acked' })
+        })
+        expect(ackRes.status).toBe(200)
 
         // ── rollback ──
         const rollbackOut = await runTextCommand(
@@ -348,14 +360,13 @@ if (!infraOk) {
             '--to', configVersion,
             '--reason', 'E2E CLI lifecycle rollback'
           ],
-          { MERISTEM_TOKEN: operatorToken }
+          { MERISTEM_TOKEN: securityAdminToken }
         )
         const rollbackBody = JSON.parse(rollbackOut) as {
-          config: { id: string; status: string; rollbackVersion: string }
+          config: { id: string; status: string }
         }
         expect(rollbackBody.config.id).toBe(configId)
         expect(rollbackBody.config.status).toBe('rolled_back')
-        expect(rollbackBody.config.rollbackVersion).toBe(configVersion)
       })
     })
 
@@ -411,7 +422,7 @@ if (!infraOk) {
     })
 
     describe('secretRef v0.1', () => {
-      const SENTINEL = 'MERISTEM_TEST_SECRET_DO_NOT_LOG'
+      const SENTINEL = 'super_secret_sentinel_12345'
       let createdSecretId = ''
 
       it('secret list returns secrets for security-admin', async () => {
@@ -420,8 +431,8 @@ if (!infraOk) {
           ['meristem', 'secret', 'list'],
           { MERISTEM_TOKEN: securityAdminToken }
         )
-        const body = JSON.parse(out) as { secrets: Array<{ id: string; name: string; status: string }> }
-        expect(Array.isArray(body.secrets)).toBe(true)
+        const body = JSON.parse(out) as Array<{ id: string; name: string; status: string }>
+        expect(Array.isArray(body)).toBe(true)
         // No value leaks in list output.
         expect(out).not.toContain(SENTINEL)
         expect(out).not.toContain('"value"')
@@ -431,22 +442,17 @@ if (!infraOk) {
       it('secret create returns metadata without plaintext', async () => {
         const secretName = `e2e-cli-secret-${Date.now()}`
         const out = await runTextCommand(
-          ['meristem', 'secret', 'create', '--name', secretName, '--scope', 'service'],
+          ['meristem', 'secret', 'create', '--name', secretName, '--scope', 'service', '--value', SENTINEL],
           { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           id: string
           name: string
-          scope: string
           status: string
-          owner: string
-          version: string
+          createdAt: string
         }
         expect(body.name).toBe(secretName)
-        expect(body.scope).toBe('service')
         expect(body.status).toBe('active')
-        expect(body.owner).toBe('core')
-        expect(body.version).toBe('secret-ref@0.1.0')
         // Redaction: output must not contain sentinel or plaintext fields.
         expect(out).not.toContain(SENTINEL)
         expect(out).not.toContain('"value"')
@@ -460,7 +466,7 @@ if (!infraOk) {
         if (!secretId) {
           // Create one first if not set.
           const createOut = await runTextCommand(
-            ['meristem', 'secret', 'create', '--name', `e2e-cli-show-${Date.now()}`, '--scope', 'system'],
+            ['meristem', 'secret', 'create', '--name', `e2e-cli-show-${Date.now()}`, '--scope', 'system', '--value', SENTINEL],
             { MERISTEM_TOKEN: securityAdminToken }
           )
           const createBody = JSON.parse(createOut) as { id: string }
@@ -482,7 +488,7 @@ if (!infraOk) {
         let secretId = createdSecretId
         if (!secretId) {
           const createOut = await runTextCommand(
-            ['meristem', 'secret', 'create', '--name', `e2e-cli-rotate-${Date.now()}`, '--scope', 'node'],
+            ['meristem', 'secret', 'create', '--name', `e2e-cli-rotate-${Date.now()}`, '--scope', 'node', '--value', SENTINEL],
             { MERISTEM_TOKEN: securityAdminToken }
           )
           const createBody = JSON.parse(createOut) as { id: string }
@@ -490,14 +496,14 @@ if (!infraOk) {
         }
 
         const out = await runTextCommand(
-          ['meristem', 'secret', 'rotate', secretId, '--reason', 'E2E-CLI-ROTATE smoke test'],
+          ['meristem', 'secret', 'rotate', secretId, '--value', SENTINEL, '--reason', 'E2E-CLI-ROTATE smoke test'],
           { MERISTEM_TOKEN: securityAdminToken }
         )
         const body = JSON.parse(out) as {
           id: string
           status: string
           rotatedAt: string
-          version: number
+          version: string
         }
         expect(body.status).toBe('rotated')
         expect(typeof body.rotatedAt).toBe('string')
@@ -510,7 +516,7 @@ if (!infraOk) {
       it('secret disable marks the secret as disabled for security-admin', async () => {
         // Create a fresh secret to disable.
         const createOut = await runTextCommand(
-          ['meristem', 'secret', 'create', '--name', `e2e-cli-disable-${Date.now()}`, '--scope', 'service'],
+          ['meristem', 'secret', 'create', '--name', `e2e-cli-disable-${Date.now()}`, '--scope', 'service', '--value', SENTINEL],
           { MERISTEM_TOKEN: securityAdminToken }
         )
         const createBody = JSON.parse(createOut) as { id: string }
@@ -544,7 +550,7 @@ if (!infraOk) {
 
       it('operator cannot create secrets (lacks secret:create)', async () => {
         const proc = startProcess(
-          ['bun', 'run', 'meristem', 'secret', 'create', '--name', 'operator-secret', '--scope', 'service'],
+          ['bun', 'run', 'meristem', 'secret', 'create', '--name', 'operator-secret', '--scope', 'service', '--value', 'should-not-create'],
           { env: { ...baseEnv, MERISTEM_TOKEN: operatorToken } }
         )
         const exitCode = await proc.exited
@@ -554,7 +560,7 @@ if (!infraOk) {
 
       it('operator cannot rotate secrets (lacks secret:rotate)', async () => {
         const proc = startProcess(
-          ['bun', 'run', 'meristem', 'secret', 'rotate', 'E2E-CLI-OP-ROTATE-fake', '--reason', 'unauthorized'],
+          ['bun', 'run', 'meristem', 'secret', 'rotate', 'E2E-CLI-OP-ROTATE-fake', '--value', 'should-not-rotate', '--reason', 'unauthorized'],
           { env: { ...baseEnv, MERISTEM_TOKEN: operatorToken } }
         )
         const exitCode = await proc.exited

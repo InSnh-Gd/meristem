@@ -1,0 +1,5 @@
+{
+  "rollout": {
+    "endpointSecretRef": "secret-ref:e2e-cli-lifecycle"
+  }
+}

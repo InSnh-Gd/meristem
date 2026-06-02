@@ -1,5 +1,5 @@
 import { createSqlClient } from './client.ts'
-import { approvalPermissions, extensionPermissions, projectionPermissions } from '../../contracts/src/index.ts'
+import { approvalPermissions, configPermissions, extensionPermissions, identityPermissions, projectionPermissions, secretPermissions } from '../../contracts/src/index.ts'
 
 // 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
@@ -47,15 +47,29 @@ const permissions = [
   ['extension:register', 'register control-plane extension manifests'],
   ['extension:enable', 'enable system/default extension instances'],
   ['extension:disable', 'disable system/default extension instances'],
+  ['identity:read', 'read identity actors and token metadata'],
+  ['identity:token-issue', 'issue actor tokens'],
+  ['identity:token-revoke', 'revoke actor tokens'],
+  ['identity:token-inspect', 'inspect actor token metadata'],
+  ['secret:read-metadata', 'read secretRef metadata'],
+  ['secret:create', 'create secretRefs'],
+  ['secret:rotate', 'rotate secretRefs'],
+  ['secret:disable', 'disable secretRefs'],
+  ['secret:reference', 'reference secretRefs'],
+  ['config:read', 'read config lifecycle records'],
+  ['config:draft', 'draft config lifecycle records'],
+  ['config:validate', 'validate config lifecycle records'],
+  ['config:publish', 'publish config lifecycle records'],
+  ['config:rollback', 'rollback config lifecycle records'],
   ['projection:read', 'read projection health and DLQ state'],
   ['projection:backfill', 'execute projection backfills'],
   ['projection:dlq-manage', 'replay or skip projection DLQ records']
 ] as const
 
 const rolePermissions: Record<string, readonly string[]> = {
-  viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'projection:read', 'extension:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', 'policy:approval-read', ...projectionPermissions, ...extensionPermissions],
+  viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read', configPermissions[0]],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'projection:read', 'extension:read', configPermissions[0], configPermissions[1], configPermissions[2]],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', 'policy:approval-read', identityPermissions[0], identityPermissions[3], secretPermissions[0], secretPermissions[4], ...configPermissions, ...projectionPermissions, ...extensionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -76,6 +90,9 @@ const rolePermissions: Record<string, readonly string[]> = {
     'network:profile-read',
     'network:profile-enable',
     'network:profile-disable',
+    ...identityPermissions,
+    ...secretPermissions,
+    ...configPermissions,
     ...approvalPermissions,
     ...extensionPermissions,
     ...projectionPermissions

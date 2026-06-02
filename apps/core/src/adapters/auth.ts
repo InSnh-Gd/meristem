@@ -1,8 +1,8 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
 import { type MeristemDb } from '../../../../packages/db/src/client.ts'
-import { rolePermissions, userRoles } from '../../../../packages/db/src/schema.ts'
+import { actorTokens, rolePermissions, userRoles } from '../../../../packages/db/src/schema.ts'
 import { verifyLocalToken } from '../../../../packages/auth/src/index.ts'
 
 /**
@@ -33,7 +33,17 @@ export function createJwtAuthPort(secret = requiredSecret()) {
 export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret()) {
   return {
     async verify(token: string) {
-      return verifyLocalToken({ token, secret })
+      const verified = await verifyLocalToken({ token, secret })
+      if (!verified.ok) return verified
+      const [managedToken] = await db
+        .select({ status: actorTokens.status })
+        .from(actorTokens)
+        .where(eq(actorTokens.jti, verified.jti))
+        .limit(1)
+      if (managedToken?.status === 'revoked' || managedToken?.status === 'expired') {
+        return { ok: false as const, code: 'invalid_token' as const, message: 'JWT has been revoked' }
+      }
+      return verified
     },
     async getPermissions(actor: ActorId) {
       try {
@@ -49,4 +59,3 @@ export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret())
     }
   }
 }
-
