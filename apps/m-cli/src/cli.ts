@@ -76,6 +76,13 @@ export type CliClient = {
     inspectToken(jti: string): Promise<{ jti: string; actor: string; status: string; issuer: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string }>
     revokeToken(jti: string, input: { reason: string }): Promise<{ jti: string; status: string; revokedAt: string; revokedBy: string }>
   }
+  secret?: {
+    list(): Promise<Array<{ id: string; name: string; scope: string; status: string; createdBy: string; createdAt: string }>>
+    get(id: string): Promise<{ id: string; name: string; scope: string; status: string; createdBy: string; createdAt: string; updatedAt: string; metadata: Record<string, string> }>
+    create(input: { name: string; scope: string; value: string; metadata?: Record<string, string> }): Promise<{ id: string; name: string; status: string; createdAt: string }>
+    rotate(id: string, input: { value: string; reason: string }): Promise<{ id: string; version: string; status: string; rotatedAt: string }>
+    disable(id: string, input: { reason: string }): Promise<{ id: string; status: string; disabledAt: string }>
+  }
 }
 
 // CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
@@ -104,6 +111,17 @@ function encode(value: unknown): string {
 
 async function readJsonFile<T>(filePath: string): Promise<T> {
   return await Bun.file(filePath).json() as T
+}
+
+/**
+ * 从 stdin 安全读取秘密值，避免在进程参数或历史记录中暴露明文。
+ */
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf-8').trim()
 }
 
 /**
@@ -448,9 +466,51 @@ export function createCliRunner(client: CliClient) {
           throw new Error('usage: meristem identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>')
         }
 
+        // 密钥命令通过 Core 的 secret 控制面 API 操作密钥生命周期。
+        if (command === 'secret') {
+          if (subcommand === 'list') {
+            const list = requireMethod(client.secret?.list, 'secret.list')
+            return { exitCode: 0, stdout: encode(await list()), stderr: '' }
+          }
+          if (subcommand === 'show') {
+            const secretId = args[2]
+            if (!secretId) throw new Error('usage: meristem secret show <secret-ref-id>')
+            const get = requireMethod(client.secret?.get, 'secret.get')
+            return { exitCode: 0, stdout: encode(await get(secretId)), stderr: '' }
+          }
+          if (subcommand === 'create') {
+            const name = requireArg(args, '--name')
+            const scope = requireArg(args, '--scope')
+            const hasValueStdin = args.indexOf('--value-stdin') >= 0
+            const value = hasValueStdin ? await readStdin() : requireArg(args, '--value')
+            const metadataFlagIndex = args.indexOf('--metadata')
+            const metadataRaw = metadataFlagIndex >= 0 ? args[metadataFlagIndex + 1] : undefined
+            const metadata = metadataRaw ? JSON.parse(metadataRaw) : undefined
+            const create = requireMethod(client.secret?.create, 'secret.create')
+            return { exitCode: 0, stdout: encode(await create(metadata ? { name, scope, value, metadata } : { name, scope, value })), stderr: '' }
+          }
+          if (subcommand === 'rotate') {
+            const secretId = args[2]
+            if (!secretId) throw new Error('usage: meristem secret rotate <secret-ref-id> --value-stdin --reason <text>')
+            const hasValueStdin = args.indexOf('--value-stdin') >= 0
+            const value = hasValueStdin ? await readStdin() : requireArg(args, '--value')
+            const reason = requireArg(args, '--reason')
+            const rotate = requireMethod(client.secret?.rotate, 'secret.rotate')
+            return { exitCode: 0, stdout: encode(await rotate(secretId, { value, reason })), stderr: '' }
+          }
+          if (subcommand === 'disable') {
+            const secretId = args[2]
+            if (!secretId) throw new Error('usage: meristem secret disable <secret-ref-id> --reason <text>')
+            const reason = requireArg(args, '--reason')
+            const disable = requireMethod(client.secret?.disable, 'secret.disable')
+            return { exitCode: 0, stdout: encode(await disable(secretId, { reason })), stderr: '' }
+          }
+          throw new Error('usage: meristem secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text>')
+        }
+
         // 未匹配命令直接返回统一 usage，避免不同失败分支各自输出不同帮助文本。
         throw new Error(
-          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id> | identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>'
+          'usage: meristem status | node register --kind <stem|leaf> --name <name> [--mode simulated] | node ticket create --kind <stem|leaf> --name <name> [--expires <seconds>] | node issue-token --node <node-id> | node list | network create/list/join/members | network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text> | extension list | extension show <id> | extension register <manifest-file> [--reason <text>] | extension enable <id> [--reason <text>] | extension disable <id> [--reason <text>] | task submit/cancel/status/list/retry | service list/reload | log timeline | audit list | policy approvals list | policy approvals show <id> | policy approvals approve <id> [--reason <text>] | policy approvals reject <id> [--reason <text>] | projection health | projection backfill --index <name> [--from <cursor>] [--to <cursor>] [--batch-size <n>] | projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id> | identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text> | secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text>'
         )
       } catch (error) {
         const message = error instanceof Error ? error.message : 'unknown CLI error'

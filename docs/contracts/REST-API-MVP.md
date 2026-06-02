@@ -354,7 +354,7 @@ Rules:
 - external read routes return metadata only.
 - create / rotate / disable require M-Policy and Audit.
 - plaintext secret values must never be echoed in responses after create / rotate.
-- secret values must never appear in error envelopes, logs, events, OpenSearch projections, UI errors, or LLM prompts.
+- secret values must never appear in error envelopes, Timeline / Full / Audit logs, events, OpenSearch projections, CLI stdout/stderr, UI errors, or LLM prompts.
 
 ---
 

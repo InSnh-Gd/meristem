@@ -351,7 +351,7 @@ M-Log owns:
 
 - audit of secret operations
 
-Secrets must not appear in Timeline, Full Log payloads, OpenSearch projections, LLM prompts, or error messages.
+Secrets must not appear in Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, CLI stdout/stderr, or error envelopes.
 
 Phase 18 SecretRef v0.1 rules:
 

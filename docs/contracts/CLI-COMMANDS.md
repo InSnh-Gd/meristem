@@ -330,17 +330,17 @@ Permission: `secret:read-metadata`.
 
 Shows one secretRef metadata record. It must not print secret plaintext.
 
-### `meristem secret create --name <name> --scope system|service|node --value-stdin`
+### `meristem secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>]`
 
 Permission: `secret:create`.
 
-Creates a secretRef and reads plaintext from stdin. The command returns only secretRef metadata.
+Creates a secretRef and reads plaintext from stdin. The current implementation also accepts `--value <text>` for tests and local compatibility, but operator usage must prefer `--value-stdin` so plaintext does not enter shell history. The command returns only secretRef metadata.
 
 ### `meristem secret rotate <secret-ref-id> --value-stdin --reason <text>`
 
 Permission: `secret:rotate`.
 
-Rotates a secret value and writes Audit before mutation. The command must not print plaintext.
+Rotates a secret value and writes Audit before mutation. The current implementation also accepts `--value <text>` for tests and local compatibility, but operator usage must prefer `--value-stdin`. The command must not print plaintext.
 
 ### `meristem secret disable <secret-ref-id> --reason <text>`
 

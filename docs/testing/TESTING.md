@@ -133,6 +133,7 @@ MVP-specific contract tests:
 - Phase 15 M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
 - Phase 17 Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
 - Phase 18 SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
+- SecretRef schema contract tests prove `SecretRefV01`, `SecretRefVersionV01`, `SecretRefTransitionV01`, REST route schemas, and CLI command outputs match implemented names and documented redaction behavior.
 - Phase 19 Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
 - Phase 13 M-Net profile contract tests prove profile Effect Schema decode / encode, external REST route schemas and OpenAPI output, CLI network profile command contract, and profile event subject and payload schemas match the docs.
 
@@ -180,6 +181,7 @@ MVP failure-mode tests:
 - Core token introspection unavailable fails protected external M-* routes closed.
 - token plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, or CLI stderr/stdout except the one-time issue response.
 - secret plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, events, or error envelopes.
+- SecretRef failure-mode tests prove redaction across Timeline, Full, Audit, OpenSearch projection payloads, events, error envelopes, and CLI stdout/stderr, and prove M-Policy / Audit fail-closed behavior for create, rotate, disable, metadata read, and reference paths.
 - config publish / rollback fail closed when M-Policy or Audit is unavailable for protected domains.
 - config payloads containing plaintext secret fields are rejected.
 - Effect workflow tests cover typed failure mapping for task submitment, projection backfill/DLQ, service lifecycle reload, M-Policy authorization, and M-Log write/projection paths when those workflows are introduced.
@@ -257,6 +259,38 @@ Identity v0.2 requires the following test coverage:
 - full identity lifecycle: list actors → issue token → inspect token → revoke token → inspect revoked token.
 - auth failure-mode: viewer cannot call any identity route.
 - revoked token denied on protected route.
+
+---
+
+## 6.2 SecretRef v0.1 Test Coverage
+
+SecretRef v0.1 requires the following coverage:
+
+**Contract Tests** (`tests/contracts/secret-ref.test.ts`):
+
+- `SecretRefV01`, `SecretRefVersionV01`, and `SecretRefTransitionV01` schema decode / encode.
+- REST SecretRef route schemas match `docs/contracts/REST-API-MVP.md`.
+- CLI secret command outputs match `docs/contracts/CLI-COMMANDS.md` and never include plaintext values.
+
+**Failure-Mode Tests** (`tests/failure-modes/secret-redaction.test.ts`, `tests/failure-modes/secret-policy.test.ts`):
+
+- plaintext secret values are redacted from Timeline, Full, Audit, OpenSearch projection payloads, events, error envelopes, and CLI stdout/stderr.
+- M-Policy unavailable or deny results fail SecretRef operations closed.
+- Audit unavailable blocks create, rotate, and disable before mutation.
+
+**CLI Tests** (`tests/cli/cli-secrets.test.ts`):
+
+- `meristem secret list` returns metadata only.
+- `meristem secret show <secret-ref-id>` returns metadata only.
+- `meristem secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>]` returns metadata without plaintext.
+- `meristem secret rotate <secret-ref-id> --value-stdin --reason <text>` returns rotation metadata without plaintext.
+- `meristem secret disable <secret-ref-id> --reason <text>` returns disabled metadata.
+
+**E2E Tests**:
+
+- full SecretRef lifecycle: create → list → show → rotate → disable.
+- auth failure-mode: viewer cannot call SecretRef routes or CLI commands.
+- redaction check: sentinel plaintext does not appear in evidence outputs outside test source.
 
 ---
 
