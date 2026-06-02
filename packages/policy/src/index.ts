@@ -1,4 +1,4 @@
-import { approvalPermissions, extensionPermissions, identityPermissions, networkProfilePermissions, projectionPermissions, secretPermissions } from '../../contracts/src/index.ts'
+import { approvalPermissions, configPermissions, extensionPermissions, identityPermissions, networkProfilePermissions, projectionPermissions, secretPermissions } from '../../contracts/src/index.ts'
 import type { ActorId, Permission, PolicyDecision, PolicyResult } from '../../contracts/src/index.ts'
 
 // PolicyInput 保持纯数据形状，让 RBAC 决策函数可以脱离数据库和 HTTP 边界独立复用。
@@ -13,9 +13,9 @@ export type PolicyDecisionDraft = Omit<PolicyDecision, 'id' | 'createdAt'>
 
 // 角色权限矩阵作为最小 RBAC 默认值存在，真实权威表仍在 PostgreSQL seed 中。
 export const rolePermissions: Record<ActorId, readonly Permission[]> = {
-  viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read'],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read', 'extension:read'],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'policy:approval-read', identityPermissions[0], identityPermissions[3], secretPermissions[0], secretPermissions[4], ...networkProfilePermissions, ...projectionPermissions, ...extensionPermissions],
+  viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read', configPermissions[0]],
+  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'projection:read', 'extension:read', configPermissions[0], configPermissions[2]],
+  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'policy:approval-read', identityPermissions[0], identityPermissions[3], secretPermissions[0], secretPermissions[4], ...configPermissions, ...networkProfilePermissions, ...projectionPermissions, ...extensionPermissions],
   'security-admin': [
     'core:read',
     'node:register',
@@ -35,6 +35,7 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     'network:join',
     ...identityPermissions,
     ...secretPermissions,
+    ...configPermissions,
     ...approvalPermissions,
     ...networkProfilePermissions,
     ...extensionPermissions,

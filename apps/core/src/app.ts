@@ -12,6 +12,7 @@ import { policyRoutes } from './routes/policy.ts'
 import { projectionRoutes } from './routes/projection.ts'
 import { identity } from './routes/identity.ts'
 import { secrets, secretReference } from './routes/secrets.ts'
+import { config, configApplyAck } from './routes/config.ts'
 
 export function createCoreApp(deps: CoreDeps) {
   const degradedEventOpen = { value: false }
@@ -65,6 +66,8 @@ export function createCoreApp(deps: CoreDeps) {
     .use(identity(deps))
     .use(secrets(deps))
     .use(secretReference(deps))
+    .use(config(deps))
+    .use(configApplyAck(deps))
 }
 
 export type CoreApp = ReturnType<typeof createCoreApp>
