@@ -64,15 +64,13 @@ const ConfigApplyAckV01Schema = Schema.Struct({
 
 // ── Deterministic hash (pure function, no implementation needed) ────────
 
-import { createHash } from 'node:crypto'
-
 /**
  * Compute a deterministic SHA-256 hash of a normalized config payload.
  * The hash uses sorted keys and stable JSON serialization.
  */
 function deterministicConfigHash(payload: Record<string, unknown>): string {
   const normalized = JSON.stringify(payload, Object.keys(payload).sort())
-  return createHash('sha256').update(normalized).digest('hex')
+  return new Bun.CryptoHasher('sha256').update(normalized).digest('hex')
 }
 
 // ── Export existence gates (RED until Phase 19) ────────────────────────
@@ -665,7 +663,7 @@ describe('Config plaintext secret rejection', () => {
    */
   function containsPlaintextSecrets(payload: Record<string, unknown>): string[] {
     // Walk the payload recursively looking for keys that indicate secrets
-    const secretKeys = ['password', 'token', 'secret', 'apiKey', 'api_key', 'privateKey', 'private_key']
+    const secretKeys = ['password', 'token', 'secret', 'apikey', 'api_key', 'privatekey', 'private_key']
     const violations: string[] = []
 
     function walk(obj: unknown, path: string) {

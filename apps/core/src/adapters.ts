@@ -14,6 +14,7 @@ import { createHttpMNetPort } from './adapters/http-mnet.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import { createServiceLifecyclePort, dependencyStateFromReady } from './adapters/service-lifecycle.ts'
 import { createHttpProjectionPort } from './adapters/http-projection.ts'
+import { createConfigStateMachine } from './config-state-machine.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
 export { createDbStorage } from './storage-adapter.ts'
@@ -24,6 +25,7 @@ export { createHttpMNetPort } from './adapters/http-mnet.ts'
 export { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
 export { createRpcPolicyPort, createRpcLogPort, createRpcEventPort } from './adapters/rpc-legacy.ts'
+export { createConfigStateMachine } from './config-state-machine.ts'
 
 export async function createProductionDeps(): Promise<CoreDeps & { close(): Promise<void> }> {
   const { db, client } = createDb()
@@ -56,7 +58,6 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
   const storage = createDbStorage(db, readinessChecks)
   const identityUnavailable = { code: 'identity.unavailable', message: 'Identity port not implemented' }
   const secretUnavailable = { code: 'secret.unavailable', message: 'SecretRef port not implemented' }
-  const configUnavailable = { code: 'config.unavailable', message: 'Config port not implemented' }
   return {
     startedAt: Date.now(),
     version: '0.1.0',
@@ -109,29 +110,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
         return err(secretUnavailable)
       }
     },
-    config: {
-      async list() {
-        return err(configUnavailable)
-      },
-      async get() {
-        return err(configUnavailable)
-      },
-      async draft() {
-        return err(configUnavailable)
-      },
-      async validate() {
-        return err(configUnavailable)
-      },
-      async publish() {
-        return err(configUnavailable)
-      },
-      async rollback() {
-        return err(configUnavailable)
-      },
-      async applyAck() {
-        return err(configUnavailable)
-      }
-    },
+    config: createConfigStateMachine(db),
     storage,
     async close() {
       await client.end()

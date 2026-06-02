@@ -177,6 +177,7 @@ export type CreateConfigVersionInput = {
 export type UpdateConfigStatusExtra = {
   publishedBy?: string
   publishedAt?: Date
+  rollbackVersion?: string
 }
 
 export type RecordConfigTransitionInput = {

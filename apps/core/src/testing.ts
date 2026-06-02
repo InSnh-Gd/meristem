@@ -20,6 +20,7 @@ import type {
 import { rolePermissions, decidePermission } from '../../../packages/policy/src/index.ts'
 import type { CoreDeps } from './types.ts'
 import type { BackfillParams, BackfillResult, DLQRecord, ProjectionHealth } from '../../../packages/contracts/src/index.ts'
+import { computeConfigHash, computeConfigVersion } from './config-state-machine.ts'
 
 // 内存依赖只服务测试和契约验证，不模拟生产级并发、事务或网络抖动。
 type InMemoryOptions = {
@@ -106,6 +107,18 @@ type ConfigAckRecord = {
   error?: string
   correlationId: string
   ackedAt: string
+  expiresAt?: string
+}
+
+type ConfigVersionRecord = {
+  id: string
+  configId: string
+  version: string
+  configHash: string
+  payload: unknown
+  status: ConfigRecord['status']
+  createdBy: ActorId
+  createdAt: string
 }
 
 function parseDurationMs(ttl: string): number | null {
@@ -142,16 +155,6 @@ function decodeMockJwt(token: string): { jti: string; actor: string } | null {
   } catch {
     return null
   }
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value)
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(digest), (part) => part.toString(16).padStart(2, '0')).join('')
-}
-
-function configVersionFor(index: number): string {
-  return `1.0.${index}`
 }
 
 function latestSecretVersion(secretVersions: SecretVersionRecord[], secretRefId: string): SecretVersionRecord | null {
@@ -237,6 +240,7 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
   const secretRefs: SecretRefRecord[] = []
   const secretVersions: SecretVersionRecord[] = []
   const configRecords: ConfigRecord[] = []
+  const configVersions: ConfigVersionRecord[] = []
   const configAcks: ConfigAckRecord[] = []
 
   function configOpsRequirePolicy(): boolean {
@@ -257,6 +261,31 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
       record.updatedAt = new Date().toISOString()
     }
     return record
+  }
+
+  function configTransitionAllowed(fromStatus: ConfigRecord['status'], toStatus: ConfigRecord['status']): boolean {
+    const allowed: Record<ConfigRecord['status'], Array<ConfigRecord['status']>> = {
+      draft: ['validated', 'published'],
+      validated: ['published', 'failed'],
+      published: ['applied', 'failed'],
+      applied: ['rolled_back'],
+      failed: ['rolled_back'],
+      rolled_back: []
+    }
+    return allowed[fromStatus].includes(toStatus)
+  }
+
+  function hasPlaintextSecretPayload(value: unknown): boolean {
+    if (Array.isArray(value)) return value.some(hasPlaintextSecretPayload)
+    if (!value || typeof value !== 'object') return false
+    return Object.entries(value).some(([key, entry]) => {
+      const normalizedKey = key.toLowerCase()
+      if (normalizedKey === 'secretref' || normalizedKey.endsWith('secretref')) return false
+      if (/(password|secret|token|privatekey|apikey)/u.test(normalizedKey) && typeof entry === 'string' && entry.length > 0) {
+        return true
+      }
+      return hasPlaintextSecretPayload(entry)
+    })
   }
   // 内建服务运行态在测试里显式建模，方便验证 reload、ready 和降级分支。
   const builtinServices: ServiceSummary[] = [
@@ -819,10 +848,13 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         } : null)
       },
       async draft(input) {
+        if (hasPlaintextSecretPayload(input.payload)) {
+          return err({ code: 'config.secret_plaintext', message: 'config payload must use secretRef instead of plaintext secrets' })
+        }
         const createdAt = new Date().toISOString()
         const id = crypto.randomUUID()
-        const configVersion = configVersionFor(configRecords.length + 1)
-        const configHash = await sha256Hex(JSON.stringify(input.payload))
+        const configHash = await computeConfigHash(input.payload)
+        const configVersion = computeConfigVersion(configHash, Date.parse(createdAt))
         configRecords.push({
           id,
           configVersion,
@@ -836,6 +868,16 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
           createdAt,
           updatedAt: createdAt
         })
+        configVersions.push({
+          id: crypto.randomUUID(),
+          configId: id,
+          version: configVersion,
+          configHash,
+          payload: input.payload,
+          status: 'draft',
+          createdBy: actor,
+          createdAt
+        })
         return ok({ id, configVersion, status: 'draft', createdAt })
       },
       async validate(id) {
@@ -843,8 +885,8 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         if (!record) {
           return err({ code: 'config.not_found', message: 'config record not found' })
         }
-        if (record.status !== 'draft') {
-          return err({ code: 'config.invalid_state', message: 'config record must be in draft state' })
+        if (!configTransitionAllowed(record.status, 'validated')) {
+          return err({ code: 'config.invalid_state', message: `config cannot transition from ${record.status} to validated` })
         }
         record.status = 'validated'
         record.updatedAt = new Date().toISOString()
@@ -859,8 +901,8 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         if (!record) {
           return err({ code: 'config.not_found', message: 'config record not found' })
         }
-        if (record.status !== 'validated') {
-          return err({ code: 'config.invalid_state', message: 'config record must be validated before publish' })
+        if (!configTransitionAllowed(record.status, 'published')) {
+          return err({ code: 'config.invalid_state', message: `config cannot transition from ${record.status} to published` })
         }
         const publishedAt = new Date().toISOString()
         record.status = 'published'
@@ -878,6 +920,13 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         if (!record) {
           return err({ code: 'config.not_found', message: 'config record not found' })
         }
+        if (!configTransitionAllowed(record.status, 'rolled_back')) {
+          return err({ code: 'config.invalid_state', message: `config cannot transition from ${record.status} to rolled_back` })
+        }
+        const targetVersion = configVersions.find((candidate) => candidate.configId === id && candidate.version === input.toVersion)
+        if (!targetVersion) {
+          return err({ code: 'config.rollback_unknown_version', message: 'rollback target version is unknown' })
+        }
         record.status = 'rolled_back'
         record.rollbackVersion = input.toVersion
         record.updatedAt = new Date().toISOString()
@@ -892,8 +941,33 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
         if (existing) {
           return ok({ ackId: existing.ackId, status: existing.status, ackedAt: existing.ackedAt })
         }
+        if (record.configVersion !== input.version) {
+          return err({ code: 'config.version_mismatch', message: 'apply ack version must match published config version' })
+        }
         if (input.status === 'pending') {
+          if (configTransitionAllowed(record.status, 'failed')) {
+            record.status = 'failed'
+            record.updatedAt = new Date().toISOString()
+            configAcks.push({
+              ackId: crypto.randomUUID(),
+              configId: id,
+              version: input.version,
+              targetService: input.targetService,
+              status: 'failed',
+              error: input.error ?? 'apply ack timed out',
+              correlationId: input.correlationId,
+              ackedAt: record.updatedAt,
+              expiresAt: new Date(Date.now() + 60_000).toISOString()
+            })
+          }
           return err({ code: 'config.ack_timeout', message: 'config apply ack timed out while pending' })
+        }
+        const nextStatus = input.status === 'failed' ? 'failed' : 'applied'
+        if (nextStatus !== 'failed' && nextStatus !== 'applied') {
+          return err({ code: 'config.ack_invalid_status', message: 'apply ack status is invalid' })
+        }
+        if (!configTransitionAllowed(record.status, nextStatus)) {
+          return err({ code: 'config.invalid_state', message: `config cannot transition from ${record.status} to ${nextStatus}` })
         }
         const ackedAt = new Date().toISOString()
         const ack: ConfigAckRecord = {
@@ -907,7 +981,7 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
           ackedAt
         }
         configAcks.push(ack)
-        record.status = input.status === 'failed' ? 'failed' : 'applied'
+        record.status = nextStatus
         record.updatedAt = ackedAt
         return ok({ ackId: ack.ackId, status: ack.status, ackedAt })
       }

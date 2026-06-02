@@ -404,6 +404,7 @@ export function createConfigStore(db: MeristemDb) {
           status,
           ...(extra?.publishedBy ? { publishedBy: extra.publishedBy } : {}),
           ...(publishedAt ? { publishedAt } : {}),
+          ...(extra?.rollbackVersion ? { rollbackVersion: extra.rollbackVersion } : {}),
           updatedAt: publishedAt ?? new Date()
         })
         .where(eq(configRecords.id, id))
@@ -434,13 +435,25 @@ export function createConfigStore(db: MeristemDb) {
         createdAt: input.createdAt
       })
     },
-    async getAck(configId: string, targetService: string): Promise<ConfigAckRecord | null> {
+    async getAck(configId: string, targetService: string, version?: string): Promise<ConfigAckRecord | null> {
       const [row] = await db
         .select()
         .from(configApplyAcks)
-        .where(and(eq(configApplyAcks.configId, configId), eq(configApplyAcks.targetService, targetService)))
+        .where(and(
+          eq(configApplyAcks.configId, configId),
+          eq(configApplyAcks.targetService, targetService),
+          ...(version ? [eq(configApplyAcks.version, version)] : [])
+        ))
         .limit(1)
       return row ? mapConfigAckRow(row) : null
+    },
+    async getVersion(configId: string, version: string): Promise<ConfigVersionRecord | null> {
+      const [row] = await db
+        .select()
+        .from(configVersions)
+        .where(and(eq(configVersions.configId, configId), eq(configVersions.version, version)))
+        .limit(1)
+      return row ? mapConfigVersionRow(row) : null
     },
     async getVersionByHash(configId: string, hash: string): Promise<ConfigVersionRecord | null> {
       const [row] = await db
