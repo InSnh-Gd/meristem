@@ -84,9 +84,9 @@ Rules:
 | `mnet.reachability.changed.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetReachabilityChangedPayload` | at-least-once |
 | `mnet.path.changed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetPathChangedPayload` | at-least-once |
 | `mnet.derp.fallback.changed.v0` | event | M-Net | Core, M-Log, M-Policy | `MNetDerpFallbackChangedPayload` | at-least-once |
-| `config.publish.requested.v0` | command | Core / M-UI BFF / M-CLI | M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
-| `config.published.v0` | event | Core | target nodes, M-Log | `ConfigPublishedPayload` | at-least-once |
-| `config.apply.acked.v0` | event | target node | Core, M-Log | `ConfigApplyAckedPayload` | at-least-once |
+| `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
+| `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
+| `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |
 | `policy.decision.created.v0` | event | M-Policy | M-Log, Core, M-UI BFF | `PolicyDecisionCreatedPayload` | at-least-once |
 | `extension.definition.registered.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionDefinitionRegisteredPayload` | at-least-once |
 | `extension.definition.rejected.v0` | event | M-Extension | M-Log, M-UI BFF | `ExtensionDefinitionRejectedPayload` | at-least-once |
@@ -99,10 +99,10 @@ Rules:
 | `secret.ref.created.v0` | event | Core | M-Log, M-UI BFF | `SecretRefCreatedPayload` | at-least-once |
 | `secret.ref.rotated.v0` | event | Core | M-Log, M-UI BFF | `SecretRefRotatedPayload` | at-least-once |
 | `secret.ref.disabled.v0` | event | Core | M-Log, M-UI BFF | `SecretRefDisabledPayload` | at-least-once |
-| `config.validated.v0` | event | Core | M-Log, M-UI BFF | `ConfigValidatedPayload` | at-least-once |
-| `config.apply.failed.v0` | event | target service | Core, M-Log, M-UI BFF | `ConfigApplyFailedPayload` | at-least-once |
-| `config.rollback.requested.v0` | command | Core / M-CLI | target service | `ConfigRollbackRequestedPayload` | at-least-once |
-| `config.rolled_back.v0` | event | Core | target services, M-Log, M-UI BFF | `ConfigRolledBackPayload` | at-least-once |
+| `config.validated.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigValidatedPayload` | at-least-once |
+| `config.apply.failed.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyFailedPayload` | at-least-once |
+| `config.rollback.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigRollbackRequestedPayload` | at-least-once |
+| `config.rolled_back.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigRolledBackPayload` | at-least-once |
 | `audit.lock.required.v0` | event | M-Policy / M-Log | Core, M-UI BFF | `AuditLockRequiredPayload` | at-least-once |
 | `audit.entry.created.v0` | event | M-Log | Core, M-UI BFF | `AuditEntryCreatedPayload` | at-least-once |
 
@@ -303,6 +303,12 @@ type ConfigLifecyclePayload = {
 };
 
 type ConfigValidatedPayload = ConfigLifecyclePayload;
+type ConfigPublishRequestedPayload = ConfigLifecyclePayload;
+type ConfigPublishedPayload = ConfigLifecyclePayload;
+type ConfigApplyAckedPayload = ConfigLifecyclePayload & {
+  targetService: string;
+  ackedAt?: string;
+};
 type ConfigApplyFailedPayload = ConfigLifecyclePayload & { errorCode: string };
 type ConfigRollbackRequestedPayload = ConfigLifecyclePayload & { rollbackVersion: string };
 type ConfigRolledBackPayload = ConfigLifecyclePayload & { rollbackVersion: string };

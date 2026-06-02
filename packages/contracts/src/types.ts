@@ -1,6 +1,7 @@
 import type { ActorId, Permission } from './literals.ts'
 
 export type { ActorId, Permission } from './literals.ts'
+export type { ConfigRecordV01, ConfigVersionV01, ConfigTransitionV01, ConfigApplyAckV01 } from './schemas/config.ts'
 export type { SecretRefV01, SecretRefVersionV01, SecretRefTransitionV01 } from './schemas/secrets.ts'
 
 export type DependencyState = 'ready' | 'unavailable'
