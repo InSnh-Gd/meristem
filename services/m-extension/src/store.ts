@@ -45,7 +45,7 @@ function cloneInstance(instance: MExtensionInstance): MExtensionInstance {
 }
 
 /**
- * Phase 15 内存适配器服务于契约测试和本地最小运行；PostgreSQL 表结构是权威部署目标。
+ * 内存适配器服务于契约测试和本地最小运行；PostgreSQL 表结构是权威部署目标。
  */
 export function createInMemoryExtensionStore(): ExtensionStore {
   const definitions = new Map<string, MExtensionDefinition>()

@@ -160,7 +160,7 @@ async function authorize(deps: MExtensionDeps, auth: AuthContext, action: Permis
 
 function assertSystemDefault(body: EnableExtensionRequest | DisableExtensionRequest, correlationId: string): void {
   if ((body.scopeType && body.scopeType !== mExtensionScope.type) || (body.scopeId && body.scopeId !== mExtensionScope.id)) {
-    throw Object.assign(new Error(`Phase 15 supports only ${mExtensionScope.type}/${mExtensionScope.id} extension instances`), { status: 409, code: 'extension.scope.unsupported', correlationId })
+    throw Object.assign(new Error(`Only ${mExtensionScope.type}/${mExtensionScope.id} extension instances are supported`), { status: 409, code: 'extension.scope.unsupported', correlationId })
   }
 }
 

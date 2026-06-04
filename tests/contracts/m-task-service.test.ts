@@ -3,7 +3,7 @@ import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import { createMTaskApp, createInMemoryMTaskDeps } from '../../services/m-task/src/app.ts'
 
-describe('M-Task Phase 11 service cutover', () => {
+describe('M-Task service cutover', () => {
   it('removes Core as the canonical task REST owner', async () => {
     const app = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
 
@@ -132,9 +132,9 @@ describe('M-Task Phase 11 service cutover', () => {
       decisionId: string
       risk: { operationDangerLevel: string }
     }
-    expect(body.error.code).toBe('not_implemented_for_phase')
+    expect(body.error.code).toBe('not_implemented_yet')
     expect(body.decisionId.length).toBeGreaterThan(10)
     expect(body.risk.operationDangerLevel).toBe('high')
-    expect(deps.__testing.fullMessages()).toContain('retry is not implemented in Phase 11')
+    expect(deps.__testing.fullMessages()).toContain('retry is not implemented')
   })
 })

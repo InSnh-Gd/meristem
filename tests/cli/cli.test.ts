@@ -197,7 +197,7 @@ describe('meristem CLI', () => {
       async retryTask(taskId) {
         calls.push(`task:retry:${taskId}`)
         return {
-          error: { code: 'not_implemented_for_phase', message: 'retry is not implemented in Phase 11' },
+          error: { code: 'not_implemented_yet', message: 'retry is not implemented' },
           decisionId: 'decision-3',
           risk: { operationDangerLevel: 'high', suspicionScore: 70, riskFactors: ['operation_danger_level'] }
         }
@@ -208,7 +208,7 @@ describe('meristem CLI', () => {
     expect((await cli.run(['task', 'status', 'task-1'])).exitCode).toBe(0)
     expect((await cli.run(['task', 'list'])).exitCode).toBe(0)
     expect((await cli.run(['task', 'cancel', 'task-1'])).exitCode).toBe(0)
-    expect((await cli.run(['task', 'retry', 'task-1'])).stdout).toContain('not_implemented_for_phase')
+    expect((await cli.run(['task', 'retry', 'task-1'])).stdout).toContain('not_implemented_yet')
     expect(calls).toEqual([
       'task:submit:node-leaf-1:noop',
       'task:status:task-1',

@@ -60,7 +60,7 @@ Unit tests:
 - task state transition reducer.
 - cancel transition rules.
 - timeout transition rules.
-- retry `not_implemented_for_phase` response builder.
+- retry `not_implemented_yet` response builder.
 - M-Task-local danger and audit behavior mapping.
 
 Contract tests:
@@ -76,7 +76,7 @@ API tests:
 - cancel queued success.
 - cancel running best-effort paths.
 - timeout worker transition.
-- retry policy-aware `not_implemented_for_phase`.
+- retry policy-aware `not_implemented_yet`.
 - missing / invalid auth.
 - RBAC deny.
 - `require_manual_review` and `require_multi_approval` block execution.
@@ -150,7 +150,7 @@ Execution slices:
 - Add M-Policy checks.
 - Publish task lifecycle events.
 - Implement Timeline / Full / Audit behavior.
-- Implement retry `not_implemented_for_phase`.
+- Implement retry `not_implemented_yet`.
 
 11.1-f Cutover + CLI + Regression:
 
@@ -431,7 +431,7 @@ Audit required:
 
 Full Log required:
 
-- `retry` allowed by policy but rejected with `not_implemented_for_phase`.
+- `retry` allowed by policy but rejected with `not_implemented_yet`.
 - `cancelRejected` or `notDeliverable` delivery outcomes.
 - timeout worker errors, races, and skipped transitions.
 - validation errors and dependency degradation.
@@ -589,7 +589,7 @@ Phase 11 must define but not execute real retry semantics:
 
 - REST, Eden, CLI, event, and policy contracts for `retry` are drafted.
 - `retry` danger level and risk-factor behavior are documented.
-- `retry` API and CLI calls return a policy-aware `not_implemented_for_phase` response when policy allows the request.
+- `retry` API and CLI calls return a policy-aware `not_implemented_yet` response when policy allows the request.
 - attempt, lease, idempotency, duplicate execution, worker coordination, and backoff semantics are deferred until a later M-Task hardening phase.
 
 Phase 11.1 retry response semantics:
@@ -606,12 +606,12 @@ Execution order:
 2. Check `task:retry` permission.
 3. Ask M-Policy for danger level, suspicion score, and required decision.
 4. If RBAC denies or policy returns require_*, return the policy decision without entering retry execution.
-5. If policy allows, return a structured `not_implemented_for_phase` error.
+5. If policy allows, return a structured `not_implemented_yet` error.
 6. Write Full Log for the rejected execution attempt.
 7. Write Audit only when the M-Task audit behavior explicitly requires an Audit fact for this action and outcome.
 ```
 
-The structured response should include `code: "not_implemented_for_phase"`, `decisionId`, and a risk summary. The final HTTP status should follow the route error-mapping convention when implemented; `501 Not Implemented` is the default planning assumption unless the contract chooses a more specific Meristem business error.
+The structured response should include `code: "not_implemented_yet"`, `decisionId`, and a risk summary. The final HTTP status should follow the route error-mapping convention when implemented; `501 Not Implemented` is the default planning assumption unless the contract chooses a more specific Meristem business error.
 
 ---
 

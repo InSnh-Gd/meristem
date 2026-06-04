@@ -145,7 +145,7 @@ export async function coreFetch(
 }
 
 /**
- * 对 M-Task REST 发起 HTTP 请求，验证 Phase 11 后任务入口不再经过 Core。
+ * 对 M-Task REST 发起 HTTP 请求，验证任务入口不再经过 Core。
  */
 export async function taskFetch(
   path: string,

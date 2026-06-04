@@ -134,7 +134,7 @@ describe('Eden clients', () => {
           reloadedAt: new Date().toISOString()
         }
       },
-      // Phase 10: search deps
+      // search deps
       search: {
       async full(_query: FullLogSearchQuery) { return null },
       async timeline(_query: TimelineSearchQuery) { return null },
@@ -194,7 +194,7 @@ describe('Eden clients', () => {
           reloadedAt: new Date().toISOString()
         }
       },
-      // Phase 10: search deps
+      // search deps
       search: {
       async full(_query: FullLogSearchQuery) { return null },
       async timeline(_query: TimelineSearchQuery) { return null },

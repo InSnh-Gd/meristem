@@ -179,7 +179,7 @@ if (!infraOk) {
       })
     })
 
-    describe('Phase 14 BFF routes', () => {
+    describe('SDUI v0.2 BFF routes', () => {
       it('GET /api/v0/routes returns route list', async () => {
         const res = await bffFetch('/api/v0/routes', operatorToken)
         expect(res.ok).toBe(true)

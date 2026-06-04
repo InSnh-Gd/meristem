@@ -68,12 +68,12 @@ const logService = edenTreaty<LogApp>(serviceUrl('m-log'), {
   fetcher: createInternalFetcher()
 })
 
-// Phase 13: 内存存储实例，待 Phase 14 替换为 PostgreSQL adapter
+// 内存存储实例，待后续替换为 PostgreSQL adapter
 const profileStore = createInMemoryProfileStore()
 const suspendedOps = createInMemorySuspendedOperationStore()
 
 /**
- * Phase 13 审批回调客户端：调用 M-Policy 内部端点创建审批。
+ * 审批回调客户端：调用 M-Policy 内部端点创建审批。
  * 降级模式返回成功（内存模式），生产环境通过 internal HTTP 调用 M-Policy。
  */
 const approvalClient = {
@@ -593,7 +593,7 @@ async function forwardLog(nodeId: string, message: SessionLogForwardMessage): Pr
 }
 
 /**
- * create/list/join/listMembers 继续承载 Phase 6 的逻辑网络模型，
+ * create/list/join/listMembers 继续承载逻辑网络模型，
  * 只是同步调用边界从 NATS RPC 切换到了 internal HTTP。
  */
 async function createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>> {
@@ -611,7 +611,7 @@ async function createNetwork(input: CreateNetworkRequest): Promise<MNetServiceRe
   }
 
   await db.insert(networks).values(network)
-  // Phase 13: seed profile state for new network
+  // seed profile state for new network
   await profileStore.setNetworkState(network.id, {
     profileVersion: network.profileVersion,
     status: 'disabled'

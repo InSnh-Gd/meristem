@@ -2,9 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 
-// Phase 10 失败模式门禁：OpenSearch 不可用不能阻塞权威日志写入。
-// 对应 PHASE-10.md §8 的三种失败类别。
-describe('Phase 10 OpenSearch failure modes', () => {
+// 失败模式门禁：OpenSearch 不可用不能阻塞权威日志写入。
+describe('OpenSearch failure modes', () => {
   it('returns 503 on timeline search when search is unavailable', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator', searchAvailable: false })
     const app = createCoreApp(deps)

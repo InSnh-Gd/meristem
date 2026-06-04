@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
 import type { ApprovalListResponse, ApprovalDetailResponse, ApprovalActionResponse } from '../../packages/contracts/src/index.ts'
 
-// Phase 12 CLI 审批命令测试：覆盖 list、show、approve、reject 命令和错误路径。
+// 审批命令测试：覆盖 list、show、approve、reject 命令和错误路径。
 
 describe('meristem policy approvals CLI', () => {
   it('lists pending approvals', async () => {

@@ -265,7 +265,7 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
 
   function configTransitionAllowed(fromStatus: ConfigRecord['status'], toStatus: ConfigRecord['status']): boolean {
     const allowed: Record<ConfigRecord['status'], Array<ConfigRecord['status']>> = {
-      draft: ['validated', 'published'],
+      draft: ['validated'],
       validated: ['published', 'failed'],
       published: ['applied', 'failed'],
       applied: ['rolled_back'],

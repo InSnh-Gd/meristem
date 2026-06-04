@@ -6,7 +6,7 @@ import {
   SetNetworkProfileRequestSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 
-describe('Phase 13 m-net profile contract schemas', () => {
+describe('M-Net profile contract schemas', () => {
   it('decodes and encodes MNetRegionalProfile for default and cn variants', () => {
     const defaultProfile = {
       profileVersion: 'm-net-default@0.1.0',

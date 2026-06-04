@@ -11,7 +11,6 @@ export const factTables = {
 
 /**
  * Resolves the authoritative fact table from a projection index name.
- * Source: docs/roadmap/PHASE-10.1.md projection index naming.
  */
 export function factTableFromIndex(index: string): FactTableName | null {
   if (index.startsWith('meristem-timeline-logs')) return 'timeline_logs'

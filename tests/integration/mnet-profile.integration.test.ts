@@ -107,7 +107,7 @@ describe('integration: m-net multi-network profile lifecycle', () => {
     const enableResponse = await app.handle(new Request(`http://localhost/api/v0/networks/${networkA}/profile`, {
       method: 'POST',
       headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'phase-13 integration enable' })
+      body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'm-net-cn profile integration enable' })
     }))
 
     expect(enableResponse.status).toBe(200)
@@ -144,7 +144,7 @@ describe('integration: m-net multi-network profile lifecycle', () => {
     const disableResponse = await app.handle(new Request(`http://localhost/api/v0/networks/${networkA}/profile`, {
       method: 'POST',
       headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'phase-13 integration disable' })
+      body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'm-net-default profile integration disable' })
     }))
 
     expect(disableResponse.status).toBe(200)

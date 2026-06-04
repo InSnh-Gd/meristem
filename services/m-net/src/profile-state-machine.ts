@@ -1,7 +1,7 @@
 /**
  * M-Net 网络 Profile 状态机，只包含纯函数，无副作用、无 DB 访问。
  *
- * 状态转换规则依据 PHASE-13.md §6：
+ * 状态转换规则：
  *   disabled → enabling → enabled → disabling → disabled
  *   任何迁移失败 → failed
  *   failed → disabling → disabled
@@ -54,7 +54,7 @@ export function nextProfileState(current: ProfileState, action: ProfileAction): 
 
 /**
  * disabled 或 failed 状态可请求启用 Profile。
- * failed → enabling 是 Phase-13 §6 指定的恢复路径。
+ * failed → enabling 是状态机指定的恢复路径。
  */
 export function canRequestEnable(currentStatus: ProfileState): boolean {
   return currentStatus === 'disabled' || currentStatus === 'failed'

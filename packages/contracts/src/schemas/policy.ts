@@ -7,7 +7,7 @@ export const PermissionSchema = Schema.Literal(...permissions)
 export type PermissionFromSchema = typeof PermissionSchema.Type
 
 
-// Phase 12: 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
+// 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
 import { actorIds } from '../literals.ts'
 
 export const ApprovalStatusSchema = Schema.Literal('pending', 'approved', 'rejected', 'expired', 'canceled')

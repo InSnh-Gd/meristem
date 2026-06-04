@@ -8,7 +8,7 @@ import type {
   AuditLog, PolicyDecision, CommandWellEligibility
 } from '../../../packages/contracts/src/index.ts'
 import { deriveNoopCommandEligibility, missingPermissionCommandEligibility, targetMissingCommandEligibility } from './command-well/eligibility.ts'
-import { PHASE_14_ROUTE_REGISTRY } from './routes/route-registry.ts'
+import { SDUI_V02_ROUTE_REGISTRY } from './routes/route-registry.ts'
 
 type StateSourceMetadata = {
   sourceType: 'authoritative' | 'event' | 'cache' | 'read-model' | 'log' | 'audit' | 'policy'
@@ -42,7 +42,7 @@ export type MUiBffDeps = {
 
 /**
  * serviceFetch 是对上游 REST v0 的薄封装：自动注入 Bearer token、统一错误契约。
- * Phase 11 后 BFF 同时面向 Core 读模型和 M-Task 命令面。
+ * BFF 同时面向 Core 读模型和 M-Task 命令面。
  */
 async function serviceFetch(
   baseUrl: string,
@@ -96,7 +96,7 @@ function withStateSource<T extends object>(value: T, stateSource: StateSourceMet
   return { ...value, stateSource }
 }
 
-/** 泛型 CommandWell 使用 Phase 14 命令 ID，底层仍复用 Phase 9 noop 判定事实。 */
+/** 泛型 CommandWell 使用 SDUI v0.2 命令 ID，底层仍复用 noop 判定事实。 */
 function toGenericNoopEligibility(eligibility: CommandWellEligibility): GenericNoopEligibility {
   if (eligibility.state === 'disabled') return eligibility
   return {
@@ -141,11 +141,11 @@ export function createMUiBffApp(deps: MUiBffDeps) {
 
       const sessionRes = await cf('/api/v0/session', token)
       if (!sessionRes.ok) return passthroughCoreError(sessionRes)
-      return PHASE_14_ROUTE_REGISTRY
+      return SDUI_V02_ROUTE_REGISTRY
     }, {
       detail: { summary: 'Read SDUI v0.2 route registry' }
     })
-    // route lookup：只返回已注册的 Phase 14 route，未知 id 按 BFF 合同返回 404。
+    // route lookup：只返回已注册的 SDUI v0.2 route，未知 id 按 BFF 合同返回 404。
     .get('/api/v0/routes/:id', async ({ params, headers }) => {
       const token = bearerTokenFromHeaders(headers)
       if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
@@ -153,7 +153,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       const sessionRes = await cf('/api/v0/session', token)
       if (!sessionRes.ok) return passthroughCoreError(sessionRes)
 
-      const route = PHASE_14_ROUTE_REGISTRY.routes.find((candidate) => candidate.id === params.id)
+      const route = SDUI_V02_ROUTE_REGISTRY.routes.find((candidate) => candidate.id === params.id)
       if (!route) return bffError(404, 'route.not_found', 'route not found')
       return { route }
     }, {
@@ -398,7 +398,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       body: t.Object({ leafNodeId: t.String({ minLength: 1 }) }),
       detail: { summary: 'Derive disabled/enabled state for the noop task command' }
     })
-    // noop 执行：Phase 11 后透传到 canonical M-Task POST /api/v0/tasks。
+    // noop 执行：透传到 canonical M-Task POST /api/v0/tasks。
     .post('/api/v0/commands/noop/execute', async ({ body, headers }) => {
       // 鉴权：提取 Bearer token
       const token = bearerTokenFromHeaders(headers)

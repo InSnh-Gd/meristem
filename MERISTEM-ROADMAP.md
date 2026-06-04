@@ -415,7 +415,7 @@ M-Task canonical external /api/v0/tasks
 M-Task-owned PostgreSQL task state
 M-Task-owned task lifecycle events
 submit / best-effort cancel / timeout worker
-retry policy-aware not_implemented_for_phase
+retry policy-aware not_implemented_yet
 操作危险等级 low / medium / high / critical
 置疑度算法 v1 与风险因子解释
 require_manual_review / require_multi_approval pending escalation

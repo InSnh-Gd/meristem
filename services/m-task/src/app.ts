@@ -45,7 +45,7 @@ export type MTaskDeps = {
     get(id: string): Promise<MTask | null>
     transition(id: string, status: MTask['status'], patch?: Partial<Pick<MTask, 'completedAt' | 'canceledAt'>>): Promise<MTask | null>
   }
-  // Phase 12: 挂起操作存储，M-Task 拥有 suspended operation 生命周期。
+  // 挂起操作存储，M-Task 拥有 suspended operation 生命周期。
   suspendedOps?: {
     create(input: { policyDecisionId: string; action: ApprovalOriginAction; requestedBy: ActorId; resource: string; sanitizedPayload: unknown; correlationId: string; idempotencyKey: string; expiresAt: string }): Promise<TaskSuspendedOperation>
     get(id: string): Promise<TaskSuspendedOperation | null>
@@ -105,7 +105,7 @@ const policyBlockSchema = t.Object({
 
 const retryNotImplementedSchema = t.Object({
   error: t.Object({
-    code: t.Literal('not_implemented_for_phase'),
+    code: t.Literal('not_implemented_yet'),
     message: t.String()
   }),
   decisionId: t.String(),
@@ -167,7 +167,7 @@ async function blockIfNeeded(deps: MTaskDeps, input: { actor: ActorId; action: P
     payload: { risk: input.risk }
   })
 
-  // Phase 12: 当 M-Policy 返回 require_manual_review 或 require_multi_approval 时，
+  // 当 M-Policy 返回 require_manual_review 或 require_multi_approval 时，
   // M-Task 创建挂起操作记录，等待审批通过后 resume。
   if (blockingDecision.result !== 'deny' && deps.suspendedOps) {
     const idempotencyKey = crypto.randomUUID()
@@ -225,7 +225,7 @@ async function transitionWithTimeline(deps: MTaskDeps, taskId: string, status: M
 }
 
 /**
- * M-Task owns the canonical task REST surface for Phase 11. Elysia handlers keep
+ * M-Task owns the canonical task REST surface. Elysia handlers keep
  * auth, policy/risk, lifecycle writes, event publication, and log behavior in one
  * visible boundary so Core cannot silently remain the task orchestrator.
  */
@@ -326,13 +326,13 @@ export function createMTaskApp(deps: MTaskDeps) {
       const decision = await decideOrThrow(deps, { actor: auth.actor, action: 'task:retry', resource: `task:${params.id}`, risk, correlationId: auth.correlationId })
       const blocked = await blockIfNeeded(deps, { actor: auth.actor, action: 'task:retry', resource: `task:${params.id}`, decision, risk, correlationId: auth.correlationId })
       if (blocked) return status(blocked.status, blocked.body)
-      await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'retry is not implemented in Phase 11', correlationId: auth.correlationId, payload: { taskId: params.id, decisionId: decision.decisionId, risk } })
-      return status(501, { error: { code: 'not_implemented_for_phase', message: 'retry is not implemented in Phase 11' }, decisionId: decision.decisionId, risk })
+      await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'retry is not implemented', correlationId: auth.correlationId, payload: { taskId: params.id, decisionId: decision.decisionId, risk } })
+      return status(501, { error: { code: 'not_implemented_yet', message: 'retry is not implemented' }, decisionId: decision.decisionId, risk })
     }, {
       params: t.Object({ id: t.String({ minLength: 1 }) }),
       response: { 401: apiErrorSchema, 403: policyBlockSchema, 409: policyBlockSchema, 501: retryNotImplementedSchema }
     })
-    // Phase 12: resume 端点供 M-Policy 审批通过后调用，恢复被挂起的操作。
+    // resume 端点供 M-Policy 审批通过后调用，恢复被挂起的操作。
     // M-Task 执行安全检查、幂等检查和过期检查，不重跑 M-Policy 风险决策。
     .post(
       '/internal/v0/task-operations/:id/resume',
@@ -340,7 +340,7 @@ export function createMTaskApp(deps: MTaskDeps) {
         const internalAuth = validateInternalRequest(headers)
         if (!internalAuth.ok) return status(401, { error: internalAuth.error })
         const auth = correlationIdFromHeaders(headers)
-        if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_for_phase', message: 'suspended operations not supported' } })
+        if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_yet', message: 'suspended operations not supported' } })
         const suspendedOp = await deps.suspendedOps.get(params.id)
         if (!suspendedOp) return status(404, { error: { code: 'task.suspended_op_not_found', message: 'suspended operation not found', correlationId: auth } })
         if (suspendedOp.status !== 'suspended') {
@@ -397,8 +397,8 @@ export function createMTaskApp(deps: MTaskDeps) {
               resultTask = await deps.storage.transition(resourceId, 'canceled', { canceledAt: new Date().toISOString() })
             }
             if (suspendedOp.action === 'task.retry') {
-              // Phase 12 不实现 retry 执行语义，只记录 resume 成功
-              await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'retry resume executed but retry is not implemented in Phase 12', correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id } })
+              // 不实现 retry 执行语义，只记录 resume 成功
+              await deps.log.writeFull({ level: 'warn', source: 'm-task', message: 'retry resume executed but retry is not implemented', correlationId: suspendedOp.correlationId, payload: { opId: suspendedOp.id } })
             }
           }
 
@@ -442,7 +442,7 @@ export function createMTaskApp(deps: MTaskDeps) {
         const internalAuth = validateInternalRequest(headers)
         if (!internalAuth.ok) return status(401, { error: internalAuth.error })
         const correlationId = correlationIdFromHeaders(headers)
-        if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_for_phase', message: 'suspended operations not supported' } })
+        if (!deps.suspendedOps) return status(501, { error: { code: 'not_implemented_yet', message: 'suspended operations not supported' } })
         const suspendedOp = await deps.suspendedOps.get(params.id)
         if (!suspendedOp) return status(404, { error: { code: 'task.suspended_op_not_found', message: 'suspended operation not found', correlationId } })
         if (suspendedOp.status !== 'suspended') return status(409, { error: { code: 'task.reject_conflict', message: `operation is ${suspendedOp.status}`, correlationId: suspendedOp.correlationId } })

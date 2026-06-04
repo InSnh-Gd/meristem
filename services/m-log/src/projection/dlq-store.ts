@@ -8,7 +8,6 @@ import type { ProjectionDatabase, ProjectionOpenSearch } from './types.ts'
 
 /**
  * Creates DLQ list/replay/skip operations behind M-Log projection internals.
- * Source: docs/roadmap/PHASE-10.1.md §2.4.
  */
 export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch) {
   async function replayDLQ(dlqId: string): Promise<boolean> {

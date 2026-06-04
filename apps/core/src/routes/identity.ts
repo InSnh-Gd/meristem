@@ -139,14 +139,15 @@ function toIdentityTokenRecord(token: {
   }
 }
 
-function validateIdentityInternalRequest(headers: Record<string, string | undefined>) {
+function validateIdentityInternalRequest(request: Request) {
+  const tokenValue = request.headers.get(internalTokenHeaderName)
   if (!process.env.MERISTEM_INTERNAL_TOKEN) {
-    return headers[internalTokenHeaderName]
+    return tokenValue
       ? { ok: true as const }
       : { ok: false as const, error: { code: 'internal.unauthorized', message: 'invalid internal token' } }
   }
 
-  return validateInternalRequest(headers)
+  return validateInternalRequest(request.headers)
 }
 
 async function writeIdentityAudit(
@@ -230,6 +231,8 @@ async function revokeIdentityToken(deps: CoreDeps, input: {
     throw new CoreError(identityErrorStatus(revoked.error), revoked.error.code, revoked.error.message, auth.correlationId)
   }
 
+  // revoke 响应同时返回顶层字段和 token 嵌套字段，保持向后兼容：
+  // 旧客户端读取 token.jti/status/revokedAt，新客户端可以直接读取顶层字段。
   const revokedBody = {
     jti: revoked.value.jti,
     status: 'revoked' as const,
@@ -451,8 +454,8 @@ export const identity = (deps: CoreDeps) => {
       detail: protectedRouteDetail('Revoke an identity token alias')
     })
     // 内部 introspection 只信任共享 internal token，并且在任何后端失败时都回落为 inactive。
-    .post('/internal/v0/identity/tokens/introspect', async ({ body, headers, set }) => {
-      const internalAuth = validateIdentityInternalRequest(headers)
+    .post('/internal/v0/identity/tokens/introspect', async ({ body, headers, set, request }) => {
+      const internalAuth = validateIdentityInternalRequest(request)
       if (!internalAuth.ok) {
         set.status = internalAuth.error.code === 'internal.unavailable' ? 503 : 401
         return { error: internalAuth.error }

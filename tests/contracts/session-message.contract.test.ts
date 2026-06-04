@@ -7,7 +7,7 @@ import type {
   SessionResumedMessage
 } from '../../packages/contracts/src/index.ts'
 
-describe('Phase 8 session transport contract', () => {
+describe('Session transport contract', () => {
   it('keeps runtime tokens on join.accepted and keeps session frames session-scoped', () => {
     const node = {
       id: 'node-1',

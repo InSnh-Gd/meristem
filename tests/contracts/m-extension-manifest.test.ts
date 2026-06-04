@@ -50,7 +50,7 @@ describe('M-Extension manifest contracts', () => {
     if (!futureEntrypoint.ok) expect(futureEntrypoint.code).toBe('extension.manifest.future_field_unsupported')
   })
 
-  it('exports Phase 15 extension permissions as fixed literals', () => {
+  it('exports M-Extension permissions as fixed literals', () => {
     expect(extensionPermissions).toEqual([extensionPermission.read, extensionPermission.register, extensionPermission.enable, extensionPermission.disable])
     for (const permission of extensionPermissions) expect(permissions).toContain(permission)
   })

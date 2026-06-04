@@ -22,8 +22,7 @@ const pgAvailable = await (async () => {
   }
 })()
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SqlRow = Record<string, any>
+type SqlRow = Record<string, unknown>
 
 // ---------------------------------------------------------------------------
 // DB-backed identity introspection lifecycle

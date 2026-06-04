@@ -64,8 +64,7 @@ describe('Identity v0.2 export existence gates', () => {
   it('packages/contracts exports IdentityPermissions (identity:read, identity:token-issue, etc.)', async () => {
     // FAILS RED: identity permissions are not yet in the contracts package.
     const mod = await import('../../packages/contracts/src/literals.ts')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const perms: readonly string[] = (mod as any).permissions ?? []
+    const perms: readonly string[] = mod.permissions ?? []
     expect(perms).toContain('identity:read')
     expect(perms).toContain('identity:token-issue')
     expect(perms).toContain('identity:token-revoke')
@@ -84,8 +83,7 @@ describe('Identity v0.2 export existence gates', () => {
     // accepted for M-* service access but rejected for certain Core operations.
     const mod = await import('../../packages/auth/src/index.ts')
     expect(mod).toHaveProperty('verifyIdentityV02Token')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const verify = (mod as any).verifyIdentityV02Token
+    const verify = mod.verifyIdentityV02Token
     if (typeof verify === 'function') {
       // meristem-service audience must be a valid audience for service tokens
       const result = await verify({

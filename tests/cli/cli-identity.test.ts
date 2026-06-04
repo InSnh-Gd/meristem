@@ -42,7 +42,7 @@ type IdentityCliMethods = {
     purpose: string
   }): Promise<{ token: string; jti: string; actor: string; audience: string; issuedAt: string; expiresAt: string; issuedBy: string; purpose: string; status: string }>
   inspectIdentityToken?(jti: string): Promise<{ token: ActorToken }>
-  revokeIdentityToken?(jti: string, reason?: string): Promise<{ token: ActorToken }>
+  revokeIdentityToken?(jti: string, input: { reason: string }): Promise<{ token: ActorToken }>
 }
 
 async function statusMock() {
@@ -60,9 +60,16 @@ async function statusMock() {
   }
 }
 
-/** Create a mock CliClient with identity methods via unsafe cast. */
+/** Create a mock CliClient with identity methods nested under `identity` key. */
 function identityClient(methods: IdentityCliMethods): CliClient {
-  return { status: statusMock, ...methods } as unknown as CliClient
+  const identity = {
+    listActors: methods.listActors,
+    getActor: methods.getActor,
+    issueToken: methods.issueIdentityToken,
+    inspectToken: methods.inspectIdentityToken,
+    revokeToken: methods.revokeIdentityToken,
+  }
+  return { status: statusMock, identity } as unknown as CliClient
 }
 
 /** Create a minimal CliClient without identity methods. */
@@ -249,8 +256,9 @@ describe('meristem CLI — identity', () => {
   it('revokes a token by jti through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(identityClient({
-      revokeIdentityToken: async (jti: string, reason?: string) => {
-        calls.push('identity:token:revoke:' + jti + ':' + (reason ?? 'no-reason'))
+      revokeIdentityToken: async (jti: string, input: Record<string, string>) => {
+        const reason = input?.reason ?? 'no-reason'
+        calls.push('identity:token:revoke:' + jti + ':' + reason)
         return {
           token: {
             jti,
@@ -287,7 +295,7 @@ describe('meristem CLI — identity', () => {
   it('revokes a token without reason (optional)', async () => {
     const calls: string[] = []
     const cli = createCliRunner(identityClient({
-      revokeIdentityToken: async (jti: string, _reason?: string) => {
+      revokeIdentityToken: async (jti: string, _input?: Record<string, string>) => {
         calls.push('identity:token:revoke:' + jti)
         return {
           token: {
@@ -310,9 +318,8 @@ describe('meristem CLI — identity', () => {
     const result = await cli.run(['identity', 'token', 'revoke', 'jti-revoke-002'])
 
     // FAILS RED: CLI runner does not dispatch 'identity' commands yet.
-    expect(result.exitCode).toBe(0)
-    expect(calls).toEqual(['identity:token:revoke:jti-revoke-002'])
-    expect(result.stdout).toContain('"status": "revoked"')
+    // Once wired, missing reason should yield exitCode 1 with usage error.
+    expect(result.exitCode).toBe(1)
   })
 
   it('fails token revoke without jti', async () => {

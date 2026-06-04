@@ -32,15 +32,8 @@ type SecretCliMethods = {
     scope: 'system' | 'service' | 'node'
     value: string
   }): Promise<{ secretRef: SecretRef }>
-  rotateSecret?(input: {
-    secretRefId: string
-    value: string
-    reason: string
-  }): Promise<{ secretRef: SecretRef; version: number }>
-  disableSecret?(input: {
-    secretRefId: string
-    reason: string
-  }): Promise<{ secretRef: SecretRef }>
+  rotateSecret?(secretId: string, input: { value: string; reason: string }): Promise<{ secretRef: SecretRef; version: number }>
+  disableSecret?(secretId: string, input: { reason: string }): Promise<{ secretRef: SecretRef }>
 }
 
 async function statusMock() {
@@ -58,9 +51,16 @@ async function statusMock() {
   }
 }
 
-/** Create a mock CliClient with secret methods via unsafe cast. */
+/** Create a mock CliClient with secret methods nested under `secret` key. */
 function secretClient(methods: SecretCliMethods): CliClient {
-  return { status: statusMock, ...methods } as unknown as CliClient
+  const secret = {
+    list: methods.listSecrets,
+    get: methods.getSecret,
+    create: methods.createSecret,
+    rotate: methods.rotateSecret,
+    disable: methods.disableSecret,
+  }
+  return { status: statusMock, secret } as unknown as CliClient
 }
 
 /** Create a minimal CliClient without secret methods. */
@@ -201,7 +201,8 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'create',
       '--name', 'my-api-key',
-      '--scope', 'service'
+      '--scope', 'service',
+      '--value', 'test-value-001'
     ])
 
     // FAILS RED: CLI runner does not dispatch 'secret' commands yet.
@@ -254,7 +255,8 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'create',
       '--name', 'my-key',
-      '--scope', 'cluster'
+      '--scope', 'cluster',
+      '--value', 'test-val'
     ])
 
     // FAILS RED: CLI runner does not dispatch 'secret' commands yet.
@@ -288,7 +290,8 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'create',
       '--name', 'redact-test',
-      '--scope', 'system'
+      '--scope', 'system',
+      '--value', SENTINEL
     ])
 
     // The sentinel must NEVER appear in stdout or stderr.
@@ -303,8 +306,8 @@ describe('meristem CLI — secret', () => {
   it('rotates a secret through mocked secret client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(secretClient({
-      rotateSecret: async (input: { secretRefId: string; value: string; reason: string }) => {
-        calls.push('secret:rotate:' + input.secretRefId + ':' + input.reason)
+      rotateSecret: async (secretId: string, input: { value: string; reason: string }) => {
+        calls.push('secret:rotate:' + secretId + ':' + (input?.reason ?? 'no-reason'))
         return {
           secretRef: { ...activeSecret, status: 'rotated' as const, rotatedAt: '2026-06-02T12:00:00.000Z' },
           version: 2
@@ -315,6 +318,7 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'rotate',
       'sr-cli-001',
+      '--value', 'new-rotated-value',
       '--reason', 'periodic rotation'
     ])
 
@@ -338,6 +342,7 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'rotate',
       'sr-cli-001',
+      '--value', 'dummy-rotated-value',
       '--reason', 'test rotation'
     ])
 
@@ -377,14 +382,15 @@ describe('meristem CLI — secret', () => {
   it('disables a secret through mocked secret client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(secretClient({
-      disableSecret: async (input: { secretRefId: string; reason: string }) => {
-        calls.push('secret:disable:' + input.secretRefId + ':' + input.reason)
+      disableSecret: async (secretId: string, input: { reason: string }) => {
+        const reason = input?.reason ?? 'no-reason'
+        calls.push('secret:disable:' + secretId + ':' + reason)
         return {
           secretRef: {
             ...activeSecret,
             status: 'disabled' as const,
             disabledAt: '2026-06-02T14:00:00.000Z',
-            metadata: { ...activeSecret.metadata, disableReason: input.reason }
+            metadata: { ...activeSecret.metadata, disableReason: reason }
           }
         }
       }
@@ -462,7 +468,8 @@ describe('meristem CLI — secret', () => {
     const result = await cli.run([
       'secret', 'create',
       '--name', 'sentinel-test',
-      '--scope', 'system'
+      '--scope', 'system',
+      '--value', 'dummy-value'
     ])
 
     // FAILS RED: CLI runner does not dispatch 'secret' commands yet.

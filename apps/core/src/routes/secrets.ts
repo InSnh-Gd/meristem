@@ -170,10 +170,11 @@ async function writeSecretAudit(
   }
 }
 
-function validateSecretInternalRequest(headers: Record<string, string | undefined>, correlationId?: string) {
+function validateSecretInternalRequest(request: Request, correlationId?: string) {
+  const tokenValue = request.headers.get(internalTokenHeaderName)
   const result = process.env.MERISTEM_INTERNAL_TOKEN
-    ? validateInternalRequest(headers)
-    : headers[internalTokenHeaderName]
+    ? validateInternalRequest(request.headers)
+    : tokenValue
       ? { ok: true as const }
       : { ok: false as const, error: { code: 'internal.unauthorized', message: 'invalid internal token' } }
 
@@ -382,11 +383,11 @@ export const secrets = (deps: CoreDeps) => new Elysia({ prefix: '/api/v0/secrets
   })
 
 /**
- * 内部 reference 路由只返回 metadata 与当前版本号，并且复用 Bearer + M-Policy，避免内部调用绕过 secret:reference 权限。
+ * 内部 reference 路由只返回 metadata 与当前版本号，通过 shared internal token 认证服务间调用。
  */
 export const secretReference = (deps: CoreDeps) => new Elysia({ prefix: '/internal/v0/secrets' })
-  .post('/:id/reference', async ({ params, headers }) => {
-    validateSecretInternalRequest(headers)
+  .post('/:id/reference', async ({ params, headers, request }) => {
+    validateSecretInternalRequest(request)
 
     const result = await deps.secrets.reference(params.id)
     if (!result.ok) {
@@ -407,8 +408,8 @@ export const secretReference = (deps: CoreDeps) => new Elysia({ prefix: '/intern
     detail: protectedRouteDetail('Resolve internal secretRef metadata')
   })
   // 该内部路径不是正式突变接口；保留认证门禁让缺少 internal token 的调用 fail-closed，而不是落入 404。
-  .post('/:id/disable', async ({ headers }) => {
-    validateSecretInternalRequest(headers)
+  .post('/:id/disable', async ({ headers, request }) => {
+    validateSecretInternalRequest(request)
     throw new CoreError(404, 'secret.internal_route_not_found', 'internal secret disable route is not available')
   }, {
     params: secretParamsSchema,

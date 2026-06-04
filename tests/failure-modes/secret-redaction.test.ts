@@ -361,7 +361,8 @@ describe('SecretRef v0.1 redaction failure modes', () => {
   it('internal reference route response must not contain sentinel plaintext', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
     const app = createCoreApp(deps)
-    process.env.MERISTEM_INTERNAL_TOKEN = process.env.MERISTEM_INTERNAL_TOKEN ?? 'test-internal-token'
+    const prevEnvToken = process.env.MERISTEM_INTERNAL_TOKEN
+    process.env.MERISTEM_INTERNAL_TOKEN = prevEnvToken ?? 'test-internal-token'
 
     // First create a secret.
     const createResponse = await app.handle(
@@ -400,6 +401,13 @@ describe('SecretRef v0.1 redaction failure modes', () => {
 
     const refText = await refResponse.text()
     assertNoSentinelLeak(refText)
+
+    // 恢复环境变量，避免跨测试污染。
+    if (prevEnvToken === undefined) {
+      delete process.env.MERISTEM_INTERNAL_TOKEN
+    } else {
+      process.env.MERISTEM_INTERNAL_TOKEN = prevEnvToken
+    }
   })
 
   // ── Redaction: sentinel must produce ZERO matches in captured outputs ──
@@ -407,7 +415,7 @@ describe('SecretRef v0.1 redaction failure modes', () => {
   it('sentinel value produces ZERO matches across all captured outputs', async () => {
     // This is the canonical redaction assertion: the sentinel value
     // MERISTEM_TEST_SECRET_DO_NOT_LOG must produce zero matches in
-    // any captured output — logs, errors, responses, or CLI streams.
+    // a captured output — logs, errors, responses, or CLI streams.
     const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
     const app = createCoreApp(deps)
 

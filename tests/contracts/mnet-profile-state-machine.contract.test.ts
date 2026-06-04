@@ -84,7 +84,7 @@ describe('M-Net profile state machine', () => {
 
   // ---- canRequestEnable ----
 
-  it('canRequestEnable: true for disabled or failed (failed → enabling recovery per Phase-13 §6)', () => {
+  it('canRequestEnable: true for disabled or failed (failed → enabling recovery path)', () => {
     for (const state of allStates) {
       if (state === 'disabled' || state === 'failed') {
         expect(canRequestEnable(state)).toBe(true)

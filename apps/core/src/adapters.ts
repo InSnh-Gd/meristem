@@ -2,7 +2,7 @@ import { createDb } from '../../../packages/db/src/client.ts'
 import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/index.ts'
-import { ok } from '../../../packages/common/src/result.ts'
+import { err, ok } from '../../../packages/common/src/result.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
 import type { CoreDeps } from './types.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
@@ -246,9 +246,9 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
       },
       async reference(id) {
         const current = await secretStore.get(id)
+        if (!current) return err({ code: 'secret.not_found', message: 'secret ref not found' })
         const latest = await secretStore.getLatestVersion(id)
-        if (!current || !latest) return ok({ id, currentVersion: '0', status: 'missing', metadata: {} })
-        return ok({ id, currentVersion: latest.version, status: current.status, metadata: current.metadata })
+        return ok({ id, currentVersion: latest?.version ?? '0', status: current.status, metadata: current.metadata })
       }
     },
     config: createConfigStateMachine(db),

@@ -87,8 +87,7 @@ describe('Config Lifecycle export existence gates', () => {
     // FAILS RED: config permissions may not yet be in the permissions array.
     // Phase 19 must ensure configPermissions are in the exported permissions union.
     const mod = await import('../../packages/contracts/src/literals.ts')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const perms: readonly string[] = (mod as any).permissions ?? []
+    const perms: readonly string[] = mod.permissions ?? []
     expect(perms).toContain('config:read')
     expect(perms).toContain('config:draft')
     expect(perms).toContain('config:validate')
@@ -432,7 +431,7 @@ describe('Config deterministic hash', () => {
     expect(ordered).toBe(reversed)
   })
 
-  it('hash changes when any field changes', () => {
+  it('hash changes when a field changes', () => {
     const base = { domain: 'core', target: 'all' }
 
     const h1 = deterministicConfigHash(base)

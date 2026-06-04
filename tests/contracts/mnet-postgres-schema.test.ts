@@ -3,7 +3,7 @@ import { getTableColumns } from 'drizzle-orm'
 import * as schema from '../../packages/db/src/schema.ts'
 
 describe('M-Net PostgreSQL schema contract', () => {
-  it('defines Phase 13 M-Net profile tables and migration SQL', async () => {
+  it('defines M-Net profile tables and migration SQL', async () => {
     const migration = await Bun.file('packages/db/src/migrate.ts').text()
 
     expect(schema).toHaveProperty('mnetProfileDefinitions')

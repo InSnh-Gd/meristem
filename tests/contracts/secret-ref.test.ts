@@ -98,8 +98,7 @@ describe('SecretRef v0.1 export existence gates', () => {
     // FAILS RED: secret permissions may not yet be in the permissions array.
     // Phase 18 must ensure secret permissions are included.
     const mod = await import('../../packages/contracts/src/literals.ts')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const perms: readonly string[] = (mod as any).permissions ?? []
+    const perms: readonly string[] = mod.permissions ?? []
     expect(perms).toContain('secret:read-metadata')
     expect(perms).toContain('secret:create')
     expect(perms).toContain('secret:rotate')
@@ -335,7 +334,7 @@ describe('SecretRef v0.1 contract schema spec', () => {
       metadata: {}
     }
     const encoded = Schema.encodeSync(SecretRefDTOSchema)(dto)
-    // The encode output must not contain the sentinel or any plaintext field
+    // The encode output must not contain the sentinel or a plaintext field
     const encodedStr = JSON.stringify(encoded)
     expect(encodedStr).not.toContain('MERISTEM_TEST_SECRET_DO_NOT_LOG')
     expect(encodedStr).not.toContain('"value"')

@@ -27,7 +27,7 @@ const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
   fetcher: createInternalFetcher()
 })
 
-// Phase 10 OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
+// OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
 const opensearchUrl = process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200'
 const opensearch = createOpenSearchAdapter(opensearchUrl)
 const opensearchAvailable: boolean = await opensearch.health().then(async (ok) => {
@@ -39,7 +39,7 @@ if (!opensearchAvailable) {
   console.warn('m-log: OpenSearch unavailable, search endpoints will report degraded')
 }
 
-// Phase 10.1 投影引擎：依赖 db 和 opensearch 适配器。
+// 投影引擎：依赖 db 和 opensearch 适配器。
 // opensearch 不可用时投影引擎标记为不可用，backfill 和健康端点返回 503。
 const projectionEngine = createProjectionEngine(db, {
   indexDocument: (index, id, doc) => opensearch.indexDocument(index, id, doc),
@@ -71,7 +71,7 @@ function readLogLevelFromEnv(): LogLevel {
 
 /**
  * 三类写入函数统一在这里创建 PostgreSQL 事实，并在写入成功后 best-effort 投影到 OpenSearch。
- * Phase 10.1：投影使用 idempotency key（{index}:{factId}:1），保证重复写入安全。
+ * 投影使用 idempotency key（{index}:{factId}:1），保证重复写入安全。
  * OpenSearch 投影失败不阻塞 PostgreSQL 写，也不回滚已写事实。
  */
 async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog> {
@@ -88,7 +88,7 @@ async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog
     correlationId: entry.correlationId
   })
 
-  // Phase 10.1 best-effort OpenSearch 投影，使用幂等 key
+  // best-effort OpenSearch 投影，使用幂等 key
   if (opensearchAvailable) {
     opensearch.indexTimelineLog(entry).catch(() => {})
   }
@@ -248,7 +248,7 @@ const app = createLogApp({
     async audit(query) { return opensearchAvailable ? opensearch.searchAudit(query) : null },
     isAvailable() { return opensearchAvailable }
   },
-  // Phase 10.1 投影 deps
+  // 投影 deps
   projection: {
     getProjectionHealth: () => projectionEngine.getProjectionHealth(),
     executeBackfill: (params) => projectionEngine.executeBackfill(params),

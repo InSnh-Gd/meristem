@@ -1,8 +1,8 @@
 import * as Schema from 'effect/Schema'
 import { SduiV02RouteRegistrySchema, type SduiV02RouteRegistry } from '../../../../packages/contracts/src/schemas/ui.ts'
 
-/** Phase 14 SDUI v0.2 路由注册表；启动时用 schema 解码，避免发布未登记组件。 */
-export const PHASE_14_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknownSync(SduiV02RouteRegistrySchema)({
+/** SDUI v0.2 路由注册表；启动时用 schema 解码，避免发布未登记组件。 */
+export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknownSync(SduiV02RouteRegistrySchema)({
   schemaVersion: 'sdui@0.2.0',
   routes: [
     {

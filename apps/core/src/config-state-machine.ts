@@ -10,7 +10,7 @@ const CONFIG_SCHEMA_VERSION = 'config@0.1.0'
 const APPLY_ACK_TIMEOUT_MS = 60_000
 
 const VALID_TRANSITIONS: ReadonlyMap<ConfigStatus, ReadonlySet<ConfigStatus>> = new Map([
-  ['draft', new Set(['validated', 'published'])],
+  ['draft', new Set(['validated'])],
   ['validated', new Set(['published', 'failed'])],
   ['published', new Set(['applied', 'failed'])],
   ['applied', new Set(['rolled_back'])],
@@ -259,30 +259,81 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
         return err(configError('config.ack_timeout', 'config apply ack timed out while pending'))
       }
 
-      const toStatus: ConfigStatus = ackStatus === 'failed' ? 'failed' : 'applied'
-      const transitionError = ensureTransition(record.status, toStatus)
-      if (transitionError) return err(transitionError)
+      // 单个 ack failed 直接导致配置转入 failed 状态
+      if (ackStatus === 'failed') {
+        const transitionError = ensureTransition(record.status, 'failed')
+        if (transitionError) return err(transitionError)
 
+        const ackId = crypto.randomUUID()
+        await store.recordAck({
+          id: ackId,
+          configId: id,
+          version: input.version,
+          targetService: input.targetService,
+          status: 'failed',
+          ...(input.error ? { error: input.error } : {}),
+          ackedAt: now,
+          createdAt: now
+        })
+        await updateWithTransition(store, {
+          id,
+          fromStatus: record.status,
+          toStatus: 'failed',
+          actor: input.targetService,
+          ...(input.error ? { reason: input.error } : {}),
+          correlationId: input.correlationId
+        })
+        return ok({ ackId, status: 'failed', ackedAt: now.toISOString() })
+      }
+
+      // ackStatus === 'acked': 记录 ack，然后检查是否所有 targetScope 服务都已 ack
       const ackId = crypto.randomUUID()
       await store.recordAck({
         id: ackId,
         configId: id,
         version: input.version,
         targetService: input.targetService,
-        status: ackStatus,
-        ...(input.error ? { error: input.error } : {}),
+        status: 'acked',
         ackedAt: now,
         createdAt: now
       })
+
+      // 检查累计 ack 是否覆盖全部目标服务
+      const targetScope: string[] = Array.isArray(record.targetScope) ? record.targetScope : []
+      if (targetScope.length === 0) {
+        // 无目标服务声明时，单个 ack 即可完成
+        const transitionError = ensureTransition(record.status, 'applied')
+        if (transitionError) return err(transitionError)
+        await updateWithTransition(store, {
+          id,
+          fromStatus: record.status,
+          toStatus: 'applied',
+          actor: input.targetService,
+          correlationId: input.correlationId
+        })
+        return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
+      }
+
+      const allAcks = await store.listAcks(id, input.version)
+      const ackedServices = new Set(allAcks.map((ack) => ack.targetService))
+      const allAcked = targetScope.every((service) => ackedServices.has(service))
+
+      if (!allAcked) {
+        // 尚有目标服务未 ack，保持当前状态不变
+        return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
+      }
+
+      // 全部目标服务已 ack，转换到 applied
+      const transitionError = ensureTransition(record.status, 'applied')
+      if (transitionError) return err(transitionError)
       await updateWithTransition(store, {
         id,
         fromStatus: record.status,
-        toStatus,
+        toStatus: 'applied',
         actor: input.targetService,
-        ...(input.error ? { reason: input.error } : {}),
         correlationId: input.correlationId
       })
-      return ok({ ackId, status: ackStatus, ackedAt: now.toISOString() })
+      return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
     }
   }
 }

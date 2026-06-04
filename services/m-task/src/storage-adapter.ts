@@ -31,7 +31,7 @@ async function ensureNoopDefinition(db: MeristemDb): Promise<void> {
     id: noopDefinitionId,
     type: 'noop',
     version: 'v0',
-    description: 'Phase 11 noop task',
+    description: 'Noop task definition',
     dangerLevel: 'medium',
     defaultTimeoutSeconds: 30,
     createdAt: now,
@@ -39,7 +39,7 @@ async function ensureNoopDefinition(db: MeristemDb): Promise<void> {
   }).onConflictDoUpdate({
     target: taskDefinitions.id,
     set: {
-      description: 'Phase 11 noop task',
+      description: 'Noop task definition',
       dangerLevel: 'medium',
       defaultTimeoutSeconds: 30,
       updatedAt: now
@@ -53,7 +53,7 @@ async function persistedPolicyDecisionId(db: MeristemDb, decisionId: string): Pr
 }
 
 /**
- * M-Task 的 PostgreSQL adapter 写入 Phase 11 canonical task 表组。
+ * M-Task 的 PostgreSQL adapter 写入 canonical task 表组。
  * Core 旧 tasks 表只保留历史兼容，不再作为任务生命周期事实来源。
  */
 export function createDbMTaskStorage(db: MeristemDb): MTaskDeps['storage'] {

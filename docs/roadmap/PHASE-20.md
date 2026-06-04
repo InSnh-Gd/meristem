@@ -123,7 +123,7 @@ join stem and leaf where allowed
 submit noop task through M-Task
 view task status
 cancel queued task
-exercise retry not_implemented_for_phase path
+exercise retry not_implemented_yet path
 read timeline
 read audit as security-admin
 run approval flow for supported M-Task operation

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import type { FullLogSearchQuery, TimelineSearchQuery, AuditSearchQuery } from '../../packages/contracts/src/index.ts'
 
-// Phase 10 搜索契约门禁：查询类型必须满足 PHASE-10.md §6 的约束。
-describe('Phase 10 OpenSearch search contracts', () => {
+// 搜索契约门禁：查询类型必须满足 OpenSearch 约束。
+describe('OpenSearch search contracts', () => {
   it('accepts a minimal FullLogSearchQuery', () => {
     const query: FullLogSearchQuery = {}
     expect(query).toBeDefined()

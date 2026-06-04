@@ -6,7 +6,6 @@ const RETRY_BACKOFF_MS = [1000, 2000, 4000, 8000] // 1s, 2s, 4s, 8s
 
 /**
  * Builds the OpenSearch document id used for idempotent projection writes.
- * Source: docs/roadmap/PHASE-10.1.md §2.2.
  */
 export function idempotencyKey(index: string, factId: string): string {
   return `${index}:${factId}:1`

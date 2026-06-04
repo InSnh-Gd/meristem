@@ -44,7 +44,7 @@ function hasSafeText(value: unknown): value is string {
 }
 
 /**
- * M-Extension manifest 校验是纯函数：先执行 Phase 15 风险和权限规则，再交给 Effect Schema 锁定版本化形状。
+ * M-Extension manifest 校验是纯函数：先执行风险和权限规则，再交给 Effect Schema 锁定版本化形状。
  */
 export function validateExtensionManifest(value: unknown): ManifestValidationResult {
   if (!isRecord(value)) {
@@ -53,7 +53,7 @@ export function validateExtensionManifest(value: unknown): ManifestValidationRes
 
   const riskClass = value.riskClass
   if (riskClass === 'high' || riskClass === 'critical') {
-    return { ok: false, code: 'extension.manifest.risk_unsupported', message: 'high and critical risk manifests are not supported in Phase 15' }
+    return { ok: false, code: 'extension.manifest.risk_unsupported', message: 'high and critical risk manifests are not supported' }
   }
 
   if (typeof value.id !== 'string' || !extensionIdPattern.test(value.id)) {
@@ -80,7 +80,7 @@ export function validateExtensionManifest(value: unknown): ManifestValidationRes
 
   const unsupportedFutureField = unsupportedFutureFields.find((field) => Reflect.has(value, field))
   if (unsupportedFutureField) {
-    return { ok: false, code: 'extension.manifest.future_field_unsupported', message: `${unsupportedFutureField} is declared but not accepted in Phase 15` }
+    return { ok: false, code: 'extension.manifest.future_field_unsupported', message: `${unsupportedFutureField} is declared but not accepted in the current version` }
   }
 
   try {
@@ -101,10 +101,7 @@ export function validateExtensionManifest(value: unknown): ManifestValidationRes
       riskClass: manifest.riskClass,
       lifecycleStatus: manifest.lifecycleStatus,
       controlPlaneOnly: true,
-      ...(manifest.futureEntrypoint ? { futureEntrypoint: manifest.futureEntrypoint } : {}),
-      ...(manifest.futureRuntime ? { futureRuntime: manifest.futureRuntime } : {}),
-      ...(manifest.futureWebhookVerification ? { futureWebhookVerification: manifest.futureWebhookVerification } : {}),
-      ...(manifest.futureResourceLimits ? { futureResourceLimits: { ...manifest.futureResourceLimits } } : {}),
+      
       ...(manifest.createdAt ? { createdAt: manifest.createdAt } : {}),
       ...(manifest.updatedAt ? { updatedAt: manifest.updatedAt } : {})
     }

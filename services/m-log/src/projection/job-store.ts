@@ -10,7 +10,6 @@ import type { ProjectionDatabase } from './types.ts'
 
 /**
  * Creates a projection job-store facade over the authoritative PostgreSQL job table.
- * Source: docs/roadmap/PHASE-10.1.md §2.1.
  */
 export function createJobStore(db: ProjectionDatabase) {
   async function createJob(

@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia'
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName, validateInternalRequest } from '../../../../packages/internal-http/src/index.ts'
+import { redactSecrets } from '../../../../packages/common/src/secret-redaction.ts'
 import { CoreError } from '../core-error.ts'
 import { correlationIdFromHeader } from '../errors.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
@@ -277,10 +278,13 @@ async function writeConfigAudit(
   }
 }
 
-function validateConfigInternalRequest(headers: Record<string, string | undefined>, correlationId: string) {
-  const result = headers[internalTokenHeaderName]
-    ? { ok: true as const }
-    : validateInternalRequest(headers)
+function validateConfigInternalRequest(request: Request, correlationId: string) {
+  const tokenValue = request.headers.get(internalTokenHeaderName)
+  const result = process.env.MERISTEM_INTERNAL_TOKEN
+    ? validateInternalRequest(request.headers)
+    : tokenValue
+      ? { ok: true as const }
+      : { ok: false as const, error: { code: 'internal.unauthorized', message: 'invalid internal token' } }
 
   if (!result.ok) {
     const status = result.error.code === 'internal.unavailable' ? 503 : 401
@@ -422,9 +426,9 @@ export const config = (deps: CoreDeps) => new Elysia({ prefix: '/api/v0/configs'
  * Internal apply-ack 只信任内部 token，并把领域服务回执转换为 ConfigPort 的统一 ack 输入。
  */
 export const configApplyAck = (deps: CoreDeps) => new Elysia({ prefix: '/internal/v0/configs' })
-  .post('/:id/apply-ack', async ({ params, body, headers }) => {
+  .post('/:id/apply-ack', async ({ params, body, headers, request }) => {
     const correlationId = correlationIdFromHeader(headers['x-correlation-id'])
-    validateConfigInternalRequest(headers, correlationId)
+    validateConfigInternalRequest(request, correlationId)
     const ackInput = normalizeAckInput(body)
     const result = await deps.config.applyAck(params.id, {
       version: ackInput.version,
@@ -443,8 +447,8 @@ export const configApplyAck = (deps: CoreDeps) => new Elysia({ prefix: '/interna
         ackedBy: ackInput.targetService,
         status: result.value.status as AckStatus,
         ackedAt: result.value.ackedAt,
-        ...(body.errorCode ? { errorCode: body.errorCode } : {}),
-        ...(body.errorMessage ? { errorMessage: body.errorMessage } : {})
+        ...(body.errorCode ? { errorCode: redactSecrets(body.errorCode) } : {}),
+        ...(body.errorMessage ? { errorMessage: redactSecrets(body.errorMessage) } : {})
       }
     }
   }, {

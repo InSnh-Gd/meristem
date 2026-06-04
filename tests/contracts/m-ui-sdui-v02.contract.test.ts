@@ -5,7 +5,7 @@ import {
   SduiV02RouteSchema
 } from '../../packages/contracts/src/schemas/ui.ts'
 
-const requiredPhase14RouteIds = [
+const requiredSduiV02RouteIds = [
   'control-room.overview',
   'nodes.index',
   'nodes.detail',
@@ -92,10 +92,10 @@ describe('SDUI v0.2 route schema', () => {
     }
   })
 
-  it('route registry contains required Phase 14 route IDs', () => {
+  it('route registry contains required SDUI v0.2 route IDs', () => {
     const registry = {
       schemaVersion: 'sdui@0.2.0',
-      routes: requiredPhase14RouteIds.map((id) => ({
+      routes: requiredSduiV02RouteIds.map((id) => ({
         ...validRouteV02,
         id
       }))
@@ -106,14 +106,14 @@ describe('SDUI v0.2 route schema', () => {
 
     // Bun 的 toEqual 重载在 strict 模式下不接受 readonly tuple；
     // 展开为普通字符串列表进行比较，语义不变且消除 TS2769。
-    expect(routeIds).toEqual([...requiredPhase14RouteIds])
+    expect(routeIds).toEqual([...requiredSduiV02RouteIds])
     expect(new Set(routeIds).size).toBe(7)
   })
 
   it('every route declares state sources', () => {
     const registry = {
       schemaVersion: 'sdui@0.2.0',
-      routes: requiredPhase14RouteIds.map((id) => ({
+      routes: requiredSduiV02RouteIds.map((id) => ({
         ...validRouteV02,
         id
       }))

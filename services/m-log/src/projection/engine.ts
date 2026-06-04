@@ -1,6 +1,5 @@
-// M-Log Projection Engine：投影平台核心 facade。
-// Phase 10.1 实现 job、cursor、retry/DLQ、health 和 backfill；A-004 将内部模块拆深。
-// 来源：docs/roadmap/PHASE-10.1.md、docs/plans/2026-05-23-architecture-review-register.md A-004
+// M-Log Projection Engine：投影平台核心 facade，实现 job、cursor、retry/DLQ、health 和 backfill。
+// A-004 将内部模块拆深。
 
 import { createBackfillService } from './backfill.ts'
 import { createCursorStore } from './cursor-store.ts'

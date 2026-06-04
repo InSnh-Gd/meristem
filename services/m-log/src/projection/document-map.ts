@@ -18,7 +18,6 @@ type FactRow = {
 
 /**
  * Maps PostgreSQL log facts into OpenSearch projection documents.
- * Source: docs/roadmap/PHASE-10.1.md document projection behavior.
  */
 export function mapFactToDoc(index: string, row: FactRow): Record<string, unknown> {
   const timestamp = row.timestamp ? (row.timestamp as Date).toISOString() : new Date().toISOString()

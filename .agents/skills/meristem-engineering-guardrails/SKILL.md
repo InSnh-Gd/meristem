@@ -123,6 +123,17 @@ Meristem 采用 `ADR-016: Effect Without Effect Everywhere`：
 - 测试文件与源文件同目录或 `__tests__/` 子目录。
 - 目录命名使用 kebab-case，反映功能域或模块边界。
 
+## Phase 字段禁令
+
+**代码、文件名和代码注释中禁止出现任何与 `phase` 字段相关的内容。**
+
+- 禁止在变量名、常量名、类型名、接口字段、配置键、事件名、API 参数或数据库列名中使用 `phase` 及其变体（如 `phaseId`、`phaseName`、`currentPhase` 等）。
+- 禁止在源文件名、目录名、测试文件名中使用 `phase` 及其变体。
+- 禁止在代码注释中提及 `phase` 概念或引用 phase 相关文档章节号；代码注释只对当前代码块的逻辑、边界和原因进行描述，不承载项目管理或阶段信息。
+- 如果业务需要表达“阶段”语义，应使用领域特定词汇（如 `stage`、`step`、`period`、`lifecycleState` 等），并在契约中显式定义其含义。
+
+**本禁令不适用于文档文件**（如 `MERISTEM.md`、`MERISTEM-DEV.md`、`MERISTEM-ROADMAP.md`、ADR、设计文档、`docs/` 下的说明文档等）。文档仍可按产品管理需要使用 `phase` 描述项目阶段、路线图和里程碑。
+
 ## 完成标准
 
 任何核心能力完成前，必须满足：

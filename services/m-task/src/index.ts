@@ -10,7 +10,7 @@ import { createInMemoryMTaskDeps } from './testing.ts'
 
 initTelemetry('m-task')
 
-// Phase 11 先把任务权威状态落到 M-Task 表组；其他端口继续保持轻量边界，
+// 先把任务权威状态落到 M-Task 表组；其他端口继续保持轻量边界，
 // 后续 hardening slice 再替换为真实跨服务客户端。
 const { db, client } = createDb()
 const deps = createInMemoryMTaskDeps({ actor: 'operator' })

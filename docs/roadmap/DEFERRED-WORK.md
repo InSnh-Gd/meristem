@@ -237,7 +237,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 11 and Phase 12 keep retry as policy-aware `not_implemented_for_phase`.
+- Phase 11 and Phase 12 keep retry as policy-aware `not_implemented_yet`.
 - Real retry requires task attempts, leases, idempotency, backoff, and worker coordination semantics.
 
 Reopen trigger:

@@ -38,7 +38,7 @@ export type MNetAppDeps = {
   joinNetwork(input: { networkId: string; nodeId: string }): Promise<MNetServiceResult<MNetworkMember>>
   listMembers(input: { networkId: string }): Promise<MNetServiceResult<MNetworkMember[]>>
   executeNoop(input: { nodeId: string; taskId: string; correlationId: string }): Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>>
-  // Phase 13 deps (optional for feature flag)
+  // profile deps (optional for feature flag)
   profileStore?: {
     getDefinitions(): Promise<MNetRegionalProfile[]>
     getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>
@@ -295,7 +295,7 @@ export function createMNetApp(deps: MNetAppDeps) {
           503: internalErrorSchema
         })
       })
-      // Phase 13: M-Policy 内部回调 resume/reject 挂起操作
+      // M-Policy 内部回调 resume/reject 挂起操作
       .post('/network-profile-operations/:id/resume', async ({ params, headers, status }) => {
         const unauthorized = requireInternal(headers, status)
         if (unauthorized) return unauthorized
@@ -425,7 +425,7 @@ export function createMNetApp(deps: MNetAppDeps) {
 
         return { status: 'rejected', operationId: params.id }
       }))
-    // Phase 13 对外 REST API: 网络 Profile 查询与切换（JWT Bearer Auth）
+    // 对外 REST API: 网络 Profile 查询与切换（JWT Bearer Auth）
     .group('/api/v0', (app) => app
       .get('/network-profiles', async ({ headers, set }) => {
         const actor = await verifyBearerAuth(headers)
@@ -568,7 +568,7 @@ export function createMNetApp(deps: MNetAppDeps) {
             return externalApiError(set, 403, 'policy.denied', `profile disable denied: ${disablePolicy.reasons.join(', ')}`)
           }
 
-          // Audit before mutation per PHASE-13 §9
+          // Audit before mutation
           await deps.log?.writeAudit(actor, 'mnet.profile.disable.request', `network:${params.id}`, 'allow', disableCorrelationId, { fromVersion: state.profileVersion, toVersion: profileVersion, policyDecisionId: disablePolicy.id })
 
           await deps.profileStore.setNetworkState(params.id, { profileVersion, status: 'disabled' })

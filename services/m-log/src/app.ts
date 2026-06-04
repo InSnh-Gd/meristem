@@ -11,7 +11,7 @@ type ReloadInput = {
   reason?: string
 }
 
-// Phase 10 搜索端口：M-Log 内部 search deps，由 Core 通过内部 HTTP 调用。
+// 搜索端口：M-Log 内部 search deps，由 Core 通过内部 HTTP 调用。
 export type SearchDeps = {
   full(query: FullLogSearchQuery): Promise<LogSearchResult<FullLog> | null>
   timeline(query: TimelineSearchQuery): Promise<LogSearchResult<TimelineLog> | null>
@@ -19,7 +19,7 @@ export type SearchDeps = {
   isAvailable(): boolean
 }
 
-// Phase 10.1 投影端口：projection engine 暴露给 API 层的操作。
+// 投影端口：projection engine 暴露给 API 层的操作。
 export type ProjectionDeps = {
   getProjectionHealth(): Promise<ProjectionHealth[]>
   executeBackfill(params: BackfillParams): Promise<BackfillResult>
@@ -38,9 +38,7 @@ export type LogAppDeps = {
   listFull(limit?: number): Promise<FullLog[]>
   listAudit(limit?: number): Promise<AuditLog[]>
   reload(input: ReloadInput): Promise<{ serviceId: string; reloadedAt: string }>
-  // Phase 10
   search: SearchDeps
-  // Phase 10.1
   projection: ProjectionDeps
 }
 
@@ -51,7 +49,7 @@ const internalErrorSchema = t.Object({
   })
 })
 
-// Phase 10: /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
+// /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
 const readyResponseSchema = t.Object({
   ready: t.Boolean(),
   opensearch: t.Union([t.Literal('ready'), t.Literal('unavailable')])
@@ -108,7 +106,7 @@ const degradedSearchSchema = t.Object({
   })
 })
 
-// ---- Phase 10.1 projection schemas ----
+// ---- projection schemas ----
 
 const projectionHealthSchema = t.Object({
   index: t.String(),
@@ -190,9 +188,7 @@ const auditSearchQuery = t.Object({
 })
 
 /**
- * M-Log 对内统一暴露 Timeline / Full / Audit 写入、查询、搜索，以及生命周期 reload。
- * Phase 10 新增内部搜索路由。
- * Phase 10.1 新增投影健康、backfill、DLQ 路由。
+ * M-Log 对内统一暴露 Timeline / Full / Audit 写入、查询、搜索、投影健康、backfill、DLQ，以及生命周期 reload。
  */
 export function createLogApp(deps: LogAppDeps) {
   return new Elysia()
@@ -352,7 +348,7 @@ export function createLogApp(deps: LogAppDeps) {
         503: internalErrorSchema
       }
     })
-    // Phase 10 内部搜索路由
+    // 内部搜索路由
     .get('/internal/v0/search/full', async ({ query, headers, status }) => {
       const auth = validateInternalRequest(headers)
       if (!auth.ok) return status(401, { error: auth.error })
@@ -436,7 +432,7 @@ export function createLogApp(deps: LogAppDeps) {
         503: degradedSearchSchema
       }
     })
-    // ---- Phase 10.1 投影路由 ----
+    // ---- 投影路由 ----
     // §2.6 投影健康端点：lagSeconds、lastProjectedAt、pendingCount
     .get('/internal/v0/projection/health', async ({ headers, status }) => {
       const auth = validateInternalRequest(headers)

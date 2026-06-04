@@ -5,7 +5,6 @@ import type { ProjectionDatabase } from './types.ts'
 
 /**
  * Creates the cursor-store facade for projection checkpoint persistence.
- * Source: docs/roadmap/PHASE-10.1.md §2.3.
  */
 export function createCursorStore(db: ProjectionDatabase) {
   async function getCursor(index: string): Promise<ProjectionCursor | null> {

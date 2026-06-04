@@ -5,7 +5,7 @@ import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-task/src/suspended-operations.ts'
 import type { ActorId } from '../../packages/contracts/src/index.ts'
 
-describe('Phase 12 approval failure modes', () => {
+describe('Approval execution failure modes', () => {
   it('audit log unavailable fails approval vote closed', async () => {
     const approval = createTestApproval({ requestedBy: 'operator', requiredAction: 'manual_review', quorumRequired: 1 })
     const routes = createApprovalRoutes({

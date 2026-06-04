@@ -162,7 +162,7 @@ Audit is defined by M-Task action and outcome rules. High risk alone does not cr
 - M-Task publishes canonical `task.*.v0` lifecycle events through M-EventBus.
 - M-Task coordinates delivery through M-Net and never calls node-agent sessions directly.
 - `submit`, best-effort `cancel`, and timeout worker behavior are implemented.
-- `retry` returns a policy-aware `not_implemented_for_phase` response without executing retry.
+- `retry` returns a policy-aware `not_implemented_yet` response without executing retry.
 - Approval-required operations create `task_suspended_operations`, call M-Policy approval creation, and publish `task.operation.suspended.v0`.
 - Approved callbacks transition suspended operations to `resumed` or `resume_failed`; rejected callbacks transition to `rejected` without executing the original operation.
 - Timeline / Full / Audit behavior follows this Service Definition.

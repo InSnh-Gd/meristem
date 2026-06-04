@@ -61,12 +61,12 @@ describe('mnet profile CLI commands', () => {
       '--profile',
       'm-net-canary@0.2.0',
       '--reason',
-      'phase-13-rollout'
+      'm-net-cn-rollout'
     ])
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('"accepted": true')
-    expect(calls).toEqual(['network:profile:enable:net-1:m-net-canary@0.2.0:phase-13-rollout'])
+    expect(calls).toEqual(['network:profile:enable:net-1:m-net-canary@0.2.0:m-net-cn-rollout'])
   })
 
   it('network profile disable calls disableNetworkProfile with required flags', async () => {

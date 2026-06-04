@@ -113,7 +113,7 @@ describe('Identity v0.2 failure modes', () => {
 
     // Revoke it
     await app.handle(
-      new Request(`http://api/v0/identity/tokens/${issueBody.jti}/revoke`, {
+      new Request(`http://localhost/api/v0/identity/tokens/${issueBody.jti}/revoke`, {
         method: 'POST',
         headers: {
           authorization: 'Bearer security-admin-token',
@@ -125,7 +125,7 @@ describe('Identity v0.2 failure modes', () => {
 
     // Inspect the revoked token
     const inspectResponse = await app.handle(
-      new Request(`http://api/v0/identity/tokens/${issueBody.jti}`, {
+      new Request(`http://localhost/api/v0/identity/tokens/${issueBody.jti}`, {
         headers: { authorization: 'Bearer security-admin-token' }
       })
     )
@@ -136,14 +136,14 @@ describe('Identity v0.2 failure modes', () => {
     const inspectBody = await inspectResponse.json() as {
       jti: string
       status: string
-      revokeReason: string
+      revokeReason?: string
     }
 
     // Inspection must show revoked status but never the token plaintext.
     expect(inspectBody.status).toBe('revoked')
     expect(inspectBody.revokeReason).toBe('IDY-FM-REVOKE inspection test')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((inspectBody as any).token).toBeUndefined()
+    // Token plaintext must never appear in inspection response.
+    expect(inspectBody).not.toHaveProperty('token')
   })
 
   // ── Introspection unavailable fail-closed ─────────────────────────────
@@ -211,8 +211,7 @@ describe('Identity v0.2 failure modes', () => {
     expect(body.jti).toBe('IDY-FM-INTROSPECT-jti-001')
     expect(typeof body.active).toBe('boolean')
     // Token plaintext must never appear in introspection response.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((body as any).token).toBeUndefined()
+    expect(body).not.toHaveProperty('token')
   })
 
   // ── Authorization: only security-admin can issue/revoke ───────────────
@@ -353,7 +352,7 @@ describe('Identity v0.2 failure modes', () => {
 
     // Revoke
     await app.handle(
-      new Request(`http://api/v0/identity/tokens/${issueBody.jti}/revoke`, {
+      new Request(`http://localhost/api/v0/identity/tokens/${issueBody.jti}/revoke`, {
         method: 'POST',
         headers: {
           authorization: 'Bearer security-admin-token',

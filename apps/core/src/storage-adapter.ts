@@ -447,6 +447,16 @@ export function createConfigStore(db: MeristemDb) {
         .limit(1)
       return row ? mapConfigAckRow(row) : null
     },
+    async listAcks(configId: string, version?: string): Promise<ConfigAckRecord[]> {
+      const rows = await db
+        .select()
+        .from(configApplyAcks)
+        .where(and(
+          eq(configApplyAcks.configId, configId),
+          ...(version ? [eq(configApplyAcks.version, version)] : [])
+        ))
+      return rows.map(mapConfigAckRow)
+    },
     async getVersion(configId: string, version: string): Promise<ConfigVersionRecord | null> {
       const [row] = await db
         .select()

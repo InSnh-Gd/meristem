@@ -15,7 +15,7 @@ type ProjectionClient = {
 }
 
 /**
- * Phase 10.1 Projection HTTP adapter: Core -> M-Log internal projection endpoints.
+ * Projection HTTP adapter: Core -> M-Log internal projection endpoints.
  * All methods call M-Log internal HTTP, never directly touch PostgreSQL or OpenSearch.
  */
 export function createHttpProjectionPort() {

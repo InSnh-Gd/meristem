@@ -273,7 +273,7 @@ task.cancel:
   cancel has not already been requested or applied
 
 task.retry:
-  approval can succeed, but Phase 12A still returns not_implemented_for_phase unless retry execution is explicitly moved into scope later
+  approval can succeed, but Phase 12A still returns not_implemented_yet unless retry execution is explicitly moved into scope later
 ```
 
 Resume does not rerun full M-Policy risk scoring. If material state changed, the origin service rejects resume with a stale / invalid / idempotency error, writes Full Log, and writes the required Audit fact.
@@ -364,7 +364,7 @@ Phase 12A excludes:
 - approval for Core node registration, M-Net profiles, projection control actions, service reload, config publish, secret rotation, or extension registration.
 - configurable approval policies or approver groups.
 - request replay from HTTP logs.
-- retry execution semantics beyond policy-aware `not_implemented_for_phase`.
+- retry execution semantics beyond policy-aware `not_implemented_yet`.
 - Redis / KeyDB queues, distributed locks, leases, or general workflow engines.
 
 ---

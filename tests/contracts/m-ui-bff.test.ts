@@ -449,7 +449,7 @@ describe('M-UI BFF contract tests', () => {
   })
 })
 
-describe('Phase 14 BFF routes', () => {
+describe('SDUI v0.2 BFF routes', () => {
   it('GET /api/v0/routes returns route registry', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
     const coreApp = createCoreApp(deps)
@@ -588,7 +588,7 @@ describe('Phase 14 BFF routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'leaf', name: 'phase-14-eligibility-leaf', mode: 'simulated' })
+        body: JSON.stringify({ kind: 'leaf', name: 'sdui-v02-eligibility-leaf', mode: 'simulated' })
       })
     )
     const leafId = ((await regRes.json()) as { node: { id: string } }).node.id
@@ -626,7 +626,7 @@ describe('Phase 14 BFF routes', () => {
           authorization: 'Bearer operator-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'leaf', name: 'phase-14-execute-leaf', mode: 'simulated' })
+        body: JSON.stringify({ kind: 'leaf', name: 'sdui-v02-execute-leaf', mode: 'simulated' })
       })
     )
     const leafId = ((await regRes.json()) as { node: { id: string } }).node.id
@@ -655,7 +655,7 @@ describe('Phase 14 BFF routes', () => {
   })
 })
 
-describe('Phase 14 BFF OpenAPI', () => {
+describe('SDUI v0.2 BFF OpenAPI', () => {
   it('OpenAPI exposes only UI-facing BFF routes', async () => {
     const app = createMUiBffApp({ coreBaseUrl: CORE_BASE })
 

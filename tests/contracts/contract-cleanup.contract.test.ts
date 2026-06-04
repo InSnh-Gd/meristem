@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 const contractsTypesUrl = new URL('../../packages/contracts/src/types.ts', import.meta.url)
 
-describe('Phase 8 contract cleanup', () => {
+describe('Session transport contract cleanup', () => {
   it('does not reintroduce token-bearing node-agent runtime payload aliases in shared contracts', async () => {
     const source = await Bun.file(contractsTypesUrl).text()
 

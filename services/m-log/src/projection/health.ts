@@ -11,7 +11,6 @@ type CursorReader = {
 
 /**
  * Creates projection health calculation and metric recording.
- * Source: docs/roadmap/PHASE-10.1.md degraded-state observability.
  */
 export function createProjectionHealthService(db: ProjectionDatabase, os: ProjectionOpenSearch, cursors: CursorReader) {
   async function getProjectionHealth(): Promise<ProjectionHealth[]> {

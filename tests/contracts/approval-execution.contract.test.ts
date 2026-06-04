@@ -5,7 +5,7 @@ import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-task/src/suspended-operations.ts'
 import type { ActorId, PolicyApproval } from '../../packages/contracts/src/index.ts'
 
-// Phase 12 审批流程契约测试：覆盖 quorum 规则、自审批拒绝、重复投票拒绝、过期处理。
+// 审批流程契约测试：覆盖 quorum 规则、自审批拒绝、重复投票拒绝、过期处理。
 
 function createTestApprovalRoutes(options: {
   actor?: ActorId
@@ -43,7 +43,7 @@ function createTestApprovalRoutes(options: {
   return { routes, store, timeline, fullLog, auditLog, published }
 }
 
-describe('Phase 12 Approval contract', () => {
+describe('Approval execution contract', () => {
   it('lists pending approvals', async () => {
     const approval = createTestApproval({ status: 'pending' })
     const { routes } = createTestApprovalRoutes({ approvals: [approval] })
@@ -225,7 +225,7 @@ describe('Phase 12 Approval contract', () => {
   })
 })
 
-describe('Phase 12 M-Task resume contract', () => {
+describe('M-Task resume contract', () => {
   it('resume fails on non-existent suspended operation', async () => {
     const deps = createInMemoryMTaskDeps({ actor: 'operator' })
     process.env.MERISTEM_INTERNAL_TOKEN = process.env.MERISTEM_INTERNAL_TOKEN ?? 'test-internal-token'
@@ -381,7 +381,7 @@ describe('Phase 12 M-Task resume contract', () => {
   })
 })
 
-describe('Phase 12 internal approval and reject', () => {
+describe('Internal approval and reject', () => {
   it('onRejected callback fires when approval is rejected', async () => {
     const approval = createTestApproval({ requiredAction: 'manual_review', quorumRequired: 1 })
     let rejectedCallback: PolicyApproval | null = null

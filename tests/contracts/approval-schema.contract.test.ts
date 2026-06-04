@@ -4,7 +4,7 @@ import { ApprovalStatusSchema, ApprovalVoteTypeSchema, PolicyApprovalSchema, Pol
 import { createApprovalRoutes, createInMemoryApprovalStore, createTestApproval } from '../../services/m-policy/src/approvals.ts'
 import type { ActorId } from '../../packages/contracts/src/index.ts'
 
-describe('Phase 12 approval schema and RBAC drift', () => {
+describe('Approval schema and RBAC drift', () => {
   it('approval permissions are exported and mapped to security-admin', async () => {
     const { approvalPermissions, permissions } = await import('../../packages/contracts/src/literals.ts')
     const { rolePermissions } = await import('../../packages/policy/src/index.ts')
