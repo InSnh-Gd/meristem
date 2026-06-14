@@ -1,12 +1,12 @@
 import {
-  coreServiceScripts,
+  coreServiceCommands,
   prepareInfra,
   prepareWorkspace,
   profileFlagsFromArgv,
   runServiceGroup,
-  webUiServiceScripts
+  webUiServiceCommands
 } from './local-stack-runtime.ts'
 
 await prepareInfra(profileFlagsFromArgv())
 await prepareWorkspace()
-await runServiceGroup([...coreServiceScripts, ...webUiServiceScripts])
+await runServiceGroup([...coreServiceCommands, ...webUiServiceCommands])

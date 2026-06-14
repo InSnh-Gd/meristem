@@ -1,6 +1,6 @@
 import {
-  coreServiceScripts,
-  deployedWebUiServiceScripts,
+  coreServiceCommands,
+  deployedWebUiServiceCommands,
   prepareInfra,
   prepareWorkspace,
   profileFlagsFromArgv,
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
     return
   }
 
-  const services = [...coreServiceScripts, ...deployedWebUiServiceScripts]
+  const services = [...coreServiceCommands, ...deployedWebUiServiceCommands]
 
   console.log('Meristem local deployment started:')
   console.log('- Core: http://127.0.0.1:3000')

@@ -1,5 +1,5 @@
 import {
-  coreServiceScripts,
+  coreServiceCommands,
   prepareInfra,
   prepareWorkspace,
   profileFlagsFromArgv,
@@ -8,4 +8,4 @@ import {
 
 await prepareInfra(profileFlagsFromArgv())
 await prepareWorkspace()
-await runServiceGroup(coreServiceScripts)
+await runServiceGroup(coreServiceCommands)

@@ -1,3 +1,3 @@
-import { runServiceGroup, webUiServiceScripts } from './local-stack-runtime.ts'
+import { runServiceGroup, webUiServiceCommands } from './local-stack-runtime.ts'
 
-await runServiceGroup(webUiServiceScripts)
+await runServiceGroup(webUiServiceCommands)
