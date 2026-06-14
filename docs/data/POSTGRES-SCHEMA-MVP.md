@@ -1,6 +1,6 @@
 # PostgreSQL Schema MVP
 
-> PostgreSQL is the authoritative state source for the MVP. This document defines the minimum logical schema; implementation may use migrations generated from these definitions.
+> PostgreSQL is the authoritative state source for the MVP. For Phase 20, `packages/db/src/schema.ts` and `packages/db/src/migrate.ts` are the authority for table shape. This document is backfilled from those sources; when they disagree, the code and migrations win.
 
 ---
 
@@ -20,12 +20,14 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 
 | Owner | Tables |
 |-------|--------|
-| Core | `nodes`, `node_credentials`, `service_definitions`, `tasks` historical compatibility table |
+| Core | `nodes`, `node_credentials`, `node_join_tickets`, `service_definitions`, `tasks` (historical compatibility table), `actors`, `actor_tokens`, `actor_token_revocations` |
 | M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
-| M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` | Phase 10.1 投影平台表
+| M-Secret | `secret_refs`, `secret_ref_versions`, `secret_ref_transitions` |
+| M-Config | `config_records`, `config_versions`, `config_transitions`, `config_apply_acks` |
+| M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` |
 
 ### `users`
 
@@ -108,6 +110,52 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `redeemed_at` | timestamptz nullable | UTC |
 | `redeemed_node_id` | text nullable | references `nodes.id` |
 
+### Phase 17 Identity Hardening Tables
+
+#### `actors`
+
+Core-owned actor registry for local-mode identity hardening.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | actor ID |
+| `display_name` | text | human label |
+| `status` | text | actor lifecycle status |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `actor_tokens`
+
+Core-issued actor bearer token lifecycle, scoped by JTI.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `jti` | text primary key | token JWT ID |
+| `actor_id` | text | references `actors.id` |
+| `issuer` | text | token issuer |
+| `audience` | text | token audience |
+| `issued_at` | timestamptz | UTC |
+| `expires_at` | timestamptz | UTC |
+| `issued_by` | text | issuing actor ID |
+| `purpose` | text | token purpose label |
+| `status` | text | token lifecycle status |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+Unique index: `actor_tokens_jti_unique` on `jti`.
+
+#### `actor_token_revocations`
+
+Permanent token revocation records.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `jti` | text primary key | references `actor_tokens.jti` |
+| `revoked_at` | timestamptz | UTC |
+| `revoked_by` | text | revoking actor ID |
+| `reason` | text | revocation reason |
+| `correlation_id` | text nullable | request correlation |
+
 ### `service_definitions`
 
 | Column | Type | Notes |
@@ -120,7 +168,9 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `created_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
 
-### `tasks` historical compatibility table
+### `tasks`
+
+Historical compatibility table.
 
 Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` remains only for pre-cutover compatibility and must not be used as the canonical task state source.
 
@@ -350,6 +400,125 @@ Unique constraint: `(extension_id, scope_type, scope_id)` — Phase 15 permits o
 
 M-Extension tables are authoritative for Phase 15 extension definition and instance state. They must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state.
 
+### Phase 18 SecretRef Tables
+
+#### `secret_refs`
+
+Control-plane secret reference registry. Secret values are never stored here; only metadata and version pointers are kept.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | secret reference ID |
+| `name` | text | operator-visible secret name |
+| `scope` | text | secret scope |
+| `status` | text | lifecycle status |
+| `created_by` | text | creating actor ID |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `metadata` | jsonb | non-secret metadata |
+
+#### `secret_ref_versions`
+
+Versioned secret ciphertext for a secret reference.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | version row ID |
+| `secret_ref_id` | text | references `secret_refs.id` |
+| `version` | text | version label |
+| `value_ciphertext` | text | encrypted secret value |
+| `created_by` | text | creating actor ID |
+| `created_at` | timestamptz | UTC |
+| `disabled_at` | timestamptz nullable | set when version is disabled |
+
+#### `secret_ref_transitions`
+
+Lifecycle transition audit for secret references.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition row ID |
+| `secret_ref_id` | text | references `secret_refs.id` |
+| `from_status` | text | previous status |
+| `to_status` | text | next status |
+| `actor` | text | actor ID |
+| `reason` | text nullable | transition cause |
+| `policy_decision_id` | text nullable | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `created_at` | timestamptz | UTC |
+
+### Phase 19 Config Lifecycle Tables
+
+#### `config_records`
+
+Top-level config lifecycle record. Tracks draft, publish, apply, and rollback states.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | config record ID |
+| `config_version` | text | config semantic version |
+| `schema_version` | text | config schema version |
+| `config_hash` | text | hash of the canonical config payload |
+| `domain` | text | config domain |
+| `target_scope` | jsonb | scope selector |
+| `status` | text | lifecycle status |
+| `payload` | jsonb | canonical config payload |
+| `created_by` | text | creating actor ID |
+| `created_at` | timestamptz | UTC |
+| `published_by` | text nullable | publishing actor ID |
+| `published_at` | timestamptz nullable | UTC |
+| `rollback_version` | text nullable | previous version to roll back to |
+| `updated_at` | timestamptz | UTC |
+
+#### `config_versions`
+
+Immutable published versions of a config record.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | version row ID |
+| `config_id` | text | references `config_records.id` |
+| `version` | text | version label |
+| `config_hash` | text | hash of the version payload |
+| `payload` | jsonb | version payload |
+| `status` | text | version status |
+| `created_by` | text | creating actor ID |
+| `created_at` | timestamptz | UTC |
+
+#### `config_transitions`
+
+Config status transition audit.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | transition row ID |
+| `config_id` | text | references `config_records.id` |
+| `from_status` | text | previous status |
+| `to_status` | text | next status |
+| `actor` | text | actor ID |
+| `reason` | text nullable | transition cause |
+| `policy_decision_id` | text nullable | references `policy_decisions.id` |
+| `correlation_id` | text nullable | request correlation |
+| `created_at` | timestamptz | UTC |
+
+#### `config_apply_acks`
+
+Per-target-service apply acknowledgement tracking.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | ack row ID |
+| `config_id` | text | references `config_records.id` |
+| `version` | text | config version being applied |
+| `target_service` | text | service that must acknowledge |
+| `status` | text | ack lifecycle status |
+| `error` | text nullable | failure reason |
+| `acked_at` | timestamptz nullable | UTC |
+| `expires_at` | timestamptz nullable | UTC |
+| `created_at` | timestamptz | UTC |
+
+Unique index: `config_apply_acks_service_unique` on `(config_id, target_service)`.
+
 ### `policy_decisions`
 
 | Column | Type | Notes |
@@ -400,9 +569,53 @@ M-Extension tables are authoritative for Phase 15 extension definition and insta
 | `trace_id` | text nullable | |
 | `payload` | jsonb nullable | secrets forbidden |
 
----
+### Phase 10.1 Projection Platform Tables
 
-### Phase 12 Approval Tables
+#### `projector_jobs`
+
+Projection job lifecycle.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | job ID |
+| `type` | text | `backfill`, `incremental`, or `repair` |
+| `index` | text | target OpenSearch index |
+| `start_cursor` | jsonb nullable | starting cursor |
+| `end_cursor` | jsonb nullable | ending cursor |
+| `batch_size` | integer | facts processed per batch |
+| `status` | text | `pending`, `running`, `completed`, `failed`, or `cancelled` |
+| `error` | text nullable | failure reason |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | UTC |
+
+#### `projection_cursors`
+
+Per-index projection cursor checkpoint.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `index` | text primary key | OpenSearch index name |
+| `fact_id` | text | last projected fact ID |
+| `timestamp` | timestamptz | UTC of the last projected fact |
+| `updated_at` | timestamptz | UTC |
+
+#### `projection_dlq`
+
+Projection dead-letter queue for failed facts.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | DLQ row ID |
+| `job_id` | text | originating projector job ID |
+| `fact_id` | text | failed fact ID |
+| `index` | text | target OpenSearch index |
+| `error` | text | failure reason |
+| `attempted_at` | jsonb | ISO8601 string array of retry timestamps |
+| `retries` | integer | retry count |
+| `created_at` | timestamptz | UTC |
+
+### Phase 12 Approval Flow Tables
 
 #### `policy_approvals`
 
