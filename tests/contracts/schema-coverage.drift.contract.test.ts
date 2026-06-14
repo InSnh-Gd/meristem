@@ -9,12 +9,17 @@ import {
   extractCatalogSubjects,
   extractCoverageMapActiveSubjects,
   extractCoverageMapDeferredSubjects,
+  activePublisherSchemaContracts,
   getActivePublisherSubjects,
   schemaCoverageMapUrl,
   sorted
 } from './_helpers/schema-coverage.ts'
 
-const nonCatalogLogSubjects = ['log.timeline.v0', 'log.full.v0'] as const
+const nonCatalogLogSubjects: readonly string[] = ['log.timeline.v0', 'log.full.v0']
+
+function isCatalogTrackedSubject(subject: string): boolean {
+  return !nonCatalogLogSubjects.some(nonCatalogSubject => nonCatalogSubject === subject)
+}
 
 const activeEventContractMap = new Map(
   [
@@ -22,14 +27,19 @@ const activeEventContractMap = new Map(
     ...mnetEventContracts,
     ...mTaskEventContracts,
     ...mPolicyEventContracts,
-    ...mExtensionEventContracts
+    ...mExtensionEventContracts,
+    ...activePublisherSchemaContracts
   ].map(({ subject, schema }) => [subject, schema] as const)
 )
 
 describe('active event payload schemas', () => {
   it('maps every active publisher subject to a contract schema', async () => {
     const activePublisherSubjects = await getActivePublisherSubjects()
-    expect(sorted(activePublisherSubjects)).toEqual(sorted(activeEventContractMap.keys()))
+    const activeCatalogPublisherSubjects = sorted(
+      Array.from(activePublisherSubjects).filter(isCatalogTrackedSubject)
+    )
+
+    expect(activeCatalogPublisherSubjects).toEqual(sorted(activeEventContractMap.keys()))
   })
 
   it('detects publish.post object-form subjects from real policy publishers', async () => {
@@ -47,9 +57,11 @@ describe('schema coverage map drift guards', () => {
       getActivePublisherSubjects()
     ])
 
-    expect(sorted(extractCoverageMapActiveSubjects(coverageMap))).toEqual(
-      sorted(activePublisherSubjects)
+    const activeCatalogPublisherSubjects = sorted(
+      Array.from(activePublisherSubjects).filter(isCatalogTrackedSubject)
     )
+
+    expect(sorted(extractCoverageMapActiveSubjects(coverageMap))).toEqual(activeCatalogPublisherSubjects)
   })
 
   it('marks every non-active catalog event as a Phase 20 deferred contract', async () => {

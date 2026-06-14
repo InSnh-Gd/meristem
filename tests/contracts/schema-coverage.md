@@ -44,6 +44,8 @@
 | `policy.approval.approved.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.rejected.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.expired.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
+| `policy.decision.created.v0` | `services/m-policy/src/index.ts` | `PolicyDecisionCreatedEventPayloadSchema` |
+| `audit.entry.created.v0` | `services/m-log/src/index.ts`, `services/m-policy/src/index.ts` | `AuditEntryCreatedEventPayloadSchema` |
 | `extension.definition.registered.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.definition.rejected.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.instance.enabled.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
@@ -97,9 +99,7 @@ These documented event catalog entries currently have **no real publisher** in t
 - `mnet.reachability.changed.v0`
 - `mnet.path.changed.v0`
 - `mnet.derp.fallback.changed.v0`
-- `policy.decision.created.v0`
 - `audit.lock.required.v0`
-- `audit.entry.created.v0`
 
 ## Explicit exclusions from this wave
 

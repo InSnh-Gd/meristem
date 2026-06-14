@@ -16,11 +16,19 @@ export type ResponseContract = {
   fixture: unknown
 }
 
+export type EventSchemaContract = EventContract & {
+  schema: Schema.Schema.AnyNoContext
+}
+
 export const schemaCoverageMapUrl = new URL('../schema-coverage.md', import.meta.url)
 export const eventCatalogUrl = new URL('../../../docs/events/EVENT-CATALOG.md', import.meta.url)
 
 const literalPublishSubjectPattern = /publish\(\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([^'"`]+\.v\d+)['"`]/g
+// Object-form internal event-bus publishers use `.publish.post({ subject: 'x.v0', event })`.
+// This scanner only extracts literal subjects from the call site; it does not resolve
+// computed variables, helper wrappers, or other dynamic subject construction.
+const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [
@@ -29,6 +37,23 @@ const policyApprovalDynamicSubjects = [
   'policy.approval.rejected.v0',
   'policy.approval.expired.v0'
 ] as const
+
+const policyDecisionCreatedEventSchema = Schema.Struct({
+  decisionId: Schema.String,
+  actor: Schema.String,
+  action: Schema.String,
+  resource: Schema.String,
+  result: Schema.String,
+  reasons: Schema.Array(Schema.String)
+})
+
+const auditEntryCreatedEventSchema = Schema.Struct({
+  auditId: Schema.String,
+  actor: Schema.String,
+  action: Schema.String,
+  resource: Schema.String,
+  decisionId: Schema.optional(Schema.String)
+})
 
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
@@ -102,6 +127,10 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
           subjects.add(definedMatchGroup(match))
         }
 
+        for (const match of source.matchAll(objectFormPublishSubjectPattern)) {
+          subjects.add(definedMatchGroup(match))
+        }
+
         if (relativePath.startsWith('services/m-extension/src/')) {
           for (const match of source.matchAll(extensionSubjectReferencePattern)) {
             const key = match[1] as keyof typeof Contracts.mExtensionEventSubjects
@@ -118,3 +147,29 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
 
   return activePublisherSubjectsPromise
 }
+
+export const activePublisherSchemaContracts: EventSchemaContract[] = [
+  {
+    subject: 'policy.decision.created.v0',
+    schema: policyDecisionCreatedEventSchema,
+    fixture: {
+      decisionId: 'pd-1',
+      actor: 'operator',
+      action: 'core:read',
+      resource: 'core',
+      result: 'allow',
+      reasons: []
+    }
+  },
+  {
+    subject: 'audit.entry.created.v0',
+    schema: auditEntryCreatedEventSchema,
+    fixture: {
+      auditId: 'audit-1',
+      actor: 'operator',
+      action: 'core:read',
+      resource: 'core',
+      decisionId: 'pd-1'
+    }
+  }
+]
