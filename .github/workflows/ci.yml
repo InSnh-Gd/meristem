@@ -19,6 +19,21 @@ jobs:
           - test
           - typecheck:e2e
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: meristem
+          POSTGRES_PASSWORD: meristem
+          POSTGRES_DB: meristem
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U meristem -d meristem"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,6 +45,10 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Generate join ingress TLS certificates
+        if: matrix.gate == 'test'
+        run: bun run scripts/certs-dev.ts
 
       - name: Run ${{ matrix.gate }}
         run: bun run "${{ matrix.gate }}"
