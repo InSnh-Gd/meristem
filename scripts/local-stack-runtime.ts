@@ -177,8 +177,10 @@ export function spawnService(service: LocalServiceCommand): Bun.Subprocess {
   })
 }
 
-export async function runServiceGroup(serviceCommands: readonly LocalServiceCommand[]): Promise<void> {
-  const children = serviceCommands.map((service) => ({
+export async function runServiceGroup(
+  serviceCommands: readonly LocalServiceCommand[]
+): Promise<void> {
+  const children = serviceCommands.map(service => ({
     service,
     child: spawnService(service)
   }))
