@@ -12,6 +12,7 @@ import { createSqlClient } from '../../packages/db/src/client.ts'
 // ---------------------------------------------------------------------------
 
 await import('../../packages/db/src/migrate.ts')
+await import('../../packages/db/src/seed.ts')
 
 const pgAvailable = await (async () => {
   try {
