@@ -1,5 +1,5 @@
 import * as Schema from 'effect/Schema'
-import { permissions } from '../literals.ts'
+import { actorIds, permissions } from '../literals.ts'
 
 // Permission literals are executable contracts so Core, M-Policy, and adapters cannot drift silently.
 // Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.3
@@ -7,7 +7,6 @@ export const PermissionSchema = Schema.Literal(...permissions)
 export type PermissionFromSchema = typeof PermissionSchema.Type
 
 // 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
-import { actorIds } from '../literals.ts'
 
 export const ApprovalStatusSchema = Schema.Literal(
   'pending',
@@ -34,6 +33,14 @@ export type ApprovalOriginActionFromSchema = typeof ApprovalOriginActionSchema.T
 
 export const RequiredActionSchema = Schema.Literal('manual_review', 'multi_approval')
 export type RequiredActionFromSchema = typeof RequiredActionSchema.Type
+
+export const PolicyDecisionResultSchema = Schema.Literal(
+  'allow',
+  'deny',
+  'require_manual_review',
+  'require_multi_approval'
+)
+export type PolicyDecisionResultFromSchema = typeof PolicyDecisionResultSchema.Type
 
 export const PolicyApprovalSchema = Schema.Struct({
   id: Schema.String,
@@ -135,3 +142,13 @@ export const PolicyApprovalEventPayloadSchema = Schema.Struct({
   status: ApprovalStatusSchema
 })
 export type PolicyApprovalEventPayloadFromSchema = typeof PolicyApprovalEventPayloadSchema.Type
+
+export const PolicyDecisionCreatedPayloadSchema = Schema.Struct({
+  decisionId: Schema.String,
+  actor: Schema.Literal(...actorIds),
+  action: PermissionSchema,
+  resource: Schema.String,
+  result: PolicyDecisionResultSchema,
+  reasons: Schema.Array(Schema.String)
+})
+export type PolicyDecisionCreatedPayloadFromSchema = typeof PolicyDecisionCreatedPayloadSchema.Type

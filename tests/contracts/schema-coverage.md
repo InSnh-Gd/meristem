@@ -44,8 +44,8 @@
 | `policy.approval.approved.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.rejected.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.expired.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
-| `policy.decision.created.v0` | `services/m-policy/src/index.ts` | `PolicyDecisionCreatedEventPayloadSchema` |
-| `audit.entry.created.v0` | `services/m-log/src/index.ts`, `services/m-policy/src/index.ts` | `AuditEntryCreatedEventPayloadSchema` |
+| `policy.decision.created.v0` | `services/m-policy/src/index.ts` | `PolicyDecisionCreatedPayloadSchema` |
+| `audit.entry.created.v0` | `services/m-log/src/index.ts`, `services/m-policy/src/index.ts` | `AuditEntryCreatedPayloadSchema` |
 | `extension.definition.registered.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.definition.rejected.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.instance.enabled.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |

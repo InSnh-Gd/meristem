@@ -38,23 +38,6 @@ const policyApprovalDynamicSubjects = [
   'policy.approval.expired.v0'
 ] as const
 
-const policyDecisionCreatedEventSchema = Schema.Struct({
-  decisionId: Schema.String,
-  actor: Schema.String,
-  action: Schema.String,
-  resource: Schema.String,
-  result: Schema.String,
-  reasons: Schema.Array(Schema.String)
-})
-
-const auditEntryCreatedEventSchema = Schema.Struct({
-  auditId: Schema.String,
-  actor: Schema.String,
-  action: Schema.String,
-  resource: Schema.String,
-  decisionId: Schema.optional(Schema.String)
-})
-
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
   const encoded = Schema.encodeSync(schema)(decoded)
@@ -151,7 +134,7 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
 export const activePublisherSchemaContracts: EventSchemaContract[] = [
   {
     subject: 'policy.decision.created.v0',
-    schema: policyDecisionCreatedEventSchema,
+    schema: Contracts.PolicyDecisionCreatedPayloadSchema,
     fixture: {
       decisionId: 'pd-1',
       actor: 'operator',
@@ -163,7 +146,7 @@ export const activePublisherSchemaContracts: EventSchemaContract[] = [
   },
   {
     subject: 'audit.entry.created.v0',
-    schema: auditEntryCreatedEventSchema,
+    schema: Contracts.AuditEntryCreatedPayloadSchema,
     fixture: {
       auditId: 'audit-1',
       actor: 'operator',
