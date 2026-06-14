@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+printf '%s\n' 'Running format:check before push...'
+bun run format:check
