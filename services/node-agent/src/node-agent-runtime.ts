@@ -35,10 +35,7 @@ export function decodeMessage(data: string | ArrayBuffer | Blob): Promise<string
 
 function isServerMessage(value: unknown): value is MNetSessionServerMessage {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'type' in value &&
-    typeof value.type === 'string'
+    typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string'
   )
 }
 

@@ -35,18 +35,14 @@ function sectionForService(serviceName: string): string {
   const nextMatch = remaining.match(/^ {2}[^\s].*:\n/m)
   const nextIndex = nextMatch?.index
   const endIndex =
-    typeof nextIndex === 'number'
-      ? startIndex + startMarker.length + nextIndex
-      : composeText.length
+    typeof nextIndex === 'number' ? startIndex + startMarker.length + nextIndex : composeText.length
   return composeText.slice(startIndex, endIndex).trimEnd()
 }
 
 function minimalComposeFor(services: string[]): string {
   const body = services
     .map(sectionForService)
-    .map(section =>
-      section.replace(/\n {4}profiles:\n(?: {6}- .*\n)*/g, '\n')
-    )
+    .map(section => section.replace(/\n {4}profiles:\n(?: {6}- .*\n)*/g, '\n'))
     .join('\n\n')
   return `services:\n${body}\n`
 }
@@ -105,7 +101,10 @@ function normalizeGeneratedModule(profileName: ProfileName, rawText: string): st
 
   if (profileName !== 'base') {
     normalized = normalized
-      .replace(/\n {2}# Runtime[\s\S]*?virtualisation\.oci-containers\.backend = "docker";\n\n/, '\n')
+      .replace(
+        /\n {2}# Runtime[\s\S]*?virtualisation\.oci-containers\.backend = "docker";\n\n/,
+        '\n'
+      )
       .replace(/\n {2}# Root service[\s\S]*?wantedBy = \[ "multi-user.target" \];\n {2}};\n/, '\n')
   }
 
