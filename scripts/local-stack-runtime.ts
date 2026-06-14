@@ -6,18 +6,65 @@ export type InfraProfiles = {
   apisix: boolean
 }
 
-export const coreServiceScripts = [
-  'dev:m-eventbus',
-  'dev:m-policy',
-  'dev:m-log',
-  'dev:m-net',
-  'dev:m-task',
-  'dev:m-extension',
-  'dev:core-app'
+export type LocalServiceCommand = {
+  cwd?: string
+  label: string
+  command: string[]
+}
+
+export const coreServiceCommands: readonly LocalServiceCommand[] = [
+  {
+    label: 'dev:m-eventbus',
+    command: ['bun', 'run', 'services/m-eventbus/src/index.ts']
+  },
+  {
+    label: 'dev:m-policy',
+    command: ['bun', 'run', 'services/m-policy/src/index.ts']
+  },
+  {
+    label: 'dev:m-log',
+    command: ['bun', 'run', 'services/m-log/src/index.ts']
+  },
+  {
+    label: 'dev:m-net',
+    command: ['bun', 'run', 'services/m-net/src/index.ts']
+  },
+  {
+    label: 'dev:m-task',
+    command: ['bun', 'run', 'services/m-task/src/index.ts']
+  },
+  {
+    label: 'dev:m-extension',
+    command: ['bun', 'run', 'services/m-extension/src/index.ts']
+  },
+  {
+    label: 'dev:core-app',
+    command: ['bun', 'run', 'apps/core/src/index.ts']
+  }
 ] as const
 
-export const webUiServiceScripts = ['dev:m-ui-bff', 'dev:m-ui'] as const
-export const deployedWebUiServiceScripts = ['dev:m-ui-bff', 'deploy:m-ui'] as const
+export const webUiServiceCommands: readonly LocalServiceCommand[] = [
+  {
+    label: 'dev:m-ui-bff',
+    command: ['bun', 'run', 'services/m-ui-bff/src/index.ts']
+  },
+  {
+    label: 'dev:m-ui',
+    cwd: `${rootDir}/apps/m-ui`,
+    command: ['bun', 'run', 'dev', '--', '--clearScreen', 'false']
+  }
+] as const
+
+export const deployedWebUiServiceCommands: readonly LocalServiceCommand[] = [
+  {
+    label: 'dev:m-ui-bff',
+    command: ['bun', 'run', 'services/m-ui-bff/src/index.ts']
+  },
+  {
+    label: 'deploy:m-ui',
+    command: ['bun', 'run', 'scripts/run-m-ui-local.ts']
+  }
+] as const
 
 export type CommandResult = {
   exitCode: number
@@ -108,24 +155,60 @@ export async function prepareWorkspace(): Promise<void> {
   assertSuccess('cert generation', run(['bun', 'run', 'scripts/certs-dev.ts']))
   assertSuccess('db migrate', run(['bun', 'run', 'db:migrate']))
   assertSuccess('db seed', run(['bun', 'run', 'db:seed']))
+
+  if (!process.env.MERISTEM_TOKEN) {
+    const tokenResult = run(['bun', 'run', 'token:mint', '--actor', 'operator'])
+    assertSuccess('default operator token mint', tokenResult)
+    process.env.MERISTEM_TOKEN = tokenResult.stdout.trim()
+  }
+
+  if (!process.env.PUBLIC_MERISTEM_DEFAULT_TOKEN && process.env.MERISTEM_TOKEN) {
+    process.env.PUBLIC_MERISTEM_DEFAULT_TOKEN = process.env.MERISTEM_TOKEN
+  }
 }
 
-export function spawnService(scriptName: string): Bun.Subprocess {
-  return Bun.spawn(['bun', 'run', scriptName], {
-    cwd: rootDir,
+export function spawnService(service: LocalServiceCommand): Bun.Subprocess {
+  return Bun.spawn(service.command, {
+    cwd: service.cwd ?? rootDir,
     env: process.env,
     stdout: 'inherit',
-    stderr: 'inherit'
+    stderr: 'inherit',
+    stdin: 'ignore'
   })
 }
 
-export async function runServiceGroup(serviceScripts: readonly string[]): Promise<void> {
-  const children = serviceScripts.map(spawnService)
+export async function runServiceGroup(serviceCommands: readonly LocalServiceCommand[]): Promise<void> {
+  const children = serviceCommands.map((service) => ({
+    service,
+    child: spawnService(service)
+  }))
+  let shuttingDown = false
 
-  process.on('SIGINT', () => {
-    for (const child of children) child.kill()
+  const handleShutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) return
+    shuttingDown = true
+    for (const { child } of children) {
+      child.kill(signal)
+    }
+  }
+
+  process.on('SIGINT', () => handleShutdown('SIGINT'))
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'))
+
+  const exitCodes = await Promise.all(
+    children.map(async ({ service, child }) => {
+      const exitCode = await child.exited
+      return { service, exitCode }
+    })
+  )
+
+  if (shuttingDown) {
     process.exit(0)
-  })
+  }
 
-  await Promise.all(children.map(child => child.exited))
+  const failed = exitCodes.filter(({ exitCode }) => exitCode !== 0)
+  if (failed.length > 0) {
+    const labels = failed.map(({ service }) => service.label).join(', ')
+    throw new Error(`dev service group failed: ${labels}`)
+  }
 }

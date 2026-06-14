@@ -10,11 +10,12 @@
 </script>
 
 <form class="token-input" onsubmit={submitToken}>
-  <input data-testid="token-input"
+  <input
+    data-testid="token-input"
     type="text"
     autocomplete="off"
     spellcheck="false"
-    placeholder="输入操作者令牌..."
+    placeholder="输入 bun run token:mint --actor operator 生成的 JWT..."
     value={appState.token}
     oninput={(e: Event) => appState.token = (e.target as HTMLInputElement).value}
   />
@@ -22,6 +23,10 @@
     连接
   </button>
 </form>
+
+<p class="token-help">
+  本地开发请使用 Bearer JWT，不要把 <code>MERISTEM_JWT_SECRET</code> 的原始 secret 当成 token 粘贴进来。
+</p>
 
 <style>
   .token-input {
@@ -57,6 +62,16 @@
   .token-input button:disabled {
     color: var(--text-40);
     cursor: not-allowed;
+  }
+  .token-help {
+    margin: var(--space-1) 0 0;
+    color: var(--text-40);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+  }
+  .token-help code {
+    font-family: var(--font-mono);
+    color: var(--text-60);
   }
 
   @media (max-width: 760px) {

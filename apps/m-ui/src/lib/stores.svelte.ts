@@ -32,7 +32,7 @@ declare const $derived: {
 }
 
 class AppState {
-  token = $state('')
+  token = $state(import.meta.env.PUBLIC_MERISTEM_DEFAULT_TOKEN ?? '')
   loading = $state(false)
   error = $state<string | null>(null)
   overview = $state<OverviewData | null>(null)
