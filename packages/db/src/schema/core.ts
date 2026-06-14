@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 // Owning domain: core.
 // PostgreSQL schema 是 MVP 权威写模型；事件、日志和缓存都不能替代这些表的职责。

@@ -21,7 +21,7 @@ const extractSchemaTableNames = (): string[] => {
         tableNames.add(tableName)
       }
     } catch {
-      continue
+      // 不是 Drizzle 表，跳过
     }
   }
 
