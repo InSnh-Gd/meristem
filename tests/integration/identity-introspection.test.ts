@@ -11,6 +11,8 @@ import { createSqlClient } from '../../packages/db/src/client.ts'
 // identity lifecycle. Tests are skipped when PostgreSQL is unavailable.
 // ---------------------------------------------------------------------------
 
+await import('../../packages/db/src/migrate.ts')
+
 const pgAvailable = await (async () => {
   try {
     const client = createSqlClient()
