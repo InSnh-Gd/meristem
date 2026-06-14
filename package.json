@@ -11,6 +11,8 @@
   "scripts": {
     "db:migrate": "bun run packages/db/src/migrate.ts",
     "db:seed": "bun run packages/db/src/seed.ts",
+    "deploy:local": "bun run scripts/deploy-local.ts",
+    "deploy:m-ui": "bun run scripts/run-m-ui-local.ts",
     "db:ownership-check": "bun run scripts/db-ownership-check.ts",
     "dev:all": "bun run scripts/dev-all.ts",
     "dev:core": "bun run apps/core/src/index.ts",
@@ -27,6 +29,7 @@
     "format:check": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false .",
     "lint": "biome lint . && bun run scripts/no-any-check.ts && bun run scripts/boundary-import-check.ts --enforce",
     "meristem": "bun run apps/m-cli/src/index.ts",
+    "nix:generate": "bun run scripts/generate-nix-compose.ts",
     "nodejs-ban": "bun run scripts/nodejs-ban.ts",
     "skill-hygiene": "bun run scripts/skill-hygiene.ts",
     "test": "bun test tests/contracts tests/failure-modes tests/cli tests/integration --ignore tests/contracts/opensearch-search.test.ts --ignore tests/failure-modes/opensearch.test.ts",
