@@ -78,12 +78,16 @@ describe('PostgreSQL schema documentation drift contract', () => {
     const schemaTableNames = extractSchemaTableNames()
     const documentedTableNames = extractDocumentedTableNames(documentText)
 
-    const missingFromDoc = schemaTableNames.filter(tableName => !documentedTableNames.includes(tableName))
-    const extraInDoc = documentedTableNames.filter(tableName => !schemaTableNames.includes(tableName))
+    const missingFromDoc = schemaTableNames.filter(
+      tableName => !documentedTableNames.includes(tableName)
+    )
+    const extraInDoc = documentedTableNames.filter(
+      tableName => !schemaTableNames.includes(tableName)
+    )
 
-    expect(
-      { missingFromDoc, extraInDoc },
-      buildDriftMessage(missingFromDoc, extraInDoc)
-    ).toEqual({ missingFromDoc: [], extraInDoc: [] })
+    expect({ missingFromDoc, extraInDoc }, buildDriftMessage(missingFromDoc, extraInDoc)).toEqual({
+      missingFromDoc: [],
+      extraInDoc: []
+    })
   })
 })

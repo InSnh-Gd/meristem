@@ -22,7 +22,10 @@ export type EventSchemaContract = EventContract & {
 
 export const schemaCoverageMapUrl = new URL('../schema-coverage.md', import.meta.url)
 export const eventCatalogUrl = new URL('../../../docs/events/EVENT-CATALOG.md', import.meta.url)
-export const deferredGapMapUrl = new URL('../../../docs/events/DEFERRED-EVENT-GAP-MAP.md', import.meta.url)
+export const deferredGapMapUrl = new URL(
+  '../../../docs/events/DEFERRED-EVENT-GAP-MAP.md',
+  import.meta.url
+)
 
 const literalPublishSubjectPattern = /publish\(\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([^'"`]+\.v\d+)['"`]/g

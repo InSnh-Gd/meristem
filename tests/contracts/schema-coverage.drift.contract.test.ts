@@ -61,7 +61,9 @@ describe('schema coverage map drift guards', () => {
       Array.from(activePublisherSubjects).filter(isCatalogTrackedSubject)
     )
 
-    expect(sorted(extractCoverageMapActiveSubjects(coverageMap))).toEqual(activeCatalogPublisherSubjects)
+    expect(sorted(extractCoverageMapActiveSubjects(coverageMap))).toEqual(
+      activeCatalogPublisherSubjects
+    )
   })
 
   it('marks every non-active catalog event as a Phase 20 deferred contract', async () => {
@@ -89,7 +91,9 @@ describe('schema coverage map drift guards', () => {
 
     const catalogSubjects = extractCatalogSubjects(eventCatalog)
 
-    const deferredSubjects = catalogSubjects.filter(subject => !activePublisherSubjects.has(subject))
+    const deferredSubjects = catalogSubjects.filter(
+      subject => !activePublisherSubjects.has(subject)
+    )
 
     for (const subject of nonCatalogLogSubjects) {
       expect(catalogSubjects).not.toContain(subject)

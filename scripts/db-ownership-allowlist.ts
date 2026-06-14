@@ -1,10 +1,4 @@
-type DomainName =
-  | 'core'
-  | 'm-extension'
-  | 'm-log'
-  | 'm-net'
-  | 'm-policy'
-  | 'm-task'
+type DomainName = 'core' | 'm-extension' | 'm-log' | 'm-net' | 'm-policy' | 'm-task'
 
 export type DbOwnerDomain = DomainName
 export type DbOwnedTable = keyof typeof tableOwners
@@ -105,7 +99,8 @@ export const approvedCrossOwnerReads = [
   {
     source: 'services/m-net/src/agent-runtime-session-lifecycle.ts',
     tables: ['nodes', 'nodeCredentials', 'nodeJoinTickets'],
-    reason: 'M-Net runtime session lifecycle redeems Core join tickets and updates node session facts.'
+    reason:
+      'M-Net runtime session lifecycle redeems Core join tickets and updates node session facts.'
   }
 ] as const satisfies readonly DbOwnershipException[]
 

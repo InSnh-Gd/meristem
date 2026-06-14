@@ -5,7 +5,12 @@ import { configApplyAcks, configRecords, configTransitions, configVersions } fro
 import { nodes, tasks } from './core.ts'
 import { extensionDefinitions, extensionInstances, extensionTransitions } from './extension.ts'
 import { auditLogs } from './log.ts'
-import { mnetNetworkProfileStates, mnetProfileTransitions, mnetSuspendedOperations, networks } from './network.ts'
+import {
+  mnetNetworkProfileStates,
+  mnetProfileTransitions,
+  mnetSuspendedOperations,
+  networks
+} from './network.ts'
 import { policyApprovalVotes, policyApprovals, policyDecisions } from './policy.ts'
 import { secretRefTransitions, secretRefVersions, secretRefs } from './secrets.ts'
 import { taskRequests } from './task.ts'

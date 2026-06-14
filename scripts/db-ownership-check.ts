@@ -55,9 +55,7 @@ function resolveImportTarget(rootUrl: URL, file: string, specifier: string): str
 }
 
 function isSchemaImportTarget(target: string): boolean {
-  return (
-    schemaBarrelSpecifierPattern.test(target) || schemaOwnerModuleSpecifierPattern.test(target)
-  )
+  return schemaBarrelSpecifierPattern.test(target) || schemaOwnerModuleSpecifierPattern.test(target)
 }
 
 function collectImportedTableNames(statement: ts.ImportDeclaration): DbOwnedTable[] {
@@ -91,7 +89,13 @@ export async function collectDbOwnershipViolations(root: string): Promise<DbOwne
     if (importer === null) continue
 
     const text = await Bun.file(`${root}/${file}`).text()
-    const sourceFile = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    const sourceFile = ts.createSourceFile(
+      file,
+      text,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    )
     const approvedTables = approvedExceptionTablesForFile(file)
 
     for (const statement of sourceFile.statements) {

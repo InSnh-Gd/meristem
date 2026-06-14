@@ -55,7 +55,9 @@ async function writeSource(root: string, relativePath: string, content: string):
   await Bun.write(path, content)
 }
 
-async function runCheck(root: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+async function runCheck(
+  root: string
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const process = Bun.spawn(['bun', 'run', checkerScript, '--enforce'], {
     cwd: root,
     stdout: 'pipe',
