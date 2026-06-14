@@ -22,6 +22,7 @@ export type EventSchemaContract = EventContract & {
 
 export const schemaCoverageMapUrl = new URL('../schema-coverage.md', import.meta.url)
 export const eventCatalogUrl = new URL('../../../docs/events/EVENT-CATALOG.md', import.meta.url)
+export const deferredGapMapUrl = new URL('../../../docs/events/DEFERRED-EVENT-GAP-MAP.md', import.meta.url)
 
 const literalPublishSubjectPattern = /publish\(\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([^'"`]+\.v\d+)['"`]/g
@@ -70,6 +71,15 @@ export function extractCoverageMapDeferredSubjects(markdown: string): string[] {
   const section = markdown.slice(start, end)
   const subjects: string[] = []
   for (const match of section.matchAll(/- `([^`]+)`/g)) subjects.push(definedMatchGroup(match))
+  return subjects
+}
+
+export function extractDeferredGapMapSubjects(markdown: string): string[] {
+  const start = markdown.indexOf('## Deferred event gap map')
+  const section = markdown.slice(start)
+  const subjects: string[] = []
+  for (const match of section.matchAll(/^\|\s*`([^`]+\.v\d+)`\s*\|/gm))
+    subjects.push(definedMatchGroup(match))
   return subjects
 }
 

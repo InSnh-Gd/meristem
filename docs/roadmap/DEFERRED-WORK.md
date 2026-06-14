@@ -1006,3 +1006,39 @@ Required before implementation:
 - rollout / rollback semantics.
 - collaborative draft state owner.
 - tests for partial apply, failed ack, rollback, and permission-aware UI behavior.
+
+---
+
+### DFW-029: Event Catalog Parity For Deferred Subjects
+
+Status: deferred from Phase 20.
+
+Owner: Core / M-Task / M-Net / M-Policy / M-Log (per subject).
+
+Source: `docs/events/EVENT-CATALOG.md`, `tests/contracts/schema-coverage.md`, `.omo/plans/phase-20-completion.md`.
+
+Deferred work:
+
+- Implement real publishers and Effect Schema contracts for subjects listed in `docs/events/DEFERRED-EVENT-GAP-MAP.md`.
+- Add contract test fixtures and round-trip tests when each subject becomes active.
+- Update `tests/contracts/schema-coverage.md` active / deferred sections when a subject moves from deferred to active.
+
+Reason deferred:
+
+- Phase 20 is closure and audit only.
+- These catalog subjects have documented payload skeletons but no active publisher in the current codebase.
+- Implementing them would expand Core, M-Task, M-Net, identity, SecretRef, config, or audit behavior beyond Phase 20 scope.
+
+Reopen trigger:
+
+- A deferred subject gains a real publisher in its owning service.
+- The owning phase or ADR explicitly accepts the new runtime capability.
+
+Required before implementation:
+
+- `docs/events/DEFERRED-EVENT-GAP-MAP.md` row updated with owner, reason, and reopen trigger.
+- Effect Schema payload contract in `packages/contracts`.
+- Publisher implementation in the owning service.
+- Contract tests covering decode/encode and at least one failure path.
+- `tests/contracts/schema-coverage.md` active / deferred update.
+- `docs/events/EVENT-CATALOG.md` update if subscribers or payload semantics change.
