@@ -1,6 +1,6 @@
 import { eq, type SQL } from 'drizzle-orm'
-import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
 import type { DLQRecord } from '../../../../packages/contracts/src/index.ts'
+import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
 import { mapFactToDoc } from './document-map.ts'
 import { idempotencyKey } from './retry.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
@@ -20,7 +20,11 @@ export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch)
     if (!factTable) return false
 
     const table = factTables[factTable]
-    const factRows = await db.select().from(table).where(eq(table['id' as keyof typeof table] as unknown as SQL<unknown>, record.factId)).limit(1)
+    const factRows = await db
+      .select()
+      .from(table)
+      .where(eq(table['id' as keyof typeof table] as unknown as SQL<unknown>, record.factId))
+      .limit(1)
     if (factRows.length === 0) return false
 
     const fact = factRows[0]
@@ -44,7 +48,7 @@ export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch)
       ? db.select().from(projectionDLQ).where(eq(projectionDLQ.index, index))
       : db.select().from(projectionDLQ)
     const rows = await query
-    return rows.map((r) => ({
+    return rows.map(r => ({
       id: r.id,
       jobId: r.jobId,
       factId: r.factId,
@@ -58,4 +62,3 @@ export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch)
 
   return { replayDLQ, skipDLQ, listDLQ }
 }
-

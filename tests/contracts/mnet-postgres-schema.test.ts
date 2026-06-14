@@ -15,7 +15,9 @@ describe('M-Net PostgreSQL schema contract', () => {
     expect(migration).toContain('create table if not exists mnet_network_profile_states')
     expect(migration).toContain('create table if not exists mnet_profile_transitions')
     expect(migration).toContain('create table if not exists mnet_suspended_operations')
-    expect(migration).toContain('create unique index if not exists mnet_profile_definitions_profile_version_unique')
+    expect(migration).toContain(
+      'create unique index if not exists mnet_profile_definitions_profile_version_unique'
+    )
   })
 
   it('matches required table column shapes and SQL types', () => {
@@ -97,15 +99,21 @@ describe('M-Net PostgreSQL schema contract', () => {
     expect(seed).toContain('controlPlaneOnly: false')
     expect(seed).toContain('controlPlaneOnly: true')
 
-    expect(seed).toContain("['network:profile-read', 'read network regional profile definitions and state']")
-    expect(seed).toContain("['network:profile-enable', 'enable network regional profile for a network']")
-    expect(seed).toContain("['network:profile-disable', 'disable network regional profile for a network']")
+    expect(seed).toContain(
+      "['network:profile-read', 'read network regional profile definitions and state']"
+    )
+    expect(seed).toContain(
+      "['network:profile-enable', 'enable network regional profile for a network']"
+    )
+    expect(seed).toContain(
+      "['network:profile-disable', 'disable network regional profile for a network']"
+    )
 
-    expect(seed).toContain("operator: ['core:read'")
+    expect(seed).toMatch(/operator:\s*\[\s*'core:read'/)
     expect(seed).toContain("'network:profile-read'")
     expect(seed).toContain("'network:profile-enable'")
     expect(seed).toContain("'network:profile-disable'")
-    expect(seed).toContain("admin: ['core:read'")
+    expect(seed).toMatch(/admin:\s*\[\s*'core:read'/)
     expect(seed).toContain("'security-admin': [")
   })
 })

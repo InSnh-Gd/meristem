@@ -91,7 +91,9 @@ describe('M-Net profile contract schemas', () => {
   })
 
   it('exports and validates network profile permissions as literal contracts', async () => {
-    const { networkProfilePermissions, permissions } = await import('../../packages/contracts/src/literals.ts')
+    const { networkProfilePermissions, permissions } = await import(
+      '../../packages/contracts/src/literals.ts'
+    )
 
     expect(networkProfilePermissions).toEqual([
       'network:profile-read',

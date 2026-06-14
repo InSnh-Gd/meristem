@@ -81,7 +81,7 @@ export async function collectNodeJsUsageFindings(root: string): Promise<NodeJsUs
       })
     }
 
-    if ((packageJson.dependencies ?? {})['@nats-io/transport-node'] !== undefined) {
+    if (packageJson.dependencies?.['@nats-io/transport-node'] !== undefined) {
       findings.push({
         file,
         line: 1,
@@ -90,7 +90,7 @@ export async function collectNodeJsUsageFindings(root: string): Promise<NodeJsUs
       })
     }
 
-    if ((packageJson.devDependencies ?? {})['@nats-io/transport-node'] !== undefined) {
+    if (packageJson.devDependencies?.['@nats-io/transport-node'] !== undefined) {
       findings.push({
         file,
         line: 1,

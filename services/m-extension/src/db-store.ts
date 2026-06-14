@@ -1,8 +1,17 @@
 import { and, eq } from 'drizzle-orm'
-import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { extensionDefinitions, extensionInstances, extensionTransitions } from '../../../packages/db/src/schema.ts'
-import type { MExtensionDefinition, MExtensionInstance, MExtensionManifestV01, MExtensionTransition } from '../../../packages/contracts/src/types/extension.ts'
+import type {
+  MExtensionDefinition,
+  MExtensionInstance,
+  MExtensionManifestV01,
+  MExtensionTransition
+} from '../../../packages/contracts/src/types/extension.ts'
 import { mExtensionScope } from '../../../packages/contracts/src/types/extension.ts'
+import type { MeristemDb } from '../../../packages/db/src/client.ts'
+import {
+  extensionDefinitions,
+  extensionInstances,
+  extensionTransitions
+} from '../../../packages/db/src/schema.ts'
 import type { ExtensionStore, InstanceTransitionInput, RegisterDefinitionInput } from './store.ts'
 
 function asDefinition(row: typeof extensionDefinitions.$inferSelect): MExtensionDefinition {
@@ -61,15 +70,25 @@ function asTransition(row: typeof extensionTransitions.$inferSelect): MExtension
 }
 
 async function pair(db: MeristemDb, definition: typeof extensionDefinitions.$inferSelect) {
-  const [instance] = await db.select().from(extensionInstances).where(and(
-    eq(extensionInstances.extensionId, definition.id),
-    eq(extensionInstances.scopeType, mExtensionScope.type),
-    eq(extensionInstances.scopeId, mExtensionScope.id)
-  )).limit(1)
-  return instance ? { definition: asDefinition(definition), instance: asInstance(instance) } : { definition: asDefinition(definition) }
+  const [instance] = await db
+    .select()
+    .from(extensionInstances)
+    .where(
+      and(
+        eq(extensionInstances.extensionId, definition.id),
+        eq(extensionInstances.scopeType, mExtensionScope.type),
+        eq(extensionInstances.scopeId, mExtensionScope.id)
+      )
+    )
+    .limit(1)
+  return instance
+    ? { definition: asDefinition(definition), instance: asInstance(instance) }
+    : { definition: asDefinition(definition) }
 }
 
-function transitionInsert(input: Omit<MExtensionTransition, 'id' | 'createdAt'>): typeof extensionTransitions.$inferInsert {
+function transitionInsert(
+  input: Omit<MExtensionTransition, 'id' | 'createdAt'>
+): typeof extensionTransitions.$inferInsert {
   return {
     id: crypto.randomUUID(),
     extensionId: input.extensionId,
@@ -88,10 +107,14 @@ export function createDbExtensionStore(db: MeristemDb): ExtensionStore {
   return {
     async list() {
       const rows = await db.select().from(extensionDefinitions)
-      return Promise.all(rows.map((definition) => pair(db, definition)))
+      return Promise.all(rows.map(definition => pair(db, definition)))
     },
     async get(id) {
-      const [definition] = await db.select().from(extensionDefinitions).where(eq(extensionDefinitions.id, id)).limit(1)
+      const [definition] = await db
+        .select()
+        .from(extensionDefinitions)
+        .where(eq(extensionDefinitions.id, id))
+        .limit(1)
       return definition ? pair(db, definition) : null
     },
     async register(input: RegisterDefinitionInput) {
@@ -125,13 +148,41 @@ export function createDbExtensionStore(db: MeristemDb): ExtensionStore {
         updatedAt: now
       } satisfies typeof extensionInstances.$inferInsert
 
-      await db.transaction(async (tx) => {
-        await tx.insert(extensionDefinitions).values(definition).onConflictDoUpdate({ target: extensionDefinitions.id, set: { ...definition, updatedAt: now } })
+      await db.transaction(async tx => {
+        await tx
+          .insert(extensionDefinitions)
+          .values(definition)
+          .onConflictDoUpdate({
+            target: extensionDefinitions.id,
+            set: { ...definition, updatedAt: now }
+          })
         if (!current?.instance) await tx.insert(extensionInstances).values(instance)
-        await tx.insert(extensionTransitions).values(transitionInsert({ extensionId: input.manifest.id, toStatus: 'registered', actor: input.actor, policyDecisionId: input.policyDecisionId, correlationId: input.correlationId }))
+        await tx.insert(extensionTransitions).values(
+          transitionInsert({
+            extensionId: input.manifest.id,
+            toStatus: 'registered',
+            actor: input.actor,
+            policyDecisionId: input.policyDecisionId,
+            correlationId: input.correlationId
+          })
+        )
       })
       const persisted = await this.get(input.manifest.id)
-      return persisted?.instance ? { definition: persisted.definition, instance: persisted.instance } : { definition: asDefinition(definition), instance: asInstance({ ...instance, enabledBy: null, disabledBy: null, policyDecisionId: null, correlationId: null, lastError: null, enabledAt: null, disabledAt: null }) }
+      return persisted?.instance
+        ? { definition: persisted.definition, instance: persisted.instance }
+        : {
+            definition: asDefinition(definition),
+            instance: asInstance({
+              ...instance,
+              enabledBy: null,
+              disabledBy: null,
+              policyDecisionId: null,
+              correlationId: null,
+              lastError: null,
+              enabledAt: null,
+              disabledAt: null
+            })
+          }
     },
     async enable(input: InstanceTransitionInput) {
       return transition(db, input, 'enabled')
@@ -146,21 +197,63 @@ export function createDbExtensionStore(db: MeristemDb): ExtensionStore {
   }
 }
 
-async function transition(db: MeristemDb, input: InstanceTransitionInput, status: 'enabled' | 'disabled') {
+async function transition(
+  db: MeristemDb,
+  input: InstanceTransitionInput,
+  status: 'enabled' | 'disabled'
+) {
   const current = await createDbExtensionStore(db).get(input.extensionId)
   if (!current?.instance) return null
   const instance = current.instance
   const now = new Date()
-  const set = status === 'enabled'
-    ? { status, enabledBy: input.actor, disabledBy: null, policyDecisionId: input.policyDecisionId, correlationId: input.correlationId, lastError: null, updatedAt: now, enabledAt: now }
-    : { status, disabledBy: input.actor, enabledBy: null, policyDecisionId: input.policyDecisionId, correlationId: input.correlationId, lastError: null, updatedAt: now, disabledAt: now }
-  await db.transaction(async (tx) => {
-    await tx.update(extensionInstances).set(set).where(and(
-      eq(extensionInstances.extensionId, input.extensionId),
-      eq(extensionInstances.scopeType, mExtensionScope.type),
-      eq(extensionInstances.scopeId, mExtensionScope.id)
-    ))
-    await tx.insert(extensionTransitions).values(transitionInsert({ extensionId: input.extensionId, instanceId: instance.id, fromStatus: instance.status, toStatus: status, actor: input.actor, ...(input.reason ? { reason: input.reason } : {}), policyDecisionId: input.policyDecisionId, correlationId: input.correlationId }))
+  const set =
+    status === 'enabled'
+      ? {
+          status,
+          enabledBy: input.actor,
+          disabledBy: null,
+          policyDecisionId: input.policyDecisionId,
+          correlationId: input.correlationId,
+          lastError: null,
+          updatedAt: now,
+          enabledAt: now
+        }
+      : {
+          status,
+          disabledBy: input.actor,
+          enabledBy: null,
+          policyDecisionId: input.policyDecisionId,
+          correlationId: input.correlationId,
+          lastError: null,
+          updatedAt: now,
+          disabledAt: now
+        }
+  await db.transaction(async tx => {
+    await tx
+      .update(extensionInstances)
+      .set(set)
+      .where(
+        and(
+          eq(extensionInstances.extensionId, input.extensionId),
+          eq(extensionInstances.scopeType, mExtensionScope.type),
+          eq(extensionInstances.scopeId, mExtensionScope.id)
+        )
+      )
+    await tx.insert(extensionTransitions).values(
+      transitionInsert({
+        extensionId: input.extensionId,
+        instanceId: instance.id,
+        fromStatus: instance.status,
+        toStatus: status,
+        actor: input.actor,
+        ...(input.reason ? { reason: input.reason } : {}),
+        policyDecisionId: input.policyDecisionId,
+        correlationId: input.correlationId
+      })
+    )
   })
-  return createDbExtensionStore(db).get(input.extensionId) as Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance } | null>
+  return createDbExtensionStore(db).get(input.extensionId) as Promise<{
+    definition: MExtensionDefinition
+    instance: MExtensionInstance
+  } | null>
 }

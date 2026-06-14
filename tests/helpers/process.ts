@@ -15,7 +15,10 @@ export type ManagedProcess = {
   stop(options?: StopOptions): Promise<number>
 }
 
-function collectText(stream: ReadableStream<Uint8Array> | null | undefined, append: (chunk: string) => void): void {
+function collectText(
+  stream: ReadableStream<Uint8Array> | null | undefined,
+  append: (chunk: string) => void
+): void {
   if (!stream) return
 
   const decoder = new TextDecoder()
@@ -48,7 +51,10 @@ export function startBunScript(script: string, options: SpawnOptions = {}): Mana
 /**
  * Starts an arbitrary subprocess and captures its text output incrementally for later assertions.
  */
-export function startProcess(command: readonly string[], options: SpawnOptions = {}): ManagedProcess {
+export function startProcess(
+  command: readonly string[],
+  options: SpawnOptions = {}
+): ManagedProcess {
   const stdoutChunks: string[] = []
   const stderrChunks: string[] = []
   const subprocess = Bun.spawn([...command], {
@@ -62,8 +68,8 @@ export function startProcess(command: readonly string[], options: SpawnOptions =
     stderr: 'pipe'
   })
 
-  collectText(subprocess.stdout, (chunk) => stdoutChunks.push(chunk))
-  collectText(subprocess.stderr, (chunk) => stderrChunks.push(chunk))
+  collectText(subprocess.stdout, chunk => stdoutChunks.push(chunk))
+  collectText(subprocess.stderr, chunk => stderrChunks.push(chunk))
 
   let stopRequested = false
 
@@ -91,7 +97,7 @@ export function startProcess(command: readonly string[], options: SpawnOptions =
         }
 
         const exitedGracefully = await Promise.race([
-          subprocess.exited.then((code) => ({ done: true as const, code })),
+          subprocess.exited.then(code => ({ done: true as const, code })),
           Bun.sleep(gracefulTimeoutMs).then(() => ({ done: false as const, code: null }))
         ])
 

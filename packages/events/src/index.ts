@@ -53,10 +53,13 @@ export function validateEventEnvelope(value: unknown): Result<MEventEnvelope, st
 
   if (typeof event.id !== 'string' || event.id.length === 0) errors.push('missing_id')
   if (typeof event.type !== 'string' || event.type.length === 0) errors.push('missing_type')
-  if (typeof event.version !== 'string' || event.version.length === 0) errors.push('missing_version')
+  if (typeof event.version !== 'string' || event.version.length === 0)
+    errors.push('missing_version')
   if (typeof event.source !== 'string' || event.source.length === 0) errors.push('missing_source')
-  if (typeof event.timestamp !== 'string' || Number.isNaN(Date.parse(event.timestamp))) errors.push('invalid_timestamp')
-  if ('traceId' in event && event.traceId !== undefined && typeof event.traceId !== 'string') errors.push('invalid_trace_id')
+  if (typeof event.timestamp !== 'string' || Number.isNaN(Date.parse(event.timestamp)))
+    errors.push('invalid_timestamp')
+  if ('traceId' in event && event.traceId !== undefined && typeof event.traceId !== 'string')
+    errors.push('invalid_trace_id')
   if (!('payload' in event)) errors.push('missing_payload')
 
   return errors.length > 0 ? err(errors) : ok(event as MEventEnvelope)

@@ -16,7 +16,11 @@ export function errorMessageFromHttpResponse(value: unknown, fallback: string): 
   return typeof message === 'string' ? message : fallback
 }
 
-export function serviceErrorFromHttpResponse(value: unknown, fallbackCode: string, fallbackMessage: string): { code: string; message: string } {
+export function serviceErrorFromHttpResponse(
+  value: unknown,
+  fallbackCode: string,
+  fallbackMessage: string
+): { code: string; message: string } {
   if (typeof value !== 'object' || value === null) {
     return { code: fallbackCode, message: fallbackMessage }
   }
@@ -39,13 +43,16 @@ export function serviceErrorFromHttpResponse(value: unknown, fallbackCode: strin
 export async function runServiceEffect<T>(program: Effect.Effect<T, ServiceFailure>) {
   return Effect.runPromise(
     program.pipe(
-      Effect.map((value) => ok(value)),
-      Effect.catchAll((failure) => Effect.succeed(err(failure)))
+      Effect.map(value => ok(value)),
+      Effect.catchAll(failure => Effect.succeed(err(failure)))
     )
   )
 }
 
-export function tryServiceCall<T>(thunk: () => Promise<T>, failure: ServiceFailure): Effect.Effect<T, ServiceFailure> {
+export function tryServiceCall<T>(
+  thunk: () => Promise<T>,
+  failure: ServiceFailure
+): Effect.Effect<T, ServiceFailure> {
   return Effect.tryPromise({
     try: thunk,
     catch: () => failure
@@ -64,7 +71,10 @@ export function requireServiceData<T>(
     : Effect.succeed(response.data)
 }
 
-export function requireServiceRoute<T>(route: T | undefined, failure: ServiceFailure): Effect.Effect<T, ServiceFailure> {
+export function requireServiceRoute<T>(
+  route: T | undefined,
+  failure: ServiceFailure
+): Effect.Effect<T, ServiceFailure> {
   return route ? Effect.succeed(route) : Effect.fail(failure)
 }
 
@@ -74,4 +84,3 @@ export function requireServiceRoute<T>(route: T | undefined, failure: ServiceFai
 export function createInternalFetcher() {
   return createInternalHttpFetcher()
 }
-

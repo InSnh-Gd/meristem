@@ -34,7 +34,10 @@ export function validateSkillMarkdown(path: string, text: string): SkillHygieneF
       findings.push({ path, reason: 'skill name must use lowercase hyphen-case' })
     }
     if (name.length > MAX_SKILL_NAME_LENGTH) {
-      findings.push({ path, reason: `skill name must be ${MAX_SKILL_NAME_LENGTH} characters or fewer` })
+      findings.push({
+        path,
+        reason: `skill name must be ${MAX_SKILL_NAME_LENGTH} characters or fewer`
+      })
     }
   }
 
@@ -43,7 +46,10 @@ export function validateSkillMarkdown(path: string, text: string): SkillHygieneF
     findings.push({ path, reason: 'missing skill description' })
   } else {
     if (description.length > MAX_DESCRIPTION_LENGTH) {
-      findings.push({ path, reason: `description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` })
+      findings.push({
+        path,
+        reason: `description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer`
+      })
     }
     if (!description.includes('Use when')) {
       findings.push({ path, reason: 'description must include "Use when" trigger wording' })
@@ -64,13 +70,20 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
   const findings: SkillHygieneFinding[] = []
   const seen = new Set<string>()
 
-  for await (const path of new Bun.Glob('.agents/skills/*/SKILL.md').scan({ cwd: root, absolute: false })) {
+  for await (const path of new Bun.Glob('.agents/skills/*/SKILL.md').scan({
+    cwd: root,
+    absolute: false
+  })) {
     seen.add(path)
     const text = await Bun.file(`${root}/${path}`).text()
     findings.push(...validateSkillMarkdown(path, text))
   }
 
-  for await (const skillDir of new Bun.Glob('.agents/skills/*').scan({ cwd: root, absolute: false, onlyFiles: false })) {
+  for await (const skillDir of new Bun.Glob('.agents/skills/*').scan({
+    cwd: root,
+    absolute: false,
+    onlyFiles: false
+  })) {
     if (seen.has(`${skillDir}/SKILL.md`)) continue
     findings.push({ path: skillDir, reason: 'skill directory is missing SKILL.md' })
   }
@@ -78,7 +91,9 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
   return findings
 }
 
-function parseFrontmatter(text: string): { values: Record<string, string>; bodyLineCount: number } | null {
+function parseFrontmatter(
+  text: string
+): { values: Record<string, string>; bodyLineCount: number } | null {
   const lines = text.split('\n')
   if (lines[0] !== '---') return null
 

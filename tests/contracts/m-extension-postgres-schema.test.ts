@@ -8,7 +8,12 @@ describe('M-Extension PostgreSQL schema documentation contract', () => {
       expect(doc).toContain(table)
     }
 
-    for (const permission of ['extension:read', 'extension:register', 'extension:enable', 'extension:disable']) {
+    for (const permission of [
+      'extension:read',
+      'extension:register',
+      'extension:enable',
+      'extension:disable'
+    ]) {
       expect(doc).toContain(permission)
     }
 

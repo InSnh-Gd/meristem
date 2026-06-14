@@ -23,15 +23,16 @@
     "dev:m-ui-bff": "bun run services/m-ui-bff/src/index.ts",
     "dev:node-agent": "bun run services/node-agent/src/index.ts",
     "dev:ui-demo": "bun run scripts/dev-ui-demo.ts",
-    "lint": "bun run scripts/no-any-check.ts",
+    "format:check": "biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false .",
+    "lint": "biome lint . && bun run scripts/no-any-check.ts && bun run scripts/boundary-import-check.ts --enforce",
     "meristem": "bun run apps/m-cli/src/index.ts",
     "nodejs-ban": "bun run scripts/nodejs-ban.ts",
     "skill-hygiene": "bun run scripts/skill-hygiene.ts",
-    "test": "bun test tests/contracts tests/failure-modes tests/cli tests/integration",
+    "test": "bun test tests/contracts tests/failure-modes tests/cli tests/integration --ignore tests/contracts/opensearch-search.test.ts --ignore tests/failure-modes/opensearch.test.ts",
     "test:cli": "bun test tests/cli",
-    "test:contracts": "bun test tests/contracts",
+    "test:contracts": "bun test tests/contracts --ignore tests/contracts/opensearch-search.test.ts",
     "test:e2e": "bun test --timeout=30000 tests/e2e",
-    "test:failure-modes": "bun test tests/failure-modes",
+    "test:failure-modes": "bun test tests/failure-modes --ignore tests/failure-modes/opensearch.test.ts",
     "test:integration": "bun test tests/integration",
     "test:ui-contract": "bun test tests/ui-contract",
     "test:opensearch-contracts": "bun test tests/contracts/opensearch-search.test.ts",
@@ -39,6 +40,7 @@
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",
     "token:mint": "bun run packages/auth/src/mint-token.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "workspace-hygiene": "bun run scripts/workspace-hygiene.ts && bun run scripts/skill-hygiene.ts"
   },
   "dependencies": {
@@ -61,6 +63,7 @@
     "postgres": "3.4.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@types/bun": "1.3.14",
     "drizzle-kit": "latest",
     "typescript": "latest"

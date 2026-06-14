@@ -95,14 +95,14 @@ describe('SDUI v0.2 route schema', () => {
   it('route registry contains required SDUI v0.2 route IDs', () => {
     const registry = {
       schemaVersion: 'sdui@0.2.0',
-      routes: requiredSduiV02RouteIds.map((id) => ({
+      routes: requiredSduiV02RouteIds.map(id => ({
         ...validRouteV02,
         id
       }))
     } as const
 
     const decoded = Schema.decodeUnknownSync(SduiV02RouteRegistrySchema)(registry)
-    const routeIds = decoded.routes.map((route) => route.id)
+    const routeIds = decoded.routes.map(route => route.id)
 
     // Bun 的 toEqual 重载在 strict 模式下不接受 readonly tuple；
     // 展开为普通字符串列表进行比较，语义不变且消除 TS2769。
@@ -113,7 +113,7 @@ describe('SDUI v0.2 route schema', () => {
   it('every route declares state sources', () => {
     const registry = {
       schemaVersion: 'sdui@0.2.0',
-      routes: requiredSduiV02RouteIds.map((id) => ({
+      routes: requiredSduiV02RouteIds.map(id => ({
         ...validRouteV02,
         id
       }))

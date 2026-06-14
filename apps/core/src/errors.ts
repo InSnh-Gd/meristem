@@ -18,9 +18,12 @@ export function apiError(
   }
   if (correlationId) error.correlationId = correlationId
 
-  return (status as (code: never, body: never) => unknown)(code as never, {
-    error
-  } as never) as never
+  return (status as (code: never, body: never) => unknown)(
+    code as never,
+    {
+      error
+    } as never
+  ) as never
 }
 
 /**

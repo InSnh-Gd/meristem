@@ -1,4 +1,4 @@
-import { and, asc, gte, lte, sql, type SQL } from 'drizzle-orm'
+import { and, asc, gte, lte, type SQL, sql } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 import { Effect } from 'effect'
 import type {
@@ -14,7 +14,13 @@ import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase } from './types.ts'
 
 type JobStore = {
-  createJob(type: 'backfill', index: string, startCursor: ProjectionCursor | null, endCursor: ProjectionCursor | null, batchSize: number): Promise<ProjectorJob>
+  createJob(
+    type: 'backfill',
+    index: string,
+    startCursor: ProjectionCursor | null,
+    endCursor: ProjectionCursor | null,
+    batchSize: number
+  ): Promise<ProjectorJob>
   transitionJob(id: string, status: ProjectorJobStatus, error?: string): Promise<void>
 }
 
@@ -24,7 +30,13 @@ type CursorStore = {
 }
 
 type RetryProjector = {
-  projectWithRetry(jobId: string, index: string, factId: string, doc: Record<string, unknown>, retries?: number): Promise<boolean>
+  projectWithRetry(
+    jobId: string,
+    index: string,
+    factId: string,
+    doc: Record<string, unknown>,
+    retries?: number
+  ): Promise<boolean>
 }
 
 /**
@@ -45,7 +57,7 @@ export function workflowError(operation: string, error: unknown) {
 export function tryProjection<A>(operation: string, evaluate: () => A | PromiseLike<A>) {
   return Effect.tryPromise({
     try: () => Promise.resolve(evaluate()),
-    catch: (error) => workflowError(operation, error)
+    catch: error => workflowError(operation, error)
   })
 }
 
@@ -59,7 +71,9 @@ export function createBackfillService(
   cursors: CursorStore,
   retry: RetryProjector
 ) {
-  const executeBackfillEffect = Effect.fn('MLogProjection.executeBackfill')(function* (params: BackfillParams) {
+  const executeBackfillEffect = Effect.fn('MLogProjection.executeBackfill')(function* (
+    params: BackfillParams
+  ) {
     const targetIndex = resolveTargetIndex(params.index, params.targetVersion)
     const factTable = factTableFromIndex(params.index)
     if (!factTable) {
@@ -69,41 +83,66 @@ export function createBackfillService(
       })
     }
 
-    const job = yield* tryProjection('create-backfill-job', () => jobs.createJob('backfill', targetIndex, params.from, params.to, params.batchSize))
+    const job = yield* tryProjection('create-backfill-job', () =>
+      jobs.createJob('backfill', targetIndex, params.from, params.to, params.batchSize)
+    )
     yield* tryProjection('start-backfill-job', () => jobs.transitionJob(job.id, 'running'))
 
     const table = factTables[factTable]
     let processedCount = 0
     let errors = 0
-    let currentCursor = params.from ?? (yield* tryProjection('read-backfill-cursor', () => cursors.getCursor(targetIndex))) ?? {
-      factId: '00000000-0000-0000-0000-000000000000',
-      timestamp: '1970-01-01T00:00:00.000Z'
-    }
+    let currentCursor = params.from ??
+      (yield* tryProjection('read-backfill-cursor', () => cursors.getCursor(targetIndex))) ?? {
+        factId: '00000000-0000-0000-0000-000000000000',
+        timestamp: '1970-01-01T00:00:00.000Z'
+      }
 
     try {
       while (true) {
         const conditions: ReturnType<typeof sql>[] = [
-          gte(table['timestamp' as keyof typeof table] as unknown as PgColumn, new Date(currentCursor.timestamp))
+          gte(
+            table['timestamp' as keyof typeof table] as unknown as PgColumn,
+            new Date(currentCursor.timestamp)
+          )
         ]
         if (currentCursor.factId !== '00000000-0000-0000-0000-000000000000') {
-          conditions.push(sql`${table['id' as keyof typeof table] as unknown as SQL<unknown>} > ${currentCursor.factId}`)
+          conditions.push(
+            sql`${table['id' as keyof typeof table] as unknown as SQL<unknown>} > ${currentCursor.factId}`
+          )
         }
         if (params.to) {
-          conditions.push(lte(table['timestamp' as keyof typeof table] as unknown as PgColumn, new Date(params.to.timestamp)))
+          conditions.push(
+            lte(
+              table['timestamp' as keyof typeof table] as unknown as PgColumn,
+              new Date(params.to.timestamp)
+            )
+          )
         }
 
-        const batch = yield* tryProjection('read-backfill-batch', () => db
-          .select()
-          .from(table)
-          .where(and(...conditions))
-          .orderBy(asc(table['timestamp' as keyof typeof table] as unknown as PgColumn), asc(table['id' as keyof typeof table] as unknown as SQL<unknown>))
-          .limit(params.batchSize))
+        const batch = yield* tryProjection('read-backfill-batch', () =>
+          db
+            .select()
+            .from(table)
+            .where(and(...conditions))
+            .orderBy(
+              asc(table['timestamp' as keyof typeof table] as unknown as PgColumn),
+              asc(table['id' as keyof typeof table] as unknown as SQL<unknown>)
+            )
+            .limit(params.batchSize)
+        )
 
         if (batch.length === 0) break
 
         for (const row of batch) {
           const doc = mapFactToDoc(targetIndex, row as Record<string, unknown>)
-          const success = yield* tryProjection('project-backfill-row', () => retry.projectWithRetry(job.id, targetIndex, (row as Record<string, unknown>).id as string, doc))
+          const success = yield* tryProjection('project-backfill-row', () =>
+            retry.projectWithRetry(
+              job.id,
+              targetIndex,
+              (row as Record<string, unknown>).id as string,
+              doc
+            )
+          )
           if (success) {
             processedCount++
           } else {
@@ -118,7 +157,9 @@ export function createBackfillService(
           factId: lastRec.id as string,
           timestamp: (lastRec.timestamp as Date).toISOString()
         }
-        yield* tryProjection('advance-backfill-cursor', () => cursors.advanceCursor(targetIndex, currentCursor))
+        yield* tryProjection('advance-backfill-cursor', () =>
+          cursors.advanceCursor(targetIndex, currentCursor)
+        )
 
         if (batch.length < params.batchSize) break
       }
@@ -146,4 +187,3 @@ export function createBackfillService(
 
   return { executeBackfillEffect, executeBackfill }
 }
-

@@ -1,8 +1,22 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { eq } from 'drizzle-orm'
 import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
+import type {
+  ActorId,
+  ApprovalStatus,
+  Permission,
+  PolicyApproval,
+  PolicyApprovalVote,
+  PolicyDecision
+} from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { policyDecisions, policyApprovals, policyApprovalVotes, rolePermissions as rolePermissionTable, userRoles } from '../../../packages/db/src/schema.ts'
+import {
+  policyApprovals,
+  policyApprovalVotes,
+  policyDecisions,
+  rolePermissions as rolePermissionTable,
+  userRoles
+} from '../../../packages/db/src/schema.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   createInternalFetcher,
@@ -13,11 +27,19 @@ import {
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
 import { decidePermission } from '../../../packages/policy/src/index.ts'
-import type { ActorId, ApprovalStatus, Permission, PolicyApproval, PolicyApprovalVote, PolicyDecision } from '../../../packages/contracts/src/index.ts'
-import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
-import type { EventBusApp } from '../../m-eventbus/src/app.ts'
+import {
+  currentTraceId,
+  initTelemetry,
+  shutdownTelemetry
+} from '../../../packages/telemetry/src/index.ts'
+import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
 import { createPolicyApp, type PolicyAuthorizeInput } from './app.ts'
-import { createApprovalRoutes, createInternalApprovalRoutes, type ApprovalDeps, type ApprovalStore } from './approvals.ts'
+import {
+  type ApprovalDeps,
+  type ApprovalStore,
+  createApprovalRoutes,
+  createInternalApprovalRoutes
+} from './approvals.ts'
 
 initTelemetry('m-policy')
 
@@ -37,7 +59,7 @@ async function permissionsForActor(actor: ActorId): Promise<Permission[]> {
     .innerJoin(rolePermissionTable, eq(userRoles.roleId, rolePermissionTable.roleId))
     .where(eq(userRoles.userId, actor))
 
-  return rows.map((row) => row.permissionId as Permission)
+  return rows.map(row => row.permissionId as Permission)
 }
 
 /**
@@ -151,7 +173,7 @@ const approvalStore: ApprovalStore = {
       ? db.select().from(policyApprovals).where(eq(policyApprovals.status, status))
       : db.select().from(policyApprovals)
     const rows = await query
-    return rows.map((row) => ({
+    return rows.map(row => ({
       id: row.id,
       policyDecisionId: row.policyDecisionId,
       originService: row.originService as PolicyApproval['originService'],
@@ -185,8 +207,11 @@ const approvalStore: ApprovalStore = {
     }
   },
   async getVotes(approvalId) {
-    const rows = await db.select().from(policyApprovalVotes).where(eq(policyApprovalVotes.approvalId, approvalId))
-    return rows.map((row) => ({
+    const rows = await db
+      .select()
+      .from(policyApprovalVotes)
+      .where(eq(policyApprovalVotes.approvalId, approvalId))
+    return rows.map(row => ({
       id: row.id,
       approvalId: row.approvalId,
       actor: row.actor as ActorId,
@@ -216,11 +241,14 @@ const approvalStore: ApprovalStore = {
   },
   async updateApprovalStatus(id, status, completedAt) {
     const now = new Date()
-    await db.update(policyApprovals).set({
-      status,
-      updatedAt: now,
-      ...(completedAt ? { completedAt: new Date(completedAt) } : {})
-    }).where(eq(policyApprovals.id, id))
+    await db
+      .update(policyApprovals)
+      .set({
+        status,
+        updatedAt: now,
+        ...(completedAt ? { completedAt: new Date(completedAt) } : {})
+      })
+      .where(eq(policyApprovals.id, id))
     return this.getApproval(id)
   }
 }
@@ -229,7 +257,12 @@ const approvalDeps: ApprovalDeps = {
   auth: {
     async verify(token) {
       const secret = process.env.MERISTEM_JWT_SECRET
-      if (!secret) return { ok: false as const, code: 'auth.unconfigured', message: 'MERISTEM_JWT_SECRET is required' }
+      if (!secret)
+        return {
+          ok: false as const,
+          code: 'auth.unconfigured',
+          message: 'MERISTEM_JWT_SECRET is required'
+        }
       const result = await verifyLocalToken({ token, secret })
       if (!result.ok) return { ok: false as const, code: result.code, message: result.message }
       return { ok: true as const, actor: result.actor }
@@ -279,36 +312,53 @@ const approvalDeps: ApprovalDeps = {
     }
   },
   async authorize(actor, permission, resource) {
-    const decision = decidePermission({ actor, action: permission, resource, permissions: await permissionsForActor(actor) })
+    const decision = decidePermission({
+      actor,
+      action: permission,
+      resource,
+      permissions: await permissionsForActor(actor)
+    })
     return decision.result === 'allow'
   },
   async onApproved(approval) {
     if (approval.originService === 'm-net') {
-      const response = await fetch(`${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/resume`, {
-        method: 'POST',
-        headers: internalRequestHeaders()
-      })
+      const response = await fetch(
+        `${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/resume`,
+        {
+          method: 'POST',
+          headers: internalRequestHeaders()
+        }
+      )
       if (!response.ok) throw new Error('m-net resume failed')
     } else {
-      const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/resume`, {
-        method: 'POST',
-        headers: internalRequestHeaders()
-      })
+      const response = await fetch(
+        `${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/resume`,
+        {
+          method: 'POST',
+          headers: internalRequestHeaders()
+        }
+      )
       if (!response.ok) throw new Error('m-task resume failed')
     }
   },
   async onRejected(approval) {
     if (approval.originService === 'm-net') {
-      const response = await fetch(`${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/reject`, {
-        method: 'POST',
-        headers: internalRequestHeaders()
-      })
+      const response = await fetch(
+        `${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/reject`,
+        {
+          method: 'POST',
+          headers: internalRequestHeaders()
+        }
+      )
       if (!response.ok) throw new Error('m-net reject failed')
     } else {
-      const response = await fetch(`${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/reject`, {
-        method: 'POST',
-        headers: internalRequestHeaders()
-      })
+      const response = await fetch(
+        `${serviceUrl('m-task')}/internal/v0/task-operations/${approval.operationId}/reject`,
+        {
+          method: 'POST',
+          headers: internalRequestHeaders()
+        }
+      )
       if (!response.ok) throw new Error('m-task reject failed')
     }
   }
@@ -317,11 +367,21 @@ const approvalDeps: ApprovalDeps = {
 const approvalRoutes = createApprovalRoutes(approvalDeps)
 const internalApprovalRoutes = createInternalApprovalRoutes(approvalDeps)
 
+/**
+ * 就绪探针把依赖异常收敛为 false，但必须保留可观测的降级原因。
+ */
+function warnReadinessFallback(dependency: string, error: unknown): false {
+  console.warn(
+    `m-policy: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
+  )
+  return false
+}
+
 const app = createPolicyApp({
   async readiness() {
     const postgresReady = await client`select 1`
       .then(() => true)
-      .catch(() => false)
+      .catch(error => warnReadinessFallback('postgres', error))
     const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
     return { ready: postgresReady && eventBusReady }
   },
@@ -334,7 +394,8 @@ const server = serveHttpApp('m-policy', mergedApp.fetch)
 
 // 退出顺序先停 HTTP，再关数据库和 telemetry，避免正在处理的授权请求半途丢失。
 process.on('SIGINT', () => {
-  void server.stop()
+  void server
+    .stop()
     .then(() => client.end())
     .then(() => shutdownTelemetry())
     .then(() => process.exit(0))

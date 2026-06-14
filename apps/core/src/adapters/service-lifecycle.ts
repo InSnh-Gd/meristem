@@ -2,11 +2,14 @@ import { edenTreaty } from '@elysiajs/eden'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type { CoreDependencies, ServiceSummary } from '../../../../packages/contracts/src/index.ts'
 import { fetchReadyState, serviceUrl } from '../../../../packages/internal-http/src/index.ts'
-import type { LogApp } from '../../../../services/m-log/src/app.ts'
-import type { CoreStorage } from '../types.ts'
+import type { LogApp } from '../../../../services/m-log/src/public-types.ts'
 import { createInternalFetcher, errorMessageFromHttpResponse } from '../effect-helpers.ts'
+import type { CoreStorage } from '../types.ts'
 
-type BuiltinServiceDefinition = Pick<ServiceSummary, 'id' | 'version' | 'domain' | 'kind' | 'lifecycle'>
+type BuiltinServiceDefinition = Pick<
+  ServiceSummary,
+  'id' | 'version' | 'domain' | 'kind' | 'lifecycle'
+>
 type DynamicServiceRow = { id: string; version: string; domain: string; kind: string }
 
 // 这组内建服务是 MVP 运行态聚合的固定骨架，动态服务定义只会在此基础上补充。
@@ -65,23 +68,27 @@ async function fetchHealthState(url: string): Promise<boolean> {
 }
 
 function isServiceDomain(value: string): value is ServiceSummary['domain'] {
-  return value === 'core'
-    || value === 'm-net'
-    || value === 'm-eventbus'
-    || value === 'm-log'
-    || value === 'm-policy'
-    || value === 'm-ui'
-    || value === 'm-cli'
-    || value === 'm-extension'
+  return (
+    value === 'core' ||
+    value === 'm-net' ||
+    value === 'm-eventbus' ||
+    value === 'm-log' ||
+    value === 'm-policy' ||
+    value === 'm-ui' ||
+    value === 'm-cli' ||
+    value === 'm-extension'
+  )
 }
 
 function isServiceKind(value: string): value is ServiceSummary['kind'] {
-  return value === 'core'
-    || value === 'internal'
-    || value === 'node'
-    || value === 'task'
-    || value === 'extension'
-    || value === 'bff'
+  return (
+    value === 'core' ||
+    value === 'internal' ||
+    value === 'node' ||
+    value === 'task' ||
+    value === 'extension' ||
+    value === 'bff'
+  )
 }
 
 /**
@@ -98,10 +105,10 @@ function normalizeDynamicServiceRow(row: unknown): DynamicServiceRow | null {
   const version = Reflect.get(row, 'version')
   const domain = Reflect.get(row, 'domain')
   const kind = Reflect.get(row, 'kind')
-  return typeof id === 'string'
-    && typeof version === 'string'
-    && typeof domain === 'string'
-    && typeof kind === 'string'
+  return typeof id === 'string' &&
+    typeof version === 'string' &&
+    typeof domain === 'string' &&
+    typeof kind === 'string'
     ? { id, version, domain, kind }
     : null
 }
@@ -109,9 +116,11 @@ function normalizeDynamicServiceRow(row: unknown): DynamicServiceRow | null {
 /**
  * Core 运行态由 required dependencies 聚合而来；任何一个依赖掉线都让 Core 进入 degraded。
  */
-function coreRuntimeFromDependencies(dependencies: CoreDependencies): NonNullable<ServiceSummary['runtime']> {
+function coreRuntimeFromDependencies(
+  dependencies: CoreDependencies
+): NonNullable<ServiceSummary['runtime']> {
   const dependencyStates = Object.values(dependencies)
-  const ready = dependencyStates.every((state) => state === 'ready')
+  const ready = dependencyStates.every(state => state === 'ready')
   return ready
     ? { liveness: true, readiness: true, mode: 'normal' }
     : {
@@ -160,7 +169,10 @@ function dynamicServiceSummary(row: DynamicServiceRow): ServiceSummary | null {
   }
 }
 
-export function createServiceLifecyclePort(storage: CoreStorage, readinessChecks: () => Promise<CoreDependencies>) {
+export function createServiceLifecyclePort(
+  storage: CoreStorage,
+  readinessChecks: () => Promise<CoreDependencies>
+) {
   const client = edenTreaty<LogApp>(serviceUrl('m-log'), { fetcher: createInternalFetcher() })
   const lifecycleRoutes = client.internal.v0.lifecycle as {
     reload: {
@@ -176,29 +188,36 @@ export function createServiceLifecyclePort(storage: CoreStorage, readinessChecks
     async list() {
       try {
         // service list 既展示静态定义，也补齐当前实时运行态，供 CLI 和后续 UI 直接消费。
-        const [dependencies, rows, policyRuntime, logRuntime, eventBusRuntime, mNetRuntime] = await Promise.all([
-          readinessChecks(),
-          storage.listServices(),
-          runtimeFromInternalReadiness('m-policy'),
-          runtimeFromInternalReadiness('m-log'),
-          runtimeFromInternalReadiness('m-eventbus'),
-          runtimeFromInternalReadiness('m-net')
-        ])
+        const [dependencies, rows, policyRuntime, logRuntime, eventBusRuntime, mNetRuntime] =
+          await Promise.all([
+            readinessChecks(),
+            storage.listServices(),
+            runtimeFromInternalReadiness('m-policy'),
+            runtimeFromInternalReadiness('m-log'),
+            runtimeFromInternalReadiness('m-eventbus'),
+            runtimeFromInternalReadiness('m-net')
+          ])
         const builtinRuntimeById = new Map<string, ServiceSummary>(
-          builtinServices.map((service) => {
-            if (service.id === 'meristem-core') return [service.id, { ...service, runtime: coreRuntimeFromDependencies(dependencies) }]
-            if (service.id === 'm-policy') return [service.id, { ...service, runtime: policyRuntime }]
+          builtinServices.map(service => {
+            if (service.id === 'meristem-core')
+              return [
+                service.id,
+                { ...service, runtime: coreRuntimeFromDependencies(dependencies) }
+              ]
+            if (service.id === 'm-policy')
+              return [service.id, { ...service, runtime: policyRuntime }]
             if (service.id === 'm-log') return [service.id, { ...service, runtime: logRuntime }]
-            if (service.id === 'm-eventbus') return [service.id, { ...service, runtime: eventBusRuntime }]
+            if (service.id === 'm-eventbus')
+              return [service.id, { ...service, runtime: eventBusRuntime }]
             return [service.id, { ...service, runtime: mNetRuntime }]
           })
         )
         const dynamicServices = rows
           .map(normalizeDynamicServiceRow)
-          .flatMap((row) => row ? [row] : [])
-          .filter((row) => !builtinRuntimeById.has(row.id))
+          .flatMap(row => (row ? [row] : []))
+          .filter(row => !builtinRuntimeById.has(row.id))
           .map(dynamicServiceSummary)
-          .flatMap((service) => service ? [service] : [])
+          .flatMap(service => (service ? [service] : []))
         return ok([...builtinRuntimeById.values(), ...dynamicServices])
       } catch {
         return err({ code: 'service.unavailable', message: 'service lifecycle unavailable' })
@@ -206,7 +225,7 @@ export function createServiceLifecyclePort(storage: CoreStorage, readinessChecks
     },
     async reload(input: { serviceId: string; correlationId: string; reason?: string }) {
       // 当前只有 m-log 具备 reload 原型，其它服务要么不可 reload，要么尚未暴露该能力。
-      const builtinService = builtinServices.find((service) => service.id === input.serviceId)
+      const builtinService = builtinServices.find(service => service.id === input.serviceId)
       if (builtinService && !builtinService.lifecycle.reloadable) {
         return err({ code: 'service.not_reloadable', message: 'service is not reloadable' })
       }
@@ -235,7 +254,7 @@ export function createServiceLifecyclePort(storage: CoreStorage, readinessChecks
       try {
         const serviceExists = (await storage.listServices())
           .map(normalizeDynamicServiceRow)
-          .some((row) => row?.id === input.serviceId)
+          .some(row => row?.id === input.serviceId)
         return serviceExists
           ? err({ code: 'service.not_reloadable', message: 'service is not reloadable' })
           : err({ code: 'service.not_found', message: 'service not found' })
@@ -245,4 +264,3 @@ export function createServiceLifecyclePort(storage: CoreStorage, readinessChecks
     }
   }
 }
-

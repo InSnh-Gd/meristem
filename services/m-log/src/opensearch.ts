@@ -4,9 +4,9 @@
 
 import type {
   AuditLog,
+  AuditSearchQuery,
   FullLog,
   FullLogSearchQuery,
-  AuditSearchQuery,
   LogSearchResult,
   TimelineLog,
   TimelineSearchQuery
@@ -59,6 +59,12 @@ type SearchResponse<T> = {
  * 索引名采用 versioned 命名 + alias 机制。
  */
 export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
+  const warnOpenSearchFallback = (operation: string, error: unknown) => {
+    console.warn(
+      `m-log: OpenSearch ${operation} degraded - ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+
   const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T | null> => {
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -70,7 +76,8 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
       })
       if (!response.ok) return null
       return (await response.json()) as T
-    } catch {
+    } catch (error) {
+      warnOpenSearchFallback(`request ${init?.method ?? 'GET'} ${path}`, error)
       return null
     }
   }
@@ -83,7 +90,10 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   // 建索引，幂等
   async function ensureIndex(index: string): Promise<boolean> {
-    const head = await fetch(`${baseUrl}/${index}`, { method: 'HEAD' }).catch(() => null)
+    const head = await fetch(`${baseUrl}/${index}`, { method: 'HEAD' }).catch(error => {
+      warnOpenSearchFallback(`HEAD ${index}`, error)
+      return null
+    })
     if (head?.ok) return true
 
     const result = await fetchJson<IndexResult>(`/${index}`, {
@@ -147,7 +157,11 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   // idempotency key 由调用方（projection engine）传入，这里不再自生成。
   // indexDocument 接受显式 id 参数作为 OpenSearch _id。
-  async function indexDocument(index: string, id: string, doc: Record<string, unknown>): Promise<boolean> {
+  async function indexDocument(
+    index: string,
+    id: string,
+    doc: Record<string, unknown>
+  ): Promise<boolean> {
     const result = await fetchJson<{ result: string }>(`/${index}/_doc/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(doc)
@@ -207,12 +221,14 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
   }
 
   async function searchFull(query: FullLogSearchQuery): Promise<LogSearchResult<FullLog> | null> {
-    const must: unknown[] = [...mustClauses({
-      level: query.level,
-      source: query.source,
-      correlationId: query.correlationId,
-      traceId: query.traceId
-    })]
+    const must: unknown[] = [
+      ...mustClauses({
+        level: query.level,
+        source: query.source,
+        correlationId: query.correlationId,
+        traceId: query.traceId
+      })
+    ]
 
     if (query.q) must.push({ match: { message: query.q } })
 
@@ -223,16 +239,20 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     })
     if (!response) return null
     return {
-      entries: response.hits.hits.map((h) => h._source),
+      entries: response.hits.hits.map(h => h._source),
       total: response.hits.total.value
     }
   }
 
-  async function searchTimeline(query: TimelineSearchQuery): Promise<LogSearchResult<TimelineLog> | null> {
-    const must: unknown[] = [...mustClauses({
-      subject: query.subject,
-      correlationId: query.correlationId
-    })]
+  async function searchTimeline(
+    query: TimelineSearchQuery
+  ): Promise<LogSearchResult<TimelineLog> | null> {
+    const must: unknown[] = [
+      ...mustClauses({
+        subject: query.subject,
+        correlationId: query.correlationId
+      })
+    ]
 
     if (query.q) must.push({ match: { summary: query.q } })
 
@@ -243,21 +263,23 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     })
     if (!response) return null
     return {
-      entries: response.hits.hits.map((h) => h._source),
+      entries: response.hits.hits.map(h => h._source),
       total: response.hits.total.value
     }
   }
 
   async function searchAudit(query: AuditSearchQuery): Promise<LogSearchResult<AuditLog> | null> {
-    const must: unknown[] = [...mustClauses({
-      actor: query.actor,
-      action: query.action,
-      resource: query.resource,
-      decisionId: query.decisionId,
-      correlationId: query.correlationId
-    })]
+    const must: unknown[] = [
+      ...mustClauses({
+        actor: query.actor,
+        action: query.action,
+        resource: query.resource,
+        decisionId: query.decisionId,
+        correlationId: query.correlationId
+      })
+    ]
 
-    if (query.q) must.push({ match: { 'result': query.q } })
+    if (query.q) must.push({ match: { result: query.q } })
 
     const body = buildSearchBody(must, query)
     const response = await fetchJson<SearchResponse<AuditLog>>(`/${ALIAS_AUDIT}/_search`, {
@@ -266,7 +288,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     })
     if (!response) return null
     return {
-      entries: response.hits.hits.map((h) => h._source),
+      entries: response.hits.hits.map(h => h._source),
       total: response.hits.total.value
     }
   }
@@ -332,12 +354,15 @@ function indexMapping(index: string): Record<string, unknown> {
   return { properties: kv }
 }
 
-function buildSearchBody(must: unknown[], query: { from?: string; to?: string; limit?: number }): unknown {
+function buildSearchBody(
+  must: unknown[],
+  query: { from?: string; to?: string; limit?: number }
+): unknown {
   const rangeFilter: Record<string, unknown> = {}
   if (query.from || query.to) {
-    rangeFilter['timestamp'] = {}
-    if (query.from) (rangeFilter['timestamp'] as Record<string, string>)['gte'] = query.from
-    if (query.to) (rangeFilter['timestamp'] as Record<string, string>)['lte'] = query.to
+    rangeFilter.timestamp = {}
+    if (query.from) (rangeFilter.timestamp as Record<string, string>).gte = query.from
+    if (query.to) (rangeFilter.timestamp as Record<string, string>).lte = query.to
   }
 
   const filters = Object.keys(rangeFilter).length > 0 ? [rangeFilter] : []

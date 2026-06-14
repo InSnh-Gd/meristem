@@ -1,7 +1,12 @@
-import { err, ok } from '../../../packages/common/src/result.ts'
 import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
+import { err, ok } from '../../../packages/common/src/result.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { internalRequestHeaders, internalServicePorts, serveHttpApp, serviceUrl } from '../../../packages/internal-http/src/index.ts'
+import {
+  internalRequestHeaders,
+  internalServicePorts,
+  serveHttpApp,
+  serviceUrl
+} from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import { createMTaskApp } from './app.ts'
 import { createDbMTaskStorage } from './storage-adapter.ts'
@@ -25,17 +30,21 @@ const app = createMTaskApp({
         headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
         body: JSON.stringify(input)
       })
-      if (!response.ok) return err({ code: 'approval.create_failed', message: 'failed to create policy approval' })
-      const body = await response.json() as { approval: { id: string } }
+      if (!response.ok)
+        return err({ code: 'approval.create_failed', message: 'failed to create policy approval' })
+      const body = (await response.json()) as { approval: { id: string } }
       return ok({ approvalId: body.approval.id })
     }
   },
   auth: {
     async verify(token: string) {
       const secret = process.env.MERISTEM_JWT_SECRET
-      if (!secret) return err({ code: 'auth.unconfigured', message: 'MERISTEM_JWT_SECRET is required' })
+      if (!secret)
+        return err({ code: 'auth.unconfigured', message: 'MERISTEM_JWT_SECRET is required' })
       const verified = await verifyLocalToken({ token, secret })
-      return verified.ok ? ok({ actor: verified.actor }) : err({ code: verified.code, message: verified.message })
+      return verified.ok
+        ? ok({ actor: verified.actor })
+        : err({ code: verified.code, message: verified.message })
     }
   }
 })
@@ -43,7 +52,8 @@ const app = createMTaskApp({
 const server = serveHttpApp('m-task', app.fetch)
 
 process.on('SIGINT', () => {
-  void server.stop()
+  void server
+    .stop()
     .then(() => client.end())
     .then(() => shutdownTelemetry())
     .then(() => process.exit(0))

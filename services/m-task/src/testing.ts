@@ -1,8 +1,18 @@
 import { ok } from '../../../packages/common/src/result.ts'
-import type { ActorId, AuditLog, FullLog, MTask, MTaskPolicyDecision, Permission, PolicyResult, TaskPolicyResult, TimelineLog } from '../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  AuditLog,
+  FullLog,
+  MTask,
+  MTaskPolicyDecision,
+  Permission,
+  PolicyResult,
+  TaskPolicyResult,
+  TimelineLog
+} from '../../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../../packages/events/src/index.ts'
 import { decidePermission, rolePermissions } from '../../../packages/policy/src/index.ts'
-import type { MTaskDeps } from './app.ts'
+import type { MTaskDeps } from './deps.ts'
 
 type DeliveryMode = 'complete' | 'queued'
 
@@ -12,7 +22,9 @@ export type InMemoryMTaskOptions = {
   forcePolicyResult?: Exclude<PolicyResult, 'allow'>
 }
 
-function requiredActionFor(result: TaskPolicyResult): MTaskPolicyDecision['requiredAction'] | undefined {
+function requiredActionFor(
+  result: TaskPolicyResult
+): MTaskPolicyDecision['requiredAction'] | undefined {
   if (result === 'require_manual_review') return 'manual_review'
   if (result === 'require_multi_approval') return 'multi_approval'
   return undefined
@@ -51,7 +63,12 @@ export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTa
     },
     policy: {
       async decide(input) {
-        const draft = decidePermission({ actor: input.actor, action: input.action, resource: input.resource, permissions: rolePermissions[input.actor] as readonly Permission[] })
+        const draft = decidePermission({
+          actor: input.actor,
+          action: input.action,
+          resource: input.resource,
+          permissions: rolePermissions[input.actor] as readonly Permission[]
+        })
         const forced = options.forcePolicyResult
         const result = forced ?? draft.result
         return ok({
@@ -115,10 +132,10 @@ export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTa
         return [...tasks]
       },
       async get(id) {
-        return tasks.find((task) => task.id === id) ?? null
+        return tasks.find(task => task.id === id) ?? null
       },
       async transition(id, status, patch = {}) {
-        const task = tasks.find((candidate) => candidate.id === id)
+        const task = tasks.find(candidate => candidate.id === id)
         if (!task) return null
         task.status = status
         task.updatedAt = new Date().toISOString()
@@ -128,10 +145,10 @@ export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTa
       }
     },
     __testing: {
-      publishedSubjects: () => published.map((entry) => entry.subject),
-      auditActions: () => audit.map((entry) => entry.action),
-      timelineSummaries: () => timeline.map((entry) => entry.summary),
-      fullMessages: () => full.map((entry) => entry.message)
+      publishedSubjects: () => published.map(entry => entry.subject),
+      auditActions: () => audit.map(entry => entry.action),
+      timelineSummaries: () => timeline.map(entry => entry.summary),
+      fullMessages: () => full.map(entry => entry.message)
     }
   }
 }

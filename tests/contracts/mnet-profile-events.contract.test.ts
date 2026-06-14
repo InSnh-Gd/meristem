@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
-import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import type { ActorId } from '../../packages/contracts/src/literals.ts'
-import type { ProfileStore } from '../../services/m-net/src/profile-store.ts'
-import type { SuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
+import type { ProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import type { MNetApp } from '../../services/m-net/src/public-types.ts'
+import type { SuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
 const jwtSecret = 'test-jwt-secret'
@@ -65,7 +66,22 @@ const inMemoryApprovalClient = {
   }
 }
 
-function createTestApp(profileStore: ProfileStore, suspendedOps: SuspendedOperationStore, collectors: Collectors, policyAuthorizeOverrides?: { authorize(_actor: string, _action: string, _resource: string): Promise<{ result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'; id: string; reasons: string[] }> }) {
+function createTestApp(
+  profileStore: ProfileStore,
+  suspendedOps: SuspendedOperationStore,
+  collectors: Collectors,
+  policyAuthorizeOverrides?: {
+    authorize(
+      _actor: string,
+      _action: string,
+      _resource: string
+    ): Promise<{
+      result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+      id: string
+      reasons: string[]
+    }>
+  }
+) {
   return createMNetApp({
     async readiness() {
       return { ready: true }
@@ -135,7 +151,7 @@ describe('M-Net profile events and logs contract', () => {
   let profileStore: ProfileStore
   let suspendedOps: SuspendedOperationStore
   let collectors: Collectors
-  let app: ReturnType<typeof createMNetApp>
+  let app: MNetApp
 
   beforeEach(() => {
     profileStore = createInMemoryProfileStore()
@@ -147,21 +163,31 @@ describe('M-Net profile events and logs contract', () => {
   it('enable request emits mnet.profile.enable.requested.v0', async () => {
     const token = await mintTestToken('admin')
     const networkId = 'net-ev-1'
-    await profileStore.setNetworkState(networkId, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
 
-    const response = await app.handle(new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
-    }))
+    const response = await app.handle(
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
+      })
+    )
 
     expect(response.status).toBe(200)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.enable.requested.v0')).toBe(true)
+    expect(
+      collectors.events.some(event => event.subject === 'mnet.profile.enable.requested.v0')
+    ).toBe(true)
   })
 
   it('enable resume success emits mnet.profile.enabled.v0', async () => {
     const networkId = 'net-ev-2'
-    await profileStore.setNetworkState(networkId, { profileVersion: 'm-net-default@0.1.0', status: 'enabling' })
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'enabling'
+    })
     const op = await suspendedOps.create({
       policyDecisionId: 'pd-resume',
       action: 'mnet.profile.enable',
@@ -175,16 +201,21 @@ describe('M-Net profile events and logs contract', () => {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
     })
 
-    const response = await app.handle(internalPost(`/internal/v0/network-profile-operations/${op.id}/resume`))
+    const response = await app.handle(
+      internalPost(`/internal/v0/network-profile-operations/${op.id}/resume`)
+    )
 
     expect(response.status).toBe(200)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.enabled.v0')).toBe(true)
+    expect(collectors.events.some(event => event.subject === 'mnet.profile.enabled.v0')).toBe(true)
   })
 
   it('disable emits requested and disabled events', async () => {
     const token = await mintTestToken('admin')
     const networkId = 'net-ev-3'
-    await profileStore.setNetworkState(networkId, { profileVersion: 'm-net-cn@0.1.0', status: 'enabled' })
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabled'
+    })
 
     const appAllow = createTestApp(profileStore, suspendedOps, collectors, {
       async authorize(_actor, _action, _resource) {
@@ -192,20 +223,27 @@ describe('M-Net profile events and logs contract', () => {
       }
     })
 
-    const response = await appAllow.handle(new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
-    }))
+    const response = await appAllow.handle(
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+      })
+    )
 
     expect(response.status).toBe(200)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.disable.requested.v0')).toBe(true)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.disabled.v0')).toBe(true)
+    expect(
+      collectors.events.some(event => event.subject === 'mnet.profile.disable.requested.v0')
+    ).toBe(true)
+    expect(collectors.events.some(event => event.subject === 'mnet.profile.disabled.v0')).toBe(true)
   })
 
   it('resume stale failure emits mnet.profile.apply_failed.v0', async () => {
     const networkId = 'net-ev-4'
-    await profileStore.setNetworkState(networkId, { profileVersion: 'm-net-cn@0.1.0', status: 'enabling' })
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabling'
+    })
     const op = await suspendedOps.create({
       policyDecisionId: 'pd-stale',
       action: 'mnet.profile.enable',
@@ -219,15 +257,22 @@ describe('M-Net profile events and logs contract', () => {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
     })
 
-    const response = await app.handle(internalPost(`/internal/v0/network-profile-operations/${op.id}/resume`))
+    const response = await app.handle(
+      internalPost(`/internal/v0/network-profile-operations/${op.id}/resume`)
+    )
 
     expect(response.status).toBe(409)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.apply_failed.v0')).toBe(true)
+    expect(collectors.events.some(event => event.subject === 'mnet.profile.apply_failed.v0')).toBe(
+      true
+    )
   })
 
   it('reject emits mnet.profile.enable.canceled.v0', async () => {
     const networkId = 'net-ev-5'
-    await profileStore.setNetworkState(networkId, { profileVersion: 'm-net-default@0.1.0', status: 'enabling' })
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'enabling'
+    })
     const op = await suspendedOps.create({
       policyDecisionId: 'pd-reject',
       action: 'mnet.profile.enable',
@@ -241,64 +286,96 @@ describe('M-Net profile events and logs contract', () => {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
     })
 
-    const response = await app.handle(internalPost(`/internal/v0/network-profile-operations/${op.id}/reject`))
+    const response = await app.handle(
+      internalPost(`/internal/v0/network-profile-operations/${op.id}/reject`)
+    )
 
     expect(response.status).toBe(200)
-    expect(collectors.events.some((event) => event.subject === 'mnet.profile.enable.canceled.v0')).toBe(true)
+    expect(
+      collectors.events.some(event => event.subject === 'mnet.profile.enable.canceled.v0')
+    ).toBe(true)
   })
 
   it('writes audit entries on enable/disable flows', async () => {
     const token = await mintTestToken('admin')
     const enableNetworkId = 'net-ev-6-enable'
-    await profileStore.setNetworkState(enableNetworkId, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
-    await app.handle(new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
-    }))
+    await profileStore.setNetworkState(enableNetworkId, {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
+    await app.handle(
+      new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
+      })
+    )
 
     const disableNetworkId = 'net-ev-6-disable'
-    await profileStore.setNetworkState(disableNetworkId, { profileVersion: 'm-net-cn@0.1.0', status: 'enabled' })
+    await profileStore.setNetworkState(disableNetworkId, {
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabled'
+    })
     const appAllow = createTestApp(profileStore, suspendedOps, collectors, {
       async authorize(_actor, _action, _resource) {
         return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
       }
     })
-    await appAllow.handle(new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
-    }))
+    await appAllow.handle(
+      new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+      })
+    )
 
-    expect(collectors.audit.some((entry) => entry.action === 'mnet.profile.enable.request')).toBe(true)
-    expect(collectors.audit.some((entry) => entry.action === 'mnet.profile.disable.request')).toBe(true)
-    expect(collectors.audit.some((entry) => entry.action === 'mnet.profile.disable.success')).toBe(true)
+    expect(collectors.audit.some(entry => entry.action === 'mnet.profile.enable.request')).toBe(
+      true
+    )
+    expect(collectors.audit.some(entry => entry.action === 'mnet.profile.disable.request')).toBe(
+      true
+    )
+    expect(collectors.audit.some(entry => entry.action === 'mnet.profile.disable.success')).toBe(
+      true
+    )
   })
 
   it('writes timeline entries on enable/disable flows', async () => {
     const token = await mintTestToken('admin')
     const enableNetworkId = 'net-ev-7-enable'
-    await profileStore.setNetworkState(enableNetworkId, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
-    await app.handle(new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
-    }))
+    await profileStore.setNetworkState(enableNetworkId, {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
+    await app.handle(
+      new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
+      })
+    )
 
     const disableNetworkId = 'net-ev-7-disable'
-    await profileStore.setNetworkState(disableNetworkId, { profileVersion: 'm-net-cn@0.1.0', status: 'enabled' })
+    await profileStore.setNetworkState(disableNetworkId, {
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabled'
+    })
     const appAllowTl = createTestApp(profileStore, suspendedOps, collectors, {
       async authorize(_actor, _action, _resource) {
         return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
       }
     })
-    await appAllowTl.handle(new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
-      method: 'POST',
-      headers: bearerHeaders(token),
-      body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
-    }))
+    await appAllowTl.handle(
+      new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+      })
+    )
 
-    expect(collectors.timeline.some((entry) => entry.subject === 'mnet.profile.enable.requested')).toBe(true)
-    expect(collectors.timeline.some((entry) => entry.subject === 'mnet.profile.disabled')).toBe(true)
+    expect(
+      collectors.timeline.some(entry => entry.subject === 'mnet.profile.enable.requested')
+    ).toBe(true)
+    expect(collectors.timeline.some(entry => entry.subject === 'mnet.profile.disabled')).toBe(true)
   })
 })

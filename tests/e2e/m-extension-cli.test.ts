@@ -4,7 +4,11 @@ import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
 
 describe('e2e: M-Extension CLI surface', () => {
   it('exposes extension commands without relying on Core authoritative state', async () => {
-    const cli = createCliRunner({ async status() { throw new Error('not used') } })
+    const cli = createCliRunner({
+      async status() {
+        throw new Error('not used')
+      }
+    })
 
     const result = await cli.run(['unknown-command'])
 

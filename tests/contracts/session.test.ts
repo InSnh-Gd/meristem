@@ -11,7 +11,7 @@ describe('GET /api/v0/session', () => {
       })
     )
     expect(res.status).toBe(200)
-    const body = await res.json() as { actor: string; permissions: string[] }
+    const body = (await res.json()) as { actor: string; permissions: string[] }
     expect(body.actor).toBe('operator')
     expect(Array.isArray(body.permissions)).toBe(true)
     expect(body.permissions).toContain('core:read')
@@ -25,7 +25,7 @@ describe('GET /api/v0/session', () => {
         headers: { authorization: 'Bearer test-token' }
       })
     )
-    const body = await res.json() as { actor: string; permissions: string[] }
+    const body = (await res.json()) as { actor: string; permissions: string[] }
     expect(body.actor).toBe('viewer')
     expect(body.permissions).toContain('core:read')
     expect(body.permissions).not.toContain('task:submit')
@@ -37,4 +37,3 @@ describe('GET /api/v0/session', () => {
     expect(res.status).toBe(401)
   })
 })
-

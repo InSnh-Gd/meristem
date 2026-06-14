@@ -6,11 +6,16 @@ import { permissions } from '../literals.ts'
 export const PermissionSchema = Schema.Literal(...permissions)
 export type PermissionFromSchema = typeof PermissionSchema.Type
 
-
 // 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
 import { actorIds } from '../literals.ts'
 
-export const ApprovalStatusSchema = Schema.Literal('pending', 'approved', 'rejected', 'expired', 'canceled')
+export const ApprovalStatusSchema = Schema.Literal(
+  'pending',
+  'approved',
+  'rejected',
+  'expired',
+  'canceled'
+)
 export type ApprovalStatusFromSchema = typeof ApprovalStatusSchema.Type
 
 export const ApprovalVoteTypeSchema = Schema.Literal('approve', 'reject')
@@ -19,7 +24,12 @@ export type ApprovalVoteTypeFromSchema = typeof ApprovalVoteTypeSchema.Type
 export const ApprovalOriginServiceSchema = Schema.Literal('m-task', 'm-net')
 export type ApprovalOriginServiceFromSchema = typeof ApprovalOriginServiceSchema.Type
 
-export const ApprovalOriginActionSchema = Schema.Literal('task.submit', 'task.cancel', 'task.retry', 'mnet.profile.enable')
+export const ApprovalOriginActionSchema = Schema.Literal(
+  'task.submit',
+  'task.cancel',
+  'task.retry',
+  'mnet.profile.enable'
+)
 export type ApprovalOriginActionFromSchema = typeof ApprovalOriginActionSchema.Type
 
 export const RequiredActionSchema = Schema.Literal('manual_review', 'multi_approval')
@@ -51,7 +61,51 @@ export const PolicyApprovalVoteSchema = Schema.Struct({
 })
 export type PolicyApprovalVoteFromSchema = typeof PolicyApprovalVoteSchema.Type
 
-export const SuspendedOperationStatusSchema = Schema.Literal('suspended', 'resumed', 'rejected', 'expired', 'resume_failed')
+export const ApprovalActionRequestSchema = Schema.Struct({
+  reason: Schema.optional(Schema.String)
+})
+export type ApprovalActionRequestFromSchema = typeof ApprovalActionRequestSchema.Type
+
+export const ApprovalCreateResponseSchema = Schema.Struct({
+  approval: PolicyApprovalSchema
+})
+export type ApprovalCreateResponseFromSchema = typeof ApprovalCreateResponseSchema.Type
+
+export const ApprovalListResponseSchema = Schema.Struct({
+  approvals: Schema.Array(PolicyApprovalSchema)
+})
+export type ApprovalListResponseFromSchema = typeof ApprovalListResponseSchema.Type
+
+export const ApprovalDetailResponseSchema = Schema.Struct({
+  id: Schema.String,
+  policyDecisionId: Schema.String,
+  originService: ApprovalOriginServiceSchema,
+  operationId: Schema.String,
+  requestedBy: Schema.Literal(...actorIds),
+  requiredAction: RequiredActionSchema,
+  status: ApprovalStatusSchema,
+  quorumRequired: Schema.Number,
+  expiresAt: Schema.String,
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+  completedAt: Schema.optional(Schema.String),
+  votes: Schema.Array(PolicyApprovalVoteSchema)
+})
+export type ApprovalDetailResponseFromSchema = typeof ApprovalDetailResponseSchema.Type
+
+export const ApprovalActionResponseSchema = Schema.Struct({
+  approval: PolicyApprovalSchema,
+  votes: Schema.Array(PolicyApprovalVoteSchema)
+})
+export type ApprovalActionResponseFromSchema = typeof ApprovalActionResponseSchema.Type
+
+export const SuspendedOperationStatusSchema = Schema.Literal(
+  'suspended',
+  'resumed',
+  'rejected',
+  'expired',
+  'resume_failed'
+)
 export type SuspendedOperationStatusFromSchema = typeof SuspendedOperationStatusSchema.Type
 
 export const TaskSuspendedOperationSchema = Schema.Struct({
@@ -70,3 +124,14 @@ export const TaskSuspendedOperationSchema = Schema.Struct({
   terminalReason: Schema.optional(Schema.String)
 })
 export type TaskSuspendedOperationFromSchema = typeof TaskSuspendedOperationSchema.Type
+
+export const PolicyApprovalEventPayloadSchema = Schema.Struct({
+  approvalId: Schema.String,
+  policyDecisionId: Schema.String,
+  originService: ApprovalOriginServiceSchema,
+  operationId: Schema.String,
+  requestedBy: Schema.Literal(...actorIds),
+  requiredAction: RequiredActionSchema,
+  status: ApprovalStatusSchema
+})
+export type PolicyApprovalEventPayloadFromSchema = typeof PolicyApprovalEventPayloadSchema.Type

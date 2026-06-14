@@ -31,42 +31,73 @@ describe('M-Net node-agent runtime helpers', () => {
   })
 
   it('marks stale reachable agent nodes offline after the timeout window', () => {
-    expect(shouldTransitionOffline({
-      id: 'node-1',
-      mode: 'agent',
-      status: 'healthy',
-      reachability: 'reachable',
-      lastSeenAt: '2026-05-05T11:59:30.000Z'
-    }, new Date('2026-05-05T12:00:00.000Z'), 20_000)).toBe(true)
+    expect(
+      shouldTransitionOffline(
+        {
+          id: 'node-1',
+          mode: 'agent',
+          status: 'healthy',
+          reachability: 'reachable',
+          lastSeenAt: '2026-05-05T11:59:30.000Z'
+        },
+        new Date('2026-05-05T12:00:00.000Z'),
+        20_000
+      )
+    ).toBe(true)
 
-    expect(shouldTransitionOffline({
-      id: 'node-1',
-      mode: 'agent',
-      status: 'healthy',
-      reachability: 'reachable',
-      lastSeenAt: '2026-05-05T11:59:50.000Z'
-    }, new Date('2026-05-05T12:00:00.000Z'), 20_000)).toBe(false)
+    expect(
+      shouldTransitionOffline(
+        {
+          id: 'node-1',
+          mode: 'agent',
+          status: 'healthy',
+          reachability: 'reachable',
+          lastSeenAt: '2026-05-05T11:59:50.000Z'
+        },
+        new Date('2026-05-05T12:00:00.000Z'),
+        20_000
+      )
+    ).toBe(false)
   })
 
   it('derives the public join session url from the configured join ingress base url', () => {
-    expect(buildJoinSessionUrl('https://45.204.206.45:8443')).toBe('wss://45.204.206.45:8443/join/v0/session')
-    expect(buildJoinSessionUrl('http://localhost:8443/base/')).toBe('ws://localhost:8443/base/join/v0/session')
+    expect(buildJoinSessionUrl('https://45.204.206.45:8443')).toBe(
+      'wss://45.204.206.45:8443/join/v0/session'
+    )
+    expect(buildJoinSessionUrl('http://localhost:8443/base/')).toBe(
+      'ws://localhost:8443/base/join/v0/session'
+    )
   })
 
   it('rejects expired and non-active join tickets before redemption', () => {
-    expect(joinTicketRedeemability({
-      status: 'active',
-      expiresAt: '2026-05-05T11:59:59.000Z'
-    }, new Date('2026-05-05T12:00:00.000Z'))).toBe('expired')
+    expect(
+      joinTicketRedeemability(
+        {
+          status: 'active',
+          expiresAt: '2026-05-05T11:59:59.000Z'
+        },
+        new Date('2026-05-05T12:00:00.000Z')
+      )
+    ).toBe('expired')
 
-    expect(joinTicketRedeemability({
-      status: 'redeemed',
-      expiresAt: '2026-05-05T12:01:00.000Z'
-    }, new Date('2026-05-05T12:00:00.000Z'))).toBe('redeemed')
+    expect(
+      joinTicketRedeemability(
+        {
+          status: 'redeemed',
+          expiresAt: '2026-05-05T12:01:00.000Z'
+        },
+        new Date('2026-05-05T12:00:00.000Z')
+      )
+    ).toBe('redeemed')
 
-    expect(joinTicketRedeemability({
-      status: 'active',
-      expiresAt: '2026-05-05T12:01:00.000Z'
-    }, new Date('2026-05-05T12:00:00.000Z'))).toBe('redeemable')
+    expect(
+      joinTicketRedeemability(
+        {
+          status: 'active',
+          expiresAt: '2026-05-05T12:01:00.000Z'
+        },
+        new Date('2026-05-05T12:00:00.000Z')
+      )
+    ).toBe('redeemable')
   })
 })

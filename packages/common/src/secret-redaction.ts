@@ -27,7 +27,10 @@ export function redactSecretsInObject<T extends Record<string, unknown>>(obj: T)
     const lowerKey = key.toLowerCase()
     if (
       typeof value === 'string' &&
-      (lowerKey.includes('value') || lowerKey.includes('secret') || lowerKey.includes('token') || lowerKey.includes('password'))
+      (lowerKey.includes('value') ||
+        lowerKey.includes('secret') ||
+        lowerKey.includes('token') ||
+        lowerKey.includes('password'))
     ) {
       result[key as keyof T] = '[REDACTED]' as T[keyof T]
     } else if (typeof value === 'object' && value !== null) {

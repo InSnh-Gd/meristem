@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { ManagedProcess } from '../helpers/process.ts'
 import {
+  bffFetch,
+  coreFetch,
   infrastructureAvailable,
   startFullStack,
-  stopFullStack,
-  coreFetch,
-  bffFetch
+  stopFullStack
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -109,13 +109,26 @@ if (!infraOk) {
       it('returns redacted decision', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ kind: 'leaf', name: `summary-leaf-${Date.now()}`, mode: 'simulated' })
+          body: JSON.stringify({
+            kind: 'leaf',
+            name: `summary-leaf-${Date.now()}`,
+            mode: 'simulated'
+          })
         })
         const id = (nodeRes.data as { policyDecisionId: string }).policyDecisionId
 
         const res = await bffFetch(`/api/v0/policy/decisions/${id}/summary`, operatorToken)
         expect(res.ok).toBe(true)
-        const body = res.data as { decision: { id: string; actor: string; action: string; resource: string; result: string; createdAt: string } }
+        const body = res.data as {
+          decision: {
+            id: string
+            actor: string
+            action: string
+            resource: string
+            result: string
+            createdAt: string
+          }
+        }
         expect(body.decision.id).toBe(id)
         expect(body.decision.result).toBeDefined()
         expect(body.decision).not.toHaveProperty('reasons')
@@ -126,14 +139,19 @@ if (!infraOk) {
       it('enabled for reachable leaf with operator', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === leafName)
+        const leaf = nodes.find(n => n.name === leafName)
         expect(leaf).toBeDefined()
+        if (!leaf) throw new Error('missing leaf for noop command eligibility test')
         const res = await bffFetch('/api/v0/commands/noop', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ leafNodeId: leaf!.id })
+          body: JSON.stringify({ leafNodeId: leaf.id })
         })
         expect(res.ok).toBe(true)
-        const body = res.data as { state: string; command?: { label: string }; disabledReason?: string }
+        const body = res.data as {
+          state: string
+          command?: { label: string }
+          disabledReason?: string
+        }
         expect(body.state).toBe('enabled')
         expect(body.command?.label).toBe('运行 noop 任务')
       })
@@ -141,9 +159,12 @@ if (!infraOk) {
       it('disabled for viewer (missing task:submit)', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string }> }).nodes
+        const firstNode = nodes[0]
+        expect(firstNode).toBeDefined()
+        if (!firstNode) throw new Error('missing node for viewer eligibility test')
         const res = await bffFetch('/api/v0/commands/noop', viewerToken, {
           method: 'POST',
-          body: JSON.stringify({ leafNodeId: nodes[0].id })
+          body: JSON.stringify({ leafNodeId: firstNode.id })
         })
         expect(res.ok).toBe(true)
         const body = res.data as { state: string; disabledReason: string }
@@ -156,11 +177,12 @@ if (!infraOk) {
       it('returns task result', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === leafName)
+        const leaf = nodes.find(n => n.name === leafName)
         expect(leaf).toBeDefined()
+        if (!leaf) throw new Error('missing leaf for noop execute test')
         const res = await bffFetch('/api/v0/commands/noop/execute', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ leafNodeId: leaf!.id })
+          body: JSON.stringify({ leafNodeId: leaf.id })
         })
         expect(res.ok).toBe(true)
         const body = res.data as { task: { id: string; status: string } }
@@ -172,10 +194,14 @@ if (!infraOk) {
       it('returns node from Core', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string }> }).nodes
-        const res = await bffFetch(`/api/v0/nodes/${nodes[0].id}`, operatorToken)
+        const firstNode = nodes[0]
+        expect(firstNode).toBeDefined()
+        if (!firstNode) throw new Error('missing node for node detail passthrough test')
+
+        const res = await bffFetch(`/api/v0/nodes/${firstNode.id}`, operatorToken)
         expect(res.ok).toBe(true)
         const body = res.data as { node: { id: string } }
-        expect(body.node.id).toBe(nodes[0].id)
+        expect(body.node.id).toBe(firstNode.id)
       })
     })
 
@@ -185,7 +211,7 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { routes: Array<{ id: string }> }
         expect(Array.isArray(body.routes)).toBe(true)
-        expect(body.routes.some((route) => route.id === 'control-room.overview')).toBe(true)
+        expect(body.routes.some(route => route.id === 'control-room.overview')).toBe(true)
       })
 
       it('GET /api/v0/routes/:id returns a known route', async () => {
@@ -205,7 +231,7 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { nodes: Array<{ id: string; name: string }> }
         expect(Array.isArray(body.nodes)).toBe(true)
-        expect(body.nodes.some((node) => node.name === leafName)).toBe(true)
+        expect(body.nodes.some(node => node.name === leafName)).toBe(true)
       })
 
       it('GET /api/v0/timeline returns timeline entries', async () => {
@@ -239,7 +265,7 @@ if (!infraOk) {
       it('POST /api/v0/commands/task.noop.submit/eligibility returns command eligibility', async () => {
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((node) => node.name === leafName)
+        const leaf = nodes.find(node => node.name === leafName)
         expect(leaf).toBeDefined()
         if (!leaf) throw new Error(`missing e2e leaf: ${leafName}`)
 

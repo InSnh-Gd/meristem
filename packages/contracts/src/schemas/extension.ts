@@ -1,11 +1,31 @@
 import * as Schema from 'effect/Schema'
 import { actorIds, permissions } from '../literals.ts'
-import { mExtensionEventSubjects, mExtensionManifestVersion, mExtensionScope } from '../types/extension.ts'
+import {
+  mExtensionEventSubjects,
+  mExtensionManifestVersion,
+  mExtensionScope
+} from '../types/extension.ts'
 
 export const MExtensionManifestVersionSchema = Schema.Literal(mExtensionManifestVersion)
-export const MExtensionKindSchema = Schema.Literal('metadata-only', 'webhook-declared', 'wasm-placeholder', 'http-callback-placeholder')
+export const MExtensionKindSchema = Schema.Literal(
+  'metadata-only',
+  'webhook-declared',
+  'wasm-placeholder',
+  'http-callback-placeholder'
+)
 export const MExtensionRiskClassSchema = Schema.Literal('low', 'medium')
 export const MExtensionLifecycleStatusSchema = Schema.Literal('draft', 'active', 'deprecated')
+export const MExtensionDefinitionStatusSchema = Schema.Literal(
+  'registered',
+  'rejected',
+  'deprecated'
+)
+export const MExtensionInstanceStatusSchema = Schema.Literal(
+  'disabled',
+  'enabled',
+  'enable_failed',
+  'disable_failed'
+)
 export const MExtensionScopeTypeSchema = Schema.Literal(mExtensionScope.type)
 export const MExtensionScopeIdSchema = Schema.Literal(mExtensionScope.id)
 export const MExtensionPermissionSchema = Schema.Literal(...permissions)
@@ -29,7 +49,9 @@ export const MExtensionManifestV01Schema = Schema.Struct({
   futureEntrypoint: Schema.optional(Schema.String),
   futureRuntime: Schema.optional(Schema.String),
   futureWebhookVerification: Schema.optional(Schema.String),
-  futureResourceLimits: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  futureResourceLimits: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  ),
   createdAt: Schema.optional(Schema.String),
   updatedAt: Schema.optional(Schema.String)
 })
@@ -56,3 +78,73 @@ export const MExtensionLifecyclePayloadSchema = Schema.Struct({
   correlationId: Schema.optional(Schema.String),
   errorCode: Schema.optional(Schema.String)
 })
+export type MExtensionLifecyclePayloadFromSchema = typeof MExtensionLifecyclePayloadSchema.Type
+
+export const MExtensionInstanceSchema = Schema.Struct({
+  id: Schema.String,
+  extensionId: Schema.String,
+  scopeType: MExtensionScopeTypeSchema,
+  scopeId: MExtensionScopeIdSchema,
+  status: MExtensionInstanceStatusSchema,
+  enabledBy: Schema.optional(Schema.Literal(...actorIds)),
+  disabledBy: Schema.optional(Schema.Literal(...actorIds)),
+  policyDecisionId: Schema.optional(Schema.String),
+  correlationId: Schema.optional(Schema.String),
+  lastError: Schema.optional(Schema.String),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+  enabledAt: Schema.optional(Schema.String),
+  disabledAt: Schema.optional(Schema.String)
+})
+export type MExtensionInstanceFromSchema = typeof MExtensionInstanceSchema.Type
+
+export const MExtensionDefinitionSchema = Schema.Struct({
+  id: Schema.String,
+  manifestVersion: MExtensionManifestVersionSchema,
+  kind: MExtensionKindSchema,
+  displayName: Schema.String,
+  owner: Schema.String,
+  license: Schema.String,
+  manifest: MExtensionManifestV01Schema,
+  declaredCapabilities: Schema.Array(Schema.String),
+  requestedPermissions: Schema.Array(MExtensionPermissionSchema),
+  riskClass: MExtensionRiskClassSchema,
+  status: MExtensionDefinitionStatusSchema,
+  registeredBy: Schema.Literal(...actorIds),
+  policyDecisionId: Schema.String,
+  correlationId: Schema.String,
+  createdAt: Schema.String,
+  updatedAt: Schema.String
+})
+export type MExtensionDefinitionFromSchema = typeof MExtensionDefinitionSchema.Type
+
+export const ExtensionPairSchema = Schema.Struct({
+  definition: MExtensionDefinitionSchema,
+  instance: Schema.optional(MExtensionInstanceSchema)
+})
+export type ExtensionPairFromSchema = typeof ExtensionPairSchema.Type
+
+export const ExtensionListResponseSchema = Schema.Struct({
+  extensions: Schema.Array(ExtensionPairSchema)
+})
+export type ExtensionListResponseFromSchema = typeof ExtensionListResponseSchema.Type
+
+export const ExtensionDetailResponseSchema = ExtensionPairSchema
+export type ExtensionDetailResponseFromSchema = typeof ExtensionDetailResponseSchema.Type
+
+export const RegisterExtensionResponseSchema = Schema.Struct({
+  definition: MExtensionDefinitionSchema,
+  instance: Schema.optional(MExtensionInstanceSchema),
+  policyDecisionId: Schema.String,
+  correlationId: Schema.String
+})
+export type RegisterExtensionResponseFromSchema = typeof RegisterExtensionResponseSchema.Type
+
+export const ExtensionInstanceControlResponseSchema = Schema.Struct({
+  definition: MExtensionDefinitionSchema,
+  instance: MExtensionInstanceSchema,
+  policyDecisionId: Schema.String,
+  correlationId: Schema.String
+})
+export type ExtensionInstanceControlResponseFromSchema =
+  typeof ExtensionInstanceControlResponseSchema.Type

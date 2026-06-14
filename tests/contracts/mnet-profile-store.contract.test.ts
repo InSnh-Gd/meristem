@@ -20,31 +20,31 @@ describe('M-Net in-memory profile store', () => {
     const defs = await store.getDefinitions()
     expect(defs).toHaveLength(2)
 
-    const versions = defs.map((d) => d.profileVersion).sort()
+    const versions = defs.map(d => d.profileVersion).sort()
     expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-default@0.1.0'])
 
-    const cnProfile = defs.find((d) => d.profileVersion === 'm-net-cn@0.1.0')
+    const cnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.1.0')
     expect(cnProfile).toBeDefined()
-    expect(cnProfile!.capabilities.controlPlaneOnly).toBe(true)
-    expect(cnProfile!.region).toBe('cn')
+    expect(cnProfile?.capabilities.controlPlaneOnly).toBe(true)
+    expect(cnProfile?.region).toBe('cn')
 
-    const defaultProfile = defs.find((d) => d.profileVersion === 'm-net-default@0.1.0')
+    const defaultProfile = defs.find(d => d.profileVersion === 'm-net-default@0.1.0')
     expect(defaultProfile).toBeDefined()
-    expect(defaultProfile!.capabilities.controlPlaneOnly).toBe(false)
-    expect(defaultProfile!.region).toBe('default')
+    expect(defaultProfile?.capabilities.controlPlaneOnly).toBe(false)
+    expect(defaultProfile?.region).toBe('default')
   })
 
   it('getDefinition returns CN profile by version', async () => {
     const cn = await store.getDefinition('m-net-cn@0.1.0')
     expect(cn).not.toBeNull()
-    expect(cn!.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(cn!.displayName).toBe('M-Net CN')
+    expect(cn?.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(cn?.displayName).toBe('M-Net CN')
   })
 
   it('getDefinition returns default profile by version', async () => {
     const def = await store.getDefinition('m-net-default@0.1.0')
     expect(def).not.toBeNull()
-    expect(def!.profileVersion).toBe('m-net-default@0.1.0')
+    expect(def?.profileVersion).toBe('m-net-default@0.1.0')
   })
 
   it('getDefinition returns null for unknown version', async () => {
@@ -65,10 +65,10 @@ describe('M-Net in-memory profile store', () => {
 
     const state = await store.getNetworkState('network-1')
     expect(state).not.toBeNull()
-    expect(state!.networkId).toBe('network-1')
-    expect(state!.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(state!.status).toBe('enabling')
-    expect(state!.updatedAt).toBeDefined()
+    expect(state?.networkId).toBe('network-1')
+    expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(state?.status).toBe('enabling')
+    expect(state?.updatedAt).toBeDefined()
   })
 
   it('setNetworkState overwrites previous state for same network', async () => {
@@ -83,8 +83,8 @@ describe('M-Net in-memory profile store', () => {
     })
 
     const state = await store.getNetworkState('network-1')
-    expect(state!.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(state!.status).toBe('enabling')
+    expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(state?.status).toBe('enabling')
   })
 
   it('setNetworkState isolates different networks', async () => {
@@ -100,8 +100,8 @@ describe('M-Net in-memory profile store', () => {
     const a = await store.getNetworkState('network-a')
     const b = await store.getNetworkState('network-b')
 
-    expect(a!.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(b!.profileVersion).toBe('m-net-default@0.1.0')
+    expect(a?.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(b?.profileVersion).toBe('m-net-default@0.1.0')
   })
 
   it('recordTransition creates a record', async () => {
@@ -220,7 +220,7 @@ describe('M-Net in-memory suspended operations store', () => {
 
     const found = await suspendedStore.get(created.id)
     expect(found).not.toBeNull()
-    expect(found!.id).toBe(created.id)
+    expect(found?.id).toBe(created.id)
   })
 
   it('get returns null for unknown id', async () => {
@@ -243,7 +243,7 @@ describe('M-Net in-memory suspended operations store', () => {
 
     const found = await suspendedStore.getByPolicyDecisionId('pd-1')
     expect(found).not.toBeNull()
-    expect(found!.policyDecisionId).toBe('pd-1')
+    expect(found?.policyDecisionId).toBe('pd-1')
   })
 
   it('getByPolicyDecisionId returns null for unknown policyDecisionId', async () => {
@@ -266,8 +266,8 @@ describe('M-Net in-memory suspended operations store', () => {
 
     const updated = await suspendedStore.transition(created.id, 'resumed')
     expect(updated).not.toBeNull()
-    expect(updated!.status).toBe('resumed')
-    expect(updated!.resumedAt).toBeDefined()
+    expect(updated?.status).toBe('resumed')
+    expect(updated?.resumedAt).toBeDefined()
   })
 
   it('transition changes status to rejected with terminalReason', async () => {
@@ -283,10 +283,14 @@ describe('M-Net in-memory suspended operations store', () => {
       expiresAt: new Date(Date.now() + 3600000).toISOString()
     })
 
-    const updated = await suspendedStore.transition(created.id, 'rejected', 'profile already disabled')
+    const updated = await suspendedStore.transition(
+      created.id,
+      'rejected',
+      'profile already disabled'
+    )
     expect(updated).not.toBeNull()
-    expect(updated!.status).toBe('rejected')
-    expect(updated!.terminalReason).toBe('profile already disabled')
+    expect(updated?.status).toBe('rejected')
+    expect(updated?.terminalReason).toBe('profile already disabled')
   })
 
   it('transition returns null for unknown id', async () => {
@@ -308,13 +312,13 @@ describe('M-Net in-memory suspended operations store', () => {
     })
 
     const updated = await suspendedStore.transition(created.id, 'resumed')
-    expect(updated!.action).toBe('mnet.profile.enable')
-    expect(updated!.networkId).toBe('network-1')
-    expect(updated!.fromProfileVersion).toBe('m-net-default@0.1.0')
-    expect(updated!.toProfileVersion).toBe('m-net-cn@0.1.0')
-    expect(updated!.requestedBy).toBe('admin')
-    expect(updated!.correlationId).toBe('corr-1')
-    expect(updated!.idempotencyKey).toBe('idem-1')
+    expect(updated?.action).toBe('mnet.profile.enable')
+    expect(updated?.networkId).toBe('network-1')
+    expect(updated?.fromProfileVersion).toBe('m-net-default@0.1.0')
+    expect(updated?.toProfileVersion).toBe('m-net-cn@0.1.0')
+    expect(updated?.requestedBy).toBe('admin')
+    expect(updated?.correlationId).toBe('corr-1')
+    expect(updated?.idempotencyKey).toBe('idem-1')
   })
 
   it('transition to resume_failed stores terminalReason', async () => {
@@ -330,9 +334,13 @@ describe('M-Net in-memory suspended operations store', () => {
       expiresAt: new Date(Date.now() + 3600000).toISOString()
     })
 
-    const updated = await suspendedStore.transition(created.id, 'resume_failed', 'network not found')
+    const updated = await suspendedStore.transition(
+      created.id,
+      'resume_failed',
+      'network not found'
+    )
     expect(updated).not.toBeNull()
-    expect(updated!.status).toBe('resume_failed')
-    expect(updated!.terminalReason).toBe('network not found')
+    expect(updated?.status).toBe('resume_failed')
+    expect(updated?.terminalReason).toBe('network not found')
   })
 })

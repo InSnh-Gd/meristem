@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { extractBearerToken, mintLocalToken, verifyLocalToken } from '../../packages/auth/src/index.ts'
+import {
+  extractBearerToken,
+  mintLocalToken,
+  verifyLocalToken
+} from '../../packages/auth/src/index.ts'
 
 const secret = 'test-secret-with-at-least-thirty-two-characters'
 

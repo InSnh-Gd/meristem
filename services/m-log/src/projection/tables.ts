@@ -18,4 +18,3 @@ export function factTableFromIndex(index: string): FactTableName | null {
   if (index.startsWith('meristem-audit-logs')) return 'audit_logs'
   return null
 }
-

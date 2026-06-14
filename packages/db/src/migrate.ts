@@ -3,7 +3,7 @@ import { createSqlClient } from './client.ts'
 // MVP 迁移脚本保持显式 SQL，确保每个阶段新增字段和表都能被清楚追踪与审核。
 const sql = createSqlClient()
 
-await sql.begin(async (tx) => {
+await sql.begin(async tx => {
   await tx`
     create table if not exists users (
       id text primary key,

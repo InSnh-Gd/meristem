@@ -1,7 +1,11 @@
 import type { ActorId, Permission } from '../literals.ts'
 
 export type MExtensionManifestVersion = 'm-extension-manifest@0.1.0'
-export type MExtensionKind = 'metadata-only' | 'webhook-declared' | 'wasm-placeholder' | 'http-callback-placeholder'
+export type MExtensionKind =
+  | 'metadata-only'
+  | 'webhook-declared'
+  | 'wasm-placeholder'
+  | 'http-callback-placeholder'
 export type MExtensionRiskClass = 'low' | 'medium'
 export type MExtensionLifecycleStatus = 'draft' | 'active' | 'deprecated'
 export type MExtensionDefinitionStatus = 'registered' | 'rejected' | 'deprecated'
@@ -151,7 +155,8 @@ export type ExtensionInstanceControlResponse = {
   correlationId: string
 }
 
-export type MExtensionEventSubject = typeof mExtensionEventSubjects[keyof typeof mExtensionEventSubjects]
+export type MExtensionEventSubject =
+  (typeof mExtensionEventSubjects)[keyof typeof mExtensionEventSubjects]
 
 export type MExtensionLifecyclePayload = {
   extensionId: string

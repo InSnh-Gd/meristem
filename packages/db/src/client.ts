@@ -5,7 +5,9 @@ import * as schema from './schema.ts'
 /**
  * PostgreSQL 连接入口集中在这里，便于所有进程共享同一默认连接串和连接池参数。
  */
-export function createSqlClient(databaseUrl = process.env.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem') {
+export function createSqlClient(
+  databaseUrl = process.env.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem'
+) {
   return postgres(databaseUrl, { max: 5 })
 }
 

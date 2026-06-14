@@ -11,26 +11,29 @@ if (mkdir.exitCode !== 0) {
   throw new Error(`failed to create ${certDir}`)
 }
 
-const generated = Bun.spawnSync([
-  'openssl',
-  'req',
-  '-x509',
-  '-newkey',
-  'rsa:2048',
-  '-nodes',
-  '-sha256',
-  '-days',
-  '30',
-  '-subj',
-  '/CN=localhost',
-  '-keyout',
-  keyFile,
-  '-out',
-  certFile
-], {
-  stdout: 'inherit',
-  stderr: 'inherit'
-})
+const generated = Bun.spawnSync(
+  [
+    'openssl',
+    'req',
+    '-x509',
+    '-newkey',
+    'rsa:2048',
+    '-nodes',
+    '-sha256',
+    '-days',
+    '30',
+    '-subj',
+    '/CN=localhost',
+    '-keyout',
+    keyFile,
+    '-out',
+    certFile
+  ],
+  {
+    stdout: 'inherit',
+    stderr: 'inherit'
+  }
+)
 
 if (generated.exitCode !== 0) {
   throw new Error('failed to generate self-signed join ingress certificate')

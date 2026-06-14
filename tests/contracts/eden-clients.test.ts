@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
-import type { FullLogSearchQuery, TimelineSearchQuery, AuditSearchQuery } from '../../packages/contracts/src/index.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
-import { createLogApp, type LogApp } from '../../services/m-log/src/app.ts'
-import { createPolicyApp, type PolicyApp } from '../../services/m-policy/src/app.ts'
-import { createEventBusApp, type EventBusApp } from '../../services/m-eventbus/src/app.ts'
+import type {
+  AuditSearchQuery,
+  FullLogSearchQuery,
+  TimelineSearchQuery
+} from '../../packages/contracts/src/index.ts'
 import { createEventEnvelope } from '../../packages/events/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
+import { createEventBusApp } from '../../services/m-eventbus/src/app.ts'
+import type { EventBusApp } from '../../services/m-eventbus/src/public-types.ts'
+import { createLogApp } from '../../services/m-log/src/app.ts'
+import type { LogApp } from '../../services/m-log/src/public-types.ts'
+import { createPolicyApp } from '../../services/m-policy/src/app.ts'
+import type { PolicyApp } from '../../services/m-policy/src/public-types.ts'
 
 const internalToken = 'internal-test-token'
 
@@ -31,11 +38,12 @@ function localFetcher(app: LocalFetchApp): typeof fetch {
         ...internalHeaders()
       })
     }
-    const request = typeof input === 'string'
-      ? new Request(input, requestInit)
-      : input instanceof URL
-        ? new Request(input.toString(), requestInit)
-        : new Request(input, requestInit)
+    const request =
+      typeof input === 'string'
+        ? new Request(input, requestInit)
+        : input instanceof URL
+          ? new Request(input.toString(), requestInit)
+          : new Request(input, requestInit)
     return app.handle(request)
   }
 
@@ -112,11 +120,19 @@ describe('Eden clients', () => {
         return { id: 'timeline-1', timestamp: new Date().toISOString(), ...input }
       },
       async writeFull(input) {
-        writes.push(input.traceId ? { action: input.message, traceId: input.traceId } : { action: input.message })
+        writes.push(
+          input.traceId
+            ? { action: input.message, traceId: input.traceId }
+            : { action: input.message }
+        )
         return { id: 'full-1', timestamp: new Date().toISOString(), ...input }
       },
       async writeAudit(input) {
-        writes.push(input.traceId ? { action: input.action, traceId: input.traceId } : { action: input.action })
+        writes.push(
+          input.traceId
+            ? { action: input.action, traceId: input.traceId }
+            : { action: input.action }
+        )
         return { id: 'audit-1', timestamp: new Date().toISOString(), ...input }
       },
       async listTimeline() {
@@ -136,18 +152,44 @@ describe('Eden clients', () => {
       },
       // search deps
       search: {
-      async full(_query: FullLogSearchQuery) { return null },
-      async timeline(_query: TimelineSearchQuery) { return null },
-      async audit(_query: AuditSearchQuery) { return null },
-      isAvailable() { return false }
+        async full(_query: FullLogSearchQuery) {
+          return null
+        },
+        async timeline(_query: TimelineSearchQuery) {
+          return null
+        },
+        async audit(_query: AuditSearchQuery) {
+          return null
+        },
+        isAvailable() {
+          return false
+        }
       },
       projection: {
-        async getProjectionHealth() { return [] },
-        async executeBackfill() { return { jobId: '', processedCount: 0, errors: 0, lastCursor: null, status: 'completed' as const } },
-        async listDLQ() { return [] },
-        async replayDLQ() { return false },
-        async skipDLQ() { return Promise.resolve() },
-        isAvailable() { return false }
+        async getProjectionHealth() {
+          return []
+        },
+        async executeBackfill() {
+          return {
+            jobId: '',
+            processedCount: 0,
+            errors: 0,
+            lastCursor: null,
+            status: 'completed' as const
+          }
+        },
+        async listDLQ() {
+          return []
+        },
+        async replayDLQ() {
+          return false
+        },
+        async skipDLQ() {
+          return Promise.resolve()
+        },
+        isAvailable() {
+          return false
+        }
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })
@@ -196,18 +238,44 @@ describe('Eden clients', () => {
       },
       // search deps
       search: {
-      async full(_query: FullLogSearchQuery) { return null },
-      async timeline(_query: TimelineSearchQuery) { return null },
-      async audit(_query: AuditSearchQuery) { return null },
-      isAvailable() { return false }
+        async full(_query: FullLogSearchQuery) {
+          return null
+        },
+        async timeline(_query: TimelineSearchQuery) {
+          return null
+        },
+        async audit(_query: AuditSearchQuery) {
+          return null
+        },
+        isAvailable() {
+          return false
+        }
       },
       projection: {
-        async getProjectionHealth() { return [] },
-        async executeBackfill() { return { jobId: '', processedCount: 0, errors: 0, lastCursor: null, status: 'completed' as const } },
-        async listDLQ() { return [] },
-        async replayDLQ() { return false },
-        async skipDLQ() { return Promise.resolve() },
-        isAvailable() { return false }
+        async getProjectionHealth() {
+          return []
+        },
+        async executeBackfill() {
+          return {
+            jobId: '',
+            processedCount: 0,
+            errors: 0,
+            lastCursor: null,
+            status: 'completed' as const
+          }
+        },
+        async listDLQ() {
+          return []
+        },
+        async replayDLQ() {
+          return false
+        },
+        async skipDLQ() {
+          return Promise.resolve()
+        },
+        isAvailable() {
+          return false
+        }
       }
     })
     const client = treaty<LogApp>('http://internal.test', { fetcher: localFetcher(app) })

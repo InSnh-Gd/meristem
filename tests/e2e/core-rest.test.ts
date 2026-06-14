@@ -2,12 +2,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { ManagedProcess } from '../helpers/process.ts'
 import {
+  coreFetch,
   infrastructureAvailable,
   startFullStack,
   stopFullStack,
-  coreFetch,
-  taskFetch,
-  baseEnv
+  taskFetch
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -117,7 +116,9 @@ if (!infraOk) {
           body: JSON.stringify({ kind: 'stem', name: 'e2e-stem', mode: 'simulated' })
         })
         expect(res.ok).toBe(true)
-        const body = res.data as { node: { id: string; kind: string; name: string; mode: string; status: string } }
+        const body = res.data as {
+          node: { id: string; kind: string; name: string; mode: string; status: string }
+        }
         expect(body.node.kind).toBe('stem')
         expect(body.node.name).toBe('e2e-stem')
         expect(body.node.mode).toBe('simulated')
@@ -140,7 +141,7 @@ if (!infraOk) {
         const res = await coreFetch('/api/v0/nodes', operatorToken)
         expect(res.ok).toBe(true)
         const body = res.data as { nodes: Array<{ name: string }> }
-        const names = body.nodes.map((n) => n.name)
+        const names = body.nodes.map(n => n.name)
         expect(names).toContain('e2e-stem')
         expect(names).toContain('e2e-leaf')
       })
@@ -167,7 +168,12 @@ if (!infraOk) {
           body: JSON.stringify({ kind: 'leaf', name: 'e2e-ticket-leaf' })
         })
         expect(res.ok).toBe(true)
-        const body = res.data as { ticketId: string; ticket: string; joinUrl: string; policyDecisionId: string }
+        const body = res.data as {
+          ticketId: string
+          ticket: string
+          joinUrl: string
+          policyDecisionId: string
+        }
         expect(typeof body.ticketId).toBe('string')
         expect(typeof body.ticket).toBe('string')
         expect(body.joinUrl).toContain('8443')
@@ -177,19 +183,28 @@ if (!infraOk) {
       it('issues node credential', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === 'e2e-leaf')
+        const leaf = nodes.find(n => n.name === 'e2e-leaf')
         expect(leaf).toBeDefined()
-        const res = await coreFetch(`/api/v0/nodes/${leaf!.id}/credentials`, operatorToken, { method: 'POST' })
+        if (!leaf) throw new Error('missing leaf for node credential issuance test')
+        const res = await coreFetch(`/api/v0/nodes/${leaf.id}/credentials`, operatorToken, {
+          method: 'POST'
+        })
         expect(res.ok).toBe(true)
         const body = res.data as { nodeId: string; token: string; policyDecisionId: string }
-        expect(body.nodeId).toBe(leaf!.id)
+        expect(body.nodeId).toBe(leaf.id)
         expect(typeof body.token).toBe('string')
       })
 
       it('viewer cannot issue node token (403)', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string }> }).nodes
-        const res = await coreFetch(`/api/v0/nodes/${nodes[0].id}/credentials`, viewerToken, { method: 'POST' })
+        const firstNode = nodes[0]
+        expect(firstNode).toBeDefined()
+        if (!firstNode) throw new Error('missing node for viewer credential test')
+
+        const res = await coreFetch(`/api/v0/nodes/${firstNode.id}/credentials`, viewerToken, {
+          method: 'POST'
+        })
         expect(res.status).toBe(403)
       })
     })
@@ -206,25 +221,33 @@ if (!infraOk) {
       it('submits noop task through M-Task', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const leaf = nodes.find((n) => n.name === 'e2e-leaf')
+        const leaf = nodes.find(n => n.name === 'e2e-leaf')
         expect(leaf).toBeDefined()
+        if (!leaf) throw new Error('missing leaf for task submission test')
         const res = await taskFetch('/api/v0/tasks', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ nodeId: leaf!.id, type: 'noop' })
+          body: JSON.stringify({ nodeId: leaf.id, type: 'noop' })
         })
         expect(res.ok).toBe(true)
-        const body = res.data as { task: { id: string; status: string; nodeId: string; type: string }; policyDecisionId: string }
+        const body = res.data as {
+          task: { id: string; status: string; nodeId: string; type: string }
+          policyDecisionId: string
+        }
         expect(body.task.status).toBe('completed')
-        expect(body.task.nodeId).toBe(leaf!.id)
+        expect(body.task.nodeId).toBe(leaf.id)
         expect(body.task.type).toBe('noop')
       })
 
       it('viewer cannot submit task through M-Task (403)', async () => {
         const listRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (listRes.data as { nodes: Array<{ id: string }> }).nodes
+        const firstNode = nodes[0]
+        expect(firstNode).toBeDefined()
+        if (!firstNode) throw new Error('missing node for viewer task submission test')
+
         const res = await taskFetch('/api/v0/tasks', viewerToken, {
           method: 'POST',
-          body: JSON.stringify({ nodeId: nodes[0].id, type: 'noop' })
+          body: JSON.stringify({ nodeId: firstNode.id, type: 'noop' })
         })
         expect(res.status).toBe(403)
       })
@@ -246,28 +269,30 @@ if (!infraOk) {
         const res = await coreFetch('/api/v0/networks', operatorToken)
         expect(res.ok).toBe(true)
         const body = res.data as { networks: Array<{ name: string }> }
-        expect(body.networks.some((n) => n.name.startsWith('e2e-net-'))).toBe(true)
+        expect(body.networks.some(n => n.name.startsWith('e2e-net-'))).toBe(true)
       })
 
       it('joins a stem node to the network', async () => {
         const netRes = await coreFetch('/api/v0/networks', operatorToken)
         const nets = (netRes.data as { networks: Array<{ id: string; name: string }> }).networks
-        const net = nets.find((n) => n.name.startsWith('e2e-net-'))
+        const net = nets.find(n => n.name.startsWith('e2e-net-'))
         expect(net).toBeDefined()
 
         const nodeRes = await coreFetch('/api/v0/nodes', operatorToken)
         const nodes = (nodeRes.data as { nodes: Array<{ id: string; name: string }> }).nodes
-        const stem = nodes.find((n) => n.name === 'e2e-stem')
+        const stem = nodes.find(n => n.name === 'e2e-stem')
         expect(stem).toBeDefined()
+        if (!net) throw new Error('missing network for network membership test')
+        if (!stem) throw new Error('missing stem for network membership test')
 
-        const res = await coreFetch(`/api/v0/networks/${net!.id}/members`, operatorToken, {
+        const res = await coreFetch(`/api/v0/networks/${net.id}/members`, operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ nodeId: stem!.id })
+          body: JSON.stringify({ nodeId: stem.id })
         })
         expect(res.ok).toBe(true)
         const body = res.data as { member: { networkId: string; nodeId: string } }
-        expect(body.member.networkId).toBe(net!.id)
-        expect(body.member.nodeId).toBe(stem!.id)
+        expect(body.member.networkId).toBe(net.id)
+        expect(body.member.nodeId).toBe(stem.id)
       })
 
       it('viewer cannot create network (403)', async () => {
@@ -345,10 +370,17 @@ if (!infraOk) {
       it('reads a policy decision by id', async () => {
         const register = await coreFetch('/api/v0/nodes', operatorToken, {
           method: 'POST',
-          body: JSON.stringify({ kind: 'leaf', name: `policy-leaf-${Date.now()}`, mode: 'simulated' })
+          body: JSON.stringify({
+            kind: 'leaf',
+            name: `policy-leaf-${Date.now()}`,
+            mode: 'simulated'
+          })
         })
         const registered = register.data as { policyDecisionId: string }
-        const res = await coreFetch(`/api/v0/policy/decisions/${registered.policyDecisionId}`, operatorToken)
+        const res = await coreFetch(
+          `/api/v0/policy/decisions/${registered.policyDecisionId}`,
+          operatorToken
+        )
         expect(res.ok).toBe(true)
         const body = res.data as { decision: { id: string; actor: string; result: string } }
         expect(body.decision.id).toBe(registered.policyDecisionId)

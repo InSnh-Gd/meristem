@@ -1,5 +1,12 @@
+import {
+  approvalPermissions,
+  configPermissions,
+  extensionPermissions,
+  identityPermissions,
+  projectionPermissions,
+  secretPermissions
+} from '../../contracts/src/index.ts'
 import { createSqlClient } from './client.ts'
-import { approvalPermissions, configPermissions, extensionPermissions, identityPermissions, projectionPermissions, secretPermissions } from '../../contracts/src/index.ts'
 
 // 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
@@ -68,8 +75,55 @@ const permissions = [
 
 const rolePermissions: Record<string, readonly string[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read', configPermissions[0]],
-  operator: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'timeline:read', 'log:read-full', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'projection:read', 'extension:read', configPermissions[0], configPermissions[1], configPermissions[2]],
-  admin: ['core:read', 'node:register', 'node:issue-token', 'task:read', 'task:submit', 'task:cancel', 'task:retry', 'task:manage', 'timeline:read', 'log:read-full', 'service:register', 'service:reload', 'network:read', 'network:create', 'network:join', 'network:profile-read', 'network:profile-enable', 'network:profile-disable', 'policy:approval-read', identityPermissions[0], identityPermissions[3], secretPermissions[0], secretPermissions[4], ...configPermissions, ...projectionPermissions, ...extensionPermissions],
+  operator: [
+    'core:read',
+    'node:register',
+    'node:issue-token',
+    'task:read',
+    'task:submit',
+    'task:cancel',
+    'task:retry',
+    'timeline:read',
+    'log:read-full',
+    'service:reload',
+    'network:read',
+    'network:create',
+    'network:join',
+    'network:profile-read',
+    'projection:read',
+    'extension:read',
+    configPermissions[0],
+    configPermissions[1],
+    configPermissions[2]
+  ],
+  admin: [
+    'core:read',
+    'node:register',
+    'node:issue-token',
+    'task:read',
+    'task:submit',
+    'task:cancel',
+    'task:retry',
+    'task:manage',
+    'timeline:read',
+    'log:read-full',
+    'service:register',
+    'service:reload',
+    'network:read',
+    'network:create',
+    'network:join',
+    'network:profile-read',
+    'network:profile-enable',
+    'network:profile-disable',
+    'policy:approval-read',
+    identityPermissions[0],
+    identityPermissions[3],
+    secretPermissions[0],
+    secretPermissions[4],
+    ...configPermissions,
+    ...projectionPermissions,
+    ...extensionPermissions
+  ],
   'security-admin': [
     'core:read',
     'node:register',
@@ -99,7 +153,7 @@ const rolePermissions: Record<string, readonly string[]> = {
   ]
 }
 
-await sql.begin(async (tx) => {
+await sql.begin(async tx => {
   // 移除 task:assign；先清理历史 seed 残留，避免会话权限返回无效字面量。
   await tx`delete from role_permissions where permission_id = 'task:assign'`
   await tx`delete from permissions where id = 'task:assign'`

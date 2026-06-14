@@ -29,7 +29,13 @@ export const SetNetworkProfileRequestSchema = Schema.Struct({
 })
 export type SetNetworkProfileRequestFromSchema = typeof SetNetworkProfileRequestSchema.Type
 
-export const NetworkProfileStateSchema = Schema.Literal('disabled', 'enabling', 'enabled', 'disabling', 'failed')
+export const NetworkProfileStateSchema = Schema.Literal(
+  'disabled',
+  'enabling',
+  'enabled',
+  'disabling',
+  'failed'
+)
 export type NetworkProfileStateFromSchema = typeof NetworkProfileStateSchema.Type
 
 export const NetworkProfileSummarySchema = Schema.Struct({
@@ -46,8 +52,15 @@ export const NetworkProfileSummarySchema = Schema.Struct({
 })
 export type NetworkProfileSummaryFromSchema = typeof NetworkProfileSummarySchema.Type
 
-export const NetworkSuspendedOperationStatusSchema = Schema.Literal('suspended', 'resumed', 'rejected', 'expired', 'resume_failed')
-export type NetworkSuspendedOperationStatusFromSchema = typeof NetworkSuspendedOperationStatusSchema.Type
+export const NetworkSuspendedOperationStatusSchema = Schema.Literal(
+  'suspended',
+  'resumed',
+  'rejected',
+  'expired',
+  'resume_failed'
+)
+export type NetworkSuspendedOperationStatusFromSchema =
+  typeof NetworkSuspendedOperationStatusSchema.Type
 
 export const NetworkSuspendedOperationSchema = Schema.Struct({
   id: Schema.String,
@@ -82,7 +95,7 @@ export const MNetProfileEventPayloadSchema = Schema.Struct({
   networkId: Schema.String,
   fromProfileVersion: MNetProfileVersionSchema,
   toProfileVersion: MNetProfileVersionSchema,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Union(Schema.Literal(...actorIds), Schema.Literal('system')),
   policyDecisionId: Schema.String,
   approvalId: Schema.optional(Schema.String),
   operationId: Schema.optional(Schema.String),
@@ -91,3 +104,45 @@ export const MNetProfileEventPayloadSchema = Schema.Struct({
   controlPlaneOnly: Schema.Literal(true)
 })
 export type MNetProfileEventPayloadFromSchema = typeof MNetProfileEventPayloadSchema.Type
+
+export const MNetProfileListResponseSchema = Schema.Struct({
+  profiles: Schema.Array(MNetRegionalProfileSchema)
+})
+export type MNetProfileListResponseFromSchema = typeof MNetProfileListResponseSchema.Type
+
+export const SetNetworkProfilePendingApprovalResponseSchema = Schema.Struct({
+  status: Schema.Literal('pending_approval'),
+  operationId: Schema.String,
+  approvalId: Schema.optional(Schema.String),
+  correlationId: Schema.String
+})
+export type SetNetworkProfilePendingApprovalResponseFromSchema =
+  typeof SetNetworkProfilePendingApprovalResponseSchema.Type
+
+export const SetNetworkProfileDisabledResponseSchema = Schema.Struct({
+  status: Schema.Literal('disabled'),
+  profileVersion: MNetProfileVersionSchema,
+  correlationId: Schema.String
+})
+export type SetNetworkProfileDisabledResponseFromSchema =
+  typeof SetNetworkProfileDisabledResponseSchema.Type
+
+export const SetNetworkProfileResponseSchema = Schema.Union(
+  SetNetworkProfilePendingApprovalResponseSchema,
+  SetNetworkProfileDisabledResponseSchema
+)
+export type SetNetworkProfileResponseFromSchema = typeof SetNetworkProfileResponseSchema.Type
+
+export const InternalNetworkProfileResumeResponseSchema = Schema.Struct({
+  status: Schema.Literal('resumed'),
+  operationId: Schema.String
+})
+export type InternalNetworkProfileResumeResponseFromSchema =
+  typeof InternalNetworkProfileResumeResponseSchema.Type
+
+export const InternalNetworkProfileRejectResponseSchema = Schema.Struct({
+  status: Schema.Literal('rejected'),
+  operationId: Schema.String
+})
+export type InternalNetworkProfileRejectResponseFromSchema =
+  typeof InternalNetworkProfileRejectResponseSchema.Type

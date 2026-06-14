@@ -1,4 +1,4 @@
-import { wsconnect, type NatsConnection } from '@nats-io/nats-core'
+import { type NatsConnection, wsconnect } from '@nats-io/nats-core'
 
 // 主题常量集中定义，避免不同服务各自手写 subject 导致拼写漂移。
 export const subjects = {
@@ -18,7 +18,11 @@ export const subjects = {
 } as const
 
 export type RpcClient = {
-  request<TRequest, TResponse>(subject: string, payload: TRequest, timeoutMs?: number): Promise<TResponse>
+  request<TRequest, TResponse>(
+    subject: string,
+    payload: TRequest,
+    timeoutMs?: number
+  ): Promise<TResponse>
   publish<TPayload>(subject: string, payload: TPayload): void
   close(): Promise<void>
 }
@@ -37,11 +41,15 @@ export function toNatsWebSocketUrl(natsUrl: string): string {
 /**
  * 所有 NATS 连接统一在这里收敛成 Bun + WebSocket 入口，避免服务各自散落 transport 选择逻辑。
  */
-export async function connectToNats(natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'): Promise<NatsConnection> {
+export async function connectToNats(
+  natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
+): Promise<NatsConnection> {
   return wsconnect({ servers: toNatsWebSocketUrl(natsUrl) })
 }
 
-export async function createNatsRpcClient(natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'): Promise<RpcClient> {
+export async function createNatsRpcClient(
+  natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
+): Promise<RpcClient> {
   const nc = await connectToNats(natsUrl)
   return createRpcClientFromConnection(nc)
 }
@@ -51,7 +59,11 @@ export async function createNatsRpcClient(natsUrl = process.env.NATS_URL ?? 'ws:
  */
 export function createRpcClientFromConnection(nc: NatsConnection): RpcClient {
   return {
-    async request<TRequest, TResponse>(subject: string, payload: TRequest, timeoutMs = 1000): Promise<TResponse> {
+    async request<TRequest, TResponse>(
+      subject: string,
+      payload: TRequest,
+      timeoutMs = 1000
+    ): Promise<TResponse> {
       const response = await nc.request(subject, JSON.stringify(payload), { timeout: timeoutMs })
       return response.json<TResponse>()
     },

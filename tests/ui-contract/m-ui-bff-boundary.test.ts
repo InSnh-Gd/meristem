@@ -26,6 +26,7 @@ function findBoundaryViolations(filePath: string, source: string): Violation[] {
 
   lines.forEach((line, index) => {
     const trimmed = line.trim()
+    const surroundingContext = lines.slice(Math.max(0, index - 2), index + 1).join('\n')
 
     if (trimmed.includes(FORBIDDEN_CORE_URL)) {
       violations.push({
@@ -38,13 +39,15 @@ function findBoundaryViolations(filePath: string, source: string): Violation[] {
     }
 
     const hasApiV0LiteralWithoutBffPrefix = /([`'"])\/api\/v0[^`'"]*\1/.test(trimmed)
-    // bffFetch() 内部用 '/api/v0/...' 是合法模式：它通过 BFF_URL 前缀走 BFF 代理
-    const isBffFetchCall = /\bbffFetch\b/.test(trimmed)
+    // bffFetch() 内部用 '/api/v0/...' 是合法模式：它通过 BFF_URL 前缀走 BFF 代理。
+    // 这里同时接受多行调用格式，避免 prettier 换行后把模板字面量误判成越界调用。
+    const isBffFetchCall = /\bbffFetch\b/.test(surroundingContext)
     if (hasApiV0LiteralWithoutBffPrefix && !isBffFetchCall) {
       violations.push({
         filePath,
         line: index + 1,
-        reason: "M-UI must not reference '/api/v0' literal directly; route through explicit BFF-prefixed URL boundary",
+        reason:
+          "M-UI must not reference '/api/v0' literal directly; route through explicit BFF-prefixed URL boundary",
         snippet: trimmed
       })
     }
@@ -69,7 +72,9 @@ describe('M-UI BFF boundary contract', () => {
     expect(
       violations,
       violations
-        .map(({ filePath, line, reason, snippet }) => `${filePath}:${line} -> ${reason} | ${snippet}`)
+        .map(
+          ({ filePath, line, reason, snippet }) => `${filePath}:${line} -> ${reason} | ${snippet}`
+        )
         .join('\n')
     ).toEqual([])
   })

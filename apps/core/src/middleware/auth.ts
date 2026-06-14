@@ -1,7 +1,7 @@
 import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
-import { correlationIdFromHeader } from '../errors.ts'
 import { CoreError } from '../core-error.ts'
+import { correlationIdFromHeader } from '../errors.ts'
 import type { CoreDeps } from '../types.ts'
 
 export type AuthContext = { actor: ActorId; correlationId: string }
@@ -26,11 +26,11 @@ export async function requireActor(
 
     // 当认证层能确认 actor 与 jti 且 token 已撤销时，先补写审计事实，再对外保持 401 fail-closed。
     if (
-      code === 'identity.token.revoked'
-      && 'actor' in verified
-      && typeof verified.actor === 'string'
-      && 'jti' in verified
-      && typeof verified.jti === 'string'
+      code === 'identity.token.revoked' &&
+      'actor' in verified &&
+      typeof verified.actor === 'string' &&
+      'jti' in verified &&
+      typeof verified.jti === 'string'
     ) {
       await deps.log.writeAudit({
         actor: verified.actor as ActorId,
@@ -70,7 +70,12 @@ export async function authorize(
       source: 'meristem-core',
       message: `permission denied: ${input.action}`,
       correlationId: input.correlationId,
-      payload: { actor: input.actor, action: input.action, resource: input.resource, decisionId: decision.value.id }
+      payload: {
+        actor: input.actor,
+        action: input.action,
+        resource: input.resource,
+        decisionId: decision.value.id
+      }
     })
     throw new CoreError(403, 'policy.denied', 'permission denied', input.correlationId)
   }

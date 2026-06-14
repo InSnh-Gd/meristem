@@ -1,6 +1,15 @@
 import type {
-  AuditData, CommandState, GenericCommandParams, NodeListData, PolicyDecisionData,
-  OverviewData, PolicyDecisionSummary, RouteRegistry, ServiceListData, TaskResult, TimelineData
+  AuditData,
+  CommandState,
+  GenericCommandParams,
+  NodeListData,
+  OverviewData,
+  PolicyDecisionData,
+  PolicyDecisionSummary,
+  RouteRegistry,
+  ServiceListData,
+  TaskResult,
+  TimelineData
 } from './types'
 
 const BFF_URL = 'http://localhost:3200'
@@ -39,11 +48,7 @@ export function formatBffError(error: unknown, fallback: string): string {
   return code ? `${message} (${code})` : message
 }
 
-async function bffFetch<T>(
-  path: string,
-  token: string,
-  init?: RequestInit
-): Promise<T> {
+async function bffFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const normalizedToken = normalizeBearerTokenInput(token)
   const response = await fetch(`${BFF_URL}${path}`, {
     ...init,
@@ -54,11 +59,14 @@ async function bffFetch<T>(
     }
   })
   if (!response.ok) {
-    const body = await response
-      .json()
-      .catch(() => ({
+    const body = await response.json().catch(error => {
+      console.warn(
+        `m-ui bff: failed to parse error response for ${path} - ${error instanceof Error ? error.message : String(error)}`
+      )
+      return {
         error: { code: 'unknown', message: 'request failed' }
-      }))
+      }
+    })
     throw body
   }
   const body: unknown = await response.json()
@@ -97,11 +105,19 @@ export function fetchCommandState(token: string, leafNodeId: string) {
   return fetchCommandEligibility(token, 'task.noop.submit', { leafNodeId })
 }
 
-export function fetchCommandEligibility(token: string, commandId: string, params: GenericCommandParams) {
-  return bffFetch<CommandState>(`/api/v0/commands/${encodeURIComponent(commandId)}/eligibility`, token, {
-    method: 'POST',
-    body: JSON.stringify(params)
-  })
+export function fetchCommandEligibility(
+  token: string,
+  commandId: string,
+  params: GenericCommandParams
+) {
+  return bffFetch<CommandState>(
+    `/api/v0/commands/${encodeURIComponent(commandId)}/eligibility`,
+    token,
+    {
+      method: 'POST',
+      body: JSON.stringify(params)
+    }
+  )
 }
 
 export function executeNoop(token: string, leafNodeId: string) {
@@ -116,5 +132,8 @@ export function executeCommand(token: string, commandId: string, params: Generic
 }
 
 export function fetchPolicySummary(token: string, decisionId: string) {
-  return bffFetch<{ decision: PolicyDecisionSummary }>(`/api/v0/policy/decisions/${decisionId}/summary`, token)
+  return bffFetch<{ decision: PolicyDecisionSummary }>(
+    `/api/v0/policy/decisions/${decisionId}/summary`,
+    token
+  )
 }

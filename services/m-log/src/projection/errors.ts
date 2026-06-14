@@ -19,4 +19,3 @@ export class ProjectionWorkflowError extends Schema.TaggedError<ProjectionWorkfl
 ) {}
 
 export type ProjectionError = ProjectionUnknownIndexError | ProjectionWorkflowError
-

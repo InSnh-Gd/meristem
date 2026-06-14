@@ -1,11 +1,11 @@
 import { eq } from 'drizzle-orm'
-import { projectorJobs } from '../../../../packages/db/src/schema.ts'
 import type {
   ProjectionCursor,
   ProjectorJob,
   ProjectorJobStatus,
   ProjectorJobType
 } from '../../../../packages/contracts/src/index.ts'
+import { projectorJobs } from '../../../../packages/db/src/schema.ts'
 import type { ProjectionDatabase } from './types.ts'
 
 /**
@@ -25,7 +25,9 @@ export function createJobStore(db: ProjectionDatabase) {
       id,
       type,
       index,
-      startCursor: startCursor ? { factId: startCursor.factId, timestamp: startCursor.timestamp } : null,
+      startCursor: startCursor
+        ? { factId: startCursor.factId, timestamp: startCursor.timestamp }
+        : null,
       endCursor: endCursor ? { factId: endCursor.factId, timestamp: endCursor.timestamp } : null,
       batchSize,
       status: 'pending',
@@ -48,14 +50,18 @@ export function createJobStore(db: ProjectionDatabase) {
     }
   }
 
-  async function transitionJob(id: string, status: ProjectorJobStatus, error?: string): Promise<void> {
+  async function transitionJob(
+    id: string,
+    status: ProjectorJobStatus,
+    error?: string
+  ): Promise<void> {
     const now = new Date()
     const updates: Record<string, unknown> = { status, updatedAt: now }
     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
-      updates['completedAt'] = now
+      updates.completedAt = now
     }
     if (error !== undefined) {
-      updates['error'] = error
+      updates.error = error
     }
     await db.update(projectorJobs).set(updates).where(eq(projectorJobs.id, id))
   }
@@ -80,10 +86,16 @@ function mapJobRow(row: Record<string, unknown>): ProjectorJob {
     type: row.type as ProjectorJobType,
     index: row.index as string,
     startCursor: row.startCursor
-      ? { factId: String((row.startCursor as Record<string, unknown>).factId ?? ''), timestamp: String((row.startCursor as Record<string, unknown>).timestamp ?? '') }
+      ? {
+          factId: String((row.startCursor as Record<string, unknown>).factId ?? ''),
+          timestamp: String((row.startCursor as Record<string, unknown>).timestamp ?? '')
+        }
       : null,
     endCursor: row.endCursor
-      ? { factId: String((row.endCursor as Record<string, unknown>).factId ?? ''), timestamp: String((row.endCursor as Record<string, unknown>).timestamp ?? '') }
+      ? {
+          factId: String((row.endCursor as Record<string, unknown>).factId ?? ''),
+          timestamp: String((row.endCursor as Record<string, unknown>).timestamp ?? '')
+        }
       : null,
     batchSize: row.batchSize as number,
     status: row.status as ProjectorJobStatus,
@@ -93,4 +105,3 @@ function mapJobRow(row: Record<string, unknown>): ProjectorJob {
     completedAt: row.completedAt ? (row.completedAt as Date).toISOString() : null
   }
 }
-

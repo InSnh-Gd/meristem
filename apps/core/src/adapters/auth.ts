@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
+import { verifyLocalToken } from '../../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
-import { type MeristemDb } from '../../../../packages/db/src/client.ts'
+import type { MeristemDb } from '../../../../packages/db/src/client.ts'
 import { actorTokens, rolePermissions, userRoles } from '../../../../packages/db/src/schema.ts'
-import { verifyLocalToken } from '../../../../packages/auth/src/index.ts'
 
 /**
  * JWT 密钥缺失直接阻断进程启动，避免 Core 在无认证边界的状态下对外提供写接口。
@@ -41,7 +41,11 @@ export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret())
         .where(eq(actorTokens.jti, verified.jti))
         .limit(1)
       if (managedToken?.status === 'revoked' || managedToken?.status === 'expired') {
-        return { ok: false as const, code: 'invalid_token' as const, message: 'JWT has been revoked' }
+        return {
+          ok: false as const,
+          code: 'invalid_token' as const,
+          message: 'JWT has been revoked'
+        }
       }
       return verified
     },
@@ -52,9 +56,9 @@ export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret())
           .from(userRoles)
           .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
           .where(eq(userRoles.userId, actor))
-        return ok(rows.map((row) => row.permissionId as Permission))
+        return ok(rows.map(row => row.permissionId as Permission))
       } catch {
-        return err({ code: "db.unavailable", message: "unable to query permissions" })
+        return err({ code: 'db.unavailable', message: 'unable to query permissions' })
       }
     }
   }

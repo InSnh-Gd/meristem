@@ -1,8 +1,8 @@
-import { startProcess, stopProcess, type ManagedProcess } from '../helpers/process.ts'
-import { createJoinTlsEnv } from '../helpers/tls.ts'
-import { waitFor } from '../helpers/wait.ts'
 import { createSqlClient } from '../../packages/db/src/client.ts'
 import { connectToNats } from '../../packages/nats-rpc/src/index.ts'
+import { type ManagedProcess, startProcess, stopProcess } from '../helpers/process.ts'
+import { createJoinTlsEnv } from '../helpers/tls.ts'
+import { waitFor } from '../helpers/wait.ts'
 
 export const coreUrl = 'http://localhost:3000'
 export const bffUrl = 'http://localhost:3200'
@@ -83,20 +83,22 @@ export async function startFullStack(): Promise<{
       devAll.stdout.includes('meristem-core listening on http://127.0.0.1:3000'),
     { label: 'core startup', timeoutMs: 20_000, intervalMs: 100 }
   )
-  await waitFor(
-    () => devAll.stdout.includes('m-task listening on http://127.0.0.1:3105'),
-    { label: 'm-task startup', timeoutMs: 20_000, intervalMs: 100 }
-  )
+  await waitFor(() => devAll.stdout.includes('m-task listening on http://127.0.0.1:3105'), {
+    label: 'm-task startup',
+    timeoutMs: 20_000,
+    intervalMs: 100
+  })
   await waitFor(
     () => devAll.stdout.includes('m-net join ingress listening on https://0.0.0.0:8443'),
     { label: 'm-net join ingress startup', timeoutMs: 20_000, intervalMs: 100 }
   )
 
   const bffProcess = startProcess(['bun', 'run', 'dev:m-ui-bff'], { env: baseEnv })
-  await waitFor(
-    () => bffProcess.stdout.includes('m-ui-bff listening on'),
-    { label: 'bff startup', timeoutMs: 10_000, intervalMs: 100 }
-  )
+  await waitFor(() => bffProcess.stdout.includes('m-ui-bff listening on'), {
+    label: 'bff startup',
+    timeoutMs: 10_000,
+    intervalMs: 100
+  })
 
   return { devAll, bffProcess, operatorToken, adminToken, viewerToken, securityAdminToken }
 }
@@ -104,7 +106,10 @@ export async function startFullStack(): Promise<{
 /**
  * 停止完整服务栈，按 BFF -> Core 的顺序优雅关闭。
  */
-export async function stopFullStack(devAll: ManagedProcess, bffProcess: ManagedProcess): Promise<void> {
+export async function stopFullStack(
+  devAll: ManagedProcess,
+  bffProcess: ManagedProcess
+): Promise<void> {
   await stopProcess(bffProcess)
   await stopProcess(devAll)
 }
@@ -125,6 +130,19 @@ export async function runTextCommand(
 }
 
 /**
+ * E2E 辅助层把“非 JSON 响应”收敛成空对象，避免清理/错误路径把测试辅助本身炸掉。
+ */
+async function parseJsonOrEmpty(res: Response, scope: string): Promise<unknown> {
+  if (res.status === 204) return {}
+  return await res.json().catch(error => {
+    console.warn(
+      `${scope}: failed to parse JSON response (${res.status}) - ${error instanceof Error ? error.message : String(error)}`
+    )
+    return {}
+  })
+}
+
+/**
  * 对 Core REST 发起 HTTP 请求，自动注入 Bearer token 和 content-type。
  */
 export async function coreFetch(
@@ -140,7 +158,7 @@ export async function coreFetch(
       ...(token ? { authorization: `Bearer ${token}` } : {})
     }
   })
-  const data = res.status !== 204 ? (await res.json().catch(() => ({}))) : {}
+  const data = await parseJsonOrEmpty(res, `e2e coreFetch ${path}`)
   return { ok: res.ok, status: res.status, data }
 }
 
@@ -160,7 +178,7 @@ export async function taskFetch(
       ...(token ? { authorization: `Bearer ${token}` } : {})
     }
   })
-  const data = res.status !== 204 ? (await res.json().catch(() => ({}))) : {}
+  const data = await parseJsonOrEmpty(res, `e2e taskFetch ${path}`)
   return { ok: res.ok, status: res.status, data }
 }
 
@@ -180,6 +198,6 @@ export async function bffFetch(
       ...(token ? { authorization: `Bearer ${token}` } : {})
     }
   })
-  const data = res.status !== 204 ? (await res.json().catch(() => ({}))) : {}
+  const data = await parseJsonOrEmpty(res, `e2e bffFetch ${path}`)
   return { ok: res.ok, status: res.status, data }
 }

@@ -9,15 +9,20 @@ function sleep(ms: number): Promise<void> {
 }
 
 function retryMessage(label: string, timeoutMs: number, cause?: unknown): string {
-  if (cause instanceof Error && cause.message) return `${label} timed out after ${timeoutMs}ms: ${cause.message}`
-  if (typeof cause === 'string' && cause.length > 0) return `${label} timed out after ${timeoutMs}ms: ${cause}`
+  if (cause instanceof Error && cause.message)
+    return `${label} timed out after ${timeoutMs}ms: ${cause.message}`
+  if (typeof cause === 'string' && cause.length > 0)
+    return `${label} timed out after ${timeoutMs}ms: ${cause}`
   return `${label} timed out after ${timeoutMs}ms`
 }
 
 /**
  * Retries a fallible async probe until it resolves or the timeout elapses.
  */
-export async function retryUntil<T>(probe: () => Promise<T> | T, options: RetryOptions): Promise<T> {
+export async function retryUntil<T>(
+  probe: () => Promise<T> | T,
+  options: RetryOptions
+): Promise<T> {
   const deadline = performance.now() + options.timeoutMs
   let lastError: unknown
 
@@ -39,7 +44,10 @@ export async function retryUntil<T>(probe: () => Promise<T> | T, options: RetryO
 /**
  * Waits until a predicate becomes true, preserving the last failure reason in the timeout message.
  */
-export async function waitFor(predicate: () => Promise<boolean> | boolean, options: RetryOptions): Promise<void> {
+export async function waitFor(
+  predicate: () => Promise<boolean> | boolean,
+  options: RetryOptions
+): Promise<void> {
   await retryUntil(async () => {
     if (await predicate()) return true
     throw new Error('condition returned false')

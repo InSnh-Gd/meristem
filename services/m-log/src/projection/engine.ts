@@ -39,4 +39,3 @@ export function createProjectionEngine(db: ProjectionDatabase, os: ProjectionOpe
 }
 
 export type ProjectionEngine = ReturnType<typeof createProjectionEngine>
-

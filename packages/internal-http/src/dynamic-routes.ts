@@ -22,8 +22,14 @@ type DynamicRouteAdapterConfig = {
 }
 
 export type DynamicRouteAdapter = {
-  postJson<TResponse>(path: string, input?: DynamicRouteInput): Promise<Result<TResponse, DynamicRouteError>>
-  getJson<TResponse>(path: string, input?: DynamicRouteInput): Promise<Result<TResponse, DynamicRouteError>>
+  postJson<TResponse>(
+    path: string,
+    input?: DynamicRouteInput
+  ): Promise<Result<TResponse, DynamicRouteError>>
+  getJson<TResponse>(
+    path: string,
+    input?: DynamicRouteInput
+  ): Promise<Result<TResponse, DynamicRouteError>>
 }
 
 /**
@@ -31,7 +37,11 @@ export type DynamicRouteAdapter = {
  * Source: docs/plans/2026-05-23-architecture-review-register.md A-007.
  */
 export function createDynamicRouteAdapter(config: DynamicRouteAdapterConfig): DynamicRouteAdapter {
-  async function requestJson<TResponse>(method: 'GET' | 'POST', path: string, input: DynamicRouteInput = {}): Promise<Result<TResponse, DynamicRouteError>> {
+  async function requestJson<TResponse>(
+    method: 'GET' | 'POST',
+    path: string,
+    input: DynamicRouteInput = {}
+  ): Promise<Result<TResponse, DynamicRouteError>> {
     const url = buildUrl(config.baseUrl, path, input.params ?? {}, input.query ?? {})
     const headers = {
       ...(input.body === undefined ? {} : { 'content-type': 'application/json' }),
@@ -51,7 +61,10 @@ export function createDynamicRouteAdapter(config: DynamicRouteAdapterConfig): Dy
       if (!response.ok) return err(errorFromEnvelope(parsed.value, response.status))
       return ok(parsed.value as TResponse)
     } catch (error) {
-      return err({ code: 'http.unavailable', message: error instanceof Error ? error.message : 'request unavailable' })
+      return err({
+        code: 'http.unavailable',
+        message: error instanceof Error ? error.message : 'request unavailable'
+      })
     }
   }
 
@@ -61,8 +74,15 @@ export function createDynamicRouteAdapter(config: DynamicRouteAdapterConfig): Dy
   }
 }
 
-function buildUrl(baseUrl: string, path: string, params: Record<string, string | number | boolean>, query: Record<string, string | number | boolean | undefined>): string {
-  const expanded = path.replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) => encodeURIComponent(String(params[key] ?? '')))
+function buildUrl(
+  baseUrl: string,
+  path: string,
+  params: Record<string, string | number | boolean>,
+  query: Record<string, string | number | boolean | undefined>
+): string {
+  const expanded = path.replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) =>
+    encodeURIComponent(String(params[key] ?? ''))
+  )
   const url = new URL(expanded, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) url.searchParams.set(key, String(value))
@@ -89,4 +109,3 @@ function errorFromEnvelope(value: unknown, status: number): DynamicRouteError {
   }
   return { code: `http.${status}`, message: `request failed: ${status}` }
 }
-

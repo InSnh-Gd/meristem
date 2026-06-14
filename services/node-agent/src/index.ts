@@ -1,10 +1,14 @@
-import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type {
   JoinAcceptedMessage,
   MNetSessionServerMessage,
   SessionResumedMessage,
   SessionTaskExecuteMessage
 } from '../../../packages/contracts/src/index.ts'
+import {
+  currentTraceId,
+  initTelemetry,
+  shutdownTelemetry
+} from '../../../packages/telemetry/src/index.ts'
 
 function requiredOneOf(names: string[]): string | undefined {
   for (const name of names) {
@@ -37,7 +41,9 @@ function decodeMessage(data: string | ArrayBuffer | Blob): Promise<string> | str
 function parseServerMessage(raw: string): MNetSessionServerMessage | null {
   try {
     const parsed = JSON.parse(raw) as MNetSessionServerMessage
-    return typeof parsed === 'object' && parsed !== null && typeof parsed.type === 'string' ? parsed : null
+    return typeof parsed === 'object' && parsed !== null && typeof parsed.type === 'string'
+      ? parsed
+      : null
   } catch {
     return null
   }
@@ -64,7 +70,12 @@ function sendFrame(frame: unknown): void {
 /**
  * agent 侧所有运行日志都通过 `log.forward` 回送 M-Net，由 M-Net 负责补全节点身份并落库。
  */
-function forwardLog(level: 'debug' | 'info' | 'warn' | 'error', message: string, correlationId?: string, payload?: unknown): void {
+function forwardLog(
+  level: 'debug' | 'info' | 'warn' | 'error',
+  message: string,
+  correlationId?: string,
+  payload?: unknown
+): void {
   const traceId = currentTraceId()
   if (!currentSessionId) return
   sendFrame({
@@ -125,10 +136,15 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
     process.stdout.write(`node-agent resumed session for ${message.node.id}\n`)
   }
   startHeartbeat()
-  forwardLog('info', message.type === 'join.accepted' ? 'node agent joined' : 'node agent resumed', undefined, {
-    nodeId: message.node.id,
-    mode: message.node.mode
-  })
+  forwardLog(
+    'info',
+    message.type === 'join.accepted' ? 'node agent joined' : 'node agent resumed',
+    undefined,
+    {
+      nodeId: message.node.id,
+      mode: message.node.mode
+    }
+  )
 }
 
 /**
@@ -199,9 +215,9 @@ function connect(): void {
   }
 
   // 消息处理集中在这一段，避免 join/session/task 三类服务器消息各自散落独立状态机。
-  ws.onmessage = (event) => {
+  ws.onmessage = event => {
     void Promise.resolve(decodeMessage(event.data))
-      .then((raw) => {
+      .then(raw => {
         const message = parseServerMessage(raw)
         if (!message) {
           process.stderr.write('invalid session message received\n')
@@ -221,14 +237,19 @@ function connect(): void {
         if (message.type === 'error') {
           process.stderr.write(`join session rejected with code ${message.code}\n`)
           // Join Ticket 首连失败和 resume token 失效都属于“凭据已无效”的终态，继续自动重连只会制造噪音。
-          if (message.code === 'nodeagent.invalid_token' || (!runtimeToken && message.code.startsWith('node.join_ticket_'))) {
+          if (
+            message.code === 'nodeagent.invalid_token' ||
+            (!runtimeToken && message.code.startsWith('node.join_ticket_'))
+          ) {
             stopping = true
             ws.close()
           }
         }
       })
-      .catch((error) => {
-        process.stderr.write(`failed to process join session message: ${error instanceof Error ? error.name : 'unknown error'}\n`)
+      .catch(error => {
+        process.stderr.write(
+          `failed to process join session message: ${error instanceof Error ? error.name : 'unknown error'}\n`
+        )
       })
   }
 

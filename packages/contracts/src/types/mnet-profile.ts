@@ -39,7 +39,12 @@ export type NetworkProfileSummary = {
   updatedAt: string
 }
 
-export type NetworkSuspendedOperationStatus = 'suspended' | 'resumed' | 'rejected' | 'expired' | 'resume_failed'
+export type NetworkSuspendedOperationStatus =
+  | 'suspended'
+  | 'resumed'
+  | 'rejected'
+  | 'expired'
+  | 'resume_failed'
 
 export type NetworkSuspendedOperation = {
   id: string

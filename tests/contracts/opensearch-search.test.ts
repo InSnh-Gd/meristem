@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import type { FullLogSearchQuery, TimelineSearchQuery, AuditSearchQuery } from '../../packages/contracts/src/index.ts'
+import type {
+  AuditSearchQuery,
+  FullLogSearchQuery,
+  TimelineSearchQuery
+} from '../../packages/contracts/src/index.ts'
 
 // 搜索契约门禁：查询类型必须满足 OpenSearch 约束。
+// 该套件通过 `bun run test:opensearch-contracts` 单独运行，避免默认门禁
+// 因搜索后端专项覆盖而产生误导性的红灯。
 describe('OpenSearch search contracts', () => {
   it('accepts a minimal FullLogSearchQuery', () => {
     const query: FullLogSearchQuery = {}
@@ -58,11 +64,16 @@ describe('OpenSearch search contracts', () => {
 
   it('LogSearchResult shape matches expected contract', () => {
     const result = {
-      entries: [{ summary: 'test', id: '00000000-0000-0000-0000-000000000001', timestamp: '2026-01-01T00:00:00Z' }],
+      entries: [
+        {
+          summary: 'test',
+          id: '00000000-0000-0000-0000-000000000001',
+          timestamp: '2026-01-01T00:00:00Z'
+        }
+      ],
       total: 1
     }
     expect(result.entries).toHaveLength(1)
     expect(result.total).toBe(1)
   })
 })
-

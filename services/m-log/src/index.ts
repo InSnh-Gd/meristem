@@ -1,8 +1,13 @@
 import { edenTreaty } from '@elysiajs/eden'
 import { desc } from 'drizzle-orm'
+import type {
+  ActorId,
+  AuditLog,
+  FullLog,
+  TimelineLog
+} from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
-import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   createInternalFetcher,
@@ -11,9 +16,13 @@ import {
   serveHttpApp,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
-import type { ActorId, AuditLog, FullLog, TimelineLog } from '../../../packages/contracts/src/index.ts'
-import { currentTraceId, initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
-import type { EventBusApp } from '../../m-eventbus/src/app.ts'
+import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
+import {
+  currentTraceId,
+  initTelemetry,
+  shutdownTelemetry
+} from '../../../packages/telemetry/src/index.ts'
+import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
 import { createLogApp } from './app.ts'
 import { createOpenSearchAdapter } from './opensearch.ts'
 import { createProjectionEngine } from './projection.ts'
@@ -30,7 +39,7 @@ const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
 // OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
 const opensearchUrl = process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200'
 const opensearch = createOpenSearchAdapter(opensearchUrl)
-const opensearchAvailable: boolean = await opensearch.health().then(async (ok) => {
+const opensearchAvailable: boolean = await opensearch.health().then(async ok => {
   if (!ok) return false
   return opensearch.ensureAllIndices()
 })
@@ -58,6 +67,29 @@ type LogLevel = FullLog['level']
 const allowedLogLevels: readonly LogLevel[] = ['debug', 'info', 'warn', 'error']
 const runtimeState: { logLevel: LogLevel; lastReloadedAt?: string } = {
   logLevel: readLogLevelFromEnv()
+}
+
+/**
+ * 非阻塞投影失败只能降级告警，不能回滚 PostgreSQL 已写事实。
+ */
+function warnProjectionFallback(
+  kind: 'timeline' | 'full' | 'audit',
+  entryId: string,
+  error: unknown
+): void {
+  console.warn(
+    `m-log: failed to index ${kind} log ${entryId} into OpenSearch - ${error instanceof Error ? error.message : String(error)}`
+  )
+}
+
+/**
+ * readiness 探针把依赖故障收敛为 false，但仍然要输出诊断信息给运维面。
+ */
+function warnReadinessFallback(dependency: string, error: unknown): false {
+  console.warn(
+    `m-log: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
+  )
+  return false
 }
 
 /**
@@ -90,7 +122,9 @@ async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog
 
   // best-effort OpenSearch 投影，使用幂等 key
   if (opensearchAvailable) {
-    opensearch.indexTimelineLog(entry).catch(() => {})
+    void opensearch.indexTimelineLog(entry).catch(error => {
+      warnProjectionFallback('timeline', entry.id, error)
+    })
   }
 
   return entry
@@ -114,7 +148,9 @@ async function writeFull(request: FullWriteRequest): Promise<FullLog> {
   })
 
   if (opensearchAvailable) {
-    opensearch.indexFullLog(entry).catch(() => {})
+    void opensearch.indexFullLog(entry).catch(error => {
+      warnProjectionFallback('full', entry.id, error)
+    })
   }
 
   return entry
@@ -140,7 +176,9 @@ async function writeAudit(request: AuditWriteRequest): Promise<AuditLog> {
   })
 
   if (opensearchAvailable) {
-    opensearch.indexAuditLog(entry).catch(() => {})
+    void opensearch.indexAuditLog(entry).catch(error => {
+      warnProjectionFallback('audit', entry.id, error)
+    })
   }
 
   const traceId = entry.traceId ?? currentTraceId()
@@ -171,7 +209,10 @@ async function writeAudit(request: AuditWriteRequest): Promise<AuditLog> {
 /**
  * reload 原型当前只重新读取进程内日志级别，不触碰数据库配置版本或其他服务状态。
  */
-async function reload(_request: { correlationId?: string; reason?: string }): Promise<{ serviceId: string; reloadedAt: string }> {
+async function reload(_request: {
+  correlationId?: string
+  reason?: string
+}): Promise<{ serviceId: string; reloadedAt: string }> {
   runtimeState.logLevel = readLogLevelFromEnv()
   runtimeState.lastReloadedAt = new Date().toISOString()
   return {
@@ -184,19 +225,27 @@ const app = createLogApp({
   async readiness() {
     const postgresReady = await client`select 1`
       .then(() => true)
-      .catch(() => false)
-    const natsReady = await nc.flush()
+      .catch(error => warnReadinessFallback('postgres', error))
+    const natsReady = await nc
+      .flush()
       .then(() => true)
-      .catch(() => false)
+      .catch(error => warnReadinessFallback('nats', error))
     const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
-    return { ready: postgresReady && natsReady && eventBusReady, opensearch: opensearchAvailable ? ('ready' as const) : ('unavailable' as const) }
+    return {
+      ready: postgresReady && natsReady && eventBusReady,
+      opensearch: opensearchAvailable ? ('ready' as const) : ('unavailable' as const)
+    }
   },
   writeTimeline,
   writeFull,
   writeAudit,
   async listTimeline(limit) {
-    const rows = await db.select().from(timelineLogs).orderBy(desc(timelineLogs.timestamp)).limit(limit ?? 50)
-    return rows.map((row) => {
+    const rows = await db
+      .select()
+      .from(timelineLogs)
+      .orderBy(desc(timelineLogs.timestamp))
+      .limit(limit ?? 50)
+    return rows.map(row => {
       const entry: TimelineLog = {
         id: row.id,
         timestamp: row.timestamp.toISOString(),
@@ -208,8 +257,12 @@ const app = createLogApp({
     })
   },
   async listFull(limit) {
-    const rows = await db.select().from(fullLogs).orderBy(desc(fullLogs.timestamp)).limit(limit ?? 50)
-    return rows.map((row) => {
+    const rows = await db
+      .select()
+      .from(fullLogs)
+      .orderBy(desc(fullLogs.timestamp))
+      .limit(limit ?? 50)
+    return rows.map(row => {
       const entry: FullLog = {
         id: row.id,
         timestamp: row.timestamp.toISOString(),
@@ -224,8 +277,12 @@ const app = createLogApp({
     })
   },
   async listAudit(limit) {
-    const rows = await db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).limit(limit ?? 50)
-    return rows.map((row) => {
+    const rows = await db
+      .select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.timestamp))
+      .limit(limit ?? 50)
+    return rows.map(row => {
       const entry: AuditLog = {
         id: row.id,
         timestamp: row.timestamp.toISOString(),
@@ -243,19 +300,29 @@ const app = createLogApp({
   },
   reload,
   search: {
-    async full(query) { return opensearchAvailable ? opensearch.searchFull(query) : null },
-    async timeline(query) { return opensearchAvailable ? opensearch.searchTimeline(query) : null },
-    async audit(query) { return opensearchAvailable ? opensearch.searchAudit(query) : null },
-    isAvailable() { return opensearchAvailable }
+    async full(query) {
+      return opensearchAvailable ? opensearch.searchFull(query) : null
+    },
+    async timeline(query) {
+      return opensearchAvailable ? opensearch.searchTimeline(query) : null
+    },
+    async audit(query) {
+      return opensearchAvailable ? opensearch.searchAudit(query) : null
+    },
+    isAvailable() {
+      return opensearchAvailable
+    }
   },
   // 投影 deps
   projection: {
     getProjectionHealth: () => projectionEngine.getProjectionHealth(),
-    executeBackfill: (params) => projectionEngine.executeBackfill(params),
-    listDLQ: (index) => projectionEngine.listDLQ(index),
-    replayDLQ: (dlqId) => projectionEngine.replayDLQ(dlqId),
-    skipDLQ: (dlqId) => projectionEngine.skipDLQ(dlqId),
-    isAvailable() { return projectionAvailable }
+    executeBackfill: params => projectionEngine.executeBackfill(params),
+    listDLQ: index => projectionEngine.listDLQ(index),
+    replayDLQ: dlqId => projectionEngine.replayDLQ(dlqId),
+    skipDLQ: dlqId => projectionEngine.skipDLQ(dlqId),
+    isAvailable() {
+      return projectionAvailable
+    }
   }
 })
 

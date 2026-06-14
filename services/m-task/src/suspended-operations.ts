@@ -1,7 +1,12 @@
 import { eq } from 'drizzle-orm'
-import type { ActorId, ApprovalOriginAction, TaskSuspendedOperation, SuspendedOperationStatus } from '../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  ApprovalOriginAction,
+  SuspendedOperationStatus,
+  TaskSuspendedOperation
+} from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { taskSuspendedOperations, policyDecisions } from '../../../packages/db/src/schema.ts'
+import { policyDecisions, taskSuspendedOperations } from '../../../packages/db/src/schema.ts'
 
 // M-Task 拥有的挂起操作存储端口；M-Policy 不直接读写此表。
 export type SuspendedOperationStore = {
@@ -18,7 +23,11 @@ export type SuspendedOperationStore = {
   get(id: string): Promise<TaskSuspendedOperation | null>
   getByPolicyDecisionId(policyDecisionId: string): Promise<TaskSuspendedOperation | null>
   listByStatus(status: SuspendedOperationStatus): Promise<TaskSuspendedOperation[]>
-  transition(id: string, status: SuspendedOperationStatus, terminalReason?: string): Promise<TaskSuspendedOperation | null>
+  transition(
+    id: string,
+    status: SuspendedOperationStatus,
+    terminalReason?: string
+  ): Promise<TaskSuspendedOperation | null>
 }
 
 function toSuspendedOp(row: typeof taskSuspendedOperations.$inferSelect): TaskSuspendedOperation {
@@ -45,7 +54,11 @@ function toSuspendedOp(row: typeof taskSuspendedOperations.$inferSelect): TaskSu
 export function createDbSuspendedOperationStore(db: MeristemDb): SuspendedOperationStore {
   return {
     async create(input) {
-      const [decision] = await db.select({ id: policyDecisions.id }).from(policyDecisions).where(eq(policyDecisions.id, input.policyDecisionId)).limit(1)
+      const [decision] = await db
+        .select({ id: policyDecisions.id })
+        .from(policyDecisions)
+        .where(eq(policyDecisions.id, input.policyDecisionId))
+        .limit(1)
       const policyDecisionId = decision?.id ?? input.policyDecisionId
       const now = new Date()
       const row = {
@@ -65,27 +78,49 @@ export function createDbSuspendedOperationStore(db: MeristemDb): SuspendedOperat
       return toSuspendedOp({ ...row, resumedAt: null, terminalReason: null })
     },
     async get(id) {
-      const [row] = await db.select().from(taskSuspendedOperations).where(eq(taskSuspendedOperations.id, id)).limit(1)
+      const [row] = await db
+        .select()
+        .from(taskSuspendedOperations)
+        .where(eq(taskSuspendedOperations.id, id))
+        .limit(1)
       return row ? toSuspendedOp(row) : null
     },
     async getByPolicyDecisionId(policyDecisionId) {
-      const [row] = await db.select().from(taskSuspendedOperations).where(eq(taskSuspendedOperations.policyDecisionId, policyDecisionId)).limit(1)
+      const [row] = await db
+        .select()
+        .from(taskSuspendedOperations)
+        .where(eq(taskSuspendedOperations.policyDecisionId, policyDecisionId))
+        .limit(1)
       return row ? toSuspendedOp(row) : null
     },
     async listByStatus(status) {
-      const rows = await db.select().from(taskSuspendedOperations).where(eq(taskSuspendedOperations.status, status))
+      const rows = await db
+        .select()
+        .from(taskSuspendedOperations)
+        .where(eq(taskSuspendedOperations.status, status))
       return rows.map(toSuspendedOp)
     },
     async transition(id, status, terminalReason) {
-      const [existing] = await db.select().from(taskSuspendedOperations).where(eq(taskSuspendedOperations.id, id)).limit(1)
+      const [existing] = await db
+        .select()
+        .from(taskSuspendedOperations)
+        .where(eq(taskSuspendedOperations.id, id))
+        .limit(1)
       if (!existing) return null
       const now = new Date()
-      await db.update(taskSuspendedOperations).set({
-        status,
-        ...(status === 'resumed' ? { resumedAt: now } : {}),
-        ...(terminalReason ? { terminalReason } : {})
-      }).where(eq(taskSuspendedOperations.id, id))
-      const [updated] = await db.select().from(taskSuspendedOperations).where(eq(taskSuspendedOperations.id, id)).limit(1)
+      await db
+        .update(taskSuspendedOperations)
+        .set({
+          status,
+          ...(status === 'resumed' ? { resumedAt: now } : {}),
+          ...(terminalReason ? { terminalReason } : {})
+        })
+        .where(eq(taskSuspendedOperations.id, id))
+      const [updated] = await db
+        .select()
+        .from(taskSuspendedOperations)
+        .where(eq(taskSuspendedOperations.id, id))
+        .limit(1)
       return updated ? toSuspendedOp(updated) : null
     }
   }
@@ -119,16 +154,16 @@ export function createInMemorySuspendedOperationStore(): SuspendedOperationStore
       return op
     },
     async get(id) {
-      return ops.find((op) => op.id === id) ?? null
+      return ops.find(op => op.id === id) ?? null
     },
     async getByPolicyDecisionId(policyDecisionId) {
-      return ops.find((op) => op.policyDecisionId === policyDecisionId) ?? null
+      return ops.find(op => op.policyDecisionId === policyDecisionId) ?? null
     },
     async listByStatus(status) {
-      return ops.filter((op) => op.status === status)
+      return ops.filter(op => op.status === status)
     },
     async transition(id, status, terminalReason) {
-      const op = ops.find((candidate) => candidate.id === id)
+      const op = ops.find(candidate => candidate.id === id)
       if (!op) return null
       op.status = status
       if (status === 'resumed') op.resumedAt = new Date().toISOString()

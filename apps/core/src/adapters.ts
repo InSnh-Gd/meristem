@@ -1,31 +1,34 @@
-import { createDb } from '../../../packages/db/src/client.ts'
-import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
-import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
-import type { CoreDeps } from './types.ts'
+import { createDb } from '../../../packages/db/src/client.ts'
+import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
+import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
-import { createDbStorage, createIdentityStore, createSecretRefStore } from './storage-adapter.ts'
-import { createHttpPolicyPort } from './adapters/http-policy.ts'
-import { createHttpLogPort } from './adapters/http-log.ts'
-import { createHttpEventPort } from './adapters/http-eventbus.ts'
-import { createHttpMNetPort } from './adapters/http-mnet.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
-import { createServiceLifecyclePort, dependencyStateFromReady } from './adapters/service-lifecycle.ts'
+import { createHttpEventPort } from './adapters/http-eventbus.ts'
+import { createHttpLogPort } from './adapters/http-log.ts'
+import { createHttpMNetPort } from './adapters/http-mnet.ts'
+import { createHttpPolicyPort } from './adapters/http-policy.ts'
 import { createHttpProjectionPort } from './adapters/http-projection.ts'
+import {
+  createServiceLifecyclePort,
+  dependencyStateFromReady
+} from './adapters/service-lifecycle.ts'
 import { createConfigStateMachine } from './config-state-machine.ts'
+import { createDbStorage, createIdentityStore, createSecretRefStore } from './storage-adapter.ts'
+import type { CoreDeps } from './types.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
-export { createDbStorage } from './storage-adapter.ts'
-export { createHttpPolicyPort } from './adapters/http-policy.ts'
-export { createHttpLogPort } from './adapters/http-log.ts'
-export { createHttpEventPort } from './adapters/http-eventbus.ts'
-export { createHttpMNetPort } from './adapters/http-mnet.ts'
 export { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
+export { createHttpEventPort } from './adapters/http-eventbus.ts'
+export { createHttpLogPort } from './adapters/http-log.ts'
+export { createHttpMNetPort } from './adapters/http-mnet.ts'
+export { createHttpPolicyPort } from './adapters/http-policy.ts'
+export { createRpcEventPort, createRpcLogPort, createRpcPolicyPort } from './adapters/rpc-legacy.ts'
 export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
-export { createRpcPolicyPort, createRpcLogPort, createRpcEventPort } from './adapters/rpc-legacy.ts'
 export { createConfigStateMachine } from './config-state-machine.ts'
+export { createDbStorage } from './storage-adapter.ts'
 
 function parseDurationToMs(value: string): number {
   const numericSeconds = Number(value)
@@ -34,34 +37,56 @@ function parseDurationToMs(value: string): number {
   if (!match) return 3_600_000
   const amount = Number(match[1])
   switch (match[2]) {
-    case 'ms': return amount
-    case 's': return amount * 1_000
-    case 'm': return amount * 60_000
-    case 'h': return amount * 3_600_000
-    case 'd': return amount * 86_400_000
-    default: return 3_600_000
+    case 'ms':
+      return amount
+    case 's':
+      return amount * 1_000
+    case 'm':
+      return amount * 60_000
+    case 'h':
+      return amount * 3_600_000
+    case 'd':
+      return amount * 86_400_000
+    default:
+      return 3_600_000
   }
 }
 
 async function hashSecretValue(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export async function createProductionDeps(): Promise<CoreDeps & { close(): Promise<void> }> {
   const { db, client } = createDb()
   const natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
+
+  /**
+   * 依赖就绪探针在启动/健康检查阶段允许降级，但不能把失败原因静默吞掉。
+   */
+  const warnReadinessFallback = (dependency: string, error: unknown) => {
+    console.warn(
+      `meristem-core: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+
   const readinessChecks = async (): Promise<CoreDependencies> => {
     const postgresReady = await client`select 1`
       .then(() => 'ready' as const)
-      .catch(() => 'unavailable' as const)
+      .catch(error => {
+        warnReadinessFallback('postgres', error)
+        return 'unavailable' as const
+      })
     const natsReady = await connectToNats(natsUrl)
-      .then(async (nc) => {
+      .then(async nc => {
         await nc.drain()
         return 'ready' as const
       })
-      .catch(() => 'unavailable' as const)
+      .catch(error => {
+        warnReadinessFallback('nats', error)
+        return 'unavailable' as const
+      })
     const [policyReady, logReady, eventBusReady, mNetReady] = await Promise.all([
       dependencyStateFromReady(`${serviceUrl('m-policy')}/ready`),
       dependencyStateFromReady(`${serviceUrl('m-log')}/ready`),
@@ -138,12 +163,24 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
           issuedBy: token.issuedBy,
           purpose: token.purpose,
           status: revocation ? 'revoked' : token.status,
-          ...(revocation ? { revokedAt: revocation.revokedAt, revokedBy: revocation.revokedBy, revokeReason: revocation.reason } : {})
+          ...(revocation
+            ? {
+                revokedAt: revocation.revokedAt,
+                revokedBy: revocation.revokedBy,
+                revokeReason: revocation.reason
+              }
+            : {})
         })
       },
       async revokeToken(jti, input) {
         const token = await identityStore.getToken(jti)
-        if (!token) return ok({ jti, status: 'revoked', revokedAt: new Date().toISOString(), revokedBy: 'security-admin' })
+        if (!token)
+          return ok({
+            jti,
+            status: 'revoked',
+            revokedAt: new Date().toISOString(),
+            revokedBy: 'security-admin'
+          })
         const revokedAt = new Date()
         await identityStore.revokeToken({
           jti,
@@ -152,14 +189,23 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
           correlationId: input.correlationId,
           revokedAt
         })
-        return ok({ jti, status: 'revoked', revokedAt: revokedAt.toISOString(), revokedBy: 'security-admin' })
+        return ok({
+          jti,
+          status: 'revoked',
+          revokedAt: revokedAt.toISOString(),
+          revokedBy: 'security-admin'
+        })
       },
       async introspect(jti) {
         const token = await identityStore.getToken(jti)
         if (!token) return ok({ active: false, jti })
         const revocation = await identityStore.getRevocation(jti)
         const expired = Date.parse(token.expiresAt) <= Date.now()
-        return ok({ active: !revocation && !expired && token.status === 'active', actor: token.actorId, jti: token.jti })
+        return ok({
+          active: !revocation && !expired && token.status === 'active',
+          actor: token.actorId,
+          jti: token.jti
+        })
       }
     },
     secrets: {
@@ -202,7 +248,8 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
       },
       async rotate(id, input) {
         const current = await secretStore.get(id)
-        if (!current) return ok({ id, version: '0', status: 'missing', rotatedAt: new Date().toISOString() })
+        if (!current)
+          return ok({ id, version: '0', status: 'missing', rotatedAt: new Date().toISOString() })
         const latest = await secretStore.getLatestVersion(id)
         const nextVersion = String((latest ? Number(latest.version) : 0) + 1)
         const now = new Date()
@@ -248,7 +295,12 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
         const current = await secretStore.get(id)
         if (!current) return err({ code: 'secret.not_found', message: 'secret ref not found' })
         const latest = await secretStore.getLatestVersion(id)
-        return ok({ id, currentVersion: latest?.version ?? '0', status: current.status, metadata: current.metadata })
+        return ok({
+          id,
+          currentVersion: latest?.version ?? '0',
+          status: current.status,
+          metadata: current.metadata
+        })
       }
     },
     config: createConfigStateMachine(db),

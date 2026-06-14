@@ -1,9 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { hashNodeToken } from '../../packages/auth/src/index.ts'
 import { createDb } from '../../packages/db/src/client.ts'
 import { nodeCredentials, nodeJoinTickets, nodes } from '../../packages/db/src/schema.ts'
-import { startBunScript, startProcess, stopProcess, type ManagedProcess } from '../helpers/process.ts'
+import {
+  type ManagedProcess,
+  startBunScript,
+  startProcess,
+  stopProcess
+} from '../helpers/process.ts'
 import { createJoinTlsEnv } from '../helpers/tls.ts'
 import { waitFor } from '../helpers/wait.ts'
 
@@ -15,7 +20,11 @@ type ParsedSessionMessage = {
 type ManagedSessionSocket = {
   readonly socket: WebSocket
   send(message: unknown): void
-  waitForMessage(predicate: (message: ParsedSessionMessage) => boolean, label: string, timeoutMs?: number): Promise<ParsedSessionMessage>
+  waitForMessage(
+    predicate: (message: ParsedSessionMessage) => boolean,
+    label: string,
+    timeoutMs?: number
+  ): Promise<ParsedSessionMessage>
   close(): void
 }
 
@@ -103,7 +112,11 @@ function openSessionSocket(url: string): Promise<ManagedSessionSocket> {
         send(message: unknown): void {
           socket.send(JSON.stringify(message))
         },
-        async waitForMessage(predicate: (message: ParsedSessionMessage) => boolean, label: string, timeoutMs = 2_000): Promise<ParsedSessionMessage> {
+        async waitForMessage(
+          predicate: (message: ParsedSessionMessage) => boolean,
+          label: string,
+          timeoutMs = 2_000
+        ): Promise<ParsedSessionMessage> {
           const existing = messages.find(predicate)
           if (existing) return existing
 
@@ -208,90 +221,105 @@ describe('M-Net join ingress session handling', () => {
   })
 
   afterAll(async () => {
-    const processes = [mnet, logMock, eventBusMock].filter((process): process is ManagedProcess => process !== null)
+    const processes = [mnet, logMock, eventBusMock].filter(
+      (process): process is ManagedProcess => process !== null
+    )
     for (const process of processes.reverse()) {
       await stopProcess(process)
     }
     await client.end()
   })
 
-  it('treats a resumed websocket as the active session and ignores stale frames from the superseded socket', async () => {
-    const ticket = `supersede-${crypto.randomUUID()}`
-    const ticketId = await seedJoinTicket({
-      ticket,
-      status: 'active',
-      expiresAt: new Date(Date.now() + 60_000),
-      name: `supersede-${crypto.randomUUID()}`
-    })
-    let firstSocket: ManagedSessionSocket | null = null
-    let secondSocket: ManagedSessionSocket | null = null
-    let nodeId: string | undefined
-
-    try {
-      firstSocket = await openSessionSocket(joinIngressUrl)
-      firstSocket.send({ type: 'join.redeem', ticket })
-      const accepted = await firstSocket.waitForMessage((message) => message.type === 'join.accepted', 'join.accepted')
-
-      nodeId = String((accepted.node as { id: string }).id)
-      const joinedNodeId = nodeId
-      const runtimeToken = String(accepted.runtimeToken)
-      const firstSessionId = String(accepted.sessionId)
-
-      firstSocket.send({
-        type: 'heartbeat',
-        sessionId: firstSessionId,
-        agentVersion: '0.1.0',
-        reportedStatus: 'healthy',
-        timestamp: new Date().toISOString()
+  it(
+    'treats a resumed websocket as the active session and ignores stale frames from the superseded socket',
+    async () => {
+      const ticket = `supersede-${crypto.randomUUID()}`
+      const ticketId = await seedJoinTicket({
+        ticket,
+        status: 'active',
+        expiresAt: new Date(Date.now() + 60_000),
+        name: `supersede-${crypto.randomUUID()}`
       })
+      let firstSocket: ManagedSessionSocket | null = null
+      let secondSocket: ManagedSessionSocket | null = null
+      let nodeId: string | undefined
 
-      await waitFor(async () => {
+      try {
+        firstSocket = await openSessionSocket(joinIngressUrl)
+        firstSocket.send({ type: 'join.redeem', ticket })
+        const accepted = await firstSocket.waitForMessage(
+          message => message.type === 'join.accepted',
+          'join.accepted'
+        )
+
+        nodeId = String((accepted.node as { id: string }).id)
+        const joinedNodeId = nodeId
+        const runtimeToken = String(accepted.runtimeToken)
+        const firstSessionId = String(accepted.sessionId)
+
+        firstSocket.send({
+          type: 'heartbeat',
+          sessionId: firstSessionId,
+          agentVersion: '0.1.0',
+          reportedStatus: 'healthy',
+          timestamp: new Date().toISOString()
+        })
+
+        await waitFor(
+          async () => {
+            const node = await readNode(joinedNodeId)
+            return node?.status === 'healthy' && node.reachability === 'reachable'
+          },
+          {
+            label: 'initial heartbeat state',
+            timeoutMs: 2_000,
+            intervalMs: 25
+          }
+        )
+
+        secondSocket = await openSessionSocket(joinIngressUrl)
+        secondSocket.send({
+          type: 'session.resume',
+          nodeId: joinedNodeId,
+          token: runtimeToken
+        })
+
+        const resumed = await secondSocket.waitForMessage(
+          message => message.type === 'session.resumed',
+          'session.resumed'
+        )
+        const secondSessionId = String(resumed.sessionId)
+
+        firstSocket.send({
+          type: 'heartbeat',
+          sessionId: firstSessionId,
+          agentVersion: '0.1.1',
+          reportedStatus: 'degraded',
+          timestamp: new Date().toISOString()
+        })
+
+        secondSocket.send({
+          type: 'heartbeat',
+          sessionId: secondSessionId,
+          agentVersion: '0.1.0',
+          reportedStatus: 'healthy',
+          timestamp: new Date().toISOString()
+        })
+
+        await Bun.sleep(100)
+
         const node = await readNode(joinedNodeId)
-        return node?.status === 'healthy' && node.reachability === 'reachable'
-      }, {
-        label: 'initial heartbeat state',
-        timeoutMs: 2_000,
-        intervalMs: 25
-      })
-
-      secondSocket = await openSessionSocket(joinIngressUrl)
-      secondSocket.send({
-        type: 'session.resume',
-        nodeId: joinedNodeId,
-        token: runtimeToken
-      })
-
-      const resumed = await secondSocket.waitForMessage((message) => message.type === 'session.resumed', 'session.resumed')
-      const secondSessionId = String(resumed.sessionId)
-
-      firstSocket.send({
-        type: 'heartbeat',
-        sessionId: firstSessionId,
-        agentVersion: '0.1.1',
-        reportedStatus: 'degraded',
-        timestamp: new Date().toISOString()
-      })
-
-      secondSocket.send({
-        type: 'heartbeat',
-        sessionId: secondSessionId,
-        agentVersion: '0.1.0',
-        reportedStatus: 'healthy',
-        timestamp: new Date().toISOString()
-      })
-
-      await Bun.sleep(100)
-
-      const node = await readNode(joinedNodeId)
-      expect(node).not.toBeNull()
-      expect(node?.status).toBe('healthy')
-      expect(node?.reachability).toBe('reachable')
-    } finally {
-      closeManagedSessionSocket(firstSocket)
-      closeManagedSessionSocket(secondSocket)
-      await cleanupTicket(ticketId, nodeId)
-    }
-  }, joinIngressSessionTimeoutMs)
+        expect(node).not.toBeNull()
+        expect(node?.status).toBe('healthy')
+        expect(node?.reachability).toBe('reachable')
+      } finally {
+        closeManagedSessionSocket(firstSocket)
+        closeManagedSessionSocket(secondSocket)
+        await cleanupTicket(ticketId, nodeId)
+      }
+    },
+    joinIngressSessionTimeoutMs
+  )
 
   it('returns stable join ticket errors and only redeems a ticket once', async () => {
     const expiredTicket = `expired-${crypto.randomUUID()}`
@@ -329,7 +357,10 @@ describe('M-Net join ingress session handling', () => {
       const socket = await openSessionSocket(joinIngressUrl)
       try {
         socket.send({ type: 'join.redeem', ticket: ticketValue })
-        return await socket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', `response for ${ticketValue}`)
+        return await socket.waitForMessage(
+          value => value.type === 'join.accepted' || value.type === 'error',
+          `response for ${ticketValue}`
+        )
       } finally {
         socket.close()
       }
@@ -364,19 +395,31 @@ describe('M-Net join ingress session handling', () => {
       secondSocket.send({ type: 'join.redeem', ticket: activeTicket })
 
       const [firstResponse, secondResponse] = await Promise.all([
-        firstSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'first redemption response'),
-        secondSocket.waitForMessage((value) => value.type === 'join.accepted' || value.type === 'error', 'second redemption response')
+        firstSocket.waitForMessage(
+          value => value.type === 'join.accepted' || value.type === 'error',
+          'first redemption response'
+        ),
+        secondSocket.waitForMessage(
+          value => value.type === 'join.accepted' || value.type === 'error',
+          'second redemption response'
+        )
       ])
 
-      const acceptedCount = [firstResponse, secondResponse].filter((message) => message.type === 'join.accepted').length
+      const acceptedCount = [firstResponse, secondResponse].filter(
+        message => message.type === 'join.accepted'
+      ).length
       const errorCodes = [firstResponse, secondResponse]
-        .filter((message): message is ParsedSessionMessage & { code: string } => message.type === 'error')
-        .map((message) => message.code)
+        .filter(
+          (message): message is ParsedSessionMessage & { code: string } => message.type === 'error'
+        )
+        .map(message => message.code)
 
       expect(acceptedCount).toBe(1)
       expect(errorCodes).toContain('node.join_ticket_redeemed')
 
-      const accepted = [firstResponse, secondResponse].find((message) => message.type === 'join.accepted')
+      const accepted = [firstResponse, secondResponse].find(
+        message => message.type === 'join.accepted'
+      )
       nodeId = accepted ? String((accepted.node as { id: string }).id) : undefined
     } finally {
       closeManagedSessionSocket(firstSocket)

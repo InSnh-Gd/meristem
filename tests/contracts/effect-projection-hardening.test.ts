@@ -3,15 +3,15 @@ import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
-import { rolePermissions } from '../../packages/policy/src/index.ts'
+import type { BackfillParams } from '../../packages/contracts/src/index.ts'
 import {
   ActorIdSchema,
-  PermissionSchema,
   actorIds,
+  PermissionSchema,
   permissions,
   projectionPermissions
 } from '../../packages/contracts/src/index.ts'
-import type { BackfillParams, CoreDependencyName, Permission } from '../../packages/contracts/src/index.ts'
+import { rolePermissions } from '../../packages/policy/src/index.ts'
 
 function jsonRequest(path: string, init: RequestInit = {}) {
   return new Request(`http://localhost${path}`, {
@@ -27,7 +27,11 @@ function jsonRequest(path: string, init: RequestInit = {}) {
 describe('Effect projection hardening contracts', () => {
   it('decodes actor and permission literals from shared Effect Schema', () => {
     expect(actorIds).toEqual(['viewer', 'operator', 'admin', 'security-admin'])
-    expect(projectionPermissions).toEqual(['projection:read', 'projection:backfill', 'projection:dlq-manage'])
+    expect(projectionPermissions).toEqual([
+      'projection:read',
+      'projection:backfill',
+      'projection:dlq-manage'
+    ])
 
     const actor = Schema.decodeUnknownEither(ActorIdSchema)('operator')
     const permission = Schema.decodeUnknownEither(PermissionSchema)('projection:backfill')
@@ -54,10 +58,19 @@ describe('Effect projection hardening contracts', () => {
   it('keeps Core TypeBox permission adapters aligned with shared literals', async () => {
     const app = createCoreApp(createInMemoryCoreDeps({ actor: 'admin' }))
     const response = await app.handle(new Request('http://localhost/openapi/json'))
-    const body = await response.json() as {
-      paths: Record<string, Record<string, { responses?: Record<string, { content?: Record<string, { schema?: unknown }> }> }>>
+    const body = (await response.json()) as {
+      paths: Record<
+        string,
+        Record<
+          string,
+          { responses?: Record<string, { content?: Record<string, { schema?: unknown }> }> }
+        >
+      >
     }
-    const decisionSchema = body.paths['/api/v0/policy/decisions/{id}']?.get?.responses?.['200']?.content?.['application/json']?.schema
+    const decisionSchema =
+      body.paths['/api/v0/policy/decisions/{id}']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema
     const serialized = JSON.stringify(decisionSchema)
 
     for (const permission of permissions) {
@@ -72,12 +85,18 @@ describe('Projection permission and audit hardening routes', () => {
 
     const health = await app.handle(jsonRequest('/api/v0/projection/health'))
     const dlq = await app.handle(jsonRequest('/api/v0/projection/dlq'))
-    const backfill = await app.handle(jsonRequest('/api/v0/projection/backfill', {
-      method: 'POST',
-      body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
-    }))
-    const replay = await app.handle(jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' }))
-    const skip = await app.handle(jsonRequest('/api/v0/projection/dlq/dlq-1/skip', { method: 'POST' }))
+    const backfill = await app.handle(
+      jsonRequest('/api/v0/projection/backfill', {
+        method: 'POST',
+        body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
+      })
+    )
+    const replay = await app.handle(
+      jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' })
+    )
+    const skip = await app.handle(
+      jsonRequest('/api/v0/projection/dlq/dlq-1/skip', { method: 'POST' })
+    )
 
     expect(health.status).toBe(403)
     expect(dlq.status).toBe(403)
@@ -91,12 +110,18 @@ describe('Projection permission and audit hardening routes', () => {
 
     const health = await app.handle(jsonRequest('/api/v0/projection/health'))
     const dlq = await app.handle(jsonRequest('/api/v0/projection/dlq'))
-    const backfill = await app.handle(jsonRequest('/api/v0/projection/backfill', {
-      method: 'POST',
-      body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
-    }))
-    const replay = await app.handle(jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' }))
-    const skip = await app.handle(jsonRequest('/api/v0/projection/dlq/dlq-1/skip', { method: 'POST' }))
+    const backfill = await app.handle(
+      jsonRequest('/api/v0/projection/backfill', {
+        method: 'POST',
+        body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
+      })
+    )
+    const replay = await app.handle(
+      jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' })
+    )
+    const skip = await app.handle(
+      jsonRequest('/api/v0/projection/dlq/dlq-1/skip', { method: 'POST' })
+    )
 
     expect(health.status).toBe(200)
     expect(dlq.status).toBe(200)
@@ -110,11 +135,11 @@ describe('Projection permission and audit hardening routes', () => {
     const calls: string[] = []
     const originalAudit = deps.log.writeAudit
     const originalTimeline = deps.log.writeTimeline
-    deps.log.writeAudit = async (input) => {
+    deps.log.writeAudit = async input => {
       calls.push(`audit:${input.action}`)
       return originalAudit(input)
     }
-    deps.log.writeTimeline = async (input) => {
+    deps.log.writeTimeline = async input => {
       calls.push(`timeline:${input.summary}`)
       return originalTimeline(input)
     }
@@ -133,10 +158,16 @@ describe('Projection permission and audit hardening routes', () => {
     }
     const app = createCoreApp(deps)
 
-    const response = await app.handle(jsonRequest('/api/v0/projection/backfill', {
-      method: 'POST',
-      body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10, targetVersion: 'v1' })
-    }))
+    const response = await app.handle(
+      jsonRequest('/api/v0/projection/backfill', {
+        method: 'POST',
+        body: JSON.stringify({
+          index: 'meristem-timeline-logs-v0',
+          batchSize: 10,
+          targetVersion: 'v1'
+        })
+      })
+    )
 
     expect(response.status).toBe(200)
     expect(calls[0]).toBe('audit:projection:backfill')
@@ -149,14 +180,19 @@ describe('Projection permission and audit hardening routes', () => {
     let called = false
     deps.projection.executeBackfill = async (_params: BackfillParams) => {
       called = true
-      return { ok: false, error: { code: 'unexpected.call', message: 'should not call projection' } }
+      return {
+        ok: false,
+        error: { code: 'unexpected.call', message: 'should not call projection' }
+      }
     }
     const app = createCoreApp(deps)
 
-    const response = await app.handle(jsonRequest('/api/v0/projection/backfill', {
-      method: 'POST',
-      body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
-    }))
+    const response = await app.handle(
+      jsonRequest('/api/v0/projection/backfill', {
+        method: 'POST',
+        body: JSON.stringify({ index: 'meristem-timeline-logs-v0', batchSize: 10 })
+      })
+    )
 
     expect(response.status).toBe(503)
     expect(called).toBe(false)
@@ -164,14 +200,22 @@ describe('Projection permission and audit hardening routes', () => {
 
   it('writes Full Log when projection control execution is unavailable', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'admin' })
-    deps.projection.replayDLQ = async () => ({ ok: false, error: { code: 'projection.unavailable', message: 'projection unavailable' } })
+    deps.projection.replayDLQ = async () => ({
+      ok: false,
+      error: { code: 'projection.unavailable', message: 'projection unavailable' }
+    })
     const app = createCoreApp(deps)
 
-    const response = await app.handle(jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' }))
+    const response = await app.handle(
+      jsonRequest('/api/v0/projection/dlq/dlq-1/replay', { method: 'POST' })
+    )
     const fullLogs = await deps.log.listFull()
 
     expect(response.status).toBe(503)
-    expect(fullLogs.ok ? fullLogs.value.some((entry) => entry.message === 'projection control failed') : false).toBe(true)
+    expect(
+      fullLogs.ok
+        ? fullLogs.value.some(entry => entry.message === 'projection control failed')
+        : false
+    ).toBe(true)
   })
 })
-

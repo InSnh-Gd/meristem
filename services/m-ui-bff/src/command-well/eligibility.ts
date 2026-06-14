@@ -1,10 +1,19 @@
-import type { CommandWellEligibility, DisabledCommandExplanation, MNode, Permission } from '../../../../packages/contracts/src/index.ts'
+import type {
+  CommandWellEligibility,
+  DisabledCommandExplanation,
+  MNode,
+  Permission
+} from '../../../../packages/contracts/src/index.ts'
 
 type SessionFacts = {
   permissions: Permission[]
 }
 
-function disabledCommand(code: DisabledCommandExplanation['code'], message: string, missingPermission?: Permission): CommandWellEligibility {
+function disabledCommand(
+  code: DisabledCommandExplanation['code'],
+  message: string,
+  missingPermission?: Permission
+): CommandWellEligibility {
   const disabled: DisabledCommandExplanation = {
     code,
     message,
@@ -17,7 +26,10 @@ function disabledCommand(code: DisabledCommandExplanation['code'], message: stri
  * Derives CommandWell display eligibility from Core-visible facts only.
  * Source: docs/plans/2026-05-23-architecture-review-register.md A-005.
  */
-export function deriveNoopCommandEligibility(session: SessionFacts, node: MNode): CommandWellEligibility {
+export function deriveNoopCommandEligibility(
+  session: SessionFacts,
+  node: MNode
+): CommandWellEligibility {
   if (!session.permissions.includes('task:submit')) {
     return missingPermissionCommandEligibility()
   }

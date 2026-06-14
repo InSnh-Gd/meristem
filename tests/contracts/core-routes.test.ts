@@ -1,7 +1,54 @@
 import { describe, expect, it } from 'bun:test'
+import * as Schema from 'effect/Schema'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
+import {
+  CreateNetworkResponseSchema,
+  CreateNodeTicketResponseSchema,
+  FullLogListResponseSchema,
+  IssueNodeCredentialResponseSchema,
+  JoinNetworkResponseSchema,
+  NetworkMembersResponseSchema,
+  PolicyDecisionResponseSchema,
+  ReadyResponseSchema,
+  RegisterNodeResponseSchema,
+  ServiceListResponseSchema,
+  ServiceReloadResponseSchema
+} from '../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
+
+const ErrorResponseSchema = Schema.Struct({
+  error: Schema.Struct({
+    code: Schema.String,
+    message: Schema.optional(Schema.String)
+  })
+})
+
+const OpenApiOperationSchema = Schema.Struct({
+  security: Schema.optional(
+    Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  ),
+  responses: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
+
+const OpenApiDocumentSchema = Schema.Struct({
+  components: Schema.optional(
+    Schema.Struct({
+      securitySchemes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+    })
+  ),
+  paths: Schema.Record({
+    key: Schema.String,
+    value: Schema.Record({ key: Schema.String, value: OpenApiOperationSchema })
+  })
+})
+
+async function decodeJson<TSchema extends Schema.Schema.AnyNoContext>(
+  response: Response,
+  schema: TSchema
+): Promise<Schema.Schema.Type<TSchema>> {
+  return Schema.decodeUnknownSync(schema)(await response.json())
+}
 
 describe('Core REST MVP routes', () => {
   it('publishes bearer auth and protected-route contracts in OpenAPI', async () => {
@@ -10,12 +57,7 @@ describe('Core REST MVP routes', () => {
     const response = await app.handle(new Request('http://localhost/openapi/json'))
 
     expect(response.status).toBe(200)
-    const body = await response.json() as {
-      components?: {
-        securitySchemes?: Record<string, unknown>
-      }
-      paths: Record<string, Record<string, { security?: Array<Record<string, unknown>>; responses?: Record<string, unknown> }>>
-    }
+    const body = await decodeJson(response, OpenApiDocumentSchema)
 
     expect(body.components?.securitySchemes?.bearerAuth).toEqual({
       type: 'http',
@@ -26,6 +68,10 @@ describe('Core REST MVP routes', () => {
     expect(body.paths['/api/v0/status']?.get?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/services']?.post?.security).toEqual([{ bearerAuth: [] }])
     expect(body.paths['/api/v0/services']?.get?.security).toEqual([{ bearerAuth: [] }])
+    expect(body.paths['/internal/v0/identity/tokens/introspect']).toBeUndefined()
+    expect(body.paths['/internal/v0/secrets/{id}/reference']).toBeUndefined()
+    expect(body.paths['/internal/v0/secrets/{id}/disable']).toBeUndefined()
+    expect(body.paths['/internal/v0/configs/{id}/apply-ack']).toBeUndefined()
     expect(body.paths['/api/v0/tasks']).toBeUndefined()
     expect(body.paths['/api/v0/extensions']).toBeUndefined()
     expect(body.paths['/api/v0/extensions/{id}']).toBeUndefined()
@@ -51,10 +97,7 @@ describe('Core REST MVP routes', () => {
     const response = await app.handle(new Request('http://localhost/api/v0/ready'))
 
     expect(response.status).toBe(200)
-    const body = await response.json() as {
-      ready: boolean
-      dependencies: Record<string, string>
-    }
+    const body = await decodeJson(response, ReadyResponseSchema)
     expect(body.ready).toBe(false)
     expect(body.dependencies['m-policy']).toBe('ready')
     expect(body.dependencies['m-eventbus']).toBe('unavailable')
@@ -90,17 +133,12 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as {
-      ticketId: string
-      ticket: string
-      expiresAt: string
-      joinUrl: string
-    }
+    const body = await decodeJson(response, CreateNodeTicketResponseSchema)
     expect(body.ticketId.length).toBeGreaterThan(10)
     expect(body.ticket.startsWith('mjt_')).toBe(true)
     expect(body.expiresAt.length).toBeGreaterThan(10)
     expect(body.joinUrl).toBe('wss://localhost:8443/join/v0/session')
-    expect(published.map((entry) => entry.subject)).toEqual([
+    expect(published.map(entry => entry.subject)).toEqual([
       'node.registration.requested.v0',
       'node.join-ticket.created.v0'
     ])
@@ -121,9 +159,7 @@ describe('Core REST MVP routes', () => {
       })
     )
 
-    const body = await response.json() as {
-      node: { kind: string; status: string; mode: string; reachability: string }
-    }
+    const body = await decodeJson(response, RegisterNodeResponseSchema)
     expect(response.status).toBe(200)
     expect(body.node.kind).toBe('leaf')
     expect(body.node.status).toBe('healthy')
@@ -147,7 +183,7 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(409)
-    const body = await response.json() as { error: { code: string; message: string } }
+    const body = await decodeJson(response, ErrorResponseSchema)
     expect(body.error.code).toBe('node.agent_join_ticket_required')
     expect(body.error.message).toContain('node ticket')
   })
@@ -166,7 +202,7 @@ describe('Core REST MVP routes', () => {
         body: JSON.stringify({ kind: 'leaf', name: 'sim-leaf' })
       })
     )
-    const registered = await register.json() as { node: { id: string } }
+    const registered = await decodeJson(register, RegisterNodeResponseSchema)
 
     const response = await app.handle(
       new Request(`http://localhost/api/v0/nodes/${registered.node.id}/credentials`, {
@@ -178,13 +214,7 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as {
-      nodeId: string
-      token: string
-      issuedAt: string
-      policyDecisionId: string
-      correlationId: string
-    }
+    const body = await decodeJson(response, IssueNodeCredentialResponseSchema)
     expect(body.nodeId).toBe(registered.node.id)
     expect(body.token.length).toBeGreaterThan(20)
     expect(body.issuedAt.length).toBeGreaterThan(10)
@@ -219,7 +249,12 @@ describe('Core REST MVP routes', () => {
           authorization: 'Bearer admin-token',
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ id: 'sample-service', version: '0.1.0', domain: 'core', kind: 'service' })
+        body: JSON.stringify({
+          id: 'sample-service',
+          version: '0.1.0',
+          domain: 'core',
+          kind: 'service'
+        })
       })
     )
 
@@ -230,9 +265,15 @@ describe('Core REST MVP routes', () => {
         headers: { authorization: 'Bearer admin-token' }
       })
     )
-    const body = await list.json() as { services: Array<{ id: string }> }
-    expect(body.services.some((service) => service.id === 'sample-service')).toBe(true)
-    expect(body.services.some((service) => service.id === 'm-log')).toBe(true)
+    const body = await decodeJson(list, ServiceListResponseSchema)
+    expect(
+      body.services.some(
+        (service: (typeof body.services)[number]) => service.id === 'sample-service'
+      )
+    ).toBe(true)
+    expect(
+      body.services.some((service: (typeof body.services)[number]) => service.id === 'm-log')
+    ).toBe(true)
   })
 
   it('lists built-in service runtime and reloads m-log for an operator', async () => {
@@ -252,10 +293,10 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(list.status).toBe(200)
-    const servicesBody = await list.json() as {
-      services: Array<{ id: string; lifecycle: { reloadable: boolean }; runtime?: { mode: string } }>
-    }
-    const mLog = servicesBody.services.find((service) => service.id === 'm-log')
+    const servicesBody = await decodeJson(list, ServiceListResponseSchema)
+    const mLog = servicesBody.services.find(
+      (service: (typeof servicesBody.services)[number]) => service.id === 'm-log'
+    )
     expect(mLog?.lifecycle.reloadable).toBe(true)
     expect(mLog?.runtime?.mode).toBe('normal')
 
@@ -271,10 +312,10 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(reload.status).toBe(200)
-    const reloadBody = await reload.json() as { serviceId: string; accepted: boolean }
+    const reloadBody = await decodeJson(reload, ServiceReloadResponseSchema)
     expect(reloadBody.serviceId).toBe('m-log')
     expect(reloadBody.accepted).toBe(true)
-    expect(published.map((entry) => entry.subject)).toContain('service.lifecycle.reload.requested.v0')
+    expect(published.map(entry => entry.subject)).toContain('service.lifecycle.reload.requested.v0')
   })
 
   it('does not expose canonical task routes after the M-Task cutover', async () => {
@@ -306,7 +347,7 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as { entries: Array<{ message: string }> }
+    const body = await decodeJson(response, FullLogListResponseSchema)
     expect(body.entries[0]?.message).toBe('full log entry')
   })
 
@@ -324,7 +365,7 @@ describe('Core REST MVP routes', () => {
         body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
-    const registered = await register.json() as { policyDecisionId: string }
+    const registered = await decodeJson(register, RegisterNodeResponseSchema)
 
     const response = await app.handle(
       new Request(`http://localhost/api/v0/policy/decisions/${registered.policyDecisionId}`, {
@@ -333,7 +374,7 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as { decision: { id: string; result: string } }
+    const body = await decodeJson(response, PolicyDecisionResponseSchema)
     expect(body.decision.id).toBe(registered.policyDecisionId)
     expect(body.decision.result).toBe('allow')
   })
@@ -352,7 +393,7 @@ describe('Core REST MVP routes', () => {
         body: JSON.stringify({ kind: 'stem', name: 'local-stem', mode: 'simulated' })
       })
     )
-    const stemBody = await stemResponse.json() as { node: { id: string } }
+    const stemBody = await decodeJson(stemResponse, RegisterNodeResponseSchema)
 
     const leafResponse = await app.handle(
       new Request('http://localhost/api/v0/nodes', {
@@ -364,7 +405,7 @@ describe('Core REST MVP routes', () => {
         body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
-    const leafBody = await leafResponse.json() as { node: { id: string } }
+    const leafBody = await decodeJson(leafResponse, RegisterNodeResponseSchema)
 
     const createNetworkResponse = await app.handle(
       new Request('http://localhost/api/v0/networks', {
@@ -378,7 +419,7 @@ describe('Core REST MVP routes', () => {
     )
 
     expect(createNetworkResponse.status).toBe(200)
-    const createdNetwork = await createNetworkResponse.json() as { network: { id: string; name: string } }
+    const createdNetwork = await decodeJson(createNetworkResponse, CreateNetworkResponseSchema)
     expect(createdNetwork.network.name).toBe('lab-mesh')
 
     const joinStemResponse = await app.handle(
@@ -404,7 +445,7 @@ describe('Core REST MVP routes', () => {
       })
     )
     expect(joinLeafResponse.status).toBe(200)
-    const joinedLeaf = await joinLeafResponse.json() as { member: { membershipMode: string } }
+    const joinedLeaf = await decodeJson(joinLeafResponse, JoinNetworkResponseSchema)
     expect(joinedLeaf.member.membershipMode).toBe('restricted')
 
     const membersResponse = await app.handle(
@@ -413,7 +454,7 @@ describe('Core REST MVP routes', () => {
       })
     )
     expect(membersResponse.status).toBe(200)
-    const membersBody = await membersResponse.json() as { members: Array<{ nodeId: string }> }
+    const membersBody = await decodeJson(membersResponse, NetworkMembersResponseSchema)
     expect(membersBody.members).toHaveLength(2)
   })
 })

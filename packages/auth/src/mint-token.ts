@@ -1,4 +1,4 @@
-import { mintLocalToken, isActorId } from './index.ts'
+import { isActorId, mintLocalToken } from './index.ts'
 
 // 这个脚本只生成本地开发 JWT，不负责节点 token 或生产身份体系。
 const actorFlagIndex = Bun.argv.indexOf('--actor')

@@ -2,7 +2,7 @@
 // Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.2-2.3
 export const actorIds = ['viewer', 'operator', 'admin', 'security-admin'] as const
 
-export type ActorId = typeof actorIds[number]
+export type ActorId = (typeof actorIds)[number]
 
 export const basePermissions = [
   'core:read',
@@ -80,6 +80,15 @@ export const configPermissions = [
   'config:rollback'
 ] as const
 
-export const permissions = [...basePermissions, ...projectionPermissions, ...approvalPermissions, ...networkProfilePermissions, ...extensionPermissions, ...identityPermissions, ...secretPermissions, ...configPermissions] as const
+export const permissions = [
+  ...basePermissions,
+  ...projectionPermissions,
+  ...approvalPermissions,
+  ...networkProfilePermissions,
+  ...extensionPermissions,
+  ...identityPermissions,
+  ...secretPermissions,
+  ...configPermissions
+] as const
 
-export type Permission = typeof permissions[number]
+export type Permission = (typeof permissions)[number]

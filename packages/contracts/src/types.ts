@@ -1,19 +1,22 @@
 import type { ActorId, Permission } from './literals.ts'
 
 export type { ActorId, Permission } from './literals.ts'
-export type { ConfigRecordV01, ConfigVersionV01, ConfigTransitionV01, ConfigApplyAckV01 } from './schemas/config.ts'
-export type { SecretRefV01, SecretRefVersionV01, SecretRefTransitionV01 } from './schemas/secrets.ts'
+export type {
+  ConfigApplyAckV01,
+  ConfigRecordV01,
+  ConfigTransitionV01,
+  ConfigVersionV01
+} from './schemas/config.ts'
+export type {
+  SecretRefTransitionV01,
+  SecretRefV01,
+  SecretRefVersionV01
+} from './schemas/secrets.ts'
 
 export type DependencyState = 'ready' | 'unavailable'
 
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。
-export type CoreDependencyName =
-  | 'postgres'
-  | 'nats'
-  | 'm-policy'
-  | 'm-log'
-  | 'm-eventbus'
-  | 'm-net'
+export type CoreDependencyName = 'postgres' | 'nats' | 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net'
 
 export type CoreDependencies = Record<CoreDependencyName, DependencyState>
 
@@ -27,7 +30,16 @@ export type ApiError = {
 
 // 服务摘要用于 service list、reload 和运行态聚合，不等同于完整 service definition。
 export type CoreMode = 'normal' | 'degraded' | 'safe'
-export type ServiceDomain = 'core' | 'm-net' | 'm-eventbus' | 'm-log' | 'm-policy' | 'm-task' | 'm-ui' | 'm-cli' | 'm-extension'
+export type ServiceDomain =
+  | 'core'
+  | 'm-net'
+  | 'm-eventbus'
+  | 'm-log'
+  | 'm-policy'
+  | 'm-task'
+  | 'm-ui'
+  | 'm-cli'
+  | 'm-extension'
 export type ServiceKind = 'core' | 'internal' | 'node' | 'task' | 'extension' | 'bff'
 export type ServiceRuntimeMode = 'normal' | 'degraded'
 export type ServiceLifecycle = {
@@ -192,7 +204,16 @@ export type IssueNodeCredentialResponse = {
 }
 
 export type TaskType = 'noop'
-export type MTaskStatus = 'accepted' | 'queued' | 'dispatched' | 'running' | 'completed' | 'failed' | 'cancel_requested' | 'canceled' | 'timed_out'
+export type MTaskStatus =
+  | 'accepted'
+  | 'queued'
+  | 'dispatched'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancel_requested'
+  | 'canceled'
+  | 'timed_out'
 export type OperationDangerLevel = 'low' | 'medium' | 'high' | 'critical'
 export type RiskFactor =
   | 'actor_permission_level'

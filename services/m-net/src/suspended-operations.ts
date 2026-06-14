@@ -49,7 +49,8 @@ export function createInMemorySuspendedOperationStore(): SuspendedOperationStore
         policyDecisionId: input.policyDecisionId,
         action: input.action as NetworkSuspendedOperation['action'],
         networkId: input.networkId,
-        fromProfileVersion: input.fromProfileVersion as NetworkSuspendedOperation['fromProfileVersion'],
+        fromProfileVersion:
+          input.fromProfileVersion as NetworkSuspendedOperation['fromProfileVersion'],
         toProfileVersion: input.toProfileVersion as NetworkSuspendedOperation['toProfileVersion'],
         requestedBy: input.requestedBy as NetworkSuspendedOperation['requestedBy'],
         reason: input.reason ?? '',
@@ -64,15 +65,15 @@ export function createInMemorySuspendedOperationStore(): SuspendedOperationStore
     },
 
     async get(id) {
-      return ops.find((op) => op.id === id) ?? null
+      return ops.find(op => op.id === id) ?? null
     },
 
     async getByPolicyDecisionId(policyDecisionId) {
-      return ops.find((op) => op.policyDecisionId === policyDecisionId) ?? null
+      return ops.find(op => op.policyDecisionId === policyDecisionId) ?? null
     },
 
     async transition(id, status, terminalReason) {
-      const op = ops.find((candidate) => candidate.id === id)
+      const op = ops.find(candidate => candidate.id === id)
       if (!op) return null
       op.status = status
       if (status === 'resumed') {

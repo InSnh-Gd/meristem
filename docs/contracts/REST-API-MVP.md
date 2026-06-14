@@ -184,7 +184,7 @@ Rules:
 
 ---
 
-## 3.2 Identity v0.2 Local Mode Routes
+## 3.2 Identity v0 Local Mode Routes
 
 Phase 17 identity routes are owned by Core. They do not introduce M-Identity.
 
@@ -260,7 +260,7 @@ Protected by `identity:token-inspect` (admin + security-admin).
 Returns token metadata and status without token plaintext.
 
 ```ts
-type ActorTokenV02 = {
+ type ActorTokenRecord = {
   jti: string;
   actor: "viewer" | "operator" | "admin" | "security-admin";
   issuer: "meristem-local";

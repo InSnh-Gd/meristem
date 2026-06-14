@@ -38,7 +38,9 @@ function findForbiddenImportViolations(filePath: string, source: string): Violat
     if (!line.includes('import')) return
 
     for (const componentName of FORBIDDEN_COMPONENT_NAMES) {
-      const importPattern = new RegExp(`\\bimport\\b[^\\n;]*\\b${componentName}\\b[^\\n;]*\\bfrom\\b`)
+      const importPattern = new RegExp(
+        `\\bimport\\b[^\\n;]*\\b${componentName}\\b[^\\n;]*\\bfrom\\b`
+      )
       if (importPattern.test(line)) {
         violations.push({
           filePath,
@@ -67,7 +69,10 @@ describe('M-UI component contract: forbidden UI patterns', () => {
     expect(
       violations,
       violations
-        .map(({ filePath, line, componentName, statement }) => `${filePath}:${line} -> ${componentName} | ${statement}`)
+        .map(
+          ({ filePath, line, componentName, statement }) =>
+            `${filePath}:${line} -> ${componentName} | ${statement}`
+        )
         .join('\n')
     ).toEqual([])
   })

@@ -14,7 +14,10 @@ export type ProfileStore = {
   getNetworkState(networkId: string): Promise<NetworkProfileStateRecord | null>
 
   /** 设置某网络的 Profile 状态 */
-  setNetworkState(networkId: string, state: { profileVersion: string; status: string }): Promise<void>
+  setNetworkState(
+    networkId: string,
+    state: { profileVersion: string; status: string }
+  ): Promise<void>
 
   /** 记录一次状态迁移 */
   recordTransition(record: ProfileTransitionRecord): Promise<void>

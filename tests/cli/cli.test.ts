@@ -92,7 +92,9 @@ describe('meristem CLI', () => {
         throw new Error('should not be called')
       },
       async registerNode(input) {
-        calls.push(`node:register:${input.kind}:${input.name}:${'mode' in input ? String((input as { mode?: string }).mode) : 'missing'}`)
+        calls.push(
+          `node:register:${input.kind}:${input.name}:${'mode' in input ? String((input as { mode?: string }).mode) : 'missing'}`
+        )
         return {
           node: {
             id: 'node-1',
@@ -109,7 +111,9 @@ describe('meristem CLI', () => {
         }
       },
       async createNodeTicket(input) {
-        calls.push(`node:ticket:${input.kind}:${input.name}:${String(input.expiresInSeconds ?? 'default')}`)
+        calls.push(
+          `node:ticket:${input.kind}:${input.name}:${String(input.expiresInSeconds ?? 'default')}`
+        )
         return {
           ticketId: 'ticket-1',
           ticket: 'mjt_ticket',
@@ -122,8 +126,27 @@ describe('meristem CLI', () => {
     })
 
     const register = await cli.run(['node', 'register', '--kind', 'leaf', '--name', 'sim-leaf'])
-    const ticket = await cli.run(['node', 'ticket', 'create', '--kind', 'leaf', '--name', 'agent-leaf', '--expires', '90'])
-    const rejected = await cli.run(['node', 'register', '--kind', 'leaf', '--name', 'agent-leaf', '--mode', 'agent'])
+    const ticket = await cli.run([
+      'node',
+      'ticket',
+      'create',
+      '--kind',
+      'leaf',
+      '--name',
+      'agent-leaf',
+      '--expires',
+      '90'
+    ])
+    const rejected = await cli.run([
+      'node',
+      'register',
+      '--kind',
+      'leaf',
+      '--name',
+      'agent-leaf',
+      '--mode',
+      'agent'
+    ])
 
     expect(register.exitCode).toBe(0)
     expect(register.stdout).toContain('"mode": "simulated"')
@@ -156,7 +179,11 @@ describe('meristem CLI', () => {
           },
           policyDecisionId: 'decision-1',
           correlationId: 'corr-1',
-          risk: { operationDangerLevel: 'medium', suspicionScore: 35, riskFactors: ['operation_danger_level'] }
+          risk: {
+            operationDangerLevel: 'medium',
+            suspicionScore: 35,
+            riskFactors: ['operation_danger_level']
+          }
         }
       },
       async getTask(taskId) {
@@ -191,7 +218,11 @@ describe('meristem CLI', () => {
           },
           policyDecisionId: 'decision-2',
           correlationId: 'corr-2',
-          risk: { operationDangerLevel: 'high', suspicionScore: 70, riskFactors: ['operation_danger_level'] }
+          risk: {
+            operationDangerLevel: 'high',
+            suspicionScore: 70,
+            riskFactors: ['operation_danger_level']
+          }
         }
       },
       async retryTask(taskId) {
@@ -199,12 +230,18 @@ describe('meristem CLI', () => {
         return {
           error: { code: 'not_implemented_yet', message: 'retry is not implemented' },
           decisionId: 'decision-3',
-          risk: { operationDangerLevel: 'high', suspicionScore: 70, riskFactors: ['operation_danger_level'] }
+          risk: {
+            operationDangerLevel: 'high',
+            suspicionScore: 70,
+            riskFactors: ['operation_danger_level']
+          }
         }
       }
     })
 
-    expect((await cli.run(['task', 'submit', '--node', 'node-leaf-1', '--type', 'noop'])).exitCode).toBe(0)
+    expect(
+      (await cli.run(['task', 'submit', '--node', 'node-leaf-1', '--type', 'noop'])).exitCode
+    ).toBe(0)
     expect((await cli.run(['task', 'status', 'task-1'])).exitCode).toBe(0)
     expect((await cli.run(['task', 'list'])).exitCode).toBe(0)
     expect((await cli.run(['task', 'cancel', 'task-1'])).exitCode).toBe(0)

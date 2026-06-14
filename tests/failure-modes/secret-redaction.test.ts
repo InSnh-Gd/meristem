@@ -8,9 +8,6 @@ import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 // These tests verify that secret plaintext is NEVER present in log, error,
 // or response outputs — even during failures.
 //
-// Currently RED because secrets routes are not yet mounted in createCoreApp.
-// All requests to /api/v0/secrets/* return 404 until Phase 18 wires them.
-//
 // Sentinel prefix: SEC-FM-REDACT
 // ---------------------------------------------------------------------------
 
@@ -50,8 +47,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: should return 201 with secretRef DTO (no value field).
     expect(response.status).toBe(201)
 
     const bodyText = await response.text()
@@ -85,8 +80,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: validation error should return 400.
     expect(response.status).toBe(400)
 
     const bodyText = await response.text()
@@ -113,9 +106,8 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
     expect(createResponse.status).toBe(201)
-    const createBody = await createResponse.json() as { id: string }
+    const createBody = (await createResponse.json()) as { id: string }
     const secretId = createBody.id
 
     // Rotate with sentinel as the new value.
@@ -133,8 +125,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: should return 200 with updated secretRef DTO.
     expect(rotateResponse.status).toBe(200)
 
     const rotateBodyText = await rotateResponse.text()
@@ -170,8 +160,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: secrets route not wired → 404 for create.
-    // Even when the create fails, the timeline should not contain the sentinel.
     expect(timelineResponse.status).toBe(200)
 
     const timelineText = await timelineResponse.text()
@@ -205,7 +193,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: secrets route not wired → 404 for create.
     expect(fullResponse.status).toBe(200)
 
     const fullText = await fullResponse.text()
@@ -239,7 +226,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: secrets route not wired → 404 for create.
     expect(auditResponse.status).toBe(200)
 
     const auditText = await auditResponse.text()
@@ -275,8 +261,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: should return 200 with array of secretRef DTOs.
     expect(listResponse.status).toBe(200)
 
     const listText = await listResponse.text()
@@ -313,7 +297,7 @@ describe('SecretRef v0.1 redaction failure modes', () => {
     )
 
     expect(createResponse.status).toBe(201)
-    const createBody = await createResponse.json() as { id: string }
+    const createBody = (await createResponse.json()) as { id: string }
     const secretId = createBody.id
 
     // Show secret.
@@ -323,7 +307,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
     expect(showResponse.status).toBe(200)
 
     const showText = await showResponse.text()
@@ -350,8 +333,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: should return 404 with error body.
     expect(response.status).toBe(404)
 
     const bodyText = await response.text()
@@ -381,7 +362,7 @@ describe('SecretRef v0.1 redaction failure modes', () => {
     )
 
     expect(createResponse.status).toBe(201)
-    const createBody = await createResponse.json() as { id: string }
+    const createBody = (await createResponse.json()) as { id: string }
     const secretId = createBody.id
 
     // Internal reference.
@@ -395,8 +376,6 @@ describe('SecretRef v0.1 redaction failure modes', () => {
       })
     )
 
-    // FAILS RED: route does not exist yet → 404
-    // Once wired: should return 200 with scoped reference result.
     expect(refResponse.status).toBe(200)
 
     const refText = await refResponse.text()
@@ -488,7 +467,9 @@ describe('SecretRef v0.1 redaction failure modes', () => {
           // Only fail if the fragment appears in suspicious context —
           // the full sentinel check above is the primary assertion.
           if (occurrences > 10) {
-            expect(`output[${index}] contains sentinel fragment "${fragment}" ${occurrences} times`).toBe('clean')
+            expect(
+              `output[${index}] contains sentinel fragment "${fragment}" ${occurrences} times`
+            ).toBe('clean')
           }
         }
       }

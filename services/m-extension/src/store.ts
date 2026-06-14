@@ -1,11 +1,11 @@
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
-import { mExtensionScope } from '../../../packages/contracts/src/types/extension.ts'
 import type {
   MExtensionDefinition,
   MExtensionInstance,
   MExtensionManifestV01,
   MExtensionTransition
 } from '../../../packages/contracts/src/types/extension.ts'
+import { mExtensionScope } from '../../../packages/contracts/src/types/extension.ts'
 
 export type RegisterDefinitionInput = {
   manifest: MExtensionManifestV01
@@ -24,17 +24,29 @@ export type InstanceTransitionInput = {
 
 export type ExtensionStore = {
   list(): Promise<Array<{ definition: MExtensionDefinition; instance?: MExtensionInstance }>>
-  get(id: string): Promise<{ definition: MExtensionDefinition; instance?: MExtensionInstance } | null>
-  register(input: RegisterDefinitionInput): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance }>
-  enable(input: InstanceTransitionInput): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance } | null>
-  disable(input: InstanceTransitionInput): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance } | null>
+  get(
+    id: string
+  ): Promise<{ definition: MExtensionDefinition; instance?: MExtensionInstance } | null>
+  register(
+    input: RegisterDefinitionInput
+  ): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance }>
+  enable(
+    input: InstanceTransitionInput
+  ): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance } | null>
+  disable(
+    input: InstanceTransitionInput
+  ): Promise<{ definition: MExtensionDefinition; instance: MExtensionInstance } | null>
   transitions(): Promise<MExtensionTransition[]>
 }
 
 function cloneDefinition(definition: MExtensionDefinition): MExtensionDefinition {
   return {
     ...definition,
-    manifest: { ...definition.manifest, requestedPermissions: [...definition.manifest.requestedPermissions], declaredCapabilities: [...definition.manifest.declaredCapabilities] },
+    manifest: {
+      ...definition.manifest,
+      requestedPermissions: [...definition.manifest.requestedPermissions],
+      declaredCapabilities: [...definition.manifest.declaredCapabilities]
+    },
     declaredCapabilities: [...definition.declaredCapabilities],
     requestedPermissions: [...definition.requestedPermissions]
   }
@@ -52,13 +64,22 @@ export function createInMemoryExtensionStore(): ExtensionStore {
   const instances = new Map<string, MExtensionInstance>()
   const transitionRecords: MExtensionTransition[] = []
 
-  function pair(definition: MExtensionDefinition): { definition: MExtensionDefinition; instance?: MExtensionInstance } {
+  function pair(definition: MExtensionDefinition): {
+    definition: MExtensionDefinition
+    instance?: MExtensionInstance
+  } {
     const instance = instances.get(definition.id)
-    return instance ? { definition: cloneDefinition(definition), instance: cloneInstance(instance) } : { definition: cloneDefinition(definition) }
+    return instance
+      ? { definition: cloneDefinition(definition), instance: cloneInstance(instance) }
+      : { definition: cloneDefinition(definition) }
   }
 
   function recordTransition(input: Omit<MExtensionTransition, 'id' | 'createdAt'>): void {
-    transitionRecords.push({ ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() })
+    transitionRecords.push({
+      ...input,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
+    })
   }
 
   return {
@@ -102,7 +123,13 @@ export function createInMemoryExtensionStore(): ExtensionStore {
       }
       definitions.set(definition.id, definition)
       instances.set(definition.id, instance)
-      recordTransition({ extensionId: definition.id, toStatus: 'registered', actor: input.actor, policyDecisionId: input.policyDecisionId, correlationId: input.correlationId })
+      recordTransition({
+        extensionId: definition.id,
+        toStatus: 'registered',
+        actor: input.actor,
+        policyDecisionId: input.policyDecisionId,
+        correlationId: input.correlationId
+      })
       return { definition: cloneDefinition(definition), instance: cloneInstance(instance) }
     },
     async enable(input) {
@@ -120,7 +147,16 @@ export function createInMemoryExtensionStore(): ExtensionStore {
         enabledAt: now
       }
       instances.set(input.extensionId, next)
-      recordTransition({ extensionId: input.extensionId, instanceId: next.id, fromStatus: pairValue.instance.status, toStatus: 'enabled', actor: input.actor, ...(input.reason ? { reason: input.reason } : {}), policyDecisionId: input.policyDecisionId, correlationId: input.correlationId })
+      recordTransition({
+        extensionId: input.extensionId,
+        instanceId: next.id,
+        fromStatus: pairValue.instance.status,
+        toStatus: 'enabled',
+        actor: input.actor,
+        ...(input.reason ? { reason: input.reason } : {}),
+        policyDecisionId: input.policyDecisionId,
+        correlationId: input.correlationId
+      })
       return { definition: pairValue.definition, instance: cloneInstance(next) }
     },
     async disable(input) {
@@ -138,11 +174,20 @@ export function createInMemoryExtensionStore(): ExtensionStore {
         disabledAt: now
       }
       instances.set(input.extensionId, next)
-      recordTransition({ extensionId: input.extensionId, instanceId: next.id, fromStatus: pairValue.instance.status, toStatus: 'disabled', actor: input.actor, ...(input.reason ? { reason: input.reason } : {}), policyDecisionId: input.policyDecisionId, correlationId: input.correlationId })
+      recordTransition({
+        extensionId: input.extensionId,
+        instanceId: next.id,
+        fromStatus: pairValue.instance.status,
+        toStatus: 'disabled',
+        actor: input.actor,
+        ...(input.reason ? { reason: input.reason } : {}),
+        policyDecisionId: input.policyDecisionId,
+        correlationId: input.correlationId
+      })
       return { definition: pairValue.definition, instance: cloneInstance(next) }
     },
     async transitions() {
-      return transitionRecords.map((transition) => ({ ...transition }))
+      return transitionRecords.map(transition => ({ ...transition }))
     }
   }
 }

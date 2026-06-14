@@ -35,7 +35,7 @@ describe('skill hygiene scanner', () => {
       ].join('\n')
     )
 
-    expect(findings.map((finding) => finding.reason)).toEqual([
+    expect(findings.map(finding => finding.reason)).toEqual([
       'unexpected frontmatter key "owner"',
       'skill name must use lowercase hyphen-case',
       'description must include "Use when" trigger wording',

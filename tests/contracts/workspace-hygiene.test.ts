@@ -14,7 +14,7 @@ describe('workspace hygiene scanner', () => {
       'doc-driven-ai/AGENTS.md'
     ])
 
-    expect(violations.map((v) => v.path)).toEqual([
+    expect(violations.map(v => v.path)).toEqual([
       'apps/core/src/app.ts.bak',
       'apps/m-ui/.svelte-kit/generated/root.js',
       'services/m-log/node_modules/package/index.js',

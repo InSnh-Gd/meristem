@@ -57,13 +57,16 @@ const adminHeaders = {
   'content-type': 'application/json'
 }
 
-const internalHeaders = {
-  'x-meristem-internal-token': 'test-internal-token',
-  'content-type': 'application/json'
+function internalHeaders(): Record<string, string> {
+  process.env.MERISTEM_INTERNAL_TOKEN = process.env.MERISTEM_INTERNAL_TOKEN ?? 'test-internal-token'
+  return {
+    'x-meristem-internal-token': process.env.MERISTEM_INTERNAL_TOKEN,
+    'content-type': 'application/json'
+  }
 }
 
 async function readJson<T>(response: Response): Promise<T> {
-  return await response.json() as T
+  return (await response.json()) as T
 }
 
 async function createPublishedConfig(input: {
@@ -74,68 +77,92 @@ async function createPublishedConfig(input: {
   const deps = createInMemoryCoreDeps({ actor: 'admin' })
   const app = createCoreApp(deps)
 
-  const draftResponse = await app.handle(new Request('http://localhost/api/v0/configs/drafts', {
-    method: 'POST',
-    headers: adminHeaders,
-    body: JSON.stringify(input)
-  }))
+  const draftResponse = await app.handle(
+    new Request('http://localhost/api/v0/configs/drafts', {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify(input)
+    })
+  )
   expect(draftResponse.status).toBe(201)
   const draftBody = await readJson<ConfigDraftBody>(draftResponse)
 
-  const validateResponse = await app.handle(new Request(`http://localhost/api/v0/configs/${draftBody.config.id}/validate`, {
-    method: 'POST',
-    headers: adminHeaders
-  }))
+  const validateResponse = await app.handle(
+    new Request(`http://localhost/api/v0/configs/${draftBody.config.id}/validate`, {
+      method: 'POST',
+      headers: adminHeaders
+    })
+  )
   expect(validateResponse.status).toBe(200)
 
-  const publishResponse = await app.handle(new Request(`http://localhost/api/v0/configs/${draftBody.config.id}/publish`, {
-    method: 'POST',
-    headers: adminHeaders,
-    body: JSON.stringify({ reason: `${input.domain} metadata handoff integration` })
-  }))
+  const publishResponse = await app.handle(
+    new Request(`http://localhost/api/v0/configs/${draftBody.config.id}/publish`, {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({ reason: `${input.domain} metadata handoff integration` })
+    })
+  )
   expect(publishResponse.status).toBe(200)
   const publishBody = await readJson<ConfigPublishBody>(publishResponse)
 
-  return { app, deps, configId: draftBody.config.id, configVersion: publishBody.config.configVersion }
+  return {
+    app,
+    deps,
+    configId: draftBody.config.id,
+    configVersion: publishBody.config.configVersion
+  }
 }
 
-async function getConfig(app: ReturnType<typeof createCoreApp>, configId: string): Promise<ConfigDetailBody['config']> {
-  const response = await app.handle(new Request(`http://localhost/api/v0/configs/${configId}`, {
-    headers: adminHeaders
-  }))
+async function getConfig(
+  app: ReturnType<typeof createCoreApp>,
+  configId: string
+): Promise<ConfigDetailBody['config']> {
+  const response = await app.handle(
+    new Request(`http://localhost/api/v0/configs/${configId}`, {
+      headers: adminHeaders
+    })
+  )
   expect(response.status).toBe(200)
   return (await readJson<ConfigDetailBody>(response)).config
 }
 
-async function applyAck(app: ReturnType<typeof createCoreApp>, input: {
-  configId: string
-  configVersion: string
-  targetService: string
-  status: AckStatus
-  errorCode?: string
-  errorMessage?: string
-}): Promise<{ status: number; body: ConfigAckBody }> {
-  const response = await app.handle(new Request(`http://localhost/internal/v0/configs/${input.configId}/apply-ack`, {
-    method: 'POST',
-    headers: internalHeaders,
-    body: JSON.stringify({
-      configVersion: input.configVersion,
-      targetService: input.targetService,
-      status: input.status,
-      ...(input.errorCode ? { errorCode: input.errorCode } : {}),
-      ...(input.errorMessage ? { errorMessage: input.errorMessage } : {})
+async function applyAck(
+  app: ReturnType<typeof createCoreApp>,
+  input: {
+    configId: string
+    configVersion: string
+    targetService: string
+    status: AckStatus
+    errorCode?: string
+    errorMessage?: string
+  }
+): Promise<{ status: number; body: ConfigAckBody }> {
+  const response = await app.handle(
+    new Request(`http://localhost/internal/v0/configs/${input.configId}/apply-ack`, {
+      method: 'POST',
+      headers: internalHeaders(),
+      body: JSON.stringify({
+        configVersion: input.configVersion,
+        targetService: input.targetService,
+        status: input.status,
+        ...(input.errorCode ? { errorCode: input.errorCode } : {}),
+        ...(input.errorMessage ? { errorMessage: input.errorMessage } : {})
+      })
     })
-  }))
+  )
 
   return { status: response.status, body: await readJson<ConfigAckBody>(response) }
 }
 
-function expectAckRecord(ack: ConfigAckBody['ack'], input: {
-  configId: string
-  configVersion: string
-  targetService: string
-  status: AckStatus
-}) {
+function expectAckRecord(
+  ack: ConfigAckBody['ack'],
+  input: {
+    configId: string
+    configVersion: string
+    targetService: string
+    status: AckStatus
+  }
+) {
   expect(ack.ackId).toBeString()
   expect(ack.configId).toBe(input.configId)
   expect(ack.configVersion).toBe(input.configVersion)
@@ -165,7 +192,12 @@ describe('Config Apply Ack Integration', () => {
     })
 
     expect(ack.status).toBe(200)
-    expectAckRecord(ack.body.ack, { configId, configVersion, targetService: 'm-extension', status: 'acked' })
+    expectAckRecord(ack.body.ack, {
+      configId,
+      configVersion,
+      targetService: 'm-extension',
+      status: 'acked'
+    })
     const persisted = await getConfig(app, configId)
     expect(persisted.domain).toBe('m-extension')
     expect(persisted.configVersion).toBe(configVersion)
@@ -191,7 +223,12 @@ describe('Config Apply Ack Integration', () => {
     })
 
     expect(ack.status).toBe(200)
-    expectAckRecord(ack.body.ack, { configId, configVersion, targetService: 'm-net', status: 'acked' })
+    expectAckRecord(ack.body.ack, {
+      configId,
+      configVersion,
+      targetService: 'm-net',
+      status: 'acked'
+    })
     const persisted = await getConfig(app, configId)
     expect(persisted.domain).toBe('m-net')
     expect(persisted.configHash).toBeString()
@@ -205,19 +242,37 @@ describe('Config Apply Ack Integration', () => {
       targetScope: ['m-net']
     })
 
-    const first = await applyAck(app, { configId, configVersion, targetService: 'm-net', status: 'acked' })
-    const second = await applyAck(app, { configId, configVersion, targetService: 'm-net', status: 'acked' })
+    const first = await applyAck(app, {
+      configId,
+      configVersion,
+      targetService: 'm-net',
+      status: 'acked'
+    })
+    const second = await applyAck(app, {
+      configId,
+      configVersion,
+      targetService: 'm-net',
+      status: 'acked'
+    })
 
     expect(first.status).toBe(200)
     expect(second.status).toBe(200)
     expect(second.body.ack.ackId).toBe(first.body.ack.ackId)
-    expectAckRecord(second.body.ack, { configId, configVersion, targetService: 'm-net', status: 'acked' })
+    expectAckRecord(second.body.ack, {
+      configId,
+      configVersion,
+      targetService: 'm-net',
+      status: 'acked'
+    })
   })
 
   test('Failure ack records error without corrupting published version', async () => {
     const { app, configId, configVersion } = await createPublishedConfig({
       domain: 'm-extension',
-      payload: { metadataKind: 'extension-config-schema', schemaVersion: 'm-extension-config-schema@0.1.0' },
+      payload: {
+        metadataKind: 'extension-config-schema',
+        schemaVersion: 'm-extension-config-schema@0.1.0'
+      },
       targetScope: ['m-extension']
     })
 
@@ -231,9 +286,16 @@ describe('Config Apply Ack Integration', () => {
     })
 
     expect(ack.status).toBe(200)
-    expectAckRecord(ack.body.ack, { configId, configVersion, targetService: 'm-extension', status: 'failed' })
+    expectAckRecord(ack.body.ack, {
+      configId,
+      configVersion,
+      targetService: 'm-extension',
+      status: 'failed'
+    })
     expect(ack.body.ack.errorCode).toBe('m-extension.apply.schema_rejected')
-    expect(ack.body.ack.errorMessage).toBe('extension schema metadata hash did not match registry manifest')
+    expect(ack.body.ack.errorMessage).toBe(
+      'extension schema metadata hash did not match registry manifest'
+    )
     const persisted = await getConfig(app, configId)
     expect(persisted.configVersion).toBe(configVersion)
     expect(persisted.status).toBe('failed')
@@ -277,17 +339,30 @@ describe('Config Apply Ack Integration', () => {
   test('Rollback to unknown version is rejected', async () => {
     const { app, configId, configVersion } = await createPublishedConfig({
       domain: 'm-extension',
-      payload: { metadataKind: 'extension-config-schema', schemaVersion: 'm-extension-config-schema@0.1.0' },
+      payload: {
+        metadataKind: 'extension-config-schema',
+        schemaVersion: 'm-extension-config-schema@0.1.0'
+      },
       targetScope: ['m-extension']
     })
-    const ack = await applyAck(app, { configId, configVersion, targetService: 'm-extension', status: 'acked' })
+    const ack = await applyAck(app, {
+      configId,
+      configVersion,
+      targetService: 'm-extension',
+      status: 'acked'
+    })
     expect(ack.status).toBe(200)
 
-    const rollbackResponse = await app.handle(new Request(`http://localhost/api/v0/configs/${configId}/rollback`, {
-      method: 'POST',
-      headers: adminHeaders,
-      body: JSON.stringify({ toVersion: 'unknown-version-123', reason: 'reject unknown rollback target' })
-    }))
+    const rollbackResponse = await app.handle(
+      new Request(`http://localhost/api/v0/configs/${configId}/rollback`, {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          toVersion: 'unknown-version-123',
+          reason: 'reject unknown rollback target'
+        })
+      })
+    )
 
     expect(rollbackResponse.status).toBe(409)
     const rollbackBody = await readJson<ErrorBody>(rollbackResponse)

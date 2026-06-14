@@ -86,7 +86,10 @@ export function buildJoinSessionUrl(publicUrl: string): string {
 /**
  * Join Ticket 可兑换性保持纯函数化，便于在 HTTP、WebSocket 和测试里复用同一条规则。
  */
-export function joinTicketRedeemability(ticket: JoinTicketSnapshot, now: Date): JoinTicketRedeemability {
+export function joinTicketRedeemability(
+  ticket: JoinTicketSnapshot,
+  now: Date
+): JoinTicketRedeemability {
   if (ticket.status === 'redeemed') return 'redeemed'
   if (ticket.status === 'revoked') return 'revoked'
   const expiresAt = Date.parse(ticket.expiresAt)
@@ -98,7 +101,7 @@ export function joinTicketRedeemability(ticket: JoinTicketSnapshot, now: Date): 
  * 运行态消息只接受“当前仍然是活动连接”的 session：
  * 一旦新连接顶替旧连接，旧连接后续 heartbeat/log/task.result 都必须立即失效。
  */
-export function authorizeSessionMessage<TSession>(
+export function authorizeSessionMessage<_TSession>(
   nodeId: string | null | undefined,
   currentSessionId: string | null | undefined,
   activeSessionId: string | undefined

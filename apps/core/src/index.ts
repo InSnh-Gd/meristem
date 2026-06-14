@@ -1,7 +1,12 @@
-import { createCoreApp } from './app.ts'
-import { createProductionDeps } from './adapters.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
-import { currentTraceId, initTelemetry, shutdownTelemetry, withActiveSpan } from '../../../packages/telemetry/src/index.ts'
+import {
+  currentTraceId,
+  initTelemetry,
+  shutdownTelemetry,
+  withActiveSpan
+} from '../../../packages/telemetry/src/index.ts'
+import { createProductionDeps } from './adapters.ts'
+import { createCoreApp } from './app.ts'
 
 // Core 入口只负责装配依赖、发布启动事件和处理优雅退出，业务规则留在 app 与 adapters。
 const deps = await createProductionDeps()
@@ -36,5 +41,8 @@ await withActiveSpan('meristem-core', 'meristem-core.startup', async () => {
 
 // 退出时先关闭依赖再结束 telemetry，避免 span 或日志在进程退出前丢失。
 process.on('SIGINT', () => {
-  void deps.close().then(() => shutdownTelemetry()).then(() => process.exit(0))
+  void deps
+    .close()
+    .then(() => shutdownTelemetry())
+    .then(() => process.exit(0))
 })

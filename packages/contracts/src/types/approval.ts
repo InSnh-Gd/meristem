@@ -6,7 +6,11 @@ export type ApprovalVote = 'approve' | 'reject'
 
 export type ApprovalOriginService = 'm-task' | 'm-net'
 
-export type ApprovalOriginAction = 'task.submit' | 'task.cancel' | 'task.retry' | 'mnet.profile.enable'
+export type ApprovalOriginAction =
+  | 'task.submit'
+  | 'task.cancel'
+  | 'task.retry'
+  | 'mnet.profile.enable'
 
 export type PolicyApproval = {
   id: string
@@ -32,7 +36,12 @@ export type PolicyApprovalVote = {
   createdAt: string
 }
 
-export type SuspendedOperationStatus = 'suspended' | 'resumed' | 'rejected' | 'expired' | 'resume_failed'
+export type SuspendedOperationStatus =
+  | 'suspended'
+  | 'resumed'
+  | 'rejected'
+  | 'expired'
+  | 'resume_failed'
 
 export type TaskSuspendedOperation = {
   id: string

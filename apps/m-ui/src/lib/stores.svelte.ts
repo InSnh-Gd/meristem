@@ -1,13 +1,29 @@
-import type {
-  AuditData, AuditEntry, CommandState, NodeListData, OverviewData, PolicyDecisionData,
-  PolicyDecisionSummary, RouteRegistry, ServiceListData, TaskResult, TimelineData
-} from './types'
 import {
-  executeCommand, fetchAudit as fetchBffAudit, fetchCommandState, fetchNodes as fetchBffNodes,
-  fetchOverview, fetchPolicyDecisions as fetchBffPolicyDecisions, fetchPolicySummary,
-  fetchRoutes as fetchBffRoutes, fetchServices as fetchBffServices, fetchTimeline as fetchBffTimeline,
+  executeCommand,
+  fetchAudit as fetchBffAudit,
+  fetchNodes as fetchBffNodes,
+  fetchPolicyDecisions as fetchBffPolicyDecisions,
+  fetchRoutes as fetchBffRoutes,
+  fetchServices as fetchBffServices,
+  fetchTimeline as fetchBffTimeline,
+  fetchCommandState,
+  fetchOverview,
+  fetchPolicySummary,
   formatBffError
 } from './bff'
+import type {
+  AuditData,
+  AuditEntry,
+  CommandState,
+  NodeListData,
+  OverviewData,
+  PolicyDecisionData,
+  PolicyDecisionSummary,
+  RouteRegistry,
+  ServiceListData,
+  TaskResult,
+  TimelineData
+} from './types'
 
 declare const $state: <T>(initial: T) => T
 declare const $derived: {
@@ -37,9 +53,15 @@ class AppState {
   auditEntries: AuditEntry[] | null = $derived(this.audit?.entries ?? this.overview?.audit ?? null)
   selectedNode = $derived.by(() => {
     if (!this.selectedNodeId) return null
-    return this.nodes?.nodes.find((node: NodeListData['nodes'][number]) => node.id === this.selectedNodeId)
-      ?? this.overview?.nodes.find((node: OverviewData['nodes'][number]) => node.id === this.selectedNodeId)
-      ?? null
+    return (
+      this.nodes?.nodes.find(
+        (node: NodeListData['nodes'][number]) => node.id === this.selectedNodeId
+      ) ??
+      this.overview?.nodes.find(
+        (node: OverviewData['nodes'][number]) => node.id === this.selectedNodeId
+      ) ??
+      null
+    )
   })
 
   async refresh() {
@@ -116,7 +138,9 @@ class AppState {
     this.loading = true
     this.error = null
     try {
-      this.taskResult = await executeCommand(this.token, 'task.noop.submit', { leafNodeId: this.selectedNodeId })
+      this.taskResult = await executeCommand(this.token, 'task.noop.submit', {
+        leafNodeId: this.selectedNodeId
+      })
       await this.refresh()
       // 刷新后使用任务结果里的 policyDecisionId 拉取决策摘要
       if (this.taskResult?.policyDecisionId) {

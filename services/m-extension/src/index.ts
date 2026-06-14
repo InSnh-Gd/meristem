@@ -1,9 +1,15 @@
-import { createEventEnvelope } from '../../../packages/events/src/index.ts'
-import { createDb } from '../../../packages/db/src/client.ts'
-import { fetchReadyState, internalApiPaths, internalRequestHeaders, serveHttpApp, serviceUrl } from '../../../packages/internal-http/src/index.ts'
-import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { ActorId, Permission } from '../../../packages/contracts/src/index.ts'
 import { mExtensionServiceName } from '../../../packages/contracts/src/types/extension.ts'
+import { createDb } from '../../../packages/db/src/client.ts'
+import { createEventEnvelope } from '../../../packages/events/src/index.ts'
+import {
+  fetchReadyState,
+  internalApiPaths,
+  internalRequestHeaders,
+  serveHttpApp,
+  serviceUrl
+} from '../../../packages/internal-http/src/index.ts'
+import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import { createMExtensionApp } from './app.ts'
 import { createDbExtensionStore } from './db-store.ts'
 
@@ -16,6 +22,16 @@ function requiredJwtSecret(): string {
 initTelemetry(mExtensionServiceName)
 const { db, client } = createDb()
 
+/**
+ * readiness 允许把依赖故障收敛成 false，但必须保留诊断线索。
+ */
+function warnReadinessFallback(service: string, error: unknown): false {
+  console.warn(
+    `m-extension: ${service} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
+  )
+  return false
+}
+
 const app = createMExtensionApp({
   jwtSecret: requiredJwtSecret(),
   store: createDbExtensionStore(db),
@@ -27,7 +43,13 @@ const app = createMExtensionApp({
         body: JSON.stringify({ actor, action, resource })
       })
       if (!response.ok) throw new Error('M-Policy unavailable')
-      const body = await response.json() as { decision: { result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'; id: string; reasons: string[] } }
+      const body = (await response.json()) as {
+        decision: {
+          result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+          id: string
+          reasons: string[]
+        }
+      }
       return { result: body.decision.result, id: body.decision.id, reasons: body.decision.reasons }
     }
   },
@@ -36,7 +58,11 @@ const app = createMExtensionApp({
       const response = await fetch(`${serviceUrl('m-log')}${internalApiPaths.timelineLog}`, {
         method: 'POST',
         headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
-        body: JSON.stringify({ summary, ...(subject ? { subject } : {}), ...(correlationId ? { correlationId } : {}) })
+        body: JSON.stringify({
+          summary,
+          ...(subject ? { subject } : {}),
+          ...(correlationId ? { correlationId } : {})
+        })
       })
       if (!response.ok) throw new Error('failed to write timeline log')
     },
@@ -44,13 +70,33 @@ const app = createMExtensionApp({
       const response = await fetch(`${serviceUrl('m-log')}${internalApiPaths.fullLog}`, {
         method: 'POST',
         headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
-        body: JSON.stringify({ level, source: mExtensionServiceName, message, ...(correlationId ? { correlationId } : {}), ...(payload ? { payload } : {}) })
+        body: JSON.stringify({
+          level,
+          source: mExtensionServiceName,
+          message,
+          ...(correlationId ? { correlationId } : {}),
+          ...(payload ? { payload } : {})
+        })
       })
       if (!response.ok) throw new Error('failed to write full log')
     },
     async writeAudit(actor, action, resource, result, correlationId, payload) {
-      const decisionId = typeof payload === 'object' && payload !== null && 'decisionId' in payload && typeof payload.decisionId === 'string' ? payload.decisionId : undefined
-      const body = { actor, action, resource, result, correlationId, ...(decisionId ? { decisionId } : {}), payload }
+      const decisionId =
+        typeof payload === 'object' &&
+        payload !== null &&
+        'decisionId' in payload &&
+        typeof payload.decisionId === 'string'
+          ? payload.decisionId
+          : undefined
+      const body = {
+        actor,
+        action,
+        resource,
+        result,
+        correlationId,
+        ...(decisionId ? { decisionId } : {}),
+        payload
+      }
       const response = await fetch(`${serviceUrl('m-log')}${internalApiPaths.auditLog}`, {
         method: 'POST',
         headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
@@ -61,7 +107,12 @@ const app = createMExtensionApp({
   },
   events: {
     async publish(subject, type, payload, correlationId) {
-      const event = createEventEnvelope({ type, source: mExtensionServiceName, payload, ...(correlationId ? { correlationId } : {}) })
+      const event = createEventEnvelope({
+        type,
+        source: mExtensionServiceName,
+        payload,
+        ...(correlationId ? { correlationId } : {})
+      })
       const response = await fetch(`${serviceUrl('m-eventbus')}${internalApiPaths.publishEvent}`, {
         method: 'POST',
         headers: { ...internalRequestHeaders(), 'content-type': 'application/json' },
@@ -71,7 +122,9 @@ const app = createMExtensionApp({
     }
   },
   async readiness() {
-    const postgresReady = await client`select 1`.then(() => true).catch(() => false)
+    const postgresReady = await client`select 1`
+      .then(() => true)
+      .catch(error => warnReadinessFallback('postgres', error))
     const [policyReady, logReady, eventBusReady] = await Promise.all([
       fetchReadyState(`${serviceUrl('m-policy')}/ready`),
       fetchReadyState(`${serviceUrl('m-log')}/ready`),
@@ -87,10 +140,16 @@ console.log(`${mExtensionServiceName} listening on ${server.url}`)
 
 process.on('SIGINT', () => {
   server.stop()
-  void client.end().then(() => shutdownTelemetry()).finally(() => process.exit(0))
+  void client
+    .end()
+    .then(() => shutdownTelemetry())
+    .finally(() => process.exit(0))
 })
 
 process.on('SIGTERM', () => {
   server.stop()
-  void client.end().then(() => shutdownTelemetry()).finally(() => process.exit(0))
+  void client
+    .end()
+    .then(() => shutdownTelemetry())
+    .finally(() => process.exit(0))
 })

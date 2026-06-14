@@ -8,7 +8,7 @@ describe('nodejs ban', () => {
   })
 
   it('does not declare the Node/Bun TCP transport package anymore', async () => {
-    const packageJson = await Bun.file('package.json').json() as {
+    const packageJson = (await Bun.file('package.json').json()) as {
       dependencies?: Record<string, string>
     }
     expect(packageJson.dependencies?.['@nats-io/transport-node']).toBeUndefined()

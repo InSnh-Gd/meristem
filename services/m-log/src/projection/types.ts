@@ -7,4 +7,3 @@ export type ProjectionOpenSearch = {
   ensureAllIndices?: () => Promise<boolean>
   health?: () => Promise<boolean>
 }
-

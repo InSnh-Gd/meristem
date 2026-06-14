@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { authorizeSessionMessage, joinTicketRedeemability } from '../../services/m-net/src/runtime.ts'
+import {
+  authorizeSessionMessage,
+  joinTicketRedeemability
+} from '../../services/m-net/src/runtime.ts'
 
 describe('M-Net session authorization', () => {
   it('rejects runtime messages before the session has authenticated', () => {
@@ -28,9 +31,14 @@ describe('M-Net session authorization', () => {
 
 describe('M-Net join ticket rejection semantics', () => {
   it('treats revoked tickets as stable non-redeemable outcomes', () => {
-    expect(joinTicketRedeemability({
-      status: 'revoked',
-      expiresAt: '2026-05-10T00:01:00.000Z'
-    }, new Date('2026-05-10T00:00:00.000Z'))).toBe('revoked')
+    expect(
+      joinTicketRedeemability(
+        {
+          status: 'revoked',
+          expiresAt: '2026-05-10T00:01:00.000Z'
+        },
+        new Date('2026-05-10T00:00:00.000Z')
+      )
+    ).toBe('revoked')
   })
 })

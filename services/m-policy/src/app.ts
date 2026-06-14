@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
-import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
 import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
+import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 
@@ -37,7 +37,9 @@ const policyDecisionSchema = t.Object({
     t.Literal('require_multi_approval')
   ]),
   reasons: t.Array(t.String()),
-  operationDangerLevel: t.Optional(t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Literal('critical')])),
+  operationDangerLevel: t.Optional(
+    t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Literal('critical')])
+  ),
   suspicionScore: t.Optional(t.Number()),
   riskFactors: t.Optional(t.Array(t.String())),
   requiredAction: t.Optional(t.Union([t.Literal('manual_review'), t.Literal('multi_approval')])),
@@ -90,7 +92,12 @@ export function createPolicyApp(deps: PolicyAppDeps) {
         // 决策查询只读既有事实，不在查询路径重跑授权计算，避免审计事实漂移。
         return withExtractedSpan('m-policy', 'm-policy.get-decision', headers, async () => {
           const decision = await deps.getDecision(params.id)
-          return decision ?? status(404, { error: { code: 'policy.not_found', message: 'policy decision not found' } })
+          return (
+            decision ??
+            status(404, {
+              error: { code: 'policy.not_found', message: 'policy decision not found' }
+            })
+          )
         })
       },
       {

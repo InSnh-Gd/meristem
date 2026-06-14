@@ -1,5 +1,5 @@
-import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
+import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import { createConfigStore } from './storage-adapter.ts'
 import type { ConfigPort, ServiceError } from './types.ts'
 
@@ -23,12 +23,12 @@ function configError(code: string, message: string): ServiceError {
 }
 
 function asConfigStatus(status: string): ConfigStatus | null {
-  return status === 'draft'
-    || status === 'validated'
-    || status === 'published'
-    || status === 'applied'
-    || status === 'failed'
-    || status === 'rolled_back'
+  return status === 'draft' ||
+    status === 'validated' ||
+    status === 'published' ||
+    status === 'applied' ||
+    status === 'failed' ||
+    status === 'rolled_back'
     ? status
     : null
 }
@@ -45,7 +45,10 @@ function canTransition(fromStatus: string, toStatus: ConfigStatus): boolean {
 function ensureTransition(fromStatus: string, toStatus: ConfigStatus) {
   return canTransition(fromStatus, toStatus)
     ? null
-    : configError('config.invalid_state', `config cannot transition from ${fromStatus} to ${toStatus}`)
+    : configError(
+        'config.invalid_state',
+        `config cannot transition from ${fromStatus} to ${toStatus}`
+      )
 }
 
 function canonicalize(value: unknown): unknown {
@@ -65,7 +68,11 @@ function containsPlaintextSecret(value: unknown): boolean {
   return Object.entries(value).some(([key, entry]) => {
     const normalizedKey = key.toLowerCase()
     if (normalizedKey === 'secretref' || normalizedKey.endsWith('secretref')) return false
-    if (/(password|secret|token|privatekey|apikey)/u.test(normalizedKey) && typeof entry === 'string' && entry.length > 0) {
+    if (
+      /(password|secret|token|privatekey|apikey)/u.test(normalizedKey) &&
+      typeof entry === 'string' &&
+      entry.length > 0
+    ) {
       return true
     }
     return containsPlaintextSecret(entry)
@@ -110,14 +117,16 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
   return {
     async list() {
       const records = await store.list()
-      return ok(records.map(({ id, configVersion, domain, status, createdBy, createdAt }) => ({
-        id,
-        configVersion,
-        domain,
-        status,
-        createdBy,
-        createdAt
-      })))
+      return ok(
+        records.map(({ id, configVersion, domain, status, createdBy, createdAt }) => ({
+          id,
+          configVersion,
+          domain,
+          status,
+          createdBy,
+          createdAt
+        }))
+      )
     },
 
     async get(id) {
@@ -126,7 +135,12 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
 
     async draft(input) {
       if (containsPlaintextSecret(input.payload)) {
-        return err(configError('config.secret_plaintext', 'config payload must use secretRef instead of plaintext secrets'))
+        return err(
+          configError(
+            'config.secret_plaintext',
+            'config payload must use secretRef instead of plaintext secrets'
+          )
+        )
       }
 
       const createdAt = new Date()
@@ -193,7 +207,13 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
         correlationId: input.correlationId,
         extra: { publishedBy, publishedAt }
       })
-      return ok({ id, configVersion: record.configVersion, status: 'published', publishedAt: publishedAt.toISOString(), publishedBy })
+      return ok({
+        id,
+        configVersion: record.configVersion,
+        status: 'published',
+        publishedAt: publishedAt.toISOString(),
+        publishedBy
+      })
     },
 
     async rollback(id, input) {
@@ -203,7 +223,10 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
       if (transitionError) return err(transitionError)
 
       const version = await store.getVersion(id, input.toVersion)
-      if (!version) return err(configError('config.rollback_unknown_version', 'rollback target version is unknown'))
+      if (!version)
+        return err(
+          configError('config.rollback_unknown_version', 'rollback target version is unknown')
+        )
 
       await updateWithTransition(store, {
         id,
@@ -221,21 +244,36 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
       const record = await store.get(id)
       if (!record) return err(configError('config.not_found', 'config record not found'))
       if (record.configVersion !== input.version) {
-        return err(configError('config.version_mismatch', 'apply ack version must match published config version'))
+        return err(
+          configError(
+            'config.version_mismatch',
+            'apply ack version must match published config version'
+          )
+        )
       }
 
       const ackStatus = asAckStatus(input.status)
-      if (!ackStatus) return err(configError('config.ack_invalid_status', 'apply ack status is invalid'))
+      if (!ackStatus)
+        return err(configError('config.ack_invalid_status', 'apply ack status is invalid'))
 
       const existing = await store.getAck(id, input.targetService, input.version)
       if (existing) {
-        return ok({ ackId: existing.id, status: existing.status, ackedAt: existing.ackedAt ?? existing.createdAt })
+        return ok({
+          ackId: existing.id,
+          status: existing.status,
+          ackedAt: existing.ackedAt ?? existing.createdAt
+        })
       }
 
       const now = new Date()
       if (ackStatus === 'pending') {
         if (!canTransition(record.status, 'failed')) {
-          return err(configError('config.invalid_state', `config cannot transition from ${record.status} to failed`))
+          return err(
+            configError(
+              'config.invalid_state',
+              `config cannot transition from ${record.status} to failed`
+            )
+          )
         }
         await updateWithTransition(store, {
           id,
@@ -315,8 +353,8 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
       }
 
       const allAcks = await store.listAcks(id, input.version)
-      const ackedServices = new Set(allAcks.map((ack) => ack.targetService))
-      const allAcked = targetScope.every((service) => ackedServices.has(service))
+      const ackedServices = new Set(allAcks.map(ack => ack.targetService))
+      const allAcked = targetScope.every(service => ackedServices.has(service))
 
       if (!allAcked) {
         // 尚有目标服务未 ack，保持当前状态不变
@@ -345,7 +383,7 @@ export async function computeConfigHash(payload: unknown): Promise<string> {
   const canonical = JSON.stringify(canonicalize(payload))
   const bytes = new TextEncoder().encode(canonical)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 /**

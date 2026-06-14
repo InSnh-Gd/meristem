@@ -2,11 +2,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { ManagedProcess } from '../helpers/process.ts'
 import {
+  baseEnv,
+  coreFetch,
   infrastructureAvailable,
   startFullStack,
-  stopFullStack,
-  coreFetch,
-  baseEnv
+  stopFullStack
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -41,10 +41,12 @@ if (!infraOk) {
     it('security-admin lists actors', async () => {
       const res = await coreFetch('/api/v0/identity/actors', securityAdminToken)
       expect(res.status).toBe(200)
-      const body = res.data as { actors: Array<{ id: string; displayName: string; status: string }> }
+      const body = res.data as {
+        actors: Array<{ id: string; displayName: string; status: string }>
+      }
       expect(Array.isArray(body.actors)).toBe(true)
       expect(body.actors.length).toBeGreaterThan(0)
-      expect(body.actors.some((a) => a.id === 'operator')).toBe(true)
+      expect(body.actors.some(a => a.id === 'operator')).toBe(true)
     })
 
     it('operator cannot list actors (identity:read self only, not all)', async () => {
@@ -125,10 +127,7 @@ if (!infraOk) {
       const issuedToken = issueBody.token
 
       // ── 查看 token ──
-      const inspectRes = await coreFetch(
-        `/api/v0/identity/tokens/${issuedJti}`,
-        securityAdminToken
-      )
+      const inspectRes = await coreFetch(`/api/v0/identity/tokens/${issuedJti}`, securityAdminToken)
       expect(inspectRes.status).toBe(200)
       const inspectBody = inspectRes.data as {
         jti: string
@@ -221,7 +220,11 @@ if (!infraOk) {
       // Issue a token first
       const issueRes = await coreFetch('/api/v0/identity/tokens', securityAdminToken, {
         method: 'POST',
-        body: JSON.stringify({ actor: 'operator', ttl: '1h', purpose: 'E2E-IDY-INTROSPECTION test' })
+        body: JSON.stringify({
+          actor: 'operator',
+          ttl: '1h',
+          purpose: 'E2E-IDY-INTROSPECTION test'
+        })
       })
       expect(issueRes.status).toBe(201)
       const issueBody = issueRes.data as { jti: string; token: string }

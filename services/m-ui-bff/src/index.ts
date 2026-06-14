@@ -13,7 +13,9 @@ const server = Bun.serve({
   hostname: '0.0.0.0',
   port,
   fetch: app.fetch,
-  error() { return new Response('internal server error', { status: 500 }) }
+  error() {
+    return new Response('internal server error', { status: 500 })
+  }
 })
 
 console.log(`m-ui-bff listening on http://0.0.0.0:${port}`)

@@ -1,5 +1,10 @@
 import { jwtVerify, SignJWT } from 'jose'
-import type { ActorId, ActorTokenV02, IdentityActorV02, TokenIntrospectionResult } from '../../contracts/src/index.ts'
+import type {
+  ActorId,
+  ActorTokenV02,
+  IdentityActorV02,
+  TokenIntrospectionResult
+} from '../../contracts/src/index.ts'
 
 const issuer = 'meristem-local'
 const defaultAudience = 'meristem-core'
@@ -154,8 +159,14 @@ function buildActorTokenPayload(payload: Record<string, unknown>): ActorTokenPay
     return null
   }
 
-  const issuedAt = extractIsoClaim(payload.issuedAt, typeof payload.iat === 'number' ? payload.iat : undefined)
-  const expiresAt = extractIsoClaim(payload.expiresAt, typeof payload.exp === 'number' ? payload.exp : undefined)
+  const issuedAt = extractIsoClaim(
+    payload.issuedAt,
+    typeof payload.iat === 'number' ? payload.iat : undefined
+  )
+  const expiresAt = extractIsoClaim(
+    payload.expiresAt,
+    typeof payload.exp === 'number' ? payload.exp : undefined
+  )
 
   if (issuedAt === null || expiresAt === null) {
     return null
@@ -247,7 +258,10 @@ export type AuthResult = VerifiedActor | VerifiedActorToken | AuthError
 /**
  * JWT 验证只负责确认 token 本身有效与 actor 合法，不在这里内联权限推导。
  */
-export async function verifyLocalToken(input: { token: string; secret: string }): Promise<AuthResult> {
+export async function verifyLocalToken(input: {
+  token: string
+  secret: string
+}): Promise<AuthResult> {
   try {
     const { payload } = await jwtVerify(input.token, secretBytes(input.secret), {
       audience: defaultAudience,
@@ -271,14 +285,19 @@ export async function verifyLocalToken(input: { token: string; secret: string })
 /**
  * Identity v0.2 验证同时接受 Core 与 M-* service audience，并把完整 token 元数据返回给调用方。
  */
-export async function verifyActorToken(token: string, secret: string): Promise<ActorTokenAuthResult> {
+export async function verifyActorToken(
+  token: string,
+  secret: string
+): Promise<ActorTokenAuthResult> {
   return verifyActorTokenAgainstAudiences(token, secret, [defaultAudience, serviceAudience])
 }
 
 /**
  * 兼容契约测试与后续服务接入：允许调用方显式要求某个 audience，避免把错误归因成未知 audience。
  */
-export async function verifyIdentityV02Token(input: VerifyIdentityV02TokenInput): Promise<ActorTokenAuthResult> {
+export async function verifyIdentityV02Token(
+  input: VerifyIdentityV02TokenInput
+): Promise<ActorTokenAuthResult> {
   const audiences: readonly ActorTokenV02['audience'][] = input.expectedAudience
     ? [input.expectedAudience]
     : [defaultAudience, serviceAudience]
@@ -288,7 +307,9 @@ export async function verifyIdentityV02Token(input: VerifyIdentityV02TokenInput)
 /**
  * introspection 先验证 JWT 形状，再查询 Core revocation 状态；无效或过期 token 不会被报告为 active。
  */
-export async function introspectToken(options: IntrospectOptions): Promise<TokenIntrospectionResult> {
+export async function introspectToken(
+  options: IntrospectOptions
+): Promise<TokenIntrospectionResult> {
   const verified = await verifyActorToken(options.token, options.secret)
 
   if (!verified.ok) {
@@ -325,7 +346,7 @@ export function extractBearerToken(header: string | undefined): string | null {
  */
 export function mintNodeToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24))
-  const suffix = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  const suffix = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
   return `mnt_${crypto.randomUUID().replaceAll('-', '')}_${suffix}`
 }
 
@@ -334,5 +355,5 @@ export function mintNodeToken(): string {
  */
 export async function hashNodeToken(token: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }

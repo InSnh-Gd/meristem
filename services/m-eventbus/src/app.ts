@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { validateEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
+import { type MEventEnvelope, validateEventEnvelope } from '../../../packages/events/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 
@@ -35,7 +35,9 @@ export function createEventBusApp(deps: EventBusAppDeps) {
         return withExtractedSpan('m-eventbus', 'm-eventbus.publish', headers, async () => {
           const validation = validateEventEnvelope(body.event)
           if (!validation.ok) {
-            return status(422, { error: { code: 'event.invalid', message: validation.error.join(',') } })
+            return status(422, {
+              error: { code: 'event.invalid', message: validation.error.join(',') }
+            })
           }
           return deps.publish(body.subject, validation.value)
         })

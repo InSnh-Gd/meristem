@@ -1,7 +1,13 @@
 import { injectTraceHeaders } from '../../telemetry/src/index.ts'
 
 // internal-http 是所有 loopback 内部服务共用的最小 HTTP 边界，不承担业务语义。
-export type InternalServiceName = 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net' | 'm-task' | 'm-extension'
+export type InternalServiceName =
+  | 'm-policy'
+  | 'm-log'
+  | 'm-eventbus'
+  | 'm-net'
+  | 'm-task'
+  | 'm-extension'
 
 export type ServedInternalApp = {
   name: InternalServiceName
@@ -32,12 +38,16 @@ type FetchInit = Parameters<typeof fetch>[1]
 type HeaderRecord = Record<string, string | undefined>
 type HeaderSource = ConstructorParameters<typeof Headers>[0] | HeaderRecord
 
-function headerSource(headers?: HeaderSource): ConstructorParameters<typeof Headers>[0] | undefined {
+function headerSource(
+  headers?: HeaderSource
+): ConstructorParameters<typeof Headers>[0] | undefined {
   if (!headers) return undefined
   if (headers instanceof Headers || Array.isArray(headers)) return headers
 
   return Object.fromEntries(
-    Object.entries(headers).flatMap(([key, value]) => typeof value === 'string' ? [[key, value]] : [])
+    Object.entries(headers).flatMap(([key, value]) =>
+      typeof value === 'string' ? [[key, value]] : []
+    )
   )
 }
 
@@ -79,24 +89,30 @@ export function createInternalFetcher(): typeof fetch {
  * 所有内部服务路由统一走这一段认证逻辑，保证未授权 loopback 调用
  * 使用同一套错误契约返回，而不是各服务自行发散。
  */
-export function validateInternalRequest(headers: HeaderSource): { ok: true } | { ok: false; error: { code: string; message: string } } {
+export function validateInternalRequest(
+  headers: HeaderSource
+): { ok: true } | { ok: false; error: { code: string; message: string } } {
   try {
     const expectedToken = requiredInternalToken()
-    const actualToken = headers instanceof Headers
-      ? headers.get(internalTokenHeaderName)
-      : new Headers(headerSource(headers)).get(internalTokenHeaderName)
+    const actualToken =
+      headers instanceof Headers
+        ? headers.get(internalTokenHeaderName)
+        : new Headers(headerSource(headers)).get(internalTokenHeaderName)
     return actualToken === expectedToken
       ? { ok: true }
       : { ok: false, error: { code: 'internal.unauthorized', message: 'invalid internal token' } }
   } catch {
-    return { ok: false, error: { code: 'internal.unavailable', message: 'internal auth is not configured' } }
+    return {
+      ok: false,
+      error: { code: 'internal.unavailable', message: 'internal auth is not configured' }
+    }
   }
 }
 
 export async function fetchReadyState(url: string): Promise<boolean> {
   try {
     const response = await createInternalFetcher()(url, { method: 'GET' })
-    const body = await response.json() as { ready?: boolean }
+    const body = (await response.json()) as { ready?: boolean }
     return response.ok && body.ready === true
   } catch {
     return false

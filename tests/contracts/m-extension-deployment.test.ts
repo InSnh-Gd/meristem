@@ -6,8 +6,8 @@ describe('M-Extension deployment examples', () => {
 
     expect(compose).not.toContain('change-me-internal-shared-token')
     expect(compose).not.toContain('change-me-local-jwt-secret')
-    expect(compose).toContain('${MERISTEM_INTERNAL_TOKEN:?set MERISTEM_INTERNAL_TOKEN}')
-    expect(compose).toContain('${MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}')
+    expect(compose).toContain('$' + '{MERISTEM_INTERNAL_TOKEN:?set MERISTEM_INTERNAL_TOKEN}')
+    expect(compose).toContain('$' + '{MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}')
   })
 
   it('does not leave M-Net on the known development JWT secret', async () => {
@@ -16,6 +16,6 @@ describe('M-Extension deployment examples', () => {
 
     expect(service).not.toContain("MERISTEM_JWT_SECRET ?? 'dev-secret'")
     expect(compose).toContain('m-net:')
-    expect(compose).toContain('${MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}')
+    expect(compose).toContain('$' + '{MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}')
   })
 })

@@ -1,5 +1,13 @@
-import { integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+import {
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex
+} from 'drizzle-orm/pg-core'
 
 // PostgreSQL schema 是 MVP 权威写模型；事件、日志和缓存都不能替代这些表的职责。
 export const users = pgTable('users', {
@@ -21,19 +29,27 @@ export const permissions = pgTable('permissions', {
 export const userRoles = pgTable(
   'user_roles',
   {
-    userId: text('user_id').notNull().references(() => users.id),
-    roleId: text('role_id').notNull().references(() => roles.id)
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id)
   },
-  (table) => [primaryKey({ columns: [table.userId, table.roleId] })]
+  table => [primaryKey({ columns: [table.userId, table.roleId] })]
 )
 
 export const rolePermissions = pgTable(
   'role_permissions',
   {
-    roleId: text('role_id').notNull().references(() => roles.id),
-    permissionId: text('permission_id').notNull().references(() => permissions.id)
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id),
+    permissionId: text('permission_id')
+      .notNull()
+      .references(() => permissions.id)
   },
-  (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })]
+  table => [primaryKey({ columns: [table.roleId, table.permissionId] })]
 )
 
 // nodes 保存控制面理解的统一节点事实，既包含 simulated 节点也包含真实 agent 节点。
@@ -55,7 +71,9 @@ export const nodes = pgTable('nodes', {
 // node_credentials 只存 token 哈希和生命周期元数据，绝不保存节点 token 明文。
 export const nodeCredentials = pgTable('node_credentials', {
   id: text('id').primaryKey(),
-  nodeId: text('node_id').notNull().references(() => nodes.id),
+  nodeId: text('node_id')
+    .notNull()
+    .references(() => nodes.id),
   tokenHash: text('token_hash').notNull(),
   status: text('status').notNull(),
   issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
@@ -90,7 +108,9 @@ export const actorTokens = pgTable(
   'actor_tokens',
   {
     jti: text('jti').primaryKey(),
-    actorId: text('actor_id').notNull().references(() => actors.id),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => actors.id),
     issuer: text('issuer').notNull(),
     audience: text('audience').notNull(),
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
@@ -101,11 +121,13 @@ export const actorTokens = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('actor_tokens_jti_unique').on(table.jti)]
+  table => [uniqueIndex('actor_tokens_jti_unique').on(table.jti)]
 )
 
 export const actorTokenRevocations = pgTable('actor_token_revocations', {
-  jti: text('jti').primaryKey().references(() => actorTokens.jti),
+  jti: text('jti')
+    .primaryKey()
+    .references(() => actorTokens.jti),
   revokedAt: timestamp('revoked_at', { withTimezone: true }).notNull(),
   revokedBy: text('revoked_by').notNull(),
   reason: text('reason').notNull(),
@@ -126,7 +148,9 @@ export const serviceDefinitions = pgTable('service_definitions', {
 // tasks 是 Core-owned MVP 路径的历史兼容表；canonical task state 由 M-Task 表组持有。
 export const tasks = pgTable('tasks', {
   id: text('id').primaryKey(),
-  leafNodeId: text('leaf_node_id').notNull().references(() => nodes.id),
+  leafNodeId: text('leaf_node_id')
+    .notNull()
+    .references(() => nodes.id),
   type: text('type').notNull(),
   status: text('status').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
@@ -134,11 +158,11 @@ export const tasks = pgTable('tasks', {
 })
 
 export const nodesRelations = relations(nodes, ({ many }) => ({
-  tasks: many(tasks),
+  tasks: many(tasks)
 }))
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
-  node: one(nodes, { fields: [tasks.leafNodeId], references: [nodes.id] }),
+  node: one(nodes, { fields: [tasks.leafNodeId], references: [nodes.id] })
 }))
 
 // M-Task 表组是任务生命周期的权威写模型，不再由 Core tasks 表承载 canonical state。
@@ -155,8 +179,12 @@ export const taskDefinitions = pgTable('task_definitions', {
 
 export const taskRequests = pgTable('task_requests', {
   id: text('id').primaryKey(),
-  definitionId: text('definition_id').notNull().references(() => taskDefinitions.id),
-  nodeId: text('node_id').notNull().references(() => nodes.id),
+  definitionId: text('definition_id')
+    .notNull()
+    .references(() => taskDefinitions.id),
+  nodeId: text('node_id')
+    .notNull()
+    .references(() => nodes.id),
   type: text('type').notNull(),
   status: text('status').notNull(),
   requestedBy: text('requested_by').notNull(),
@@ -172,7 +200,9 @@ export const taskRequests = pgTable('task_requests', {
 
 export const taskTransitions = pgTable('task_transitions', {
   id: text('id').primaryKey(),
-  taskId: text('task_id').notNull().references(() => taskRequests.id),
+  taskId: text('task_id')
+    .notNull()
+    .references(() => taskRequests.id),
   fromStatus: text('from_status'),
   toStatus: text('to_status').notNull(),
   reason: text('reason'),
@@ -181,7 +211,9 @@ export const taskTransitions = pgTable('task_transitions', {
 })
 
 export const taskResults = pgTable('task_results', {
-  taskId: text('task_id').primaryKey().references(() => taskRequests.id),
+  taskId: text('task_id')
+    .primaryKey()
+    .references(() => taskRequests.id),
   status: text('status').notNull(),
   payload: jsonb('payload'),
   error: text('error'),
@@ -190,7 +222,9 @@ export const taskResults = pgTable('task_results', {
 
 export const taskCancellations = pgTable('task_cancellations', {
   id: text('id').primaryKey(),
-  taskId: text('task_id').notNull().references(() => taskRequests.id),
+  taskId: text('task_id')
+    .notNull()
+    .references(() => taskRequests.id),
   requestedBy: text('requested_by').notNull(),
   status: text('status').notNull(),
   correlationId: text('correlation_id'),
@@ -209,20 +243,24 @@ export const networks = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('networks_name_unique').on(table.name)]
+  table => [uniqueIndex('networks_name_unique').on(table.name)]
 )
 
 export const networkMemberships = pgTable(
   'network_memberships',
   {
-    networkId: text('network_id').notNull().references(() => networks.id),
-    nodeId: text('node_id').notNull().references(() => nodes.id),
+    networkId: text('network_id')
+      .notNull()
+      .references(() => networks.id),
+    nodeId: text('node_id')
+      .notNull()
+      .references(() => nodes.id),
     membershipMode: text('membership_mode').notNull(),
     status: text('status').notNull(),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [primaryKey({ columns: [table.networkId, table.nodeId] })]
+  table => [primaryKey({ columns: [table.networkId, table.nodeId] })]
 )
 
 export const mnetProfileDefinitions = pgTable(
@@ -237,11 +275,13 @@ export const mnetProfileDefinitions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('mnet_profile_definitions_profile_version_unique').on(table.profileVersion)]
+  table => [uniqueIndex('mnet_profile_definitions_profile_version_unique').on(table.profileVersion)]
 )
 
 export const mnetNetworkProfileStates = pgTable('mnet_network_profile_states', {
-  networkId: text('network_id').primaryKey().references(() => networks.id),
+  networkId: text('network_id')
+    .primaryKey()
+    .references(() => networks.id),
   profileVersion: text('profile_version').notNull(),
   status: text('status').notNull(),
   enabledBy: text('enabled_by'),
@@ -255,7 +295,9 @@ export const mnetNetworkProfileStates = pgTable('mnet_network_profile_states', {
 
 export const mnetProfileTransitions = pgTable('mnet_profile_transitions', {
   id: text('id').primaryKey(),
-  networkId: text('network_id').notNull().references(() => networks.id),
+  networkId: text('network_id')
+    .notNull()
+    .references(() => networks.id),
   fromProfileVersion: text('from_profile_version').notNull(),
   toProfileVersion: text('to_profile_version').notNull(),
   fromStatus: text('from_status').notNull(),
@@ -269,9 +311,13 @@ export const mnetProfileTransitions = pgTable('mnet_profile_transitions', {
 
 export const mnetSuspendedOperations = pgTable('mnet_suspended_operations', {
   id: text('id').primaryKey(),
-  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  policyDecisionId: text('policy_decision_id')
+    .notNull()
+    .references(() => policyDecisions.id),
   action: text('action').notNull(),
-  networkId: text('network_id').notNull().references(() => networks.id),
+  networkId: text('network_id')
+    .notNull()
+    .references(() => networks.id),
   fromProfileVersion: text('from_profile_version').notNull(),
   toProfileVersion: text('to_profile_version').notNull(),
   requestedBy: text('requested_by').notNull(),
@@ -286,18 +332,33 @@ export const mnetSuspendedOperations = pgTable('mnet_suspended_operations', {
 })
 
 export const mnetNetworkProfileStatesRelations = relations(mnetNetworkProfileStates, ({ one }) => ({
-  network: one(networks, { fields: [mnetNetworkProfileStates.networkId], references: [networks.id] }),
-  policyDecision: one(policyDecisions, { fields: [mnetNetworkProfileStates.policyDecisionId], references: [policyDecisions.id] })
+  network: one(networks, {
+    fields: [mnetNetworkProfileStates.networkId],
+    references: [networks.id]
+  }),
+  policyDecision: one(policyDecisions, {
+    fields: [mnetNetworkProfileStates.policyDecisionId],
+    references: [policyDecisions.id]
+  })
 }))
 
 export const mnetProfileTransitionsRelations = relations(mnetProfileTransitions, ({ one }) => ({
   network: one(networks, { fields: [mnetProfileTransitions.networkId], references: [networks.id] }),
-  policyDecision: one(policyDecisions, { fields: [mnetProfileTransitions.policyDecisionId], references: [policyDecisions.id] })
+  policyDecision: one(policyDecisions, {
+    fields: [mnetProfileTransitions.policyDecisionId],
+    references: [policyDecisions.id]
+  })
 }))
 
 export const mnetSuspendedOperationsRelations = relations(mnetSuspendedOperations, ({ one }) => ({
-  network: one(networks, { fields: [mnetSuspendedOperations.networkId], references: [networks.id] }),
-  policyDecision: one(policyDecisions, { fields: [mnetSuspendedOperations.policyDecisionId], references: [policyDecisions.id] })
+  network: one(networks, {
+    fields: [mnetSuspendedOperations.networkId],
+    references: [networks.id]
+  }),
+  policyDecision: one(policyDecisions, {
+    fields: [mnetSuspendedOperations.policyDecisionId],
+    references: [policyDecisions.id]
+  })
 }))
 
 // M-Extension 表组只保存控制面声明和 system/default 实例状态，不保存执行代码或 secret 明文。
@@ -314,7 +375,9 @@ export const extensionDefinitions = pgTable('extension_definitions', {
   riskClass: text('risk_class').notNull(),
   status: text('status').notNull(),
   registeredBy: text('registered_by').notNull(),
-  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  policyDecisionId: text('policy_decision_id')
+    .notNull()
+    .references(() => policyDecisions.id),
   correlationId: text('correlation_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
@@ -324,7 +387,9 @@ export const extensionInstances = pgTable(
   'extension_instances',
   {
     id: text('id').primaryKey(),
-    extensionId: text('extension_id').notNull().references(() => extensionDefinitions.id),
+    extensionId: text('extension_id')
+      .notNull()
+      .references(() => extensionDefinitions.id),
     scopeType: text('scope_type').notNull(),
     scopeId: text('scope_id').notNull(),
     status: text('status').notNull(),
@@ -338,18 +403,28 @@ export const extensionInstances = pgTable(
     enabledAt: timestamp('enabled_at', { withTimezone: true }),
     disabledAt: timestamp('disabled_at', { withTimezone: true })
   },
-  (table) => [uniqueIndex('extension_instances_scope_unique').on(table.extensionId, table.scopeType, table.scopeId)]
+  table => [
+    uniqueIndex('extension_instances_scope_unique').on(
+      table.extensionId,
+      table.scopeType,
+      table.scopeId
+    )
+  ]
 )
 
 export const extensionTransitions = pgTable('extension_transitions', {
   id: text('id').primaryKey(),
-  extensionId: text('extension_id').notNull().references(() => extensionDefinitions.id),
+  extensionId: text('extension_id')
+    .notNull()
+    .references(() => extensionDefinitions.id),
   instanceId: text('instance_id').references(() => extensionInstances.id),
   fromStatus: text('from_status'),
   toStatus: text('to_status').notNull(),
   actor: text('actor').notNull(),
   reason: text('reason'),
-  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  policyDecisionId: text('policy_decision_id')
+    .notNull()
+    .references(() => policyDecisions.id),
   correlationId: text('correlation_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull()
 })
@@ -367,7 +442,9 @@ export const secretRefs = pgTable('secret_refs', {
 
 export const secretRefVersions = pgTable('secret_ref_versions', {
   id: text('id').primaryKey(),
-  secretRefId: text('secret_ref_id').notNull().references(() => secretRefs.id),
+  secretRefId: text('secret_ref_id')
+    .notNull()
+    .references(() => secretRefs.id),
   version: text('version').notNull(),
   valueCiphertext: text('value_ciphertext').notNull(),
   createdBy: text('created_by').notNull(),
@@ -377,7 +454,9 @@ export const secretRefVersions = pgTable('secret_ref_versions', {
 
 export const secretRefTransitions = pgTable('secret_ref_transitions', {
   id: text('id').primaryKey(),
-  secretRefId: text('secret_ref_id').notNull().references(() => secretRefs.id),
+  secretRefId: text('secret_ref_id')
+    .notNull()
+    .references(() => secretRefs.id),
   fromStatus: text('from_status').notNull(),
   toStatus: text('to_status').notNull(),
   actor: text('actor').notNull(),
@@ -406,7 +485,9 @@ export const configRecords = pgTable('config_records', {
 
 export const configVersions = pgTable('config_versions', {
   id: text('id').primaryKey(),
-  configId: text('config_id').notNull().references(() => configRecords.id),
+  configId: text('config_id')
+    .notNull()
+    .references(() => configRecords.id),
   version: text('version').notNull(),
   configHash: text('config_hash').notNull(),
   payload: jsonb('payload').notNull(),
@@ -417,7 +498,9 @@ export const configVersions = pgTable('config_versions', {
 
 export const configTransitions = pgTable('config_transitions', {
   id: text('id').primaryKey(),
-  configId: text('config_id').notNull().references(() => configRecords.id),
+  configId: text('config_id')
+    .notNull()
+    .references(() => configRecords.id),
   fromStatus: text('from_status').notNull(),
   toStatus: text('to_status').notNull(),
   actor: text('actor').notNull(),
@@ -431,7 +514,9 @@ export const configApplyAcks = pgTable(
   'config_apply_acks',
   {
     id: text('id').primaryKey(),
-    configId: text('config_id').notNull().references(() => configRecords.id),
+    configId: text('config_id')
+      .notNull()
+      .references(() => configRecords.id),
     version: text('version').notNull(),
     targetService: text('target_service').notNull(),
     status: text('status').notNull(),
@@ -440,7 +525,7 @@ export const configApplyAcks = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('config_apply_acks_service_unique').on(table.configId, table.targetService)]
+  table => [uniqueIndex('config_apply_acks_service_unique').on(table.configId, table.targetService)]
 )
 
 // policy_decisions、timeline/full/audit logs 分别对应授权事实与三级日志事实。
@@ -526,7 +611,9 @@ export const projectionDLQ = pgTable('projection_dlq', {
 // M-Policy 拥有的审批记录表；approval queue 所有权留在 M-Policy。
 export const policyApprovals = pgTable('policy_approvals', {
   id: text('id').primaryKey(),
-  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  policyDecisionId: text('policy_decision_id')
+    .notNull()
+    .references(() => policyDecisions.id),
   originService: text('origin_service').notNull(),
   operationId: text('operation_id').notNull(),
   requestedBy: text('requested_by').notNull(),
@@ -544,19 +631,25 @@ export const policyApprovalVotes = pgTable(
   'policy_approval_votes',
   {
     id: text('id').primaryKey(),
-    approvalId: text('approval_id').notNull().references(() => policyApprovals.id),
+    approvalId: text('approval_id')
+      .notNull()
+      .references(() => policyApprovals.id),
     actor: text('actor').notNull(),
     vote: text('vote').notNull(),
     reason: text('reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('policy_approval_votes_approval_actor_unique').on(table.approvalId, table.actor)]
+  table => [
+    uniqueIndex('policy_approval_votes_approval_actor_unique').on(table.approvalId, table.actor)
+  ]
 )
 
 // M-Task 拥有的挂起操作表；记录被 M-Policy 阻塞的 task 操作。
 export const taskSuspendedOperations = pgTable('task_suspended_operations', {
   id: text('id').primaryKey(),
-  policyDecisionId: text('policy_decision_id').notNull().references(() => policyDecisions.id),
+  policyDecisionId: text('policy_decision_id')
+    .notNull()
+    .references(() => policyDecisions.id),
   action: text('action').notNull(),
   requestedBy: text('requested_by').notNull(),
   resource: text('resource').notNull(),
@@ -571,12 +664,15 @@ export const taskSuspendedOperations = pgTable('task_suspended_operations', {
 })
 
 export const actorsRelations = relations(actors, ({ many }) => ({
-  tokens: many(actorTokens),
+  tokens: many(actorTokens)
 }))
 
 export const actorTokensRelations = relations(actorTokens, ({ one }) => ({
   actor: one(actors, { fields: [actorTokens.actorId], references: [actors.id] }),
-  revocation: one(actorTokenRevocations, { fields: [actorTokens.jti], references: [actorTokenRevocations.jti] })
+  revocation: one(actorTokenRevocations, {
+    fields: [actorTokens.jti],
+    references: [actorTokenRevocations.jti]
+  })
 }))
 
 export const actorTokenRevocationsRelations = relations(actorTokenRevocations, ({ one }) => ({
@@ -594,12 +690,21 @@ export const secretRefsRelations = relations(secretRefs, ({ many }) => ({
 }))
 
 export const secretRefVersionsRelations = relations(secretRefVersions, ({ one }) => ({
-  secretRef: one(secretRefs, { fields: [secretRefVersions.secretRefId], references: [secretRefs.id] })
+  secretRef: one(secretRefs, {
+    fields: [secretRefVersions.secretRefId],
+    references: [secretRefs.id]
+  })
 }))
 
 export const secretRefTransitionsRelations = relations(secretRefTransitions, ({ one }) => ({
-  secretRef: one(secretRefs, { fields: [secretRefTransitions.secretRefId], references: [secretRefs.id] }),
-  policyDecision: one(policyDecisions, { fields: [secretRefTransitions.policyDecisionId], references: [policyDecisions.id] })
+  secretRef: one(secretRefs, {
+    fields: [secretRefTransitions.secretRefId],
+    references: [secretRefs.id]
+  }),
+  policyDecision: one(policyDecisions, {
+    fields: [secretRefTransitions.policyDecisionId],
+    references: [policyDecisions.id]
+  })
 }))
 
 export const configRecordsRelations = relations(configRecords, ({ many }) => ({
@@ -613,8 +718,14 @@ export const configVersionsRelations = relations(configVersions, ({ one }) => ({
 }))
 
 export const configTransitionsRelations = relations(configTransitions, ({ one }) => ({
-  config: one(configRecords, { fields: [configTransitions.configId], references: [configRecords.id] }),
-  policyDecision: one(policyDecisions, { fields: [configTransitions.policyDecisionId], references: [policyDecisions.id] })
+  config: one(configRecords, {
+    fields: [configTransitions.configId],
+    references: [configRecords.id]
+  }),
+  policyDecision: one(policyDecisions, {
+    fields: [configTransitions.policyDecisionId],
+    references: [policyDecisions.id]
+  })
 }))
 
 export const configApplyAcksRelations = relations(configApplyAcks, ({ one }) => ({

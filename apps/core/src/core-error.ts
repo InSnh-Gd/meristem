@@ -14,6 +14,6 @@ export class CoreError extends Error {
     this.status = status
     this.code = code
     this.correlationId = correlationId
-    this.name = "CoreError"
+    this.name = 'CoreError'
   }
 }

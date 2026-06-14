@@ -1,180 +1,35 @@
-import { Elysia, t } from 'elysia'
-import { actorIds, type Permission } from '../../../packages/contracts/src/index.ts'
-import type { ActorId, ApprovalActionResponse, ApprovalDetailResponse, ApprovalListResponse, ApprovalStatus, PolicyApproval, PolicyApprovalVote } from '../../../packages/contracts/src/index.ts'
-import { extractBearerToken } from '../../../packages/auth/src/index.ts'
-import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
-import { createEventEnvelope } from '../../../packages/events/src/index.ts'
+import { Elysia } from 'elysia'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
-
-// 审批端口抽象，M-Policy 实际实现通过 DB adapter 连接 PostgreSQL。
-export type ApprovalStore = {
-  createApproval(input: {
-    policyDecisionId: string
-    originService: PolicyApproval['originService']
-    operationId: string
-    requestedBy: ActorId
-    requiredAction: PolicyApproval['requiredAction']
-    quorumRequired: number
-    expiresAt: string
-  }): Promise<PolicyApproval>
-  listApprovals(status?: ApprovalStatus): Promise<PolicyApproval[]>
-  getApproval(id: string): Promise<PolicyApproval | null>
-  getVotes(approvalId: string): Promise<PolicyApprovalVote[]>
-  addVote(approvalId: string, actor: ActorId, vote: 'approve' | 'reject', reason?: string): Promise<PolicyApprovalVote>
-  updateApprovalStatus(id: string, status: ApprovalStatus, completedAt?: string): Promise<PolicyApproval | null>
-}
-
-export type ApprovalDeps = {
-  auth: {
-    verify(token: string): Promise<{ ok: true; actor: ActorId } | { ok: false; code: string; message: string }>
-  }
-  approvals: ApprovalStore
-  log: {
-    writeTimeline(input: { summary: string; subject?: string; correlationId?: string }): Promise<unknown>
-    writeFull(input: { level: string; source: string; message: string; correlationId?: string; payload?: unknown }): Promise<unknown>
-    writeAudit(input: { actor: ActorId | 'system'; action: string; resource: string; decisionId?: string; result: string; correlationId?: string }): Promise<unknown>
-  }
-  events: {
-    publish(subject: string, event: unknown): Promise<unknown>
-  }
-  authorize(actor: ActorId, permission: Permission, resource: string): Promise<boolean>
-  onApproved?: (approval: PolicyApproval) => Promise<void>
-  onRejected?: (approval: PolicyApproval) => Promise<void>
-}
-
-const apiErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String(),
-    correlationId: t.Optional(t.String())
-  })
-})
-
-const approvalSchema = t.Object({
-  id: t.String(),
-  policyDecisionId: t.String(),
-  originService: t.String(),
-  operationId: t.String(),
-  requestedBy: t.UnionEnum(actorIds),
-  requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
-  status: t.Union([
-    t.Literal('pending'),
-    t.Literal('approved'),
-    t.Literal('rejected'),
-    t.Literal('expired'),
-    t.Literal('canceled')
-  ]),
-  quorumRequired: t.Number(),
-  expiresAt: t.String(),
-  createdAt: t.String(),
-  updatedAt: t.String(),
-  completedAt: t.Optional(t.String())
-})
-
-const voteSchema = t.Object({
-  id: t.String(),
-  approvalId: t.String(),
-  actor: t.UnionEnum(actorIds),
-  vote: t.Union([t.Literal('approve'), t.Literal('reject')]),
-  reason: t.Optional(t.String()),
-  createdAt: t.String()
-})
-
-const approvalWithVotesSchema = t.Intersect([
-  approvalSchema,
-  t.Object({ votes: t.Array(voteSchema) })
-])
-
-const approvalListSchema = t.Object({
-  approvals: t.Array(approvalSchema)
-})
-
-const approvalActionSchema = t.Object({
-  approval: approvalSchema,
-  votes: t.Array(voteSchema)
-})
-
-/**
- * 从 Bearer token 提取 actor，外部审批 API 统一使用 JWT 身份而非 internal token。
- */
-async function requireExternalActor(deps: ApprovalDeps, headers: Record<string, string | undefined>): Promise<ActorId> {
-  const token = extractBearerToken(headers.authorization)
-  if (!token) throw Object.assign(new Error('Bearer token is required'), { status: 401, code: 'auth.missing_token' })
-  const verified = await deps.auth.verify(token)
-  if (!verified.ok) throw Object.assign(new Error(verified.message), { status: 401, code: verified.code })
-  return verified.actor
-}
-
-async function requirePermission(deps: ApprovalDeps, actor: ActorId, permission: Permission, resource: string): Promise<void> {
-  if (await deps.authorize(actor, permission, resource)) return
-  throw Object.assign(new Error('permission denied'), { status: 403, code: 'policy.denied' })
-}
-
-/**
- * evaluateQuorum 根据当前投票状态判断审批是否达到 quorum。
- * manual_review 只需一票 approve；multi_approval 需要两个不同 security-admin 的 approve。
- * 任何一票 reject 立即拒绝。
- */
-function evaluateQuorum(approval: PolicyApproval, votes: PolicyApprovalVote[]): ApprovalStatus | null {
-  const rejectVotes = votes.filter((v) => v.vote === 'reject')
-  if (rejectVotes.length > 0) return 'rejected'
-
-  const approveVotes = votes.filter((v) => v.vote === 'approve')
-  if (approveVotes.length >= approval.quorumRequired) return 'approved'
-
-  return null
-}
-
-function approvalEventSubject(status: ApprovalStatus | 'created'): string {
-  return `policy.approval.${status}.v0`
-}
-
-async function publishApprovalEvent(deps: ApprovalDeps, approval: PolicyApproval, status: ApprovalStatus | 'created'): Promise<void> {
-  await deps.events.publish(approvalEventSubject(status), createEventEnvelope({
-    type: `policy.approval.${status}`,
-    source: 'm-policy',
-    subject: approval.id,
-    correlationId: approval.operationId,
-    payload: {
-      approvalId: approval.id,
-      policyDecisionId: approval.policyDecisionId,
-      originService: approval.originService,
-      operationId: approval.operationId,
-      requestedBy: approval.requestedBy,
-      requiredAction: approval.requiredAction,
-      status: approval.status
-    }
-  }))
-}
-
-async function expireApproval(deps: ApprovalDeps, approval: PolicyApproval): Promise<PolicyApproval> {
-  const now = new Date().toISOString()
-  const expired = await deps.approvals.updateApprovalStatus(approval.id, 'expired', now)
-  const finalApproval = expired ?? { ...approval, status: 'expired' as const, completedAt: now, updatedAt: now }
-  await deps.log.writeAudit({ actor: 'system', action: 'policy.approval.expire', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'expired', correlationId: approval.operationId })
-  await deps.log.writeTimeline({ summary: `approval ${approval.id} expired`, subject: 'policy.approval.expired', correlationId: approval.operationId })
-  await publishApprovalEvent(deps, finalApproval, 'expired')
-  return finalApproval
-}
-
-async function expireDueApprovals(deps: ApprovalDeps): Promise<void> {
-  const pending = await deps.approvals.listApprovals('pending')
-  const now = Date.now()
-  for (const approval of pending) {
-    if (new Date(approval.expiresAt).getTime() < now) {
-      try {
-        await expireApproval(deps, approval)
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error)
-        await deps.log.writeFull({ level: 'error', source: 'm-policy', message: `expireApproval failed for ${approval.id}: ${message}`, correlationId: approval.operationId })
-      }
-    }
-  }
-}
+import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
+import {
+  approveApprovalForActor,
+  createApprovalRecord,
+  getApprovalDetailForActor,
+  listApprovalsForActor,
+  rejectApprovalForActor
+} from './approval-execution.ts'
+import {
+  createInMemoryApprovalStore,
+  createTestApproval,
+  requireExternalActor,
+  requirePermission
+} from './approval-helpers.ts'
+import {
+  type ApprovalDeps,
+  type ApprovalStore,
+  apiErrorSchema,
+  approvalActionSchema,
+  approvalIdParamsSchema,
+  approvalListSchema,
+  approvalResponseSchema,
+  approvalVoteBodySchema,
+  approvalWithVotesSchema,
+  createApprovalBodySchema
+} from './approval-schemas.ts'
 
 /**
  * M-Policy 外部审批 REST API，Bearer auth + M-Policy 权限。
- * 审批状态转换和 resume 行为通过 onApproved 回调通知来源服务。
+ * facade 只负责 transport 编排，审批副作用与判定逻辑下沉到独立模块。
  */
 export function createApprovalRoutes(deps: ApprovalDeps) {
   return new Elysia({ prefix: '/api/v0/policy/approvals' })
@@ -182,7 +37,9 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       const maybe = error as Error & { status?: number; code?: string; correlationId?: string }
       if (maybe.status && maybe.code) {
         set.status = maybe.status
-        return { error: { code: maybe.code, message: maybe.message, correlationId: maybe.correlationId } }
+        return {
+          error: { code: maybe.code, message: maybe.message, correlationId: maybe.correlationId }
+        }
       }
       return undefined
     })
@@ -191,38 +48,27 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
       async ({ body, headers }) => {
         const actor = await requireExternalActor(deps, headers)
         await requirePermission(deps, actor, 'policy:approval-manage', 'policy:approvals')
-        return withExtractedSpan('m-policy', 'm-policy.approval.create', headers, async () => {
-          const approval = await deps.approvals.createApproval(body)
-          await deps.log.writeAudit({ actor, action: 'policy.approval.create', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'pending', correlationId: approval.operationId })
-          await deps.log.writeTimeline({ summary: `approval ${approval.id} created`, subject: 'policy.approval.created', correlationId: approval.operationId })
-          await publishApprovalEvent(deps, approval, 'created')
-          return { approval } satisfies { approval: PolicyApproval }
-        })
+        return withExtractedSpan('m-policy', 'm-policy.approval.create', headers, () =>
+          createApprovalRecord(deps, body, actor)
+        )
       },
       {
-        body: t.Object({
-          policyDecisionId: t.String(),
-          originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
-          operationId: t.String(),
-          requestedBy: t.UnionEnum(actorIds),
-          requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
-          quorumRequired: t.Number(),
-          expiresAt: t.String()
-        }),
-        response: { 200: t.Object({ approval: approvalSchema }), 401: apiErrorSchema, 403: apiErrorSchema }
+        body: createApprovalBodySchema,
+        response: {
+          200: approvalResponseSchema,
+          401: apiErrorSchema,
+          403: apiErrorSchema
+        }
       }
     )
-    // 审批列表读取不在 Audit Log 路径上，只返回当前状态。
     .get(
       '/',
       async ({ headers }) => {
         const actor = await requireExternalActor(deps, headers)
         await requirePermission(deps, actor, 'policy:approval-read', 'policy:approvals')
-        return withExtractedSpan('m-policy', 'm-policy.approval.list', headers, async () => {
-          await expireDueApprovals(deps)
-          const approvals = await deps.approvals.listApprovals()
-          return { approvals } satisfies ApprovalListResponse
-        })
+        return withExtractedSpan('m-policy', 'm-policy.approval.list', headers, () =>
+          listApprovalsForActor(deps)
+        )
       },
       {
         response: {
@@ -231,22 +77,23 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
         }
       }
     )
-    // 审批详情读取不在 Audit Log 路径上。
     .get(
       '/:id',
       async ({ params, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
         await requirePermission(deps, actor, 'policy:approval-read', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.get', headers, async () => {
-          await expireDueApprovals(deps)
-          const approval = await deps.approvals.getApproval(params.id)
-          if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
-          const votes = await deps.approvals.getVotes(approval.id)
-          return { ...approval, votes } satisfies ApprovalDetailResponse
+          const result = await getApprovalDetailForActor(deps, params.id)
+          if (!result) {
+            return status(404, {
+              error: { code: 'approval.not_found', message: 'approval not found' }
+            })
+          }
+          return result
         })
       },
       {
-        params: t.Object({ id: t.String({ minLength: 1 }) }),
+        params: approvalIdParamsSchema,
         response: {
           200: approvalWithVotesSchema,
           401: apiErrorSchema,
@@ -254,58 +101,24 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
         }
       }
     )
-    // 审批投票：security-admin 可以 approve。
-    // 每个 actor 只能投一次票；原始操作者不能 approve 自己的操作。
-    // 投票后检查 quorum，达到则触发 onApproved 回调。
     .post(
       '/:id/approve',
       async ({ params, body, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
         await requirePermission(deps, actor, 'policy:approval-approve', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.approve', headers, async () => {
-          const approval = await deps.approvals.getApproval(params.id)
-          if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
-          if (approval.status !== 'pending') return status(409, { error: { code: 'approval.not_pending', message: `approval is ${approval.status}` } })
-          if (new Date(approval.expiresAt) < new Date()) {
-            await expireApproval(deps, approval)
-            return status(409, { error: { code: 'approval.expired', message: 'approval has expired' } })
-          }
-          if (approval.requestedBy === actor) {
-            await deps.log.writeFull({ level: 'warn', source: 'm-policy', message: 'self-approval denied', payload: { approvalId: approval.id, actor } })
-            return status(403, { error: { code: 'approval.self_vote_denied', message: 'original actor cannot approve their own operation' } })
-          }
-          try {
-            await deps.approvals.addVote(approval.id, actor, 'approve', body.reason)
-            const votes = await deps.approvals.getVotes(approval.id)
-            const terminal = evaluateQuorum(approval, votes)
-            if (terminal) {
-              const now = new Date().toISOString()
-              await deps.approvals.updateApprovalStatus(approval.id, terminal, now)
-              await deps.log.writeAudit({ actor, action: 'policy.approval.approve', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: terminal })
-              await deps.log.writeTimeline({ summary: `approval ${approval.id} ${terminal}`, subject: `policy.approval.${terminal}`, correlationId: approval.operationId })
-              const updatedApproval = await deps.approvals.getApproval(approval.id)
-              if (updatedApproval) await publishApprovalEvent(deps, updatedApproval, terminal)
-              if (updatedApproval && deps.onApproved && terminal === 'approved') {
-                await deps.onApproved(updatedApproval)
-              }
-              return { approval: updatedApproval ?? approval, votes } satisfies ApprovalActionResponse
-            }
-            await deps.log.writeAudit({ actor, action: 'policy.approval.vote', resource: `approval:${approval.id}`, result: 'vote_recorded' })
-            const updatedApproval = await deps.approvals.getApproval(approval.id)
-            return { approval: updatedApproval ?? approval, votes } satisfies ApprovalActionResponse
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes('duplicate')) {
-              await deps.log.writeFull({ level: 'warn', source: 'm-policy', message: 'duplicate vote attempt', payload: { approvalId: approval.id, actor } })
-              return status(409, { error: { code: 'approval.duplicate_vote', message: 'actor has already voted on this approval' } })
-            }
-            throw error
-          }
+          const result = await approveApprovalForActor(deps, {
+            id: params.id,
+            actor,
+            ...(body.reason !== undefined ? { reason: body.reason } : {})
+          })
+          if ('routeError' in result) return status(result.status, result.body)
+          return result
         })
       },
       {
-        params: t.Object({ id: t.String({ minLength: 1 }) }),
-        body: t.Object({ reason: t.Optional(t.String()) }),
+        params: approvalIdParamsSchema,
+        body: approvalVoteBodySchema,
         response: {
           200: approvalActionSchema,
           401: apiErrorSchema,
@@ -315,48 +128,24 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
         }
       }
     )
-    // 拒绝投票：security-admin 可以 reject，一票即拒绝。
     .post(
       '/:id/reject',
       async ({ params, body, headers, status }) => {
         const actor = await requireExternalActor(deps, headers)
         await requirePermission(deps, actor, 'policy:approval-reject', `approval:${params.id}`)
         return withExtractedSpan('m-policy', 'm-policy.approval.reject', headers, async () => {
-          const approval = await deps.approvals.getApproval(params.id)
-          if (!approval) return status(404, { error: { code: 'approval.not_found', message: 'approval not found' } })
-          if (approval.status !== 'pending') return status(409, { error: { code: 'approval.not_pending', message: `approval is ${approval.status}` } })
-          if (new Date(approval.expiresAt) < new Date()) {
-            await expireApproval(deps, approval)
-            return status(409, { error: { code: 'approval.expired', message: 'approval has expired' } })
-          }
-          if (approval.requestedBy === actor) {
-            await deps.log.writeFull({ level: 'warn', source: 'm-policy', message: 'self-rejection denied', payload: { approvalId: approval.id, actor } })
-            return status(403, { error: { code: 'approval.self_vote_denied', message: 'original actor cannot reject their own operation' } })
-          }
-          try {
-            await deps.approvals.addVote(approval.id, actor, 'reject', body.reason)
-            const now = new Date().toISOString()
-            await deps.approvals.updateApprovalStatus(approval.id, 'rejected', now)
-            await deps.log.writeAudit({ actor, action: 'policy.approval.reject', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'rejected' })
-            await deps.log.writeTimeline({ summary: `approval ${approval.id} rejected`, subject: 'policy.approval.rejected', correlationId: approval.operationId })
-            const votes = await deps.approvals.getVotes(approval.id)
-            const updatedApproval = await deps.approvals.getApproval(approval.id)
-            if (updatedApproval) await publishApprovalEvent(deps, updatedApproval, 'rejected')
-            if (updatedApproval && deps.onRejected) await deps.onRejected(updatedApproval)
-            return { approval: updatedApproval ?? approval, votes } satisfies ApprovalActionResponse
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes('duplicate')) {
-              await deps.log.writeFull({ level: 'warn', source: 'm-policy', message: 'duplicate vote attempt', payload: { approvalId: approval.id, actor } })
-              return status(409, { error: { code: 'approval.duplicate_vote', message: 'actor has already voted on this approval' } })
-            }
-            throw error
-          }
+          const result = await rejectApprovalForActor(deps, {
+            id: params.id,
+            actor,
+            ...(body.reason !== undefined ? { reason: body.reason } : {})
+          })
+          if ('routeError' in result) return status(result.status, result.body)
+          return result
         })
       },
       {
-        params: t.Object({ id: t.String({ minLength: 1 }) }),
-        body: t.Object({ reason: t.Optional(t.String()) }),
+        params: approvalIdParamsSchema,
+        body: approvalVoteBodySchema,
         response: {
           200: approvalActionSchema,
           401: apiErrorSchema,
@@ -368,112 +157,27 @@ export function createApprovalRoutes(deps: ApprovalDeps) {
     )
 }
 
+/**
+ * 内部审批创建路由只接受 internal token，执行路径与外部创建共享同一套事件与审计顺序。
+ */
 export function createInternalApprovalRoutes(deps: ApprovalDeps) {
-  return new Elysia({ prefix: '/internal/v0/policy/approvals' })
-    .post(
-      '/',
-      async ({ body, headers, status }) => {
-        const internalAuth = validateInternalRequest(headers)
-        if (!internalAuth.ok) return status(401, { error: internalAuth.error })
-        const approval = await deps.approvals.createApproval(body)
-        await deps.log.writeAudit({ actor: 'system', action: 'policy.approval.create', resource: `approval:${approval.id}`, decisionId: approval.policyDecisionId, result: 'pending', correlationId: approval.operationId })
-        await deps.log.writeTimeline({ summary: `approval ${approval.id} created`, subject: 'policy.approval.created', correlationId: approval.operationId })
-        await publishApprovalEvent(deps, approval, 'created')
-        return { approval }
-      },
-      {
-        body: t.Object({
-          policyDecisionId: t.String(),
-          originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
-          operationId: t.String(),
-          requestedBy: t.UnionEnum(actorIds),
-          requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
-          quorumRequired: t.Number(),
-          expiresAt: t.String()
-        }),
-        response: { 200: t.Object({ approval: approvalSchema }), 401: apiErrorSchema }
+  return new Elysia({ prefix: '/internal/v0/policy/approvals' }).post(
+    '/',
+    async ({ body, headers, status }) => {
+      const internalAuth = validateInternalRequest(headers)
+      if (!internalAuth.ok) return status(401, { error: internalAuth.error })
+      return createApprovalRecord(deps, body, 'system')
+    },
+    {
+      body: createApprovalBodySchema,
+      response: {
+        200: approvalResponseSchema,
+        401: apiErrorSchema
       }
-    )
+    }
+  )
 }
 
 export type ApprovalRoutes = ReturnType<typeof createApprovalRoutes>
 
-/**
- * 内存审批存储，用于单元测试和依赖缺失时的降级路径。
- */
-export function createInMemoryApprovalStore(initialApprovals: PolicyApproval[] = []): ApprovalStore {
-  const approvals = [...initialApprovals]
-  const votes: PolicyApprovalVote[] = []
-
-  return {
-    async createApproval(input) {
-      const now = new Date().toISOString()
-      const approval: PolicyApproval = {
-        id: crypto.randomUUID(),
-        policyDecisionId: input.policyDecisionId,
-        originService: input.originService,
-        operationId: input.operationId,
-        requestedBy: input.requestedBy,
-        requiredAction: input.requiredAction,
-        status: 'pending',
-        quorumRequired: input.quorumRequired,
-        expiresAt: input.expiresAt,
-        createdAt: now,
-        updatedAt: now
-      }
-      approvals.push(approval)
-      return approval
-    },
-    async listApprovals(status) {
-      return status ? approvals.filter((a) => a.status === status) : [...approvals]
-    },
-    async getApproval(id) {
-      return approvals.find((a) => a.id === id) ?? null
-    },
-    async getVotes(approvalId) {
-      return votes.filter((v) => v.approvalId === approvalId)
-    },
-    async addVote(approvalId, actor, vote, reason) {
-      const existing = votes.find((v) => v.approvalId === approvalId && v.actor === actor)
-      if (existing) throw new Error('duplicate vote')
-      const entry: PolicyApprovalVote = {
-        id: crypto.randomUUID(),
-        approvalId,
-        actor,
-        vote,
-        ...(reason ? { reason } : {}),
-        createdAt: new Date().toISOString()
-      }
-      votes.push(entry)
-      return entry
-    },
-    async updateApprovalStatus(id, status, completedAt) {
-      const approval = approvals.find((a) => a.id === id)
-      if (!approval) return null
-      approval.status = status
-      approval.updatedAt = new Date().toISOString()
-      if (completedAt) approval.completedAt = completedAt
-      return approval
-    }
-  }
-}
-
-/**
- * 创建一个测试用的 pending approval，方便测试直接使用。
- */
-export function createTestApproval(overrides: Partial<PolicyApproval> = {}): PolicyApproval {
-  return {
-    id: crypto.randomUUID(),
-    policyDecisionId: crypto.randomUUID(),
-    originService: 'm-task',
-    operationId: crypto.randomUUID(),
-    requestedBy: 'operator',
-    requiredAction: 'manual_review',
-    status: 'pending',
-    quorumRequired: 1,
-    expiresAt: new Date(Date.now() + 3600_000).toISOString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...overrides
-  }
-}
+export { type ApprovalDeps, type ApprovalStore, createInMemoryApprovalStore, createTestApproval }

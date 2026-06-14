@@ -278,7 +278,7 @@ Rules:
 
 Permission: `identity:read`.
 
-Lists Identity v0.2 local-mode actors.
+Lists Identity v0 local-mode actors.
 
 ### `meristem identity actor show <actor-id>`
 

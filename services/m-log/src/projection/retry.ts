@@ -43,10 +43,9 @@ export function createRetryProjector(db: ProjectionDatabase, os: ProjectionOpenS
     }
 
     const delay = RETRY_BACKOFF_MS[retries] ?? 8000
-    await new Promise((resolve) => setTimeout(resolve, delay))
+    await new Promise(resolve => setTimeout(resolve, delay))
     return projectWithRetry(jobId, index, factId, doc, retries + 1)
   }
 
   return { projectWithRetry }
 }
-

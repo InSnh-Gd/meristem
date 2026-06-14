@@ -9,7 +9,7 @@ const commands = [
   ['bun', 'run', 'dev:core']
 ] as const
 
-const children = commands.map((command) =>
+const children = commands.map(command =>
   Bun.spawn([...command], {
     stdout: 'inherit',
     stderr: 'inherit',
@@ -23,6 +23,6 @@ process.on('SIGINT', () => {
   process.exit(0)
 })
 
-await Promise.all(children.map((child) => child.exited))
+await Promise.all(children.map(child => child.exited))
 
 export {}

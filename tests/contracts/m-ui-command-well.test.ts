@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
-import { deriveNoopCommandEligibility } from '../../services/m-ui-bff/src/command-well/eligibility.ts'
-import { CommandWellEligibilitySchema } from '../../packages/contracts/src/index.ts'
 import type { MNode, Permission } from '../../packages/contracts/src/index.ts'
+import { CommandWellEligibilitySchema } from '../../packages/contracts/src/index.ts'
+import { deriveNoopCommandEligibility } from '../../services/m-ui-bff/src/command-well/eligibility.ts'
 
 const leafNode: MNode = {
   id: 'node-leaf-1',
@@ -25,7 +25,9 @@ describe('CommandWell eligibility display shaping', () => {
   it('enables noop only from Core-visible session permissions and Leaf reachability', () => {
     const result = derive(['task:submit'], leafNode)
 
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(result))).toBe(true)
+    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(result))).toBe(
+      true
+    )
     expect(result.state).toBe('enabled')
     if (result.state === 'enabled') {
       expect(result.command.action).toBe('task:submit')
@@ -41,8 +43,12 @@ describe('CommandWell eligibility display shaping', () => {
     const unreachable = derive(['task:submit'], { ...leafNode, reachability: 'unreachable' })
 
     expect(noPermission.state).toBe('disabled')
-    expect(noPermission.state === 'disabled' ? noPermission.disabled.code : '').toBe('missing_permission')
+    expect(noPermission.state === 'disabled' ? noPermission.disabled.code : '').toBe(
+      'missing_permission'
+    )
     expect(wrongKind.state === 'disabled' ? wrongKind.disabled.code : '').toBe('wrong_node_kind')
-    expect(unreachable.state === 'disabled' ? unreachable.disabled.code : '').toBe('node_unreachable')
+    expect(unreachable.state === 'disabled' ? unreachable.disabled.code : '').toBe(
+      'node_unreachable'
+    )
   })
 })

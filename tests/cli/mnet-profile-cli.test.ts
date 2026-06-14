@@ -109,8 +109,22 @@ describe('mnet profile CLI commands', () => {
       }
     })
 
-    const missingEnableProfile = await cli.run(['network', 'profile', 'enable', '--network', 'net-1', '--reason', 'x'])
-    const missingDisableReason = await cli.run(['network', 'profile', 'disable', '--network', 'net-1'])
+    const missingEnableProfile = await cli.run([
+      'network',
+      'profile',
+      'enable',
+      '--network',
+      'net-1',
+      '--reason',
+      'x'
+    ])
+    const missingDisableReason = await cli.run([
+      'network',
+      'profile',
+      'disable',
+      '--network',
+      'net-1'
+    ])
     const missingShowVersion = await cli.run(['network', 'profile', 'show'])
 
     expect(missingEnableProfile.exitCode).toBe(1)
@@ -118,6 +132,8 @@ describe('mnet profile CLI commands', () => {
     expect(missingDisableReason.exitCode).toBe(1)
     expect(missingDisableReason.stderr).toContain('missing --reason')
     expect(missingShowVersion.exitCode).toBe(1)
-    expect(missingShowVersion.stderr).toContain('usage: meristem network profile show <profile-version>')
+    expect(missingShowVersion.stderr).toContain(
+      'usage: meristem network profile show <profile-version>'
+    )
   })
 })

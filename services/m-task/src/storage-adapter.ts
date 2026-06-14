@@ -1,8 +1,15 @@
 import { eq } from 'drizzle-orm'
 import type { MTask, MTaskStatus } from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { policyDecisions, taskDefinitions, taskRequests, taskResults, taskTransitions, taskCancellations } from '../../../packages/db/src/schema.ts'
-import type { MTaskCreateInput, MTaskDeps } from './app.ts'
+import {
+  policyDecisions,
+  taskCancellations,
+  taskDefinitions,
+  taskRequests,
+  taskResults,
+  taskTransitions
+} from '../../../packages/db/src/schema.ts'
+import type { MTaskCreateInput, MTaskDeps } from './deps.ts'
 
 const noopDefinitionId = 'task-definition-noop-v0'
 
@@ -27,28 +34,38 @@ function toTask(row: typeof taskRequests.$inferSelect): MTask {
 
 async function ensureNoopDefinition(db: MeristemDb): Promise<void> {
   const now = new Date()
-  await db.insert(taskDefinitions).values({
-    id: noopDefinitionId,
-    type: 'noop',
-    version: 'v0',
-    description: 'Noop task definition',
-    dangerLevel: 'medium',
-    defaultTimeoutSeconds: 30,
-    createdAt: now,
-    updatedAt: now
-  }).onConflictDoUpdate({
-    target: taskDefinitions.id,
-    set: {
+  await db
+    .insert(taskDefinitions)
+    .values({
+      id: noopDefinitionId,
+      type: 'noop',
+      version: 'v0',
       description: 'Noop task definition',
       dangerLevel: 'medium',
       defaultTimeoutSeconds: 30,
+      createdAt: now,
       updatedAt: now
-    }
-  })
+    })
+    .onConflictDoUpdate({
+      target: taskDefinitions.id,
+      set: {
+        description: 'Noop task definition',
+        dangerLevel: 'medium',
+        defaultTimeoutSeconds: 30,
+        updatedAt: now
+      }
+    })
 }
 
-async function persistedPolicyDecisionId(db: MeristemDb, decisionId: string): Promise<string | null> {
-  const [decision] = await db.select({ id: policyDecisions.id }).from(policyDecisions).where(eq(policyDecisions.id, decisionId)).limit(1)
+async function persistedPolicyDecisionId(
+  db: MeristemDb,
+  decisionId: string
+): Promise<string | null> {
+  const [decision] = await db
+    .select({ id: policyDecisions.id })
+    .from(policyDecisions)
+    .where(eq(policyDecisions.id, decisionId))
+    .limit(1)
   return decision?.id ?? null
 }
 
@@ -97,18 +114,25 @@ export function createDbMTaskStorage(db: MeristemDb): MTaskDeps['storage'] {
       return row ? toTask(row) : null
     },
     async transition(id: string, status: MTaskStatus, patch = {}) {
-      const [existing] = await db.select().from(taskRequests).where(eq(taskRequests.id, id)).limit(1)
+      const [existing] = await db
+        .select()
+        .from(taskRequests)
+        .where(eq(taskRequests.id, id))
+        .limit(1)
       if (!existing) return null
 
       const now = new Date()
       const completedAt = optionalDate(patch.completedAt)
       const canceledAt = optionalDate(patch.canceledAt)
-      await db.update(taskRequests).set({
-        status,
-        updatedAt: now,
-        ...(completedAt ? { completedAt } : {}),
-        ...(canceledAt ? { canceledAt } : {})
-      }).where(eq(taskRequests.id, id))
+      await db
+        .update(taskRequests)
+        .set({
+          status,
+          updatedAt: now,
+          ...(completedAt ? { completedAt } : {}),
+          ...(canceledAt ? { canceledAt } : {})
+        })
+        .where(eq(taskRequests.id, id))
       await db.insert(taskTransitions).values({
         id: crypto.randomUUID(),
         taskId: id,
@@ -119,7 +143,10 @@ export function createDbMTaskStorage(db: MeristemDb): MTaskDeps['storage'] {
         createdAt: now
       })
       if (status === 'completed' && completedAt) {
-        await db.insert(taskResults).values({ taskId: id, status, payload: null, error: null, completedAt }).onConflictDoNothing()
+        await db
+          .insert(taskResults)
+          .values({ taskId: id, status, payload: null, error: null, completedAt })
+          .onConflictDoNothing()
       }
       if (status === 'canceled') {
         await db.insert(taskCancellations).values({

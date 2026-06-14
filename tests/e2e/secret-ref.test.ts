@@ -2,11 +2,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { ManagedProcess } from '../helpers/process.ts'
 import {
+  baseEnv,
+  coreFetch,
   infrastructureAvailable,
   startFullStack,
-  stopFullStack,
-  coreFetch,
-  baseEnv
+  stopFullStack
 } from './_shared.ts'
 
 const infraOk = await infrastructureAvailable()
@@ -44,7 +44,11 @@ if (!infraOk) {
     it('security-admin creates a SecretRef with redacted plaintext', async () => {
       const res = await coreFetch('/api/v0/secrets', securityAdminToken, {
         method: 'POST',
-        body: JSON.stringify({ name: `e2e-secret-${Date.now()}`, scope: 'service', value: SENTINEL })
+        body: JSON.stringify({
+          name: `e2e-secret-${Date.now()}`,
+          scope: 'service',
+          value: SENTINEL
+        })
       })
       expect(res.status).toBe(201)
       const body = res.data as { id: string; name: string; status: string; createdAt: string }
@@ -69,9 +73,16 @@ if (!infraOk) {
 
       const secretId = createdSecretId || listBody[0]?.id
       expect(typeof secretId).toBe('string')
+      if (!secretId) throw new Error('missing secret id for metadata lookup test')
+
       const showRes = await coreFetch(`/api/v0/secrets/${secretId}`, securityAdminToken)
       expect(showRes.status).toBe(200)
-      const showBody = showRes.data as { id: string; name: string; status: string; updatedAt: string }
+      const showBody = showRes.data as {
+        id: string
+        name: string
+        status: string
+        updatedAt: string
+      }
       expect(showBody.id).toBe(secretId)
       expect(JSON.stringify(showBody)).not.toContain(SENTINEL)
       expect(JSON.stringify(showBody)).not.toContain('"value"')
@@ -79,12 +90,21 @@ if (!infraOk) {
     })
 
     it('security-admin rotates and disables SecretRefs without plaintext output', async () => {
-      const rotateRes = await coreFetch(`/api/v0/secrets/${createdSecretId}/rotate`, securityAdminToken, {
-        method: 'POST',
-        body: JSON.stringify({ value: SENTINEL, reason: 'E2E-SECRET-REF rotation smoke test' })
-      })
+      const rotateRes = await coreFetch(
+        `/api/v0/secrets/${createdSecretId}/rotate`,
+        securityAdminToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({ value: SENTINEL, reason: 'E2E-SECRET-REF rotation smoke test' })
+        }
+      )
       expect(rotateRes.status).toBe(200)
-      const rotateBody = rotateRes.data as { id: string; status: string; rotatedAt: string; version: string }
+      const rotateBody = rotateRes.data as {
+        id: string
+        status: string
+        rotatedAt: string
+        version: string
+      }
       expect(rotateBody.id).toBe(createdSecretId)
       expect(rotateBody.status).toBe('rotated')
       expect(typeof rotateBody.rotatedAt).toBe('string')
@@ -92,14 +112,22 @@ if (!infraOk) {
 
       const createRes = await coreFetch('/api/v0/secrets', securityAdminToken, {
         method: 'POST',
-        body: JSON.stringify({ name: `e2e-disable-secret-${Date.now()}`, scope: 'service', value: SENTINEL })
+        body: JSON.stringify({
+          name: `e2e-disable-secret-${Date.now()}`,
+          scope: 'service',
+          value: SENTINEL
+        })
       })
       expect(createRes.status).toBe(201)
       const createBody = createRes.data as { id: string }
-      const disableRes = await coreFetch(`/api/v0/secrets/${createBody.id}/disable`, securityAdminToken, {
-        method: 'POST',
-        body: JSON.stringify({ reason: 'E2E-SECRET-REF disable smoke test' })
-      })
+      const disableRes = await coreFetch(
+        `/api/v0/secrets/${createBody.id}/disable`,
+        securityAdminToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason: 'E2E-SECRET-REF disable smoke test' })
+        }
+      )
       expect(disableRes.status).toBe(200)
       const disableBody = disableRes.data as { id: string; status: string; disabledAt: string }
       expect(disableBody.id).toBe(createBody.id)
@@ -110,7 +138,11 @@ if (!infraOk) {
     it('rejects insufficient or missing SecretRef permissions', async () => {
       const operatorCreate = await coreFetch('/api/v0/secrets', operatorToken, {
         method: 'POST',
-        body: JSON.stringify({ name: 'operator-secret-attempt', scope: 'service', value: 'should-not-create' })
+        body: JSON.stringify({
+          name: 'operator-secret-attempt',
+          scope: 'service',
+          value: 'should-not-create'
+        })
       })
       expect(operatorCreate.status).toBe(403)
       expect((await coreFetch('/api/v0/secrets', viewerToken)).status).toBe(403)
@@ -119,10 +151,14 @@ if (!infraOk) {
 
     // ── 内部 secretRef reference 路由 ──
     it('internal secret reference returns 404 for non-existent secret', async () => {
-      const res = await coreFetch('/internal/v0/secrets/E2E-NONEXISTENT-reference-secret/reference', undefined, {
-        method: 'POST',
-        headers: { 'x-meristem-internal-token': baseEnv.MERISTEM_INTERNAL_TOKEN }
-      })
+      const res = await coreFetch(
+        '/internal/v0/secrets/E2E-NONEXISTENT-reference-secret/reference',
+        undefined,
+        {
+          method: 'POST',
+          headers: { 'x-meristem-internal-token': baseEnv.MERISTEM_INTERNAL_TOKEN }
+        }
+      )
       expect(res.status).toBe(404)
     })
 

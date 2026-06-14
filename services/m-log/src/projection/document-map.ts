@@ -59,4 +59,3 @@ export function mapFactToDoc(index: string, row: FactRow): Record<string, unknow
 
   return {}
 }
-

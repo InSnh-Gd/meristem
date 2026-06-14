@@ -1,16 +1,16 @@
-import { describe, expect, it, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { Effect, Exit } from 'effect'
-import { createProjectionEngine } from '../../services/m-log/src/projection.ts'
-import { ProjectionUnknownIndexError } from '../../services/m-log/src/projection/errors.ts'
+import type { BackfillParams } from '../../packages/contracts/src/index.ts'
 import {
-  projectorJobs,
+  auditLogs,
+  fullLogs,
   projectionCursors,
   projectionDLQ,
-  timelineLogs,
-  fullLogs,
-  auditLogs,
+  projectorJobs,
+  timelineLogs
 } from '../../packages/db/src/schema.ts'
-import type { BackfillParams } from '../../packages/contracts/src/index.ts'
+import { ProjectionUnknownIndexError } from '../../services/m-log/src/projection/errors.ts'
+import { createProjectionEngine } from '../../services/m-log/src/projection.ts'
 
 function createMockDb() {
   const tables = [
@@ -19,7 +19,7 @@ function createMockDb() {
     projectionDLQ,
     timelineLogs,
     fullLogs,
-    auditLogs,
+    auditLogs
   ]
 
   const storeMap = new WeakMap<object, Array<Record<string, unknown>>>()
@@ -45,7 +45,7 @@ function createMockDb() {
 
   function matchById(rows: Array<Record<string, unknown>>, cond: unknown) {
     const vals = extractParamValues(cond)
-    return rows.filter((r) => vals.some((v) => r.id === v))
+    return rows.filter(r => vals.some(v => r.id === v))
   }
 
   return {
@@ -59,9 +59,12 @@ function createMockDb() {
               // naive upsert: if a row with same index exists, update it; otherwise keep inserted
               // This is used only by advanceCursor on projection_cursors where index is unique.
               const targetCol = 'index' // heuristic for projection_cursors
-              const existingIdx = store.findIndex((r, i) => i !== store.length - 1 && r[targetCol] === row[targetCol])
+              const existingIdx = store.findIndex(
+                (r, i) => i !== store.length - 1 && r[targetCol] === row[targetCol]
+              )
               if (existingIdx !== -1 && _opts.set) {
-                Object.assign(store[existingIdx]!, _opts.set)
+                const existing = store[existingIdx]
+                if (existing) Object.assign(existing, _opts.set)
                 store.pop() // remove the just-pushed row since we updated existing
               }
               return Promise.resolve() as Promise<void>
@@ -78,15 +81,27 @@ function createMockDb() {
           return {
             where(_cond: unknown) {
               return {
-                limit(n: number) { return rows.slice(0, n) },
+                limit(n: number) {
+                  return rows.slice(0, n)
+                },
                 orderBy(..._args: unknown[]) {
-                  return { limit(n: number) { return rows.slice(0, n) } }
+                  return {
+                    limit(n: number) {
+                      return rows.slice(0, n)
+                    }
+                  }
                 }
               }
             },
-            limit(n: number) { return rows.slice(0, n) },
+            limit(n: number) {
+              return rows.slice(0, n)
+            },
             orderBy(..._args: unknown[]) {
-              return { limit(n: number) { return rows.slice(0, n) } }
+              return {
+                limit(n: number) {
+                  return rows.slice(0, n)
+                }
+              }
             }
           }
         }
@@ -112,7 +127,8 @@ function createMockDb() {
         where(cond: unknown) {
           const toRemove = new Set(matchById(store, cond))
           for (let i = store.length - 1; i >= 0; i--) {
-            if (toRemove.has(store[i]!)) store.splice(i, 1)
+            const row = store[i]
+            if (row && toRemove.has(row)) store.splice(i, 1)
           }
           return Promise.resolve() as Promise<void>
         }
@@ -132,6 +148,12 @@ function createMockDb() {
 
 type MockDb = ReturnType<typeof createMockDb>
 
+function requirePresent<T>(value: T | null | undefined, label: string): T {
+  expect(value).toBeDefined()
+  if (value === null || value === undefined) throw new Error(`${label} must be present`)
+  return value
+}
+
 function createMockOs() {
   const docs: Array<{ index: string; id: string; doc: Record<string, unknown> }> = []
   let healthy = true
@@ -144,7 +166,9 @@ function createMockOs() {
       return healthy
     },
     docs,
-    setHealthy(v: boolean) { healthy = v }
+    setHealthy(v: boolean) {
+      healthy = v
+    }
   }
 }
 
@@ -180,11 +204,13 @@ describe('Projection engine', () => {
     expect(result.processedCount).toBe(1)
     expect(result.errors).toBe(0)
     expect(os.docs.length).toBe(1)
-    expect(os.docs[0]!.index).toBe('meristem-timeline-logs-v0')
+    const indexedDoc = requirePresent(os.docs[0], 'indexed document')
+    expect(indexedDoc.index).toBe('meristem-timeline-logs-v0')
 
     const jobRows = db.getStore(projectorJobs)
     expect(jobRows.length).toBe(1)
-    expect(jobRows[0]!.status).toBe('completed')
+    const job = requirePresent(jobRows[0], 'projector job')
+    expect(job.status).toBe('completed')
   })
 
   it('idempotencyKey format is {index}:{factId}:1', () => {
@@ -193,7 +219,9 @@ describe('Projection engine', () => {
   })
 
   it('projectWithRetry succeeds on first attempt', async () => {
-    const ok = await engine.projectWithRetry('job-1', 'meristem-timeline-logs-v0', 'f1', { summary: 's' })
+    const ok = await engine.projectWithRetry('job-1', 'meristem-timeline-logs-v0', 'f1', {
+      summary: 's'
+    })
     expect(ok).toBe(true)
     expect(os.docs.length).toBe(1)
   })
@@ -202,17 +230,23 @@ describe('Projection engine', () => {
     os.indexDocument = async () => false
     const originalSetTimeout = globalThis.setTimeout
     // @ts-expect-error speed up timeouts
-    globalThis.setTimeout = (fn: () => void) => { fn(); return 0 }
+    globalThis.setTimeout = (fn: () => void) => {
+      fn()
+      return 0
+    }
     try {
-      const ok = await engine.projectWithRetry('job-1', 'meristem-timeline-logs-v0', 'f1', { summary: 's' })
+      const ok = await engine.projectWithRetry('job-1', 'meristem-timeline-logs-v0', 'f1', {
+        summary: 's'
+      })
       expect(ok).toBe(false)
     } finally {
       globalThis.setTimeout = originalSetTimeout
     }
     const dlq = db.getStore(projectionDLQ)
     expect(dlq.length).toBe(1)
-    expect(dlq[0]!.factId).toBe('f1')
-    expect(dlq[0]!.index).toBe('meristem-timeline-logs-v0')
+    const dlqRecord = requirePresent(dlq[0], 'projection dlq record')
+    expect(dlqRecord.factId).toBe('f1')
+    expect(dlqRecord.index).toBe('meristem-timeline-logs-v0')
   })
 
   it('replayDLQ removes record on success', async () => {
@@ -264,20 +298,24 @@ describe('Projection engine', () => {
     })
 
     const health = await engine.getProjectionHealth()
-    const h = health.find((x) => x.index === 'meristem-timeline-logs-v0')
-    expect(h).toBeDefined()
-    expect(h!.status).toBe('healthy')
-    expect(h!.dlqCount).toBe(0)
-    expect(h!.pendingCount).toBe(0)
+    const healthRow = requirePresent(
+      health.find(x => x.index === 'meristem-timeline-logs-v0'),
+      'projection health row'
+    )
+    expect(healthRow.status).toBe('healthy')
+    expect(healthRow.dlqCount).toBe(0)
+    expect(healthRow.pendingCount).toBe(0)
   })
 
   it('exposes typed Effect errors for invalid backfill indices', async () => {
-    const exit = await Effect.runPromiseExit(engine.executeBackfillEffect({
-      index: 'meristem-unknown-logs-v0',
-      from: null,
-      to: null,
-      batchSize: 10
-    }))
+    const exit = await Effect.runPromiseExit(
+      engine.executeBackfillEffect({
+        index: 'meristem-unknown-logs-v0',
+        from: null,
+        to: null,
+        batchSize: 10
+      })
+    )
 
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {

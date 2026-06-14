@@ -190,7 +190,7 @@ describe('MVP authorization failure modes', () => {
         body: JSON.stringify({ kind: 'leaf', name: 'local-leaf', mode: 'simulated' })
       })
     )
-    const leafBody = await leafResponse.json() as { node: { id: string } }
+    const leafBody = (await leafResponse.json()) as { node: { id: string } }
 
     const networkResponse = await app.handle(
       new Request('http://localhost/api/v0/networks', {
@@ -202,7 +202,7 @@ describe('MVP authorization failure modes', () => {
         body: JSON.stringify({ name: 'lab-mesh' })
       })
     )
-    const networkBody = await networkResponse.json() as { network: { id: string } }
+    const networkBody = (await networkResponse.json()) as { network: { id: string } }
 
     const response = await app.handle(
       new Request(`http://localhost/api/v0/networks/${networkBody.network.id}/members`, {

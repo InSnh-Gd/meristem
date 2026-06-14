@@ -51,12 +51,12 @@ export type TokenIntrospectionResultFromSchema = typeof TokenIntrospectionResult
 
 // 身份控制面路径需要集中导出，避免 CLI、Core 路由和后续 M-* 客户端各自硬编码。
 export const identityApiRoutes = {
-  listActors: '/api/v02/identity/actors',
-  getActor: '/api/v02/identity/actors/:id',
-  issueToken: '/api/v02/identity/tokens',
-  inspectToken: '/api/v02/identity/tokens/:jti',
-  revokeToken: '/api/v02/identity/tokens/:jti/revoke',
-  introspectToken: '/api/v02/identity/introspect'
+  listActors: '/api/v0/identity/actors',
+  getActor: '/api/v0/identity/actors/:id',
+  issueToken: '/api/v0/identity/tokens',
+  inspectToken: '/api/v0/identity/tokens/:jti',
+  revokeToken: '/api/v0/identity/tokens/:jti/revoke',
+  introspectToken: '/api/v0/identity/introspect'
 } as const
 
 // Eden 侧只承载 HTTP path 形状；外部公开能力仍以 REST/OpenAPI 为源。
@@ -93,6 +93,18 @@ export const IssueActorTokenResponseSchema = Schema.Struct({
 })
 export type IssueActorTokenResponseFromSchema = typeof IssueActorTokenResponseSchema.Type
 
+export const IssueActorTokenRouteResponseSchema = Schema.Struct({
+  jti: Schema.String,
+  token: Schema.String,
+  expiresAt: Schema.String,
+  actor: ActorIdSchema,
+  issuer: Schema.Literal('meristem-local'),
+  audience: Schema.Literal('meristem-core'),
+  purpose: Schema.String,
+  status: Schema.Literal('active')
+})
+export type IssueActorTokenRouteResponseFromSchema = typeof IssueActorTokenRouteResponseSchema.Type
+
 export const IdentityActorListResponseSchema = Schema.Struct({
   actors: Schema.Array(IdentityActorV02Schema)
 })
@@ -118,7 +130,35 @@ export const RevokeActorTokenResponseSchema = Schema.Struct({
 })
 export type RevokeActorTokenResponseFromSchema = typeof RevokeActorTokenResponseSchema.Type
 
+export const RevokedActorTokenSummarySchema = Schema.Struct({
+  jti: Schema.String,
+  status: Schema.Literal('revoked'),
+  revokedAt: Schema.String,
+  revokedBy: ActorIdSchema,
+  revokeReason: Schema.String
+})
+export type RevokedActorTokenSummaryFromSchema = typeof RevokedActorTokenSummarySchema.Type
+
+export const RevokeActorTokenCompatResponseSchema = Schema.Struct({
+  jti: Schema.String,
+  status: Schema.Literal('revoked'),
+  revokedAt: Schema.String,
+  revokedBy: ActorIdSchema,
+  revokeReason: Schema.String,
+  token: RevokedActorTokenSummarySchema
+})
+export type RevokeActorTokenCompatResponseFromSchema =
+  typeof RevokeActorTokenCompatResponseSchema.Type
+
 export const TokenIntrospectionRequestSchema = Schema.Struct({
   token: Schema.String
 })
 export type TokenIntrospectionRequestFromSchema = typeof TokenIntrospectionRequestSchema.Type
+
+export const InternalTokenIntrospectionResponseSchema = Schema.Struct({
+  jti: Schema.optional(Schema.String),
+  active: Schema.Boolean,
+  actor: Schema.optional(ActorIdSchema)
+})
+export type InternalTokenIntrospectionResponseFromSchema =
+  typeof InternalTokenIntrospectionResponseSchema.Type

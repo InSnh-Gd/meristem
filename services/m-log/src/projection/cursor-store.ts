@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { projectionCursors } from '../../../../packages/db/src/schema.ts'
 import type { ProjectionCursor } from '../../../../packages/contracts/src/index.ts'
+import { projectionCursors } from '../../../../packages/db/src/schema.ts'
 import type { ProjectionDatabase } from './types.ts'
 
 /**
@@ -8,7 +8,11 @@ import type { ProjectionDatabase } from './types.ts'
  */
 export function createCursorStore(db: ProjectionDatabase) {
   async function getCursor(index: string): Promise<ProjectionCursor | null> {
-    const rows = await db.select().from(projectionCursors).where(eq(projectionCursors.index, index)).limit(1)
+    const rows = await db
+      .select()
+      .from(projectionCursors)
+      .where(eq(projectionCursors.index, index))
+      .limit(1)
     if (rows.length === 0) return null
     const row = rows[0]
     if (!row) return null
@@ -32,4 +36,3 @@ export function createCursorStore(db: ProjectionDatabase) {
 
   return { getCursor, advanceCursor }
 }
-

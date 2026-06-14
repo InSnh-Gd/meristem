@@ -6,12 +6,8 @@ import * as Schema from 'effect/Schema'
 //
 // Two layers:
 // 1. Inline schema spec — documents the expected Identity V0.2 contract shapes.
-//    These pass immediately because Effect Schema is available; they serve as
-//    the executable specification and will be migrated to the contracts package
-//    during Phase 17 implementation.
-// 2. Export existence checks — verify that packages/contracts and packages/auth
-//    actually export the Identity V0.2 symbols. These tests FAIL RED until
-//    Phase 17 adds those exports. They replace the inline schemas when done.
+// 2. Export existence checks — guard the public packages/contracts and
+//    packages/auth surfaces that the runtime now depends on.
 //
 // Sentinel prefix: IDY-V02-CTR
 // ---------------------------------------------------------------------------
@@ -45,24 +41,20 @@ const ActorTokenV02Schema = Schema.Struct({
   revokeReason: Schema.optional(Schema.String)
 })
 
-// ── Identity V0.2 export existence gates (RED until Phase 17) ──────────
+// ── Identity V0.2 export existence gates ────────────────────────────────
 
 describe('Identity v0.2 export existence gates', () => {
   it('packages/contracts exports IdentityActorV02Schema', async () => {
-    // FAILS RED: IdentityActorV02Schema is not yet part of the contracts package.
-    // Phase 17 must add it to packages/contracts/src/schemas/identity.ts.
     const mod = await import('../../packages/contracts/src/schemas/identity.ts')
     expect(mod).toHaveProperty('IdentityActorV02Schema')
   })
 
   it('packages/contracts exports ActorTokenV02Schema', async () => {
-    // FAILS RED: ActorTokenV02Schema is not yet part of the contracts package.
     const mod = await import('../../packages/contracts/src/schemas/identity.ts')
     expect(mod).toHaveProperty('ActorTokenV02Schema')
   })
 
   it('packages/contracts exports IdentityPermissions (identity:read, identity:token-issue, etc.)', async () => {
-    // FAILS RED: identity permissions are not yet in the contracts package.
     const mod = await import('../../packages/contracts/src/literals.ts')
     const perms: readonly string[] = mod.permissions ?? []
     expect(perms).toContain('identity:read')
@@ -72,15 +64,13 @@ describe('Identity v0.2 export existence gates', () => {
   })
 
   it('packages/auth exports verifyIdentityV02Token', async () => {
-    // FAILS RED: Identity V0.2 verification primitive not yet in auth package.
     const mod = await import('../../packages/auth/src/index.ts')
     expect(mod).toHaveProperty('verifyIdentityV02Token')
   })
 
   it('packages/auth exports audience validation that differentiates meristem-service', async () => {
-    // FAILS RED: Identity V0.2 audience handling not yet in auth package.
-    // When Phase 17 adds this, meristem-service audience tokens should be
-    // accepted for M-* service access but rejected for certain Core operations.
+    // `meristem-service` must stay recognized as a valid audience for service
+    // tokens even when the dummy token itself fails verification.
     const mod = await import('../../packages/auth/src/index.ts')
     expect(mod).toHaveProperty('verifyIdentityV02Token')
     const verify = mod.verifyIdentityV02Token

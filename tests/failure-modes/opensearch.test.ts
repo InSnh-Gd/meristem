@@ -3,6 +3,8 @@ import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 
 // 失败模式门禁：OpenSearch 不可用不能阻塞权威日志写入。
+// 该套件通过 `bun run test:opensearch-failure-modes` 单独运行，避免把
+// 搜索可用性覆盖与默认 `bun test` 门禁混在一起。
 describe('OpenSearch failure modes', () => {
   it('returns 503 on timeline search when search is unavailable', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator', searchAvailable: false })
@@ -36,7 +38,7 @@ describe('OpenSearch failure modes', () => {
 
     const response = await app.handle(
       new Request('http://localhost/api/v0/audit/search?q=test', {
-        headers: { authorization: 'Bearer operator-token' }
+        headers: { authorization: 'Bearer security-admin-token' }
       })
     )
 
@@ -87,7 +89,7 @@ describe('OpenSearch failure modes', () => {
 
     const auditList = await app.handle(
       new Request('http://localhost/api/v0/audit', {
-        headers: { authorization: 'Bearer operator-token' }
+        headers: { authorization: 'Bearer security-admin-token' }
       })
     )
     expect(auditList.status).toBe(200)
@@ -104,9 +106,8 @@ describe('OpenSearch failure modes', () => {
     )
 
     expect(response.status).toBe(200)
-    const body = await response.json() as { entries: unknown[]; total: number }
+    const body = (await response.json()) as { entries: unknown[]; total: number }
     expect(body.entries).toEqual([])
     expect(body.total).toBe(0)
   })
 })
-

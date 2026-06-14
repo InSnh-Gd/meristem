@@ -10,7 +10,9 @@ const LOCAL_RUNTIME_ROOTS = ['.agent-sources', '.codex', '.antigravitycli', 'doc
  * Classifies paths that should not appear in tracked source or normal review surfaces.
  * Source: docs/plans/2026-05-23-architecture-review-register.md A-006.
  */
-export function findWorkspaceHygieneViolations(paths: Iterable<string>): WorkspaceHygieneViolation[] {
+export function findWorkspaceHygieneViolations(
+  paths: Iterable<string>
+): WorkspaceHygieneViolation[] {
   const violations: WorkspaceHygieneViolation[] = []
   for (const path of paths) {
     const reason = classifyWorkspacePath(path)
@@ -36,8 +38,8 @@ function classifyWorkspacePath(path: string): string | null {
 
 async function collectWorkspacePaths(): Promise<string[]> {
   const paths: string[] = []
-  const rootGlobs = DEFAULT_SCAN_ROOTS.map((root) => `${root}/**/*`)
-  rootGlobs.push(...LOCAL_RUNTIME_ROOTS.map((root) => `${root}/**/*`))
+  const rootGlobs = DEFAULT_SCAN_ROOTS.map(root => `${root}/**/*`)
+  rootGlobs.push(...LOCAL_RUNTIME_ROOTS.map(root => `${root}/**/*`))
 
   for (const pattern of rootGlobs) {
     for await (const entry of new Bun.Glob(pattern).scan('.')) {
