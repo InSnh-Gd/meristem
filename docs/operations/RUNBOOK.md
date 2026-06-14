@@ -43,8 +43,17 @@ bun run test:e2e
 bun run workspace-hygiene
 bun run skill-hygiene
 bun run nodejs-ban
-bun run dev:all
+bun run dev:core
+bun run dev:webui
+bun run dev:full
 ```
+
+Development process groups:
+
+- `bun run dev:core` - starts Docker Compose PostgreSQL + NATS, runs cert generation + migrations + seed data, then launches the full backend control-plane process group.
+- `bun run dev:webui` - starts only `m-ui-bff` + `m-ui`; use it when the backend is already running elsewhere.
+- `bun run dev:full` - starts infra prep + backend control plane + `m-ui-bff` + `m-ui` in one command.
+- `bun run dev:backend` and `bun run dev:all` are compatibility aliases for the backend-only process group.
 
 MVP demo command sequence:
 
@@ -167,7 +176,7 @@ MVP internal startup order:
 # docker compose --profile opensearch up -d opensearch`
 2. `bun run db:migrate && bun run db:seed`
 3. `export MERISTEM_INTERNAL_TOKEN=change-me-internal-shared-token`
-4. `bun run dev:all`
+4. `bun run dev:core` for backend-only development, or `bun run dev:full` when the Web UI should come up with the backend.
 5. Real node-agent runtime through the public join ingress:
 
 ```bash
