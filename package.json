@@ -11,6 +11,7 @@
   "scripts": {
     "db:migrate": "bun run packages/db/src/migrate.ts",
     "db:seed": "bun run packages/db/src/seed.ts",
+    "db:ownership-check": "bun run scripts/db-ownership-check.ts",
     "dev:all": "bun run scripts/dev-all.ts",
     "dev:core": "bun run apps/core/src/index.ts",
     "dev:m-eventbus": "bun run services/m-eventbus/src/index.ts",

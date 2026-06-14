@@ -22,7 +22,8 @@ const trackedSourcePatterns = [
   'packages/*/src/**/*.ts'
 ] as const
 
-const schemaSpecifierPattern = /packages\/db\/src\/schema(?:\.ts|\/.*)?$/
+const schemaBarrelSpecifierPattern = /(?:^|\/)packages\/db\/src\/schema\.ts$/
+const schemaOwnerModuleSpecifierPattern = /(?:^|\/)packages\/db\/src\/schema\/[^/]+\.ts$/
 
 /**
  * 生产源码边界守卫不扫描测试目录；测试通过临时 fixture 根目录驱动脚本行为。
@@ -54,7 +55,9 @@ function resolveImportTarget(rootUrl: URL, file: string, specifier: string): str
 }
 
 function isSchemaImportTarget(target: string): boolean {
-  return schemaSpecifierPattern.test(target)
+  return (
+    schemaBarrelSpecifierPattern.test(target) || schemaOwnerModuleSpecifierPattern.test(target)
+  )
 }
 
 function collectImportedTableNames(statement: ts.ImportDeclaration): DbOwnedTable[] {

@@ -8,11 +8,43 @@ import {
 const repoRoot = `${import.meta.dir}/../..`
 const checkerScript = `${repoRoot}/scripts/db-ownership-check.ts`
 
+function schemaImportPathForTable(table: string): string {
+  switch (tableOwners[table as keyof typeof tableOwners]) {
+    case 'core':
+      return '../../../packages/db/src/schema/core.ts'
+    case 'm-extension':
+      return '../../../packages/db/src/schema/extension.ts'
+    case 'm-log':
+      return '../../../packages/db/src/schema/log.ts'
+    case 'm-net':
+      return '../../../packages/db/src/schema/network.ts'
+    case 'm-policy':
+      return '../../../packages/db/src/schema/policy.ts'
+    case 'm-task':
+      return '../../../packages/db/src/schema/task.ts'
+    default:
+      return '../../../packages/db/src/schema.ts'
+  }
+}
+
 async function createFixtureRoot(): Promise<string> {
   const root = crypto.randomUUID()
   const fixtureRoot = `/tmp/meristem-db-ownership-${root}`
-  Bun.spawnSync(['mkdir', '-p', `${fixtureRoot}/packages/db/src`, `${fixtureRoot}/services/m-extension/src`])
+  Bun.spawnSync([
+    'mkdir',
+    '-p',
+    `${fixtureRoot}/packages/db/src/schema`,
+    `${fixtureRoot}/services/m-extension/src`
+  ])
   await Bun.write(`${fixtureRoot}/packages/db/src/schema.ts`, 'export const policyDecisions = {}\n')
+  await Bun.write(
+    `${fixtureRoot}/packages/db/src/schema/core.ts`,
+    'export const nodes = {}\nexport const nodeCredentials = {}\nexport const nodeJoinTickets = {}\n'
+  )
+  await Bun.write(
+    `${fixtureRoot}/packages/db/src/schema/policy.ts`,
+    'export const policyDecisions = {}\nexport const userRoles = {}\nexport const rolePermissions = {}\n'
+  )
   return fixtureRoot
 }
 
@@ -64,10 +96,11 @@ describe('DB ownership check fixture', () => {
     try {
       for (const entry of approvedCrossOwnerReads) {
         const importList = entry.tables.join(', ')
+        const schemaPath = schemaImportPathForTable(entry.tables[0])
         await writeSource(
           root,
           entry.source,
-          `import { ${importList} } from '../../../packages/db/src/schema.ts'\nexport const sample = [${importList}]\n`
+          `import { ${importList} } from '${schemaPath}'\nexport const sample = [${importList}]\n`
         )
       }
 
