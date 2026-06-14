@@ -1,53 +1,19 @@
 import type {
   JoinAcceptedMessage,
-  MNetSessionServerMessage,
   SessionResumedMessage,
   SessionTaskExecuteMessage
 } from '../../../packages/contracts/src/index.ts'
+import {
+  decodeMessage,
+  heartbeatIntervalMs,
+  parseServerMessage,
+  requiredOneOf
+} from './node-agent-runtime.ts'
 import {
   currentTraceId,
   initTelemetry,
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
-
-function requiredOneOf(names: string[]): string | undefined {
-  for (const name of names) {
-    const value = process.env[name]
-    if (value) return value
-  }
-  return undefined
-}
-
-/**
- * 节点心跳间隔必须收敛成正整数，避免错误配置让 agent 静默停发心跳或过度轰炸 join ingress。
- */
-function heartbeatIntervalMs(): number {
-  const value = Number(process.env.MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS ?? '5000')
-  return Number.isFinite(value) && value > 0 ? value : 5000
-}
-
-/**
- * Join ingress 回来的 WebSocket 帧统一先解成文本，再进入版本化 session 消息解析。
- */
-function decodeMessage(data: string | ArrayBuffer | Blob): Promise<string> | string {
-  if (typeof data === 'string') return data
-  if (data instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(data))
-  return data.text()
-}
-
-/**
- * 只接受带 `type` 的 M-Net session server 消息，避免 agent 在不明消息形状下继续执行。
- */
-function parseServerMessage(raw: string): MNetSessionServerMessage | null {
-  try {
-    const parsed = JSON.parse(raw) as MNetSessionServerMessage
-    return typeof parsed === 'object' && parsed !== null && typeof parsed.type === 'string'
-      ? parsed
-      : null
-  } catch {
-    return null
-  }
-}
 
 const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
