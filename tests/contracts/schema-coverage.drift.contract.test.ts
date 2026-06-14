@@ -14,6 +14,8 @@ import {
   sorted
 } from './_helpers/schema-coverage.ts'
 
+const nonCatalogLogSubjects = ['log.timeline.v0', 'log.full.v0'] as const
+
 const activeEventContractMap = new Map(
   [
     ...sharedEventContracts,
@@ -28,6 +30,13 @@ describe('active event payload schemas', () => {
   it('maps every active publisher subject to a contract schema', async () => {
     const activePublisherSubjects = await getActivePublisherSubjects()
     expect(sorted(activePublisherSubjects)).toEqual(sorted(activeEventContractMap.keys()))
+  })
+
+  it('detects publish.post object-form subjects from real policy publishers', async () => {
+    const activePublisherSubjects = await getActivePublisherSubjects()
+
+    expect(activePublisherSubjects.has('policy.decision.created.v0')).toBe(true)
+    expect(activePublisherSubjects.has('audit.entry.created.v0')).toBe(true)
   })
 })
 
@@ -58,5 +67,21 @@ describe('schema coverage map drift guards', () => {
     expect(sorted(extractCoverageMapDeferredSubjects(coverageMap))).toEqual(
       sorted(deferredSubjects)
     )
+  })
+
+  it('ignores non-catalog log subjects when checking deferred catalog drift', async () => {
+    const [eventCatalog, activePublisherSubjects] = await Promise.all([
+      Bun.file(eventCatalogUrl).text(),
+      getActivePublisherSubjects()
+    ])
+
+    const catalogSubjects = extractCatalogSubjects(eventCatalog)
+
+    const deferredSubjects = catalogSubjects.filter(subject => !activePublisherSubjects.has(subject))
+
+    for (const subject of nonCatalogLogSubjects) {
+      expect(catalogSubjects).not.toContain(subject)
+      expect(deferredSubjects).not.toContain(subject)
+    }
   })
 })
