@@ -244,7 +244,7 @@ in
 
             meristem-core = mkMeristemService {
               description = "Meristem Core";
-              serviceName = "dev:core";
+              serviceName = "dev:core-app";
               after = [
                 "meristem-m-eventbus.service"
                 "meristem-m-policy.service"
