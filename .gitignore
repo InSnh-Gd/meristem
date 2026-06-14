@@ -20,3 +20,4 @@ doc-driven-ai/
 *.orig
 .agent-sources/
 .omo/
+.opencode
