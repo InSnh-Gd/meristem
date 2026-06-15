@@ -1,6 +1,17 @@
 import * as Schema from 'effect/Schema'
 import { ActorIdSchema } from './identity.ts'
-import { PermissionSchema } from './policy.ts'
+import {
+  ApprovalOriginServiceSchema,
+  ApprovalStatusSchema,
+  ApprovalVoteTypeSchema,
+  PermissionSchema,
+  RequiredActionSchema
+} from './policy.ts'
+import {
+  MNetProfileRegionSchema,
+  MNetProfileVersionSchema,
+  NetworkProfileStateSchema
+} from './mnet-profile.ts'
 
 export const DisabledCommandExplanationSchema = Schema.Struct({
   code: Schema.Literal(
@@ -45,6 +56,80 @@ export const CommandWellEligibilitySchema = Schema.Union(
   })
 )
 
+/** 状态来源分类，只允许 authoritative/event/cache/read-model/log/audit/policy */
+export const SduiV02StateSourceSchema = Schema.Literal(
+  'authoritative',
+  'event',
+  'cache',
+  'read-model',
+  'log',
+  'audit',
+  'policy'
+)
+
+export const ApprovalQueueItemSchema = Schema.Struct({
+  approvalId: Schema.String,
+  policyDecisionId: Schema.String,
+  originService: ApprovalOriginServiceSchema,
+  operationId: Schema.String,
+  requestedBy: ActorIdSchema,
+  requiredAction: RequiredActionSchema,
+  quorumRequired: Schema.Number,
+  status: ApprovalStatusSchema,
+  expiresAt: Schema.String,
+  createdAt: Schema.String,
+  completedAt: Schema.optional(Schema.String),
+  stateSource: SduiV02StateSourceSchema
+})
+
+export const ApprovalDetailDisplaySchema = Schema.Struct({
+  approval: ApprovalQueueItemSchema,
+  votes: Schema.Array(
+    Schema.Struct({
+      actor: ActorIdSchema,
+      vote: ApprovalVoteTypeSchema,
+      reason: Schema.optional(Schema.String),
+      createdAt: Schema.String,
+      stateSource: SduiV02StateSourceSchema
+    })
+  )
+})
+
+export const NetworkProfileListItemSchema = Schema.Struct({
+  profileVersion: MNetProfileVersionSchema,
+  region: MNetProfileRegionSchema,
+  displayName: Schema.String,
+  controlPlaneOnly: Schema.Boolean,
+  status: NetworkProfileStateSchema,
+  networkId: Schema.optional(Schema.String),
+  stateSource: SduiV02StateSourceSchema
+})
+
+export const OperationalCommandPreviewCommandIdSchema = Schema.Literal(
+  'policy.approval.approve.preview',
+  'policy.approval.reject.preview',
+  'network.profile.enable.preview',
+  'network.profile.disable.preview'
+)
+
+export const OperationalCommandPreviewActionSchema = Schema.Literal('display-only')
+
+export const OperationalCommandPreviewStateSchema = Schema.Literal('enabled', 'disabled')
+
+export const OperationalCommandPreviewSchema = Schema.Struct({
+  commandId: OperationalCommandPreviewCommandIdSchema,
+  label: Schema.String,
+  action: OperationalCommandPreviewActionSchema,
+  resource: Schema.String,
+  risk: Schema.String,
+  requiredPermissions: Schema.Array(PermissionSchema),
+  requiresPolicy: Schema.Boolean,
+  requiresAudit: Schema.Boolean,
+  state: OperationalCommandPreviewStateSchema,
+  disabledReason: Schema.optional(Schema.String),
+  displayOnly: Schema.Literal(true)
+})
+
 /** 组件种类白名单，不在名单内的 kind 解码时被拒绝 */
 export const SduiV02ComponentKindSchema = Schema.Literal(
   'TimelinePanel',
@@ -64,18 +149,12 @@ export const SduiV02ComponentKindSchema = Schema.Literal(
   'TraceLink',
   'RawEnvelopeView',
   'FilterBar',
-  'DecisionQueueSummary'
-)
-
-/** 状态来源分类，只允许 authoritative/event/cache/read-model/log/audit/policy */
-export const SduiV02StateSourceSchema = Schema.Literal(
-  'authoritative',
-  'event',
-  'cache',
-  'read-model',
-  'log',
-  'audit',
-  'policy'
+  'DecisionQueueSummary',
+  'ApprovalQueuePanel',
+  'ApprovalDetailPanel',
+  'NetworkProfileListPanel',
+  'NetworkProfileDetailPanel',
+  'OperationalCommandPreview'
 )
 
 /** 路由内单个组件引用，必须包含 kind 与 id */
@@ -103,8 +182,18 @@ export const SduiV02RouteRegistrySchema = Schema.Struct({
   routes: Schema.Array(SduiV02RouteSchema)
 })
 
+export type ApprovalQueueItem = typeof ApprovalQueueItemSchema.Type
+export type ApprovalDetailDisplay = typeof ApprovalDetailDisplaySchema.Type
+export type NetworkProfileListItem = typeof NetworkProfileListItemSchema.Type
+export type OperationalCommandPreviewCommandId =
+  typeof OperationalCommandPreviewCommandIdSchema.Type
+export type OperationalCommandPreviewAction = typeof OperationalCommandPreviewActionSchema.Type
+export type OperationalCommandPreviewState = typeof OperationalCommandPreviewStateSchema.Type
+export type OperationalCommandPreview = typeof OperationalCommandPreviewSchema.Type
 export type DisabledCommandExplanation = typeof DisabledCommandExplanationSchema.Type
 export type MinimalPolicyDecisionSummary = typeof MinimalPolicyDecisionSummarySchema.Type
 export type CommandWellEligibility = typeof CommandWellEligibilitySchema.Type
+export type SduiV02ComponentKind = typeof SduiV02ComponentKindSchema.Type
+export type SduiV02StateSource = typeof SduiV02StateSourceSchema.Type
 export type SduiV02Route = typeof SduiV02RouteSchema.Type
 export type SduiV02RouteRegistry = typeof SduiV02RouteRegistrySchema.Type
