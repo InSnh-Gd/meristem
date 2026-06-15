@@ -92,7 +92,7 @@ async function runCompose2Nix(profileName: ProfileName, spec: GenerationSpec): P
 }
 
 function normalizeGeneratedModule(profileName: ProfileName, rawText: string): string {
-  const workspacePath = '/home/gdzzc/Projects/m-vnext'
+  const workspacePath = repoRoot
   const workspacePlaceholder = '$' + '{workspaceDir}'
   let normalized = rawText.replace(`{ pkgs, lib, ... }`, `{ lib, pkgs, workspaceDir }`)
   normalized = normalized.replaceAll(workspacePath, workspacePlaceholder)

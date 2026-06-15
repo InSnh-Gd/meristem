@@ -60,7 +60,7 @@ in
     workspaceDir = lib.mkOption {
       type = lib.types.str;
       default = "";
-      example = "/srv/meristem/m-vnext";
+      example = "/srv/meristem";
       description = "Path to the Meristem checkout that Bun and compose2nix-derived binds should run from.";
     };
 

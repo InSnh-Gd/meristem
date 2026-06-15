@@ -47,7 +47,7 @@ Example NixOS configuration:
 
   services.meristem = {
     enable = true;
-    workspaceDir = "/srv/meristem/m-vnext";
+    workspaceDir = "/srv/meristem";
     environmentFile = "/etc/meristem/meristem.env";
     enableUiBff = true;
     enableUi = false;

@@ -1,6 +1,6 @@
 # MERISTEM-ROADMAP - v0.1 Delivery Scope
 
-> This document is the single active roadmap for Meristem vNext. It replaces the old per-phase files with one v0.1 scope, one acceptance matrix, and one post-v0.1 track list.
+> This document is the single active roadmap for Meristem. It replaces the old per-phase files with one v0.1 scope, one acceptance matrix, and one post-v0.1 track list.
 >
 > If this roadmap conflicts with `MERISTEM.md`, `MERISTEM-DESIGN.md`, or `MERISTEM-DEV.md`, the root intent and engineering documents win. Deferred work lives in `DEFERRED-WORK.md`.
 

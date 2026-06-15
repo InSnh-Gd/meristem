@@ -1,6 +1,6 @@
 ---
 name: meristem-engineering-guardrails
-description: Use when implementing, reviewing, or changing Meristem vNext code, tests, contracts, services, events, config, storage, security, logging, policy, telemetry, CLI, or UI behavior.
+description: Use when implementing, reviewing, or changing Meristem code, tests, contracts, services, events, config, storage, security, logging, policy, telemetry, CLI, or UI behavior.
 ---
 
 # Meristem Engineering Guardrails
@@ -63,7 +63,7 @@ Core 是微内核。Core 负责 bootstrap、基础配置、基础身份、服务
 
 ## Bun-Only 规则
 
-Meristem vNext 当前仓库执行 Bun-only：
+Meristem 当前仓库执行 Bun-only：
 
 - 包管理、脚本执行、测试执行、服务运行统一使用 Bun。
 - 禁止使用 `node` 运行时执行仓库代码。

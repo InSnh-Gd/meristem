@@ -1,6 +1,6 @@
 # AGENTS.md - AI 上下文入口
 
-> 这份文档是 Meristem vNext 仓库的 AI 入口。完整的仓库级上下文协议已经拆分到项目 skill 中，进入本仓库的 AI 代理应先读本文件，再加载对应 skill。
+> 这份文档是 Meristem 仓库的 AI 入口。完整的仓库级上下文协议已经拆分到项目 skill 中，进入本仓库的 AI 代理应先读本文件，再加载对应 skill。
 
 ---
 
@@ -49,7 +49,7 @@
 
 ### Issue tracker
 
-Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/m-vnext`. See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/meristem`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
