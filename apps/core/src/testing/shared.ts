@@ -1,10 +1,13 @@
 import type {
   ActorId,
   CreateNodeTicketRequest,
+  MNetRegionalProfile,
   MNetwork,
   MNetworkMember,
   MNode,
   PolicyDecision,
+  PolicyApproval,
+  PolicyApprovalVote,
   ServiceSummary
 } from '../../../../packages/contracts/src/index.ts'
 
@@ -13,9 +16,14 @@ export type InMemoryOptions = {
   policyAvailable?: boolean
   auditAvailable?: boolean
   mNetAvailable?: boolean
+  approvalReaderAvailable?: boolean
+  networkProfileReaderAvailable?: boolean
   searchAvailable?: boolean
   introspectionAvailable?: boolean
   configPolicyRequired?: boolean
+  approvals?: PolicyApproval[]
+  approvalVotes?: PolicyApprovalVote[]
+  networkProfiles?: MNetRegionalProfile[]
 }
 
 export type IdentityActorRecord = {

@@ -9,6 +9,10 @@ import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import { createHttpEventPort } from './adapters/http-eventbus.ts'
 import { createHttpLogPort } from './adapters/http-log.ts'
 import { createHttpMNetPort } from './adapters/http-mnet.ts'
+import {
+  createHttpApprovalReaderPort,
+  createHttpNetworkProfileReaderPort
+} from './adapters/http-approval-profile-readers.ts'
 import { createHttpPolicyPort } from './adapters/http-policy.ts'
 import { createHttpProjectionPort } from './adapters/http-projection.ts'
 import {
@@ -24,6 +28,10 @@ export { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 export { createHttpEventPort } from './adapters/http-eventbus.ts'
 export { createHttpLogPort } from './adapters/http-log.ts'
 export { createHttpMNetPort } from './adapters/http-mnet.ts'
+export {
+  createHttpApprovalReaderPort,
+  createHttpNetworkProfileReaderPort
+} from './adapters/http-approval-profile-readers.ts'
 export { createHttpPolicyPort } from './adapters/http-policy.ts'
 export { createRpcEventPort, createRpcLogPort, createRpcPolicyPort } from './adapters/rpc-legacy.ts'
 export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
@@ -115,6 +123,8 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     log: createHttpLogPort(),
     events: createHttpEventPort(),
     mNet: createHttpMNetPort(),
+    approvalReader: createHttpApprovalReaderPort(),
+    networkProfileReader: createHttpNetworkProfileReaderPort(),
     agentTasks: createHttpAgentTaskPort(),
     services: createServiceLifecyclePort(storage, readinessChecks),
     projection: createHttpProjectionPort(),

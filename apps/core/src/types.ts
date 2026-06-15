@@ -10,6 +10,7 @@ export type {
   ServiceError,
   ServiceLifecyclePort
 } from './types/shared.ts'
+export type { ApprovalReaderPort, NetworkProfileReaderPort } from './types/approval-profile-readers.ts'
 export type { ConfigPort } from './types/config.ts'
 export type { IdentityPort } from './types/identity.ts'
 export type { MNetPort } from './types/mnet.ts'

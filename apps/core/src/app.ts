@@ -3,6 +3,7 @@ import { Elysia } from 'elysia'
 import { redactSecrets } from '../../../packages/common/src/secret-redaction.ts'
 import { CoreError } from './core-error.ts'
 import { config, configApplyAck } from './routes/config.ts'
+import { approvalProfileFacadeRoutes } from './routes/approval-profile-facade.ts'
 import { healthRoutes } from './routes/health.ts'
 import { identity } from './routes/identity.ts'
 import { logsRoutes } from './routes/logs.ts'
@@ -75,6 +76,7 @@ export function createCoreApp(deps: CoreDeps) {
       .use(nodesRoutes(deps))
       .use(logsRoutes(deps))
       .use(policyRoutes(deps))
+      .use(approvalProfileFacadeRoutes(deps))
       .use(projectionRoutes(deps))
       .use(identity(deps))
       .use(secrets(deps))

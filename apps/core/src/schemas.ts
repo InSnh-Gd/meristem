@@ -19,3 +19,9 @@ export { nodeSchema, taskSchema } from './schemas/nodes.ts'
 export { networkMemberSchema, networkSchema, networkSummarySchema } from './schemas/networks.ts'
 export { policyDecisionSchema } from './schemas/policy.ts'
 export { auditLogSchema, fullLogSchema, timelineLogSchema } from './schemas/logs.ts'
+export {
+  approvalDetailResponseSchema,
+  approvalListResponseSchema,
+  mNetRegionalProfileSchema,
+  networkProfileListResponseSchema
+} from './schemas/approval-profile-facade.ts'

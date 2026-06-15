@@ -24,6 +24,7 @@ import type {
 import type { MEventEnvelope } from '../../../../packages/events/src/index.ts'
 import type { ServiceError } from './common.ts'
 import type { ConfigPort } from './config.ts'
+import type { ApprovalReaderPort, NetworkProfileReaderPort } from './approval-profile-readers.ts'
 import type { IdentityPort } from './identity.ts'
 import type { MNetPort } from './mnet.ts'
 import type { SecretRefPort } from './secrets.ts'
@@ -159,6 +160,8 @@ export type CoreDeps = {
   agentTasks: AgentTaskPort
   services: ServiceLifecyclePort
   projection: ProjectionPort
+  approvalReader: ApprovalReaderPort
+  networkProfileReader: NetworkProfileReaderPort
   identity: IdentityPort
   secrets: SecretRefPort
   config: ConfigPort

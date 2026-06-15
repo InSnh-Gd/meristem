@@ -9,6 +9,8 @@ import { currentTraceId } from '../../../../packages/telemetry/src/index.ts'
  */
 export function statusCodeForServiceError(code: string): 404 | 409 | 503 {
   switch (code) {
+    case 'approval.not_found':
+    case 'profile.not_found':
     case 'network.not_found':
     case 'node.not_found':
     case 'task.not_found':
@@ -24,6 +26,9 @@ export function statusCodeForServiceError(code: string): 404 | 409 | 503 {
     case 'service.not_found':
       return 404
     case 'mnet.unavailable':
+    case 'm-policy.unavailable':
+    case 'm-policy.invalid_response':
+    case 'mnet.invalid_response':
     case 'nodeagent.unavailable':
     case 'nodeagent.invalid_token':
       return 503

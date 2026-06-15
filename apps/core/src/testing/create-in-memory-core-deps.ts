@@ -1,5 +1,9 @@
 import type { CoreDeps } from '../types.ts'
 import {
+  createApprovalReaderPort,
+  createNetworkProfileReaderPort
+} from './approval-profile-readers.ts'
+import {
   createAuthPort,
   createEventPort,
   createLogPort,
@@ -34,6 +38,8 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
     log: createLogPort(state, helpers),
     events: createEventPort(),
     mNet: createMNetPort(state, helpers),
+    approvalReader: createApprovalReaderPort(helpers),
+    networkProfileReader: createNetworkProfileReaderPort(helpers),
     agentTasks: createAgentTaskPort(state),
     services: createServiceLifecyclePort(state),
     projection: createProjectionPort(),

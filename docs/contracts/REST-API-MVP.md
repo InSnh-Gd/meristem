@@ -461,7 +461,7 @@ Rules:
 - disabling M-Net CN is immediate with M-Policy allow + Audit, no approval required.
 - disable is allowed as a recovery path from `failed` state.
 - M-Net exposes OpenAPI for these external routes.
-- Core may aggregate readiness but must not own or facade profile routes.
+- Core exposes read-only facade routes for list/detail at the same `/api/v0/network-profiles*` paths on the Core service. The facade must call only M-Net public HTTP routes and must not call `/internal/v0/*` or M-Net private stores. Mutating profile lifecycle routes remain owned by M-Net.
 
 ```ts
 type SetNetworkProfileResponse = {
@@ -475,6 +475,42 @@ type SetNetworkProfileResponse = {
   correlationId: string;
 };
 ```
+
+---
+
+## 4.6 Core Read Facades for Approval and Profile Data
+
+Core owns a public read facade for UI/BFF callers that need one stable Core boundary. The facade does not own approval or profile data. It authenticates the caller, authorizes with M-Policy, forwards the caller Bearer token and actor context to explicit Core dependency ports, and those production ports call only the owning service public HTTP routes.
+
+Routes:
+
+```text
+GET /api/v0/policy/approvals
+GET /api/v0/policy/approvals/:id
+GET /api/v0/network-profiles
+GET /api/v0/network-profiles/:profileVersion
+```
+
+Permissions:
+
+- approval list/detail: `policy:approval-read`
+- profile list/detail: `network:profile-read`
+
+Dependency-port rules:
+
+- Core route handlers call `approvalReader` and `networkProfileReader` ports only.
+- `approvalReader` production adapters call only M-Policy `/api/v0/policy/approvals*` public HTTP routes.
+- `networkProfileReader` production adapters call only M-Net `/api/v0/network-profiles*` public HTTP routes.
+- Core must not import M-Policy/M-Net private stores, tables, service internals, or call `/internal/v0/*` for these reads.
+
+Error responses use the common Core envelope:
+
+- missing/invalid token: `401`
+- insufficient permission: `403`
+- missing approval/profile: `404`
+- owning service unavailable or invalid facade response: `503`
+
+The approval queue list returns `{ approvals: [] }` when there are no pending records; it does not return `404`.
 
 ---
 
@@ -1079,7 +1115,7 @@ OpenAPI must include:
 
 ## 13. M-Policy Approval Routes (M-Policy External)
 
-M-Policy owns the external approval REST surface. These routes use Bearer authentication and are mounted on the M-Policy service.
+M-Policy owns the external approval REST surface. These routes use Bearer authentication and are mounted on the M-Policy service. Core also exposes read-only facade list/detail routes for BFF/UI callers; that facade must call these M-Policy public routes, not `/internal/v0/*`.
 
 ### `GET /api/v0/policy/approvals`
 
