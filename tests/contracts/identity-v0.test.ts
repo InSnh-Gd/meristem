@@ -2,7 +2,9 @@ import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
   identityApiRoutes,
-  identityEdenV02Contract
+  identityEdenV02Contract,
+  identityInternalContract,
+  identityInternalRoutes
 } from '../../packages/contracts/src/schemas/identity.ts'
 
 // ---------------------------------------------------------------------------
@@ -57,8 +59,7 @@ describe('Identity v0 public route contract', () => {
       getActor: '/api/v0/identity/actors/:id',
       issueToken: '/api/v0/identity/tokens',
       inspectToken: '/api/v0/identity/tokens/:jti',
-      revokeToken: '/api/v0/identity/tokens/:jti/revoke',
-      introspectToken: '/api/v0/identity/introspect'
+      revokeToken: '/api/v0/identity/tokens/:jti/revoke'
     })
   })
 
@@ -72,8 +73,7 @@ describe('Identity v0 public route contract', () => {
       new Request(
         `http://localhost${identityApiRoutes.revokeToken.replace(':jti', 'IDY-V0-CTR-jti')}`,
         { method: 'POST' }
-      ),
-      new Request(`http://localhost${identityApiRoutes.introspectToken}`, { method: 'POST' })
+      )
     ]
 
     for (const request of requests) {
@@ -89,8 +89,19 @@ describe('Identity v0 public route contract', () => {
       getActor: 'GET /api/v0/identity/actors/:id',
       issueToken: 'POST /api/v0/identity/tokens',
       inspectToken: 'GET /api/v0/identity/tokens/:jti',
-      revokeToken: 'POST /api/v0/identity/tokens/:jti/revoke',
-      introspectToken: 'POST /api/v0/identity/introspect'
+      revokeToken: 'POST /api/v0/identity/tokens/:jti/revoke'
+    })
+  })
+})
+
+describe('Identity internal route contract', () => {
+  it('keeps token introspection on the internal route surface only', () => {
+    expect(identityInternalRoutes).toEqual({
+      introspectToken: '/internal/v0/identity/tokens/introspect'
+    })
+
+    expect(identityInternalContract).toEqual({
+      introspectToken: 'POST /internal/v0/identity/tokens/introspect'
     })
   })
 })

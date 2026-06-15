@@ -87,7 +87,7 @@ const app = router.pipe(
 
 ---
 
-## 5. Meristem Usage (ADR-016)
+## 5. Meristem Usage ([ADR-F01](../adr/ADR-F01-foundational-technology-stack.md))
 
 Use Effect where complexity justifies it:
 
@@ -100,16 +100,6 @@ Use Effect where complexity justifies it:
 - multi-service orchestration
 
 Do **not** require all simple code to become Effect-based.
-
-**Meristem 现状 (2026-05-22)**:
-- `effect@3.21.2` pinned ⚠️ need to verify if latest
-- `Effect.Service` / `Layer` / `Effect.gen` not used ❌
-- Only 3 helpers in `effect-helpers.ts`: `tryServiceCall`, `runServiceEffect`, `requireServiceData`
-- Complex routes (e.g. `tasksRoutes`) still use `try/catch` + `Reflect.get`
-
-**建议**: For complex orchestration like `tasksRoutes`, refactor with `Effect.gen` + `catchTags`.
-
----
 
 ## 6. Version Pinning Note
 

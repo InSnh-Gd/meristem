@@ -18,7 +18,7 @@ What this service owns:
 - Deriving disabled/enabled command state for the M-UI CommandWell from Core-visible permission and node state
 - Forwarding confirmed noop task execution to M-Task `POST /api/v0/tasks`
 - Returning a trimmed Minimal Policy Decision Summary from Core policy decision records
-- Publishing the SDUI v0.2 Phase 14 route registry
+- Publishing the current SDUI v0.2 route registry for the v0.1 functional-demo surface
 - Returning display-shaped node, timeline, audit, policy decision, and service lists with state-source annotations
 - Exposing generic CommandWell endpoints for BFF-known command IDs only
 - Exposing its own minimal OpenAPI document for the M-UI frontend
@@ -48,7 +48,7 @@ What this service must not own:
 | GET | `/health` | public | BFF liveness check |
 | GET | `/ready` | public | Probes Core `/api/v0/health` |
 | GET | `/api/v0/overview` | Bearer | Aggregates session, status, nodes, services, timeline |
-| GET | `/api/v0/routes` | Bearer | Returns the SDUI v0.2 Phase 14 route registry |
+| GET | `/api/v0/routes` | Bearer | Returns the SDUI v0.2 route registry |
 | GET | `/api/v0/routes/:id` | Bearer | Returns one registered SDUI route or 404 |
 | GET | `/api/v0/nodes` | Bearer | Pass-through display list from Core node records |
 | GET | `/api/v0/nodes/:id` | Bearer | Display-shaped node detail with state source annotation |
@@ -61,7 +61,7 @@ What this service must not own:
 | POST | `/api/v0/commands/noop/execute` | Bearer | Forwards confirmed noop to M-Task `POST /api/v0/tasks` |
 | POST | `/api/v0/commands/:commandId/eligibility` | Bearer | Generic CommandWell eligibility for BFF-known commands |
 | POST | `/api/v0/commands/:commandId/execute` | Bearer | Generic CommandWell execution for BFF-known commands |
-| GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for Phase 9 UI display |
+| GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for M-UI display |
 
 `GET /api/v0/policy/decisions/:id/summary` calls Core `GET /api/v0/policy/decisions/:id` with the caller's Bearer token and returns only:
 
@@ -113,7 +113,7 @@ The BFF does not enforce permissions. It derives disabled command state from the
 
 | Capability | Supported | Notes |
 |------------|-----------|-------|
-| reloadable | no | Phase 9 functional demo |
+| reloadable | no | v0.1 functional-demo BFF |
 | rollbackable | no | |
 | degradable | yes | Returns ready=false when Core is down |
 
@@ -141,7 +141,7 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 ## 11. Done Criteria
 
 - Service definition is versioned.
-- All 7 routes implemented and documented.
+- Current SDUI v0.2 route registry and supporting BFF endpoints are documented for the v0.1 functional-demo surface.
 - OpenAPI document generated at `/openapi`.
 - BFF does not call M-Log, M-Policy, or M-Net internal HTTP.
 - BFF does not construct Audit facts.

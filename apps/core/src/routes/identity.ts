@@ -2,7 +2,6 @@ import { Elysia } from 'elysia'
 import type { CoreDeps } from '../types.ts'
 import {
   createIdentityInternalRoutes,
-  createIdentityTokenAliasRoutes,
   createIdentityTokenRoutes
 } from './identity-token-routes.ts'
 import { createIdentityLifecycleRoutes } from './identity-lifecycle-routes.ts'
@@ -14,5 +13,4 @@ export const identity = (deps: CoreDeps) =>
   new Elysia()
     .use(createIdentityLifecycleRoutes(deps))
     .use(createIdentityTokenRoutes(deps))
-    .use(createIdentityTokenAliasRoutes(deps))
     .use(createIdentityInternalRoutes(deps))

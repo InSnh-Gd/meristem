@@ -1,10 +1,26 @@
 # Contract Versioning
 
-> Meristem contracts cross service, node, runtime, and time boundaries. Anything that crosses those boundaries must be versioned.
+> 本文档定义 Meristem 契约的版本化总规则。凡是跨 service、node、runtime 或 time 边界的对象，都必须显式版本化。
+>
+> `REST-API-MVP.md` 是外部 HTTP / OpenAPI 主契约；`CLI-COMMANDS.md`、`EDEN-MVP.md`、`SERVICE-LIFECYCLE-PROTOTYPE.md` 只在各自消费面补充映射与运行时约束，不覆盖主契约。
 
 ---
 
-## 1. Versioned Objects
+## 1. Contract Set
+
+| 文档 | 角色 | 状态 |
+|------|------|------|
+| `README.md` | 目录索引与权威边界说明 | Index |
+| `REST-API-MVP.md` | 外部 REST / OpenAPI 契约 | Canonical |
+| `CLI-COMMANDS.md` | CLI 命令映射与操作约束 | Supporting |
+| `EDEN-MVP.md` | Eden typed client 契约 | Supporting |
+| `SERVICE-LIFECYCLE-PROTOTYPE.md` | 服务 lifecycle 运行时补充约束 | Supporting |
+
+Canonical 文档定义契约 shape 与权威规则；Supporting 文档只解释某一消费面如何使用这些契约。
+
+---
+
+## 2. Versioned Objects
 
 The following objects must carry explicit versions:
 
@@ -26,15 +42,16 @@ The following objects must carry explicit versions:
 
 Internal executable contracts should be modeled with Effect Schema when they are complex enough to cross service, node, runtime, or time boundaries. REST/OpenAPI schemas remain the external HTTP contract, but they should not be the only runtime definition for internal policy, event, log, projection, service definition, config, webhook, or BFF command-state shapes.
 
-MVP concrete contracts:
+当前最小契约集：
 
-- REST: `docs/contracts/REST-API-MVP.md`
-- Eden: `docs/contracts/EDEN-MVP.md`
-- CLI: `docs/contracts/CLI-COMMANDS.md`
+- REST / OpenAPI: `REST-API-MVP.md`
+- CLI: `CLI-COMMANDS.md`
+- Eden: `EDEN-MVP.md`
+- Service lifecycle runtime supplement: `SERVICE-LIFECYCLE-PROTOTYPE.md`
 
 ---
 
-## 2. Version Shape
+## 3. Version Shape
 
 | Contract | Version Location | Example |
 |----------|------------------|---------|
@@ -53,7 +70,7 @@ MVP concrete contracts:
 
 ---
 
-## 3. Compatibility Rules
+## 4. Compatibility Rules
 
 Breaking changes:
 
@@ -75,7 +92,7 @@ Non-breaking changes:
 
 ---
 
-## 4. Migration Rule
+## 5. Migration Rule
 
 A breaking change must include:
 
@@ -91,11 +108,20 @@ When an Effect Schema backs an internal contract, the migration must also includ
 
 ---
 
-## 5. Prohibited Shortcuts
+## 6. Authority Rules
+
+- 外部 HTTP request / response shape 以 `REST-API-MVP.md` 为准。
+- CLI 文档可以复述命令侧行为，但若权限、错误语义或返回 shape 与 REST 文档冲突，以 REST 文档为准。
+- Eden 文档不单独发明外部 schema 名称；若 REST 文档已命名类型，Eden 文档应直接引用。
+- 运行时补充文档可以说明 lifecycle、logging、retry、non-goal 与 fail-closed 语义，但不得覆盖主 REST 路由契约。
+
+---
+
+## 7. Prohibited Shortcuts
 
 - Do not silently change event payload shape.
 - Do not use `any` for compatibility.
 - Do not duplicate literal vocabularies across route files without a shared contract source or a contract drift test.
 - Do not assume Core, Stem, Leaf, M-CLI, and M-UI are always the same version.
-- Do not make OpenSearch projection shape the source of truth.
+- Do not make OpenSearch projection shape the canonical authority.
 - Do not remove old event consumers before the compatibility window is closed.

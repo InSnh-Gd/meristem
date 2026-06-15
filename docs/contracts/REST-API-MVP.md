@@ -1,10 +1,21 @@
 # REST API MVP Contract
 
-> REST API v0 is the external MVP API. It is implemented by Core through Elysia and must be represented in OpenAPI.
+> REST API v0 is the external HTTP / OpenAPI contract for the current Meristem baseline.
+>
+> 本文档是 canonical contract：外部 route、permission、request / response shape、error envelope 与 exposed internal path 都以这里为准。CLI、Eden 与 lifecycle supplemental 文档只能引用或补充运行时语义，不能覆盖本文件。
 
 ---
 
-## 1. Common Rules
+## 1. Scope and Authority
+
+- 覆盖外部 `/api/v0` route，以及被内部服务显式消费的 `/internal/v0` route。
+- 公开 HTTP shape、permission 与 error envelope 以本文件为准。
+- CLI 命令映射见 `CLI-COMMANDS.md`；typed client 映射见 `EDEN-MVP.md`；service reload runtime supplement 见 `SERVICE-LIFECYCLE-PROTOTYPE.md`。
+- Event subject 名称可以在规则中被引用，但 subject catalog authority 仍在 `docs/events/EVENT-CATALOG.md`。
+
+---
+
+## 2. Common Rules
 
 - Base path: `/api/v0`.
 - Request and response bodies are JSON.
@@ -24,7 +35,7 @@ type ApiError = {
 
 ---
 
-## 2. Health and Status
+## 3. Health and Status
 
 ### `GET /api/v0/health`
 
@@ -79,7 +90,7 @@ type StatusResponse = {
 
 ---
 
-## 3. Service Definitions
+## 4. Service Registration and Follow-on Service Ownership
 
 ### `POST /api/v0/services`
 
@@ -93,23 +104,23 @@ Protected by `core:read`.
 
 Returns service summaries. Built-in services include live runtime data; registered service definitions may appear without runtime details.
 
-Service reload is defined in `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
+The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
 ### Follow-on M-* Service REST Ownership
 
-Some post-MVP external routes are owned directly by M-* services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their phase document states otherwise.
+Some post-MVP external routes are owned directly by M-* services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
 
 Examples:
 
-- M-Net owns network profile routes from Phase 13.
-- M-Policy owns approval routes from Phase 12.
-- M-Extension owns extension control-plane routes from Phase 15.
+- M-Net owns network profile routes from the M-Net profile lifecycle.
+- M-Policy owns approval routes from the M-Policy approval flow.
+- M-Extension owns extension control-plane routes from the M-Extension control plane.
 
 ---
 
-## 3.1 M-Extension Control Plane Routes
+## 4.1 M-Extension Control Plane Routes
 
-Phase 15 M-Extension routes are owned by `m-extension`, not Core.
+M-Extension control plane routes are owned by `m-extension`, not Core.
 
 ### `GET /api/v0/extensions`
 
@@ -140,7 +151,7 @@ Rules:
 - manifest must be `controlPlaneOnly: true`.
 - only declaration kinds are accepted.
 - unknown requested permissions are rejected.
-- `high` and `critical` risk manifests are rejected in Phase 15.
+- `high` and `critical` risk manifests are rejected in the M-Extension control plane.
 - allowed registration writes Audit before persistence.
 - registration does not install code or create an execution runtime.
 
@@ -158,7 +169,7 @@ type EnableExtensionRequest = {
 
 Rules:
 
-- Phase 15 only accepts `scopeType = "system"` and `scopeId = "default"`.
+- M-Extension control plane only accepts `scopeType = "system"` and `scopeId = "default"`.
 - M-Policy allow is required.
 - allowed enable writes Audit before the state transition.
 - enable does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior.
@@ -177,16 +188,16 @@ type DisableExtensionRequest = {
 
 Rules:
 
-- Phase 15 only accepts `scopeType = "system"` and `scopeId = "default"`.
+- M-Extension control plane only accepts `scopeType = "system"` and `scopeId = "default"`.
 - M-Policy allow is required.
 - allowed disable writes Audit before the state transition.
 - disable does not create an approval record.
 
 ---
 
-## 3.2 Identity v0 Local Mode Routes
+## 4.2 Identity Local-Mode Routes
 
-Phase 17 identity routes are owned by Core. They do not introduce M-Identity.
+Identity local-mode routes are owned by Core. They do not introduce M-Identity. The actor-token contract revision currently tracks `identity-token@0.2.0`, while the external HTTP surface remains `/api/v0`.
 
 External routes require Bearer authentication and M-Policy authorization. The internal introspection route requires `x-meristem-internal-token` and returns revocation status without token plaintext.
 
@@ -336,9 +347,9 @@ type IntrospectTokenResponse = {
 
 ---
 
-## 3.3 SecretRef v0.1 Routes
+## 4.3 SecretRef v0.1 Routes
 
-Phase 18 secretRef routes are owned by Core. They do not introduce M-Secret.
+SecretRef v0.1 routes are owned by Core. They do not introduce M-Secret.
 
 ```text
 GET  /api/v0/secrets
@@ -358,9 +369,9 @@ Rules:
 
 ---
 
-## 3.4 Config Lifecycle v0.1 Routes
+## 4.4 Config Lifecycle v0.1 Routes
 
-Phase 19 config lifecycle routes are owned by Core.
+Config Lifecycle v0.1 routes are owned by Core.
 
 ```text
 GET  /api/v0/configs
@@ -381,9 +392,9 @@ Rules:
 
 ---
 
-## 3.5 Phase 13 Network Profile Routes (M-Net External)
+## 4.5 M-Net Profile Routes (M-Net External)
 
-Phase 13 network profile routes are owned by M-Net, not Core. These routes use Bearer authentication and are mounted on the M-Net service.
+M-Net profile lifecycle routes are owned by M-Net, not Core. These routes use Bearer authentication and are mounted on the M-Net service.
 
 ### `GET /api/v0/network-profiles`
 
@@ -446,7 +457,7 @@ Rules:
 - M-Net calls M-Policy for profile enable / disable authorization.
 - M-Net calls M-Log for Timeline / Full / Audit facts.
 - M-Net calls M-EventBus for profile lifecycle events.
-- enabling M-Net CN requires Phase 12 approval: M-Policy returns `require_manual_review`, M-Net creates a suspended operation, and the request returns `202` with `approvalId` and `operationId`.
+- enabling M-Net CN requires M-Policy approval: M-Policy returns `require_manual_review`, M-Net creates a suspended operation, and the request returns `202` with `approvalId` and `operationId`.
 - disabling M-Net CN is immediate with M-Policy allow + Audit, no approval required.
 - disable is allowed as a recovery path from `failed` state.
 - M-Net exposes OpenAPI for these external routes.
@@ -467,7 +478,7 @@ type SetNetworkProfileResponse = {
 
 ---
 
-## 4. Nodes
+## 5. Nodes
 
 ### `POST /api/v0/node-tickets`
 
@@ -533,7 +544,7 @@ Rules:
 - Leaf nodes default to low permission, restricted API, and restricted interconnect metadata.
 - default mode is `simulated`.
 - `agent` mode is rejected with `409 node.agent_join_ticket_required`; use `POST /api/v0/node-tickets` instead.
-- `simulated` mode preserves the legacy synchronous MVP path.
+- `simulated` mode preserves the synchronous local-only path used for development and tests.
 - Core node registration is not exposed through this MVP endpoint.
 - successful registration publishes `node.registration.requested.v0` and `node.registration.accepted.v0`.
 
@@ -572,7 +583,7 @@ Returns one node or `404`.
 
 ---
 
-## 5. Networks
+## 6. Networks
 
 ### `POST /api/v0/networks`
 
@@ -650,9 +661,9 @@ Returns logical network members or `404` if the network does not exist.
 
 ---
 
-## 6. Tasks
+## 7. Tasks
 
-Phase 11 changes the owner of the canonical task API from Core to M-Task. The resource path remains `/api/v0/tasks`, but the service exposing it is M-Task, not Core.
+M-Task cutover changes the owner of the canonical task API from Core to M-Task. The resource path remains `/api/v0/tasks`, but the service exposing it is M-Task, not Core.
 
 ### `POST /api/v0/tasks`
 
@@ -687,7 +698,7 @@ type SubmitTaskResponse = {
 
 Rules:
 
-- Phase 11 supports only `noop` execution.
+- M-Task supports only `noop` execution.
 - Target must be an existing Leaf node known through M-Net / node state.
 - M-Task checks `task:submit`, asks M-Policy for risk output, writes required M-Log facts, and publishes task lifecycle events.
 - Delivery to node-agent goes M-Task -> M-Net -> active join session `task.execute`.
@@ -709,11 +720,11 @@ Cancels queued tasks directly and requests best-effort cancel for dispatched or 
 
 Protected by `task:retry`.
 
-Phase 11 returns `not_implemented_yet` after auth, RBAC, and risk checks allow the retry request.
+M-Task returns `not_implemented_yet` after auth, RBAC, and risk checks allow the retry request.
 
 ---
 
-## 7. Logs
+## 8. Logs
 
 ### `GET /api/v0/logs/timeline`
 
@@ -735,7 +746,7 @@ Returns recent Audit Log entries, newest first.
 
 ---
 
-## 8. Policy
+## 9. Policy
 
 ### `GET /api/v0/policy/decisions/:id`
 
@@ -745,9 +756,9 @@ Returns one policy decision record.
 
 ---
 
-## 9. Phase 9 UI Session Context Extension
+## 10. M-UI Session and Search Surface
 
-Phase 9 adds a read-only session context endpoint for the M-UI BFF:
+This section collects read-only BFF session context and log search endpoints used by M-UI.
 
 ### `GET /api/v0/session`
 
@@ -800,11 +811,11 @@ type PolicyDecisionSummaryResponse = {
 
 ---
 
-## Phase 10: OpenSearch Search Endpoints
+### OpenSearch Search Endpoints
 
 Core exposes three REST search endpoints that delegate to M-Log internal search APIs. Core does not implement OpenSearch query logic directly.
 
-### 9.1 GET /api/v0/logs/timeline/search
+#### `GET /api/v0/logs/timeline/search`
 
 Query timeline logs by text, subject, correlation ID, and time range.
 
@@ -832,7 +843,7 @@ type TimelineSearchResponse = {
 
 **Error Responses**: 401, 403, 503 (`search_unavailable`).
 
-### 9.2 GET /api/v0/logs/full/search
+#### `GET /api/v0/logs/full/search`
 
 Query full logs by text, level, source, correlation ID, trace ID, and time range.
 
@@ -862,7 +873,7 @@ type FullLogSearchResponse = {
 
 **Error Responses**: 401, 403, 503 (`search_unavailable`).
 
-### 9.3 GET /api/v0/audit/search
+#### `GET /api/v0/audit/search`
 
 Query audit logs by actor, action, resource, decision ID, correlation ID, and time range.
 
@@ -899,11 +910,11 @@ type AuditSearchResponse = {
 - PostgreSQL-backed list endpoints (`GET /api/v0/logs/timeline`, `/api/v0/logs/full`, `/api/v0/audit`) remain usable.
 - Authoritative log writes are never blocked by search degradation.
 
-## 10. Projection Platform Endpoints
+## 11. Projection Platform Endpoints
 
 Core exposes Projection Platform REST endpoints as thin adapters over the M-Log projection engine. Core owns public authentication, M-Policy authorization, Audit fail-closed behavior, and Timeline / Full Log observability; M-Log owns projection jobs, cursors, DLQ records, backfill execution, and OpenSearch writes.
 
-### 10.1 GET /api/v0/projection/health
+### `GET /api/v0/projection/health`
 
 Returns projection health by index.
 
@@ -929,7 +940,7 @@ type ProjectionHealthResponse = {
 - This read action does not write Audit Log.
 - Projection unavailable or degraded failures return 503 and write Full Log.
 
-### 10.2 POST /api/v0/projection/backfill
+### `POST /api/v0/projection/backfill`
 
 Runs a projection backfill job for one index.
 
@@ -971,7 +982,7 @@ type ProjectionBackfillResponse = {
 - Successful execution writes Timeline Log.
 - Projection unavailable or degraded failures return 503 and write Full Log.
 
-### 10.3 GET /api/v0/projection/dlq
+### `GET /api/v0/projection/dlq`
 
 Lists projection DLQ records, optionally filtered by index.
 
@@ -1005,7 +1016,7 @@ type ProjectionDLQListResponse = {
 - This read action does not write Audit Log.
 - Projection unavailable or degraded failures return 503 and write Full Log.
 
-### 10.4 POST /api/v0/projection/dlq/:id/replay
+### `POST /api/v0/projection/dlq/:id/replay`
 
 Replays one projection DLQ record.
 
@@ -1026,7 +1037,7 @@ type ProjectionDLQReplayResponse = {
 - Successful replay writes Timeline Log.
 - Projection unavailable or degraded failures return 503 and write Full Log.
 
-### 10.5 POST /api/v0/projection/dlq/:id/skip
+### `POST /api/v0/projection/dlq/:id/skip`
 
 Skips one projection DLQ record.
 
@@ -1056,7 +1067,7 @@ type ProjectionDLQSkipResponse = {
 
 ---
 
-## 11. OpenAPI Requirements
+## 12. OpenAPI Requirements
 
 OpenAPI must include:
 
@@ -1066,9 +1077,9 @@ OpenAPI must include:
 - error response schema
 - API version `v0`
 
-## 12. Phase 12 Approval Routes (M-Policy External)
+## 13. M-Policy Approval Routes (M-Policy External)
 
-Phase 12 M-Policy owns the external approval REST surface. These routes use Bearer authentication and are mounted on the M-Policy service.
+M-Policy owns the external approval REST surface. These routes use Bearer authentication and are mounted on the M-Policy service.
 
 ### `GET /api/v0/policy/approvals`
 
@@ -1125,7 +1136,7 @@ Rules:
 
 ---
 
-## 13. Phase 12 M-Task Resume (Internal)
+## 14. M-Task Resume (Internal)
 
 ### `POST /internal/v0/task-operations/:id/resume`
 

@@ -2,7 +2,7 @@ import * as Schema from 'effect/Schema'
 import { actorIds, permissions } from '../literals.ts'
 
 // Permission literals are executable contracts so Core, M-Policy, and adapters cannot drift silently.
-// Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.3
+// Policy 契约 schema 边界见 `docs/security/SECURITY-MODEL.md` 和 M-Policy 服务文档。
 export const PermissionSchema = Schema.Literal(...permissions)
 export type PermissionFromSchema = typeof PermissionSchema.Type
 

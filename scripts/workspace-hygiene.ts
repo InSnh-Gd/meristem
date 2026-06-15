@@ -8,7 +8,7 @@ const LOCAL_RUNTIME_ROOTS = ['.agent-sources', '.codex', '.antigravitycli', 'doc
 
 /**
  * Classifies paths that should not appear in tracked source or normal review surfaces.
- * Source: docs/plans/2026-05-23-architecture-review-register.md A-006.
+ * 来源：仓库文档清理规则；本扫描器阻止本地运行产物进入正常评审面。
  */
 export function findWorkspaceHygieneViolations(
   paths: Iterable<string>

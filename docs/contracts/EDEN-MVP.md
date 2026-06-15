@@ -1,10 +1,20 @@
 # Eden MVP Contract
 
-> Eden is the preferred internal TypeScript contract. In MVP it covers CLI -> Core and Core -> selected internal services over HTTP.
+> Eden 是 Meristem 内部优先的 TypeScript typed client 契约。
+>
+> 本文档是 supporting contract：它说明 CLI→Core 与 Core→内部服务如何通过 Eden 消费 HTTP 契约；外部 request / response shape 仍以 `REST-API-MVP.md` 为准。
 
 ---
 
-## 1. Package Boundary
+## 1. Scope
+
+- 覆盖 CLI → Core 的 typed client。
+- 覆盖 Core → `M-Policy` / `M-Log` / `M-EventBus` / `M-Net` 的 loopback HTTP typed client。
+- 不定义新的外部 REST shape；已存在的外部类型名直接引用 `REST-API-MVP.md`。
+
+---
+
+## 2. Package Boundary
 
 Target package:
 
@@ -26,7 +36,7 @@ Eden remains a typed client layer on top of HTTP. There is no separate "pure Ede
 
 ---
 
-## 2. Required Typed Calls
+## 3. Required Typed Calls
 
 ```ts
 type CoreClient = {
@@ -40,7 +50,7 @@ type CoreClient = {
 };
 ```
 
-`HealthResponse`, `ReadyResponse`, and `StatusResponse` are defined in `docs/contracts/REST-API-MVP.md`.
+`HealthResponse`、`ReadyResponse`、`StatusResponse` 以及其他外部 HTTP response type name 由 `REST-API-MVP.md` 定义。
 
 Internal service clients in MVP:
 
@@ -64,20 +74,20 @@ type EventBusClient = {
 
 ---
 
-## 3. Rules
+## 4. Rules
 
 - Eden contracts are internal TS contracts only.
-- External users rely on REST + OpenAPI.
+- External users rely on REST + OpenAPI, not Eden.
 - CLI uses the Eden Core client as the official TypeScript path.
 - Core uses Eden over loopback HTTP with `MERISTEM_INTERNAL_TOKEN` for `M-Policy`, `M-Log`, and `M-EventBus`.
-- `M-Net` now exposes its synchronous business boundary through loopback HTTP + Eden; the public agent boundary is a separate TLS + WebSocket join ingress.
+- `M-Net` exposes its synchronous business boundary through loopback HTTP + Eden; the public agent boundary remains TLS + WebSocket join ingress.
 - Eden types must not use `any`.
 - Eden contract tests must fail when REST or internal HTTP response shape changes incompatibly.
-- Eden contract version follows package semver.
+- Eden package semver must reflect incompatible contract changes.
 
 ---
 
-## 4. MVP Acceptance
+## 5. Acceptance
 
 - Core exposes the status contract.
 - CLI uses the generated Eden client.

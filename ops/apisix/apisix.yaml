@@ -1,4 +1,4 @@
-# Phase 16 optional APISIX example.
+# Optional deployment-pack APISIX example.
 # This file is an explicit edge allowlist. Do not add catch-all /api/v0/* routes.
 # Only routes declared as external REST contracts may be exposed here.
 
@@ -119,6 +119,6 @@ routes:
 # - M-Policy /internal/v0/authorize
 # - M-Log internal write endpoints
 # - NATS, PostgreSQL, OpenSearch, Redis
-# - any route absent from docs/contracts/REST-API-MVP.md or its follow-on phase docs
+# - any route absent from the active external contract docs (`docs/contracts/REST-API-MVP.md`, `docs/services/m-ui-bff.md`)
 
 #END

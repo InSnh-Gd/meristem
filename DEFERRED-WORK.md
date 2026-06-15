@@ -1,12 +1,12 @@
 # Deferred Work Register
 
-> This register records work deliberately deferred during phase planning. Deferred means "not in the current phase scope"; it does not mean forgotten, rejected, or safe to implement opportunistically without reopening the owning phase or ADR.
+> This register records work deliberately deferred during v0.1 scope planning. Deferred means "not in the current scope"; it does not mean forgotten, rejected, or safe to implement opportunistically without reopening the owning service definition, ADR, or contract doc.
 
 ---
 
 ## 1. Rules
 
-- Do not implement a deferred item unless its trigger is met and the owning roadmap / ADR / service document is updated first.
+- Do not implement a deferred item unless its trigger is met and the owning root roadmap / ADR / service document is updated first.
 - If a deferred item changes REST, Eden, event, policy, log, config, SDUI, profile, or service contracts, update the matching contract docs and tests in the same change.
 - If a deferred item expands Core responsibility, re-check `MERISTEM.md` and `MERISTEM-DEV.md` first; Core must remain a microkernel.
 - If a deferred item involves authorization, high-risk operations, network routing, secrets, approval, or LLM output, update `docs/security/SECURITY-MODEL.md` and Audit rules before implementation.
@@ -17,11 +17,11 @@
 
 ### DFW-001: LLM-Assisted Approval Review
 
-Status: deferred from Phase 12.
+Status: deferred from approval flow / M-Policy approval.
 
 Owner: M-Policy with M-Log / M-UI / BFF integration.
 
-Source: `MERISTEM-ROADMAP.md` Phase 12, `docs/roadmap/PHASE-12.md`.
+Source: Approval flow and M-Policy contract docs.
 
 Deferred work:
 
@@ -32,13 +32,13 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 12 must first prove approval, quorum, timeout, resume, and Audit behavior without introducing LLM ambiguity.
+- Approval flow must first prove approval, quorum, timeout, resume, and Audit behavior without introducing LLM ambiguity.
 - LLM must not become an authorization root.
 - Useful LLM summaries depend on stable approval records, log retrieval, and a formal operator UI.
 
 Reopen trigger:
 
-- Phase 12 approval flow is implemented and tested.
+- Approval flow is implemented and tested.
 - Formal M-UI / BFF has an approval review surface.
 - Read-model or log retrieval contracts can provide bounded, redacted context.
 
@@ -53,11 +53,11 @@ Required before implementation:
 
 ### DFW-002: Formal Approval Queue UI
 
-Status: deferred from Phase 12.
+Status: deferred from approval flow / M-Policy approval.
 
 Owner: M-UI / M-UI BFF.
 
-Source: `docs/roadmap/PHASE-12.md`.
+Source: Approval flow and M-Policy contract docs.
 
 Deferred work:
 
@@ -68,13 +68,13 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 12 uses CLI as the first acceptance surface.
-- Formal M-UI is already a later phase and must not inherit demo shell shortcuts as final design.
+- Approval flow uses CLI as the first acceptance surface.
+- Formal M-UI is a later scope item and must not inherit demo shell shortcuts as final design.
 
 Reopen trigger:
 
-- Phase 12 approval REST and CLI contracts are stable.
-- Phase 14 formal M-UI / SDUI / BFF work begins.
+- Approval flow REST and CLI contracts are stable.
+- Formal M-UI route set / SDUI v0.2 work begins.
 
 Required before implementation:
 
@@ -86,11 +86,11 @@ Required before implementation:
 
 ### DFW-003: Approval Origins Beyond M-Task And M-Net Profile Enable
 
-Status: deferred from Phase 12 / Phase 13.
+Status: deferred from approval flow / M-Policy approval and M-Net profile lifecycle.
 
 Owner: originating service plus M-Policy.
 
-Source: `docs/roadmap/PHASE-12.md`, `docs/roadmap/PHASE-13.md`.
+Source: Approval flow and M-Net profile lifecycle contract docs.
 
 Deferred work:
 
@@ -104,8 +104,8 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 12 supports only M-Task origin operations.
-- Phase 13 adds only M-Net CN enable as the next origin pattern.
+- Approval flow supports only M-Task origin operations.
+- M-Net profile lifecycle adds only M-Net CN enable as the next origin pattern.
 - Each origin needs its own suspended operation model, resume contract, stale checks, idempotency rules, events, and Audit behavior.
 
 Reopen trigger:
@@ -124,11 +124,11 @@ Required before implementation:
 
 ### DFW-004: Configurable Approval Policy
 
-Status: deferred from Phase 12.
+Status: deferred from approval flow / M-Policy approval.
 
 Owner: M-Policy.
 
-Source: `docs/roadmap/PHASE-12.md`.
+Source: Approval flow and M-Policy contract docs.
 
 Deferred work:
 
@@ -143,7 +143,7 @@ Deferred work:
 Reason deferred:
 
 - Current identity model only has `viewer`, `operator`, `admin`, and `security-admin`.
-- Phase 12 quorum is intentionally fixed: manual review requires one `security-admin`; multi approval requires two distinct `security-admin` actors.
+- Approval flow quorum is intentionally fixed: manual review requires one `security-admin`; multi approval requires two distinct `security-admin` actors.
 
 Reopen trigger:
 
@@ -161,11 +161,11 @@ Required before implementation:
 
 ### DFW-005: Separate M-Approval Service
 
-Status: deferred from Phase 12.
+Status: deferred from approval flow / M-Policy approval.
 
 Owner: undecided; current owner remains M-Policy.
 
-Source: `docs/roadmap/PHASE-12.md`.
+Source: Approval flow and M-Policy contract docs.
 
 Deferred work:
 
@@ -173,7 +173,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 12 approval behavior is part of M-Policy's decision flow.
+- Approval flow behavior is part of M-Policy's decision flow.
 - A new service would add service definition, API, event, storage, policy, log, and deployment overhead before there is enough complexity to justify it.
 
 Reopen trigger:
@@ -191,11 +191,11 @@ Required before implementation:
 
 ### DFW-006: HTTP Request Replay For Approved Operations
 
-Status: deferred and prohibited for Phase 12 / Phase 13.
+Status: deferred and prohibited for approval flow and M-Net profile lifecycle.
 
 Owner: originating service if ever reopened.
 
-Source: `docs/roadmap/PHASE-12.md`, `docs/roadmap/PHASE-13.md`.
+Source: Approval flow and M-Net profile lifecycle contract docs.
 
 Deferred work:
 
@@ -204,7 +204,7 @@ Deferred work:
 Reason deferred:
 
 - Request replay risks duplicate policy decisions, duplicate Audit facts, stale auth context, and non-idempotent execution.
-- Phase 12 and Phase 13 use source-service resume contracts instead.
+- Approval flow and M-Net profile lifecycle use source-service resume contracts instead.
 
 Reopen trigger:
 
@@ -221,11 +221,11 @@ Required before implementation:
 
 ### DFW-007: Real M-Task Retry Execution
 
-Status: deferred from Phase 11 / Phase 12.
+Status: deferred from M-Task cutover / canonical task service and approval flow. Still deferred as of v0.1.
 
 Owner: M-Task.
 
-Source: `docs/roadmap/PHASE-11.md`, `docs/roadmap/PHASE-12.md`.
+Source: M-Task service definition and approval flow contract docs.
 
 Deferred work:
 
@@ -237,8 +237,9 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 11 and Phase 12 keep retry as policy-aware `not_implemented_yet`.
+- M-Task cutover and approval flow keep retry as policy-aware `not_implemented_yet` (the REST endpoint exists but returns HTTP 501).
 - Real retry requires task attempts, leases, idempotency, backoff, and worker coordination semantics.
+- Event subjects `task.retry.requested.v0` and `task.retry.rejected.v0` are cataloged but not yet emitted.
 
 Reopen trigger:
 
@@ -255,11 +256,11 @@ Required before implementation:
 
 ### DFW-008: Agent Interrupt And Running-Task Cancellation Hardening
 
-Status: deferred from Phase 11.
+Status: deferred from M-Task cutover / canonical task service. Still deferred as of v0.1.
 
 Owner: M-Task / M-Net / node-agent.
 
-Source: `docs/roadmap/PHASE-11.md`.
+Source: M-Task service definition and node-agent protocol docs.
 
 Deferred work:
 
@@ -271,8 +272,9 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 11 cancel is best-effort and does not require node-agent force-interrupt.
+- M-Task cutover cancel is best-effort and does not require node-agent force-interrupt.
 - The current node-agent task frame is minimal and noop-focused.
+- There is no node-agent running-task registry or interrupt frame yet.
 
 Reopen trigger:
 
@@ -289,11 +291,11 @@ Required before implementation:
 
 ### DFW-009: M-Task Multi-Worker Coordination And Queue Infrastructure
 
-Status: deferred from Phase 11.
+Status: deferred from M-Task cutover / canonical task service. Still deferred as of v0.1.
 
 Owner: M-Task.
 
-Source: `docs/roadmap/PHASE-11.md`.
+Source: M-Task service definition.
 
 Deferred work:
 
@@ -306,8 +308,9 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 11 uses a lightweight timeout worker and single-service semantics.
+- M-Task cutover uses a lightweight timeout worker and single-service, in-memory + PostgreSQL semantics.
 - Redis / KeyDB are optional supplements, not default dependencies.
+- No distributed locks, leader election, or task leases exist yet.
 
 Reopen trigger:
 
@@ -323,21 +326,27 @@ Required before implementation:
 
 ### DFW-010: Production Historical Task Migration Compatibility
 
-Status: deferred from Phase 11.
+Status: deferred from M-Task cutover / canonical task service. Partially resolved as of v0.1.
 
 Owner: M-Task / Core.
 
-Source: `docs/roadmap/PHASE-11.md`.
+Source: M-Task service definition.
 
 Deferred work:
 
 - production-grade migration from Core-owned historical `tasks` rows to M-Task tables.
 - compatibility window for old task routes or old task records.
 
+What is already in place:
+
+- The old Core-owned `tasks` table is preserved as a read-only historical compatibility shim.
+- M-Task owns canonical task state in its own table group (`taskRequests`, `taskTransitions`, `taskResults`, `taskCancellations`).
+
 Reason deferred:
 
-- Phase 11 is a breaking v0.1 baseline migration.
+- M-Task cutover is a breaking v0.1 baseline migration.
 - Local development reset or explicit migration is acceptable at this stage.
+- No production-grade migration script, rollback plan, or old/new contract compatibility tests exist yet.
 
 Reopen trigger:
 
@@ -354,11 +363,11 @@ Required before implementation:
 
 ### DFW-011: M-Net CN Data Plane
 
-Status: deferred from Phase 13.
+Status: deferred from M-Net profile lifecycle / regional network profile. Still deferred as of v0.1.
 
 Owner: M-Net.
 
-Source: `docs/roadmap/PHASE-13.md`, `docs/adr/ADR-024-m-net-cn-profile.md`.
+Source: `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
 Deferred work:
 
@@ -372,8 +381,9 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 13 accepts only control-plane Regional Profile lifecycle.
+- M-Net profile lifecycle accepts only control-plane Regional Profile lifecycle; `m-net-cn@0.1.0` is `controlPlaneOnly: true`.
 - Runtime transport changes require concrete regional connectivity testing and stronger operational safety rules.
+- Real DERP relay, TCP interconnect, UDP path switching, Headscale control, and active reachability probing are not implemented.
 
 Reopen trigger:
 
@@ -392,22 +402,33 @@ Required before implementation:
 
 ### DFW-012: Generic Config Lifecycle Subsystem
 
-Status: deferred from Phase 13.
+Status: deferred from M-Net profile lifecycle / regional network profile. Partially resolved as of v0.1.
 
 Owner: Core / config subsystem, with M-Net as a consumer.
 
-Source: `docs/config/CONFIG-LIFECYCLE.md`, `docs/roadmap/PHASE-13.md`.
+Source: `docs/config/CONFIG-LIFECYCLE.md`.
 
 Deferred work:
 
 - draft / validate / commit / version / hash-sign / publish / apply / ack / rollback implementation.
-- generic config records for multiple domains.
 - node-level apply acknowledgements.
+
+What is already in place:
+
+- Generic config records for multiple domains (`core`, `m-net`, `m-policy`, `m-log`, `m-extension`, `m-ui`).
+- Executable subset: draft → validated → published → applied → rolled_back.
+- Hash-versioning, secretRef compliance, and M-Policy support.
+
+Still deferred:
+
+- node-level apply acknowledgements (distributed ack from multiple nodes).
+- Absorbing M-Net profile lifecycle into the generic config lifecycle.
 
 Reason deferred:
 
-- Phase 13 needs M-Net profile lifecycle, not a broad config platform.
+- M-Net profile lifecycle needs only profile lifecycle, not a broad config platform.
 - M-Net profile terminology remains compatible with future Config Lifecycle absorption.
+- Node-level convergence for config state is not required in v0.1.
 
 Reopen trigger:
 
@@ -425,11 +446,11 @@ Required before implementation:
 
 ### DFW-013: M-Net CN Runtime Configuration And Secrets
 
-Status: deferred from Phase 13.
+Status: deferred from M-Net profile lifecycle / regional network profile. Still deferred as of v0.1.
 
 Owner: M-Net / Core secrets / M-Policy / M-Log.
 
-Source: `docs/roadmap/PHASE-13.md`, `docs/adr/ADR-024-m-net-cn-profile.md`.
+Source: `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
 Deferred work:
 
@@ -444,12 +465,13 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 13 profile definition must be `controlPlaneOnly` and must not mislead operators into thinking runtime transport has changed.
+- Profile definition must be `controlPlaneOnly` and must not mislead operators into thinking runtime transport has changed.
 - Secret-bearing runtime configuration requires Core / M-Policy / M-Log secret lifecycle rules.
+- SecretRef v0.1 control plane exists, but M-Net does not yet consume it for runtime transport secrets.
 
 Reopen trigger:
 
-- M-Net data-plane phase is accepted.
+- M-Net data-plane work is accepted.
 - secretRef and network runtime config contracts are ready.
 
 Required before implementation:
@@ -463,11 +485,11 @@ Required before implementation:
 
 ### DFW-014: Global M-Net Profile Defaults Or Global Switch
 
-Status: deferred from Phase 13.
+Status: deferred from M-Net profile lifecycle / regional network profile.
 
 Owner: M-Net / config subsystem.
 
-Source: `docs/roadmap/PHASE-13.md`.
+Source: M-Net service definition and `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
 Deferred work:
 
@@ -477,7 +499,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 13 uses per-network enable / disable to reduce blast radius and support clear rollback.
+- M-Net profile lifecycle uses per-network enable / disable to reduce blast radius and support clear rollback.
 
 Reopen trigger:
 
@@ -493,11 +515,11 @@ Required before implementation:
 
 ### DFW-015: Approval Requirement For M-Net CN Disable
 
-Status: deferred from Phase 13 and not required by default.
+Status: deferred from M-Net profile lifecycle / regional network profile and not required by default.
 
 Owner: M-Net / M-Policy.
 
-Source: `docs/roadmap/PHASE-13.md`.
+Source: M-Net service definition and M-Policy contract docs.
 
 Deferred work:
 
@@ -505,7 +527,7 @@ Deferred work:
 
 Reason deferred:
 
-- Disable is the risk-reduction and rollback path, so Phase 13 executes it immediately with M-Policy allow + Audit.
+- Disable is the risk-reduction and rollback path, so M-Net profile lifecycle executes it immediately with M-Policy allow + Audit.
 
 Reopen trigger:
 
@@ -521,11 +543,11 @@ Required before implementation:
 
 ### DFW-016: M-Net Profile UI
 
-Status: deferred from Phase 13.
+Status: deferred from M-Net profile lifecycle / regional network profile.
 
 Owner: M-UI / M-UI BFF.
 
-Source: `docs/roadmap/PHASE-13.md`.
+Source: M-Net service definition and M-UI contract docs.
 
 Deferred work:
 
@@ -536,12 +558,12 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 13 uses REST and CLI as the acceptance surface.
-- Formal M-UI is a later phase.
+- M-Net profile lifecycle uses REST and CLI as the acceptance surface.
+- Formal M-UI is a later scope item.
 
 Reopen trigger:
 
-- Phase 14 formal M-UI work begins or M-Net profile operations need an operator UI.
+- Formal M-UI route set / SDUI v0.2 work begins or M-Net profile operations need an operator UI.
 
 Required before implementation:
 
@@ -557,7 +579,7 @@ Status: deferred.
 
 Owner: M-EventBus / M-Log / projection platform.
 
-Source: Phase 12 and Phase 13 planning.
+Source: Approval flow and M-Net profile lifecycle contract docs.
 
 Deferred work:
 
@@ -568,7 +590,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 12 and Phase 13 publish only lifecycle events needed for traceability.
+- Approval flow and M-Net profile lifecycle publish only lifecycle events needed for traceability.
 - PostgreSQL and Audit Log remain the authoritative facts for votes, approvals, and profile state.
 
 Reopen trigger:
@@ -585,11 +607,11 @@ Required before implementation:
 
 ### DFW-018: Real M-Extension Wasm Runtime
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-Extension.
 
-Source: `docs/roadmap/PHASE-15.md`, `docs/services/m-extension.md`, `docs/references/wasm3-latest.md`.
+Source: `docs/services/m-extension.md`, `docs/references/wasm3-latest.md`.
 
 Deferred work:
 
@@ -604,7 +626,7 @@ Deferred work:
 Reason deferred:
 
 - Meristem is not Wasm-first.
-- Phase 15 must first prove manifest, policy, Audit, lifecycle, and state ownership without introducing runtime supply-chain and sandbox risks.
+- M-Extension control plane must first prove manifest, policy, Audit, lifecycle, and state ownership without introducing runtime supply-chain and sandbox risks.
 - Wasm3 is an optional future runtime boundary and currently requires a dedicated adoption checklist.
 
 Reopen trigger:
@@ -624,11 +646,11 @@ Required before implementation:
 
 ### DFW-019: M-Extension Webhook Ingress And Execution
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-Extension / M-Policy / M-Log.
 
-Source: `docs/roadmap/PHASE-15.md`, `docs/security/SECURITY-MODEL.md`.
+Source: `docs/security/SECURITY-MODEL.md`.
 
 Deferred work:
 
@@ -642,7 +664,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 15 supports only `webhook-declared` manifests and no runtime execution.
+- M-Extension control plane supports only `webhook-declared` manifests and no runtime execution.
 - Webhook ingress is an external untrusted boundary and must not be added as a side effect of registry work.
 
 Reopen trigger:
@@ -661,11 +683,11 @@ Required before implementation:
 
 ### DFW-020: M-Extension HTTP Callback Or Cloud-Function Runtime
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-Extension.
 
-Source: `docs/roadmap/PHASE-15.md`.
+Source: `docs/services/m-extension.md`.
 
 Deferred work:
 
@@ -677,7 +699,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 15 allows only `http-callback-placeholder` and does not execute callbacks.
+- M-Extension control plane allows only `http-callback-placeholder` and does not execute callbacks.
 - Callback and cloud-function behavior require secret lifecycle, retry semantics, rate limits, and blast-radius controls.
 
 Reopen trigger:
@@ -686,7 +708,7 @@ Reopen trigger:
 
 Required before implementation:
 
-- ADR or phase document for execution model.
+- ADR for execution model.
 - secretRef binding and redaction rules.
 - retry / timeout / idempotency contract.
 - Audit and Full Log behavior.
@@ -696,11 +718,11 @@ Required before implementation:
 
 ### DFW-021: Non-System Extension Scopes
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-Extension plus the owning scoped domain.
 
-Source: `docs/roadmap/PHASE-15.md`, `docs/services/m-extension.md`.
+Source: `docs/services/m-extension.md`.
 
 Deferred work:
 
@@ -711,7 +733,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 15 stores the two-layer definition / instance model but only enables `system/default` to avoid cross-domain lifecycle coupling.
+- M-Extension control plane stores the two-layer definition / instance model but only enables `system/default` to avoid cross-domain lifecycle coupling.
 
 Reopen trigger:
 
@@ -728,11 +750,11 @@ Required before implementation:
 
 ### DFW-022: M-Extension UI And BFF Surfaces
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-UI / M-UI BFF.
 
-Source: `docs/roadmap/PHASE-14.md`, `docs/roadmap/PHASE-15.md`.
+Source: M-Extension service definition and M-UI contract docs.
 
 Deferred work:
 
@@ -744,8 +766,8 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 15 uses REST and CLI as the acceptance surface.
-- Phase 14 explicitly excludes M-Extension UI.
+- M-Extension control plane uses REST and CLI as the acceptance surface.
+- M-UI route set / SDUI v0.2 explicitly excludes M-Extension UI.
 
 Reopen trigger:
 
@@ -763,11 +785,11 @@ Required before implementation:
 
 ### DFW-023: Dynamic Extension Permission Registry And Marketplace
 
-Status: deferred from Phase 15.
+Status: deferred from M-Extension control plane.
 
 Owner: M-Extension / M-Policy.
 
-Source: `docs/roadmap/PHASE-15.md`.
+Source: M-Extension service definition and `docs/adr/ADR-F02-architecture-organization.md`.
 
 Deferred work:
 
@@ -779,7 +801,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 15 uses four fixed permissions and prohibits extensions from creating permissions.
+- M-Extension control plane uses four fixed permissions and prohibits extensions from creating permissions.
 - Marketplace and dynamic permission behavior would push Meristem toward plugin-first architecture before the control plane is proven.
 
 Reopen trigger:
@@ -788,7 +810,7 @@ Reopen trigger:
 
 Required before implementation:
 
-- ADR revisiting ADR-007 boundaries.
+- ADR revisiting M-Extension boundaries (`docs/adr/ADR-F02-architecture-organization.md`).
 - permission namespace contract.
 - package signature and provenance rules.
 - migration and compatibility policy.
@@ -798,11 +820,11 @@ Required before implementation:
 
 ### DFW-024: Runtime Redis / KeyDB Adapter Integration
 
-Status: deferred from Phase 16.
+Status: deferred from optional deployment pack.
 
 Owner: owning service plus data / cache boundary.
 
-Source: `docs/roadmap/PHASE-16.md`, `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`, `docs/data/STATE-MODEL.md`.
+Source: `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`, `docs/data/STATE-MODEL.md`.
 
 Deferred work:
 
@@ -813,7 +835,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 16 only ships a Redis optional profile and adapter contract boundary.
+- Optional deployment pack only ships a Redis optional profile and adapter contract boundary.
 - NATS KV remains the default cache model.
 
 Reopen trigger:
@@ -832,11 +854,11 @@ Required before implementation:
 
 ### DFW-025: Production APISIX Gateway Hardening
 
-Status: deferred from Phase 16.
+Status: deferred from optional deployment pack.
 
 Owner: operations / security with affected service owners.
 
-Source: `docs/roadmap/PHASE-16.md`, `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`, `docs/adr/ADR-017-apisix-optional.md`.
+Source: `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`, `docs/adr/ADR-F03-infrastructure-backbone.md`.
 
 Deferred work:
 
@@ -849,7 +871,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 16 uses APISIX only as an optional local edge gateway example.
+- Optional deployment pack uses APISIX only as an optional local edge gateway example.
 - APISIX must not become a Meristem authorization or policy root.
 
 Reopen trigger:
@@ -868,11 +890,11 @@ Required before implementation:
 
 ### DFW-026: Split-Container Service Runtime And Image Publishing
 
-Status: deferred from Phase 16.
+Status: deferred from optional deployment pack.
 
 Owner: operations / service owners.
 
-Source: `docs/roadmap/PHASE-16.md`, `ops/compose/full-stack.example.yml`.
+Source: `ops/compose/full-stack.example.yml`.
 
 Deferred work:
 
@@ -885,7 +907,7 @@ Deferred work:
 Reason deferred:
 
 - current internal service URLs are loopback-oriented in code.
-- Phase 16 full-stack compose is topology documentation, not a production deployment or default workflow.
+- Optional deployment pack full-stack compose is topology documentation, not a production deployment or default workflow.
 
 Reopen trigger:
 
@@ -903,11 +925,11 @@ Required before implementation:
 
 ### DFW-027: Production Identity Provider Integration
 
-Status: deferred from Phase 17.
+Status: deferred from Identity v0.2.
 
 Owner: Core / security.
 
-Source: `docs/roadmap/PHASE-17.md`, `docs/adr/ADR-020-identity-in-core.md`.
+Source: `docs/adr/ADR-F02-architecture-organization.md`.
 
 Deferred work:
 
@@ -921,8 +943,8 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 17 hardens local Identity v0.2 only.
-- production identity would expand Core's responsibility and may require revisiting ADR-020.
+- Identity v0.2 hardens local identity only.
+- production identity would expand Core's responsibility and may require revisiting `docs/adr/ADR-F02-architecture-organization.md`.
 
 Reopen trigger:
 
@@ -940,11 +962,11 @@ Required before implementation:
 
 ### DFW-028: Production Secret Backend
 
-Status: deferred from Phase 18.
+Status: deferred from SecretRef v0.1.
 
 Owner: Core / security / operations.
 
-Source: `docs/roadmap/PHASE-18.md`, `docs/adr/ADR-021-secrets-core-policy-log.md`.
+Source: `docs/adr/ADR-F02-architecture-organization.md`.
 
 Deferred work:
 
@@ -957,7 +979,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 18 implements only SecretRef v0.1 control-plane and local development storage.
+- SecretRef v0.1 implements only control-plane and local development storage.
 - production secret backends require operational, security, and recovery design beyond v0.1 closure.
 
 Reopen trigger:
@@ -975,11 +997,11 @@ Required before implementation:
 
 ### DFW-029: Broad Config Platform And Config Authoring UI
 
-Status: deferred from Phase 19.
+Status: deferred from Config Lifecycle v0.1.
 
 Owner: Core / M-UI / affected domain services.
 
-Source: `docs/roadmap/PHASE-19.md`, `docs/config/CONFIG-LIFECYCLE.md`.
+Source: `docs/config/CONFIG-LIFECYCLE.md`.
 
 Deferred work:
 
@@ -993,7 +1015,7 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 19 implements the minimum authoritative lifecycle, not a broad configuration product.
+- Config Lifecycle v0.1 implements the minimum authoritative lifecycle, not a broad configuration product.
 
 Reopen trigger:
 
@@ -1011,11 +1033,11 @@ Required before implementation:
 
 ### DFW-029: Event Catalog Parity For Deferred Subjects
 
-Status: deferred from Phase 20.
+Status: deferred from v0.1 closure / acceptance closure.
 
 Owner: Core / M-Task / M-Net / M-Policy / M-Log (per subject).
 
-Source: `docs/events/EVENT-CATALOG.md`, `tests/contracts/schema-coverage.md`, `.omo/plans/phase-20-completion.md`.
+Source: `docs/events/EVENT-CATALOG.md`, `tests/contracts/schema-coverage.md`, `docs/events/DEFERRED-EVENT-GAP-MAP.md`.
 
 Deferred work:
 
@@ -1025,14 +1047,14 @@ Deferred work:
 
 Reason deferred:
 
-- Phase 20 is closure and audit only.
+- Acceptance closure scope is audit and signoff only.
 - These catalog subjects have documented payload skeletons but no active publisher in the current codebase.
-- Implementing them would expand Core, M-Task, M-Net, identity, SecretRef, config, or audit behavior beyond Phase 20 scope.
+- Implementing them would expand Core, M-Task, M-Net, identity, SecretRef, config, or audit behavior beyond v0.1 closure scope.
 
 Reopen trigger:
 
 - A deferred subject gains a real publisher in its owning service.
-- The owning phase or ADR explicitly accepts the new runtime capability.
+- The owning service definition or ADR explicitly accepts the new runtime capability.
 
 Required before implementation:
 

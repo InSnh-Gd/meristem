@@ -2,7 +2,7 @@ import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
 
 // ActorId is a boundary literal because auth, policy, audit, and BFF session views all share it.
-// Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.2
+// Identity 契约 schema 边界见 `docs/security/SECURITY-MODEL.md` 和 `docs/adr/ADR-F02-architecture-organization.md`。
 export const ActorIdSchema = Schema.Literal(...actorIds)
 export type ActorIdFromSchema = typeof ActorIdSchema.Type
 
@@ -55,8 +55,11 @@ export const identityApiRoutes = {
   getActor: '/api/v0/identity/actors/:id',
   issueToken: '/api/v0/identity/tokens',
   inspectToken: '/api/v0/identity/tokens/:jti',
-  revokeToken: '/api/v0/identity/tokens/:jti/revoke',
-  introspectToken: '/api/v0/identity/introspect'
+  revokeToken: '/api/v0/identity/tokens/:jti/revoke'
+} as const
+
+export const identityInternalRoutes = {
+  introspectToken: '/internal/v0/identity/tokens/introspect'
 } as const
 
 // Eden 侧只承载 HTTP path 形状；外部公开能力仍以 REST/OpenAPI 为源。
@@ -65,8 +68,11 @@ export const identityEdenV02Contract = {
   getActor: `GET ${identityApiRoutes.getActor}`,
   issueToken: `POST ${identityApiRoutes.issueToken}`,
   inspectToken: `GET ${identityApiRoutes.inspectToken}`,
-  revokeToken: `POST ${identityApiRoutes.revokeToken}`,
-  introspectToken: `POST ${identityApiRoutes.introspectToken}`
+  revokeToken: `POST ${identityApiRoutes.revokeToken}`
+} as const
+
+export const identityInternalContract = {
+  introspectToken: `POST ${identityInternalRoutes.introspectToken}`
 } as const
 
 export const IdentityActorParamsSchema = Schema.Struct({

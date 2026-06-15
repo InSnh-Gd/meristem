@@ -19,7 +19,7 @@ export const ProjectorJobStatusSchema = Schema.Literal(
 export type ProjectorJobStatusFromSchema = typeof ProjectorJobStatusSchema.Type
 
 // Projection control payloads are internal executable contracts; Elysia keeps TypeBox at the REST edge.
-// Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.1, §2.4
+// Projection 契约 schema 边界见 `docs/services/m-log.md`、`docs/data/STATE-MODEL.md` 和契约版本规则。
 export const BackfillParamsSchema = Schema.Struct({
   index: Schema.NonEmptyString,
   from: Schema.NullOr(ProjectionCursorSchema),

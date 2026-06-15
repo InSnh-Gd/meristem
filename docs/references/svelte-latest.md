@@ -69,10 +69,6 @@ class AppState {
 export const appState = new AppState()
 ```
 
-**Meristem 现状 (2026-05-22)**: `apps/m-ui/src/lib/stores.svelte.ts` 已正确使用此模式。
-
----
-
 ## 5. Meristem Usage
 
 M-UI is not part of the MVP, but future Svelte/SvelteKit work should follow:
@@ -93,11 +89,6 @@ M-UI is not part of the MVP, but future Svelte/SvelteKit work should follow:
 - Prefer `$effect` for side effects; avoid using it for pure computations.
 - Read props through `$props`; do not mutate props directly.
 - Replace `on:click` with `onclick` in templates.
-
-**Meristem 现状 (2026-05-22)**: `apps/m-ui/package.json` 使用 `svelte@latest`。  
-**建议**: 锁定到 `svelte@5.37.0`（或更高稳定版），避免 runes 语义漂移。
-
----
 
 ## 7. Version Pinning Note
 

@@ -63,7 +63,7 @@ Rules:
 | `core.lifecycle.degraded.v0` | event | Core | M-Log, M-Policy, M-UI BFF | `CoreDegradedPayload` | at-least-once |
 | `service.lifecycle.registered.v0` | event | Core | M-Log, M-Policy, M-UI BFF | `ServiceRegisteredPayload` | at-least-once |
 | `service.lifecycle.reload.requested.v0` | command | Core | target service | `ServiceReloadRequestedPayload` | at-least-once |
-| `service.lifecycle.reload.failed.v0` | event | service | Core, M-Log | `ServiceReloadFailedPayload` | at-least-once |
+| `service.lifecycle.reload.failed.v0` | deferred event | service | Core, M-Log | `ServiceReloadFailedPayload` | reserved until a real publisher is wired |
 | `node.registration.requested.v0` | command | Core | M-Policy | `NodeRegistrationRequestedPayload` | at-least-once |
 | `node.registration.accepted.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeRegistrationAcceptedPayload` | at-least-once |
 | `node.join-ticket.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeJoinTicketCreatedPayload` | at-least-once |
@@ -105,16 +105,6 @@ Rules:
 | `config.rolled_back.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigRolledBackPayload` | at-least-once |
 | `audit.lock.required.v0` | event | M-Policy / M-Log | Core, M-UI BFF | `AuditLockRequiredPayload` | at-least-once |
 | `audit.entry.created.v0` | event | M-Log | Core, M-UI BFF | `AuditEntryCreatedPayload` | at-least-once |
-
-MVP sync HTTP/Eden boundaries:
-
-| Boundary | Transport | Notes |
-|----------|-----------|-------|
-| Core -> M-Policy | loopback HTTP + Eden + internal token | `/internal/v0/authorize`, `/internal/v0/decisions/:id` |
-| Core -> M-Log | loopback HTTP + Eden + internal token | `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit` |
-| Core -> M-EventBus | loopback HTTP + Eden + internal token | `/internal/v0/publish` |
-| Core -> M-Net | loopback HTTP + Eden + internal token | `/internal/v0/networks`, `/internal/v0/networks/:id/members`, `/internal/v0/tasks/noop` |
-| node-agent -> M-Net | public TLS + WebSocket session protocol | `/join/v0/session` with `join.redeem`, `session.resume`, `heartbeat`, `log.forward`, `task.result` |
 
 ---
 
@@ -324,7 +314,7 @@ type ConfigRolledBackPayload = ConfigLifecyclePayload & { rollbackVersion: strin
 - High-risk validation failure writes Audit Log when an actor and resource are known.
 - Dead-letter handling is required before v1 for long-running or externally triggered commands.
 
-### Phase 12 Approval Lifecycle Events
+### Approval Lifecycle Events
 
 | Subject | Type | Publisher | Subscribers | Payload Schema | Delivery |
 |---------|------|-----------|-------------|----------------|----------|
@@ -407,7 +397,7 @@ type TaskOperationRejectedPayload = {
   correlationId?: string;
 };
 
-### Phase 13 M-Net Profile Lifecycle Events
+### M-Net Profile Lifecycle Events
 
 | Subject | Type | Publisher | Subscribers | Payload Schema | Delivery |
 |---------|------|-----------|-------------|----------------|----------|
@@ -418,7 +408,7 @@ type TaskOperationRejectedPayload = {
 | `mnet.profile.apply_failed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileApplyFailedPayload` | at-least-once |
 | `mnet.profile.enable.canceled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileEnableCanceledPayload` | at-least-once |
 
-All profile events use singular `profile` in the subject. Events are emitted after PostgreSQL state changes; they are not the source of truth.
+All profile events use singular `profile` in the subject. Events are emitted after PostgreSQL state changes; they do not replace PostgreSQL as the authoritative state.
 
 Events published by M-Net through M-EventBus; subscribers consume through NATS.
 

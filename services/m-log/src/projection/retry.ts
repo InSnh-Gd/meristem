@@ -13,7 +13,7 @@ export function idempotencyKey(index: string, factId: string): string {
 
 /**
  * Creates retry behavior for projection writes and DLQ persistence on exhaustion.
- * Source: docs/plans/2026-05-23-architecture-review-register.md A-004.
+ * 来源：`docs/services/m-log.md` 的投影重试边界和 `docs/testing/TESTING.md` 的失败模式门禁。
  */
 export function createRetryProjector(db: ProjectionDatabase, os: ProjectionOpenSearch) {
   async function projectWithRetry(

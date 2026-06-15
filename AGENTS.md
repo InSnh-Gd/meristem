@@ -18,7 +18,7 @@
 
 - `.agents/skills/meristem-service-definition/SKILL.md` - 新增、修改或审查 Core、M-* 服务、node service、task service、extension service、BFF 或 service definition。
 - `.agents/skills/meristem-contract-versioning/SKILL.md` - 修改 REST、OpenAPI、Eden、事件、Effect Schema、服务定义、配置、策略、日志、Webhook、BFF、SDUI 或 M-Net Profile 契约。
-- `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF display contract、CommandWell、审计/策略/日志可见性或 Phase 9 功能演示。
+- `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF display contract、CommandWell、审计/策略/日志可见性或 M-UI 功能演示。
 - `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
 
 技术栈相关任务继续使用已有项目 skill：
@@ -41,7 +41,7 @@
 6. `docs/README.md`
 7. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
 
-`docs/archive/meristem-v-next-developer-document-v0.1.md` 是历史开发草案，仅用于追溯早期决策背景，不再作为当前实现规范来源。
+历史开发草案和旧阶段文档已从当前文档集移除；当前实现规范以根文档、`docs/README.md`、对应契约文档和 `DEFERRED-WORK.md` 为准。
 
 ---
 

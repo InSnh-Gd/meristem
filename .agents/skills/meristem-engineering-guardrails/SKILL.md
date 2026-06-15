@@ -74,7 +74,7 @@ Meristem vNext 当前仓库执行 Bun-only：
 
 ## Effect 默认规则
 
-Meristem 采用 `ADR-016: Effect Without Effect Everywhere`：
+Meristem 采用 `ADR-F01` 中的 Effect 使用边界：
 
 - 复杂副作用、生命周期、重试、超时、取消、资源释放、内部服务编排、事件消费者、策略流程、日志 pipeline 默认优先考虑 Effect。
 - 纯数据映射、简单 CRUD、短小同步规则、无需资源语义的轻量函数，不要为了形式统一强行改成 Effect。
@@ -84,7 +84,7 @@ Meristem 采用 `ADR-016: Effect Without Effect Everywhere`：
 
 如果任务触及 Effect 边界，至少同时检查：
 
-- `docs/adr/ADR-016-effect-without-effect-everywhere.md`
+- `docs/adr/ADR-F01-foundational-technology-stack.md`
 - `.agents/skills/functional-programming/SKILL.md`
 - `.agents/skills/effect-ts/SKILL.md`
 - 对应服务文档、契约文档与测试门禁

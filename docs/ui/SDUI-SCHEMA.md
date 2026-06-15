@@ -117,9 +117,9 @@ Rules:
 
 ---
 
-## 5. Phase 9 Functional Demo Route
+## 5. M-UI Functional Demo Surface
 
-Phase 9 introduces a temporary **M-UI Functional Demo Shell**. It proves the control-room flow but is not the final frontend design.
+The current v0.1 M-UI surface is a **functional-demo shell** built on the SDUI v0.2 boundary. It proves the control-room flow and its supporting drill-down routes, but it is not the final frontend design.
 
 Required route shape:
 
@@ -134,7 +134,7 @@ commandWell: Run noop task
 Required command:
 
 ```ts
-type Phase9NoopCommand = MUiCommand & {
+type FunctionalDemoNoopCommand = MUiCommand & {
   id: "task.noop.run";
   action: "task:submit";
   risk: "medium";
@@ -144,9 +144,9 @@ type Phase9NoopCommand = MUiCommand & {
 };
 ```
 
-Phase 9 rules:
+Functional demo rules:
 
-- Visible UI text is Chinese for Phase 9; machine fields, permission names, event names, error codes, and component kinds remain English.
+- Visible UI text is Chinese for the functional demo; machine fields, permission names, event names, error codes, and component kinds remain English.
 - The `Run noop task` command is rendered to operators as `运行 noop 任务`.
 - It is enabled only for a selected reachable Leaf with `task:submit`.
 - Missing permission uses a visible Chinese explanation that preserves the permission name, such as `缺少权限：task:submit`.
@@ -158,10 +158,10 @@ Phase 9 rules:
 - Success refreshes Timeline and the selected Leaf node.
 - Failure displays the Core error envelope inline in CommandWell.
 - Audit regions remain visible but access-denied for actors without `audit:read`.
-- Minimal policy summaries may show actor, action, resource, result, and createdAt; Phase 9 does not require a full `PolicyDecisionPanel`.
+- Minimal policy summaries may show actor, action, resource, result, and createdAt; the functional demo does not require a full `PolicyDecisionPanel`.
 - Toasts, snackbars, modals, and hidden destructive controls remain forbidden.
 - Mobile must remain usable through a single-column or vertically scrollable layout, but final mobile interaction design is out of scope.
-- Phase 9 uses manual refresh and command-after refresh only; realtime UI transports are out of scope.
+- The functional demo uses manual refresh and command-after refresh only; realtime UI transports are out of scope.
 
 ---
 
@@ -169,15 +169,15 @@ Phase 9 rules:
 
 - Route schema validates before rendering.
 - Unknown component kind fails closed.
-- Missing permission hides or disables command with reason; Phase 9 must prefer a visible disabled command explanation.
+- Missing permission hides or disables command with reason; the functional demo must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
 - Component token usage follows `MERISTEM-DESIGN.md`.
 
 ---
 
-## 7. Phase 9 Control-Room Route
+## 7. Functional Demo Route Registry
 
-The Phase 9 functional demo implements one SDUI route:
+The functional demo currently exposes a 7-route SDUI v0.2 registry, with `control-room.overview` as the primary operator entry route.
 
 ```ts
 const controlRoomRoute: MUiRouteSchema = {
@@ -198,13 +198,13 @@ const controlRoomRoute: MUiRouteSchema = {
 };
 ```
 
-**Phase 9 additions beyond the base schema**:
+**Functional demo-specific expectations**:
 
 - `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
-- `PolicyDecisionPanel`: Not implemented in Phase 9; only a minimal summary is shown inline after command execution.
-- `CommandWellPanel` only surfaces one command (`noop`) against reachable Leaf nodes with `task:submit`.
+- `PolicyDecisionPanel`: Not implemented in the functional demo; only a minimal summary is shown inline after command execution.
+- `CommandWellPanel` only surfaces one executable command (`noop`) against reachable Leaf nodes with `task:submit`.
 
-**Phase 9 state sources**:
+**Functional demo state sources**:
 
 - Node list, service registry, session: authoritative (PostgreSQL via Core)
 - Timeline entries: log projection (via Core)
@@ -214,9 +214,9 @@ const controlRoomRoute: MUiRouteSchema = {
 
 ---
 
-## 8. Phase 14 Formal Route Set
+## 8. Current SDUI v0.2 Route Set
 
-Phase 14 replaces the single demo route with 7 formal SDUI v0.2 routes, each with state source declarations and degraded state support.
+The current SDUI v0.2 route set contains 7 routes, each with state source declarations and degraded state support. The functional-demo shell is the current delivery surface for this route registry.
 
 ### 8.1 Route Registry
 
@@ -241,7 +241,7 @@ type SduiV02RouteRegistry = {
 | policy.decisions | PolicyDecisionPanel, DecisionQueueSummary | policy, audit |
 | services.index | ServiceRegistryTable, KeyValueInspector | authoritative |
 
-### 8.3 New Shared Components (Phase 14)
+### 8.3 Shared Components
 
 `StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`.
 
@@ -249,7 +249,7 @@ type SduiV02RouteRegistry = {
 
 Each route may declare `degradedState: { enabled: boolean; reason: string }`. When `enabled: true`, `InlineOperationalAlert` must render on the route surface; M-UI must not suppress degradation visibility.
 
-### 8.5 Phase 14 Gates
+### 8.5 Route Set Gates
 
 - SDUI v0.2 contract tests verify all 7 route IDs, component allowlist, forbidden kind rejection, state source presence.
 - UI contract tests (`test:ui-contract`) enforce token-only styling, forbidden component names, BFF-only data boundary, CommandWell-only high-risk actions.

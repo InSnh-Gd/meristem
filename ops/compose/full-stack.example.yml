@@ -1,4 +1,4 @@
-# Phase 16 topology example only.
+# Optional deployment-pack topology example only.
 # This file documents intended local process grouping; it is not a production deployment.
 # Current internal service URLs are loopback-oriented in code, so split-container runtime
 # requires follow-up configuration work before this can become an executable default.

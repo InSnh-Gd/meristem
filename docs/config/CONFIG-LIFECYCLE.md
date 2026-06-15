@@ -4,7 +4,18 @@
 
 This document applies to authoritative configuration changes. The current service reload prototype is a narrower runtime control path and does not replace this state machine; see `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
-Phase 19 implements the first v0.1 subset of this lifecycle. It is intentionally narrower than a broad configuration platform or UI authoring system.
+Config Lifecycle v0.1 implements the first subset of this lifecycle. It is intentionally narrower than a broad configuration platform or UI authoring system.
+
+What Config Lifecycle v0.1 already delivers:
+
+- generic config records for multiple domains (`core`, `m-net`, `m-policy`, `m-log`, `m-extension`, `m-ui`).
+- executable subset: draft → validated → published → applied → rolled_back.
+- hash-versioning, secretRef compliance, and M-Policy support.
+
+What remains deferred:
+
+- node-level apply acknowledgements (distributed ack from multiple nodes).
+- absorbing M-Net profile lifecycle into the generic config lifecycle.
 
 ---
 
@@ -24,7 +35,7 @@ draft
 
 No implementation may skip validation, versioning, publish, apply, and ack.
 
-Phase 19 supports this executable subset:
+Config Lifecycle v0.1 supports this executable subset:
 
 ```text
 draft
@@ -56,7 +67,7 @@ type MConfigRecord = {
 };
 ```
 
-Phase 19 config payloads must not contain plaintext secret values. Use `secretRef` for secret-bearing configuration.
+Config Lifecycle v0.1 config payloads must not contain plaintext secret values. Use `secretRef` for secret-bearing configuration.
 
 ---
 
@@ -85,7 +96,7 @@ Phase 19 config payloads must not contain plaintext secret values. Use `secretRe
 | secret-related config | required | required |
 | SDUI schema | required if it exposes privileged action | Full, Audit if high-risk |
 
-Phase 19 ownership rules:
+Config Lifecycle v0.1 ownership rules:
 
 - Core owns generic config records, versions, transitions, and apply acknowledgements.
 - domain services own domain-specific apply behavior.

@@ -40,7 +40,17 @@ What M-Extension must not own:
 - outbound HTTP callback execution.
 - script or cloud-function runtime execution.
 
-Phase 15 is control-plane only. The manifest contract reserves future runtime fields, but accepted Phase 15 manifests reject those fields until runtime governance is implemented.
+M-Extension is control-plane only. The manifest contract reserves future runtime fields, but accepted manifests reject those fields until runtime governance is implemented.
+
+Deferred in the current baseline:
+
+- Wasm runtime execution.
+- Webhook ingress execution.
+- Outbound HTTP callback execution.
+- Script or cloud-function runtime execution.
+- Non-`system/default` scopes (node, network, service, tenant, user).
+- Dynamic permission registration or marketplace-style installation.
+- M-UI / BFF surface for extension management.
 
 ---
 
@@ -53,7 +63,7 @@ Phase 15 is control-plane only. The manifest contract reserves future runtime fi
 | Events | `extension.definition.*.v0`, `extension.instance.*.v0` | v0 | Lifecycle events only |
 | CLI | `meristem extension *` | v0 | Uses `MERISTEM_EXTENSION_URL` |
 
-M-Extension does not expose execution, invoke, run, webhook, or callback contracts in Phase 15.
+M-Extension does not expose execution, invoke, run, webhook, or callback contracts.
 
 ---
 
@@ -71,7 +81,7 @@ Rules:
 - extensions cannot create new permissions.
 - manifest `requestedPermissions` must reference known Meristem permissions.
 - unknown permissions are rejected.
-- high or critical risk manifests are rejected in Phase 15.
+- high or critical risk manifests are rejected.
 
 ---
 
@@ -99,7 +109,7 @@ M-Extension must not read private tables from M-Policy, M-Log, Core, M-Net, or M
 | `MERISTEM_INTERNAL_TOKEN` | string | yes | no | internal service authentication |
 | `MERISTEM_JWT_SECRET` | string | yes | no | local MVP bearer token validation |
 
-Runtime execution configuration is out of scope for Phase 15.
+Runtime execution configuration is out of scope.
 
 ---
 
@@ -118,7 +128,7 @@ Readiness must not report ready when M-Policy or M-Log are unavailable for write
 
 | Capability | Supported | Notes |
 |------------|-----------|-------|
-| reloadable | no | Phase 15 does not require runtime reload behavior |
+| reloadable | no | M-Extension does not require runtime reload behavior |
 | rollbackable | limited | extension instance disable is the rollback path for enabled control-plane state |
 | degradable | limited | read-only degraded display may exist later; mutating operations fail closed |
 
@@ -144,7 +154,7 @@ Secrets, raw webhook tokens, executable command bodies, binary payloads, and fut
 - M-Policy denial must fail closed.
 - M-Policy unavailability must fail closed.
 - allowed write operations requiring Audit must write Audit before the authoritative state transition.
-- Phase 15 does not create approval records for extension operations.
+- M-Extension does not create approval records for extension operations.
 - high and critical risk manifests are rejected as unsupported, not suspended for approval.
 
 ---
@@ -159,7 +169,7 @@ extension_instances
 extension_transitions
 ```
 
-Phase 15 supports only:
+M-Extension supports only:
 
 ```text
 scopeType = "system"

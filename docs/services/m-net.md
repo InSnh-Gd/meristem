@@ -8,158 +8,191 @@
 | version | `0.1.0` |
 | domain | `m-net` |
 | kind | `internal` |
+| owner | Meristem networking maintainers |
 
 ---
 
 ## 2. Responsibility
 
-M-Net owns node interconnection, path selection, network policy, DERP / UDP / TCP strategy, node reachability, Leaf Node interconnect range, and Regional Network Profile control-plane lifecycle.
+M-Net owns node interconnection control-plane behavior, join/session orchestration, logical network membership, and Regional Network Profile lifecycle.
 
-M-Net owns actual networking behavior. M-EventBus carries network events, status synchronization, and strategy notifications.
+What this service owns:
 
-Current implemented scope:
-
-- logical `network` resource creation
+- logical `network` resource creation and listing
 - logical node-to-network membership
-- leaf/stem membership rules
-- logical network membership queries
-- Join Ticket redemption
+- Leaf / Stem membership rules
 - public TLS + WebSocket join ingress on `8443`
-- runtime token only in `join.accepted` and `session.resume`
-- node-agent heartbeat, log forward, and task result frames over the M-Net session protocol
+- runtime token issuance during `join.accepted` and session resume handling
+- node-agent heartbeat, log forward, and task result frame handling
 - node reachability and runtime status updates
-- offline transition on heartbeat timeout
-- Phase 13 Regional Network Profile control-plane lifecycle (see §4)
+- offline transition on heartbeat timeout or session loss
+- Regional Network Profile control-plane state and transitions
 
-Still not implemented:
+What this service must not own:
 
-- DERP / UDP / TCP transport
-- Headscale control plane
+- Core-owned authorization decisions
+- M-Task-owned canonical task lifecycle state
+- public NATS semantics for the agent boundary
+- real DERP / UDP / TCP data-plane rollout in the current baseline
+
+Current deferred networking behavior:
+
+- DERP / UDP / TCP transport implementation
+- Headscale control plane integration
 - active reachability probing beyond control-plane heartbeat
 - path selection
 - regional profile data-plane rollout
 
-Public exposure rule:
+Public exposure rules:
 
 - target shape is one public node-join ingress only on `8443`
-- `m-net` internal health/ready and internal APIs stay loopback-only on `127.0.0.1:3104`
-- raw NATS ports stay private; the public agent boundary is no longer expressed as NATS semantics
-- exposing `3000 + 4223` for cross-machine validation is now a development exception only
+- internal health, readiness, and `/internal/v0/*` APIs stay loopback-only on `127.0.0.1:3104`
+- raw NATS ports stay private; the agent boundary is no longer expressed as NATS semantics
+- exposing `3000 + 4223` for cross-machine validation remains a development-only exception
 
 ---
 
-## 3. Default Network Design
+## 3. Contracts
+
+| Contract | Path / Subject | Version | Notes |
+|----------|----------------|---------|-------|
+| Eden | `@meristem/contracts/mnet` | `0.1.0` | Core uses loopback HTTP + Eden for control-plane calls |
+| REST | `/api/v0/networks*`, `/api/v0/network-profiles*`, `GET /join/v0/health`, `GET /join/v0/session` | `v0` | external profile API is owned by M-Net |
+| Events | `mnet.*`, `node.*`, `network-profile.*` subjects listed in `docs/events/EVENT-CATALOG.md` | `v0` | event naming stays catalog-driven |
+
+Current runtime boundary:
+
+- Core → M-Net create/list/join/member uses loopback HTTP + Eden + internal token.
+- M-Task → M-Net agent dispatch and best-effort cancellation use declared delivery operations; M-Task owns task lifecycle state.
+- public join ingress exposes only `GET /join/v0/health` and `GET /join/v0/session` with WebSocket upgrade.
+- client → server frames: `join.redeem`, `session.resume`, `heartbeat`, `log.forward`, `task.result`.
+- server → client frames: `join.accepted`, `session.resumed`, `task.execute`, `error`.
+- `join.accepted` is the only frame that returns the runtime token.
+- `join.accepted` and `session.resumed` return the active `sessionId`.
+- `heartbeat`, `log.forward`, and `task.result` must echo the current `sessionId`; stale session IDs are rejected with `session.superseded`.
+- only one active session may exist per node; a successful resume supersedes the previous live connection immediately.
+
+---
+
+## 4. Permissions
+
+| Permission | Required For | Risk |
+|------------|--------------|------|
+| `network:create` | create logical networks | high |
+| `network:join` | add a node to a logical network | high |
+| `network-profile:read` | list or show profile definitions and state | medium |
+| `network-profile:apply` | enable a profile on a network | high |
+| `network-profile:disable` | disable a profile on a network | medium |
+
+---
+
+## 5. Dependencies
+
+| Dependency | Type | Failure Behavior |
+|------------|------|------------------|
+| Core | service | external orchestration requests fail closed |
+| M-Task | service | task delivery orchestration degrades; task lifecycle ownership remains external |
+| M-Policy | service | protected profile and membership operations fail closed |
+| M-Log | service | required Timeline / Audit writes block high-risk operations |
+| PostgreSQL | datastore | authoritative network and profile state writes fail closed |
+
+---
+
+## 6. Configuration
+
+| Key | Type | Required | Hot Reload | Notes |
+|-----|------|----------|------------|-------|
+| `MERISTEM_MNET_BIND` | string | yes | no | loopback control-plane bind |
+| `MERISTEM_MNET_PUBLIC_JOIN_BIND` | string | yes | no | public join ingress bind on `8443` |
+| `MERISTEM_MNET_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | heartbeat timeout for offline transition |
+| `MERISTEM_MNET_PUBLIC_DERP_FALLBACK` | boolean | no | yes | fallback remains configurable and disableable |
+
+---
+
+## 7. Health
+
+| Check | Meaning | Failure Behavior |
+|-------|---------|------------------|
+| liveness | process and session loop are alive | restart M-Net |
+| readiness | control-plane APIs, session admission, and authoritative storage are ready | remove M-Net from the serving pool |
+
+---
+
+## 8. Lifecycle
+
+| Capability | Supported | Notes |
+|------------|-----------|-------|
+| reloadable | limited | bounded configuration reload only |
+| rollbackable | limited | profile-enable recovery uses suspended operations and explicit disable paths |
+| degradable | yes | agent runtime can fall back to control-plane heartbeat only |
+
+---
+
+## 9. Logs
+
+| Log | When Written | Required Fields |
+|-----|--------------|-----------------|
+| Timeline | network create/join, profile transitions, reachability changes | `summary`, `subject`, `correlationId` |
+| Full | join/session runtime errors, session supersede, profile apply failures | `source`, `level`, `message`, `traceId` |
+| Audit | high-risk network/profile actions | `actor`, `action`, `resource`, `decision` |
+
+---
+
+## 10. Policy Requirements
+
+- profile enable must use bounded M-Policy approval and resume through M-Net.
+- profile disable is an immediate risk-reduction path with M-Policy allow + Audit.
+- M-Net must not own authorization policy logic locally.
+- event, Audit, Timeline, and Full Log behavior must stay aligned with `docs/events/EVENT-CATALOG.md`, `docs/services/m-log.md`, and `docs/security/SECURITY-MODEL.md`.
+
+---
+
+## 11. Regional Profile Runtime Notes
+
+Default network design:
 
 - Core runs Headscale DERP Server.
 - UDP is preferred by default.
-- Tailscale public DERP can be used as fallback.
-- Public DERP fallback must be configurable and disableable.
+- Tailscale public DERP can be used as a fallback.
+- public DERP fallback must remain configurable and disableable.
 
----
+Regional Network Profile ownership:
 
-## 4. M-Net Regional Profile (Phase 13)
+- profile definition registration (`m-net-default@0.1.0`, `m-net-cn@0.1.0`)
+- per-network applied profile state, transitions, and suspended enable operations
+- external network-profile REST API and OpenAPI
+- profile lifecycle events published through M-EventBus
 
-M-Net owns the Regional Network Profile control-plane lifecycle:
-
-- profile definition registration (`m-net-default@0.1.0`, `m-net-cn@0.1.0`).
-- per-network applied profile state, transitions, and suspended enable operations.
-- external network-profile REST API and OpenAPI (not Core-facaded).
-- profile lifecycle events published through M-EventBus.
-
-### M-Net CN
-
-M-Net CN is the first Regional Network Profile. Phase 13 implements the control-plane lifecycle only; data-plane behavior is deferred.
+M-Net CN is the first Regional Network Profile. Its control-plane lifecycle is implemented; data-plane behavior remains deferred.
 
 Profile definition `m-net-cn@0.1.0`:
 
-- region: `cn`.
-- `controlPlaneOnly: true`. Contains no real endpoints, secrets, relay assignments, routes, or probes.
-- enabling M-Net CN is per network, not global.
-- enabling requires Phase 12 approval and M-Net resume.
-- disabling is immediate with M-Policy allow + Audit (risk-reduction path, no approval flow).
-- disable is allowed from `failed` state as a recovery path.
+- region: `cn`
+- `controlPlaneOnly: true`; no real endpoints, secrets, relay assignments, routes, or probes
+- enabling is per network, not global
+- enabling requires approval-flow integration and M-Net resume
+- disabling is immediate with M-Policy allow + Audit
+- disable is allowed from `failed` state as a recovery path
 
-Rules:
+Placeholder-only rules:
 
-- Asian Stem Nodes may act as DERP servers (placeholder only in Phase 13).
-- Mainland nodes without public network access must use TCP interconnect (placeholder only).
-- Asian Stem Nodes also connect to Core Node over TCP (placeholder only).
-- Public DERP fallback must be configurable and disableable.
-- M-Net CN changes write M-Log and Audit Log where risk requires it.
-- Enabling M-Net CN does not start DERP relays, TCP tunnels, UDP path switching, or active probing.
+- Asian Stem Nodes may act as DERP servers.
+- Mainland nodes without public network access may use TCP interconnect.
+- Asian Stem Nodes may connect to the Core Node over TCP.
 
 ---
 
-## 5. Events
+## 12. Done Criteria
 
-M-Net must publish:
-
-- node reachability events
-- path change events
-- DERP fallback events
-- UDP / TCP switch events
-- Stem relay status events
-- Leaf Node interconnect range change events
-- network policy publish notifications
-
-All subjects must be listed in `docs/events/EVENT-CATALOG.md`.
-
-Current Core-driven logical-network events:
-
-- `mnet.network.created.v0`
-- `mnet.membership.joined.v0`
-- `node.join-ticket.created.v0`
-
-Currently published Phase 13 profile lifecycle events:
-
-- `mnet.profile.enable.requested.v0`
-- `mnet.profile.enabled.v0`
-- `mnet.profile.disable.requested.v0`
-- `mnet.profile.disabled.v0`
-- `mnet.profile.apply_failed.v0`
-- `mnet.profile.enable.canceled.v0`
-
-Current MVP runtime boundary:
-
-- Core -> M-Net create/list/join/member uses loopback HTTP + Eden + internal token
-- M-Task -> M-Net agent task dispatch and best-effort cancellation use declared delivery operations; M-Task owns task lifecycle state
-- `M-Net` exposes loopback-only `http://127.0.0.1:3104/health`, `/ready`, and `/internal/v0/*`
-- `/ready` requires `x-meristem-internal-token`
-- Core includes `M-Net` health in aggregated readiness
-- public join ingress exposes only `GET /join/v0/health` and `GET /join/v0/session` with WebSocket upgrade
-- client -> server frames: `join.redeem`, `session.resume`, `heartbeat`, `log.forward`, `task.result`
-- server -> client frames: `join.accepted`, `session.resumed`, `task.execute`, `error`
-- `join.accepted` and `session.resumed` return a per-session `sessionId`
-- `join.accepted` is the only server frame that returns the runtime token
-- `heartbeat`, `log.forward`, and `task.result` must echo the current `sessionId`; stale session ids are rejected with `session.superseded`
-- only one active session may exist per node; a successful resume supersedes the previous live connection immediately
-- `M-Net` publishes `mnet.reachability.changed.v0` and `node.status.changed.v0` when runtime state changes
-- heartbeat timeout and active-session disconnect both recover agent nodes to `offline` / `unreachable`
-
----
-
-## 6. Done Criteria
-
-- Core can start basic DERP capability or a documented placeholder.
-- Nodes can report network status.
-- Network status changes enter M-EventBus and M-Log.
-- Public DERP fallback is configurable.
-- Leaf Node interconnect scope is explicit and auditable.
-
-Phase 6 logical-network done criteria:
-
-- operators can create logical networks through Core and CLI
-- operators can join healthy nodes to networks
-- leaf joins stay restricted and require a stem member
-- logical network create/join writes Audit and Timeline entries
-
-Phase 13 profile lifecycle done criteria:
-
+- operators can create logical networks through Core and CLI.
+- operators can join healthy nodes to networks.
+- Leaf joins remain restricted and require a Stem member.
+- logical network create/join writes Audit and Timeline entries.
 - M-Net owns profile definitions, per-network profile state, transitions, and suspended profile-enable operations.
-- `m-net-cn@0.1.0` is defined as control-plane-only and contains no real endpoint, secret, route, or probe data.
+- `m-net-cn@0.1.0` stays control-plane-only and contains no real endpoint, secret, route, or probe data.
 - M-Net exposes the external profile REST API and OpenAPI.
-- M-CLI supports network profile list / show / enable / disable through the service URL resolver.
-- M-Net CN enable requires Phase 12 approval and resumes through M-Net.
+- M-CLI supports profile list / show / enable / disable through the service URL resolver.
+- M-Net CN enable requires bounded M-Policy approval and resumes through M-Net.
 - M-Net CN disable executes immediately with M-Policy allow + Audit.
-- Events, Audit, Timeline, and Full Log behavior match `docs/roadmap/PHASE-13.md`.
-- Contract, failure-mode, integration, CLI, and e2e gates pass or document infrastructure skip conditions.
+- agent join/session events and runtime state changes match `docs/events/EVENT-CATALOG.md`.
+- contract, failure-mode, integration, CLI, and e2e gates pass or document infrastructure skip conditions.

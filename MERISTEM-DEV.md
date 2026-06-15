@@ -17,7 +17,7 @@
 | 主题 | 文档 |
 |------|------|
 | 文档总索引 | `docs/README.md` |
-| MVP 范围 | `docs/mvp/MVP-SPEC.md` |
+| v0.1 范围与验收 | `MERISTEM-ROADMAP.md` |
 | 架构决策 | `docs/adr/README.md` |
 | 微服务定义 | `docs/services/SERVICE-DEFINITION-TEMPLATE.md` |
 | Core 服务边界 | `docs/services/core.md` |
@@ -130,7 +130,7 @@ services/
 docs/
   adr/
   services/
-  api/
+  contracts/
 ```
 
 ### 1.3 渲染与部署策略
@@ -520,7 +520,7 @@ OpenTelemetry 配置
 
 ### 3.1.1 Effect-first 内部契约规则
 
-Meristem 内部复杂契约默认使用 Effect 建模，见 `docs/adr/ADR-016-effect-without-effect-everywhere.md`。
+Meristem 内部复杂契约默认使用 Effect 建模，见 `docs/adr/ADR-F01-foundational-technology-stack.md`。
 
 必须优先考虑 Effect Schema 的对象：
 

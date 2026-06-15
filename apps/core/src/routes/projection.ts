@@ -64,7 +64,7 @@ function optionalCursorPayload(cursor: ProjectionCursor | null) {
 
 /**
  * Projection routes separate read and control permissions while keeping Core as the REST adapter.
- * Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.3-2.5
+ * 来源：`docs/contracts/REST-API-MVP.md`、`docs/services/m-log.md` 和投影契约 schema。
  */
 export function projectionRoutes(deps: CoreDeps) {
   return (

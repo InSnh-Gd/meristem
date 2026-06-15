@@ -30,27 +30,11 @@ const extractSchemaTableNames = (): string[] => {
 
 /**
  * 仅从表标题中读取文档声明的表名，避免把列名、约束名或示例值误判为表。
- * Approval appendix 暂不视为主 schema section，Phase 20 先用这个红线固定文档补齐基线。
  */
 const extractDocumentedTableNames = (documentText: string): string[] => {
   const tableNames = new Set<string>()
-  let insideApprovalAppendix = false
 
   for (const line of documentText.split('\n')) {
-    if (line === '### Phase 12 Approval Tables') {
-      insideApprovalAppendix = true
-      continue
-    }
-
-    if (insideApprovalAppendix && line.startsWith('---')) {
-      insideApprovalAppendix = false
-      continue
-    }
-
-    if (insideApprovalAppendix) {
-      continue
-    }
-
     const match = line.match(TABLE_HEADING_PATTERN)
     const tableName = match?.[1]
     if (tableName) {

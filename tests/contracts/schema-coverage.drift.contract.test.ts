@@ -66,7 +66,7 @@ describe('schema coverage map drift guards', () => {
     )
   })
 
-  it('marks every non-active catalog event as a Phase 20 deferred contract', async () => {
+  it('marks every non-active catalog event as a post-v0.1 deferred contract', async () => {
     const [coverageMap, eventCatalog, activePublisherSubjects] = await Promise.all([
       Bun.file(schemaCoverageMapUrl).text(),
       Bun.file(eventCatalogUrl).text(),
@@ -77,7 +77,9 @@ describe('schema coverage map drift guards', () => {
       subject => !activePublisherSubjects.has(subject)
     )
 
-    expect(coverageMap).toContain('## Non-active / deferred to Phase 20')
+    expect(coverageMap).toContain(
+      '## Non-active / deferred to post-v0.1 coverage'
+    )
     expect(sorted(extractCoverageMapDeferredSubjects(coverageMap))).toEqual(
       sorted(deferredSubjects)
     )

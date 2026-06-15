@@ -75,22 +75,9 @@ const result = await db.query.users.findMany({
 
 ## 5. Meristem Usage
 
-Meristem uses Drizzle ORM for the PostgreSQL authoritative write model (ADR-010).
+Meristem uses Drizzle ORM for the PostgreSQL authoritative write model ([ADR-F03](../adr/ADR-F03-infrastructure-backbone.md)).
 
 Current schema: `packages/db/src/schema.ts`
-
-**Meristem 现状 (2026-05-22)**:
-- Schema uses `pgTable`, `references`, `primaryKey`, `uniqueIndex` ✅
-- `defaultNow()` and `withTimezone: true` used correctly ✅
-- `relations()` not defined ❌
-- `drizzle-orm@latest` in `package.json` ⚠️ should pin
-- `drizzle-kit@latest` in `package.json` ⚠️ should pin
-- Indexes only on `networks` table; other tables lack query optimization indexes ❌
-
-**建议**:
-- Add `relations()` definitions for tables with foreign keys (e.g. `nodes` -> `node_credentials`, `networks` -> `network_memberships`).
-- Pin `drizzle-orm` and `drizzle-kit` to exact versions.
-- Add indexes on frequently queried columns (`nodes.id`, `tasks.leaf_node_id`, `audit_logs.actor`, etc.).
 
 ---
 

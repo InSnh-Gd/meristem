@@ -1,6 +1,6 @@
 # PostgreSQL Schema MVP
 
-> PostgreSQL is the authoritative state source for the MVP. For Phase 20, `packages/db/src/schema.ts` and `packages/db/src/migrate.ts` are the authority for table shape. This document is backfilled from those sources; when they disagree, the code and migrations win.
+> PostgreSQL is the authoritative state source for the MVP. This document records the current table shape implemented in `packages/db/src/schema.ts` and `packages/db/src/migrate.ts`, and the drift contract keeps the document aligned with those files. If implementation changes first, update this document in the same change so the docs set stays explicit and current.
 
 ---
 
@@ -25,7 +25,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
-| M-Secret | `secret_refs`, `secret_ref_versions`, `secret_ref_transitions` |
+| Core (SecretRef boundary) | `secret_refs`, `secret_ref_versions`, `secret_ref_transitions` |
 | M-Config | `config_records`, `config_versions`, `config_transitions`, `config_apply_acks` |
 | M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` |
 
@@ -110,7 +110,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `redeemed_at` | timestamptz nullable | UTC |
 | `redeemed_node_id` | text nullable | references `nodes.id` |
 
-### Phase 17 Identity Hardening Tables
+### Identity v0.2 Hardening Tables
 
 #### `actors`
 
@@ -172,7 +172,7 @@ Permanent token revocation records.
 
 Historical compatibility table.
 
-Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` remains only for pre-cutover compatibility and must not be used as the canonical task state source.
+M-Task cutover moves canonical task lifecycle state to M-Task-owned tables. `tasks` remains only for pre-cutover compatibility and must not be used as the canonical task state source.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -192,7 +192,7 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `version` | text | definition version, e.g. `v0` |
 | `description` | text | operator-facing summary |
 | `danger_level` | text | `low`, `medium`, `high`, or `critical` |
-| `default_timeout_seconds` | integer | Phase 11 default timeout |
+| `default_timeout_seconds` | integer | default timeout |
 | `created_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
 
@@ -271,7 +271,7 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `joined_at` | timestamptz | UTC |
 | `updated_at` | timestamptz | UTC |
 
-### Phase 13 M-Net Profile Tables
+### M-Net Profile Lifecycle Tables
 
 #### `mnet_profile_definitions`
 
@@ -339,7 +339,7 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 
 `networks.profile_version` remains the operator-visible current profile for a network. The M-Net profile state table records lifecycle metadata around that profile assignment.
 
-### Phase 15 M-Extension Tables
+### M-Extension Control Plane Tables
 
 #### `extension_definitions`
 
@@ -354,7 +354,7 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `manifest` | jsonb | validated governance manifest; no executable code or secret payloads |
 | `declared_capabilities` | jsonb | string array |
 | `requested_permissions` | jsonb | known Meristem permissions only |
-| `risk_class` | text | `low` or `medium` in Phase 15 |
+| `risk_class` | text | `low` or `medium` |
 | `status` | text | `registered`, `rejected`, `deprecated` |
 | `registered_by` | text | actor subject |
 | `policy_decision_id` | text | references `policy_decisions.id` |
@@ -368,8 +368,8 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 |--------|------|-------|
 | `id` | text primary key | instance UUID |
 | `extension_id` | text | references `extension_definitions.id` |
-| `scope_type` | text | only `system` in Phase 15 |
-| `scope_id` | text | only `default` in Phase 15 |
+| `scope_type` | text | only `system` |
+| `scope_id` | text | only `default` |
 | `status` | text | `disabled`, `enabled`, `enable_failed`, `disable_failed` |
 | `enabled_by` | text nullable | actor subject when enabled |
 | `disabled_by` | text nullable | actor subject when disabled |
@@ -381,7 +381,7 @@ Phase 11 moves canonical task lifecycle state to M-Task-owned tables. `tasks` re
 | `enabled_at` | timestamptz nullable | set when enabled |
 | `disabled_at` | timestamptz nullable | set when disabled |
 
-Unique constraint: `(extension_id, scope_type, scope_id)` — Phase 15 permits one `system/default` instance per extension definition.
+Unique constraint: `(extension_id, scope_type, scope_id)` — M-Extension control plane permits one `system/default` instance per extension definition.
 
 #### `extension_transitions`
 
@@ -398,9 +398,9 @@ Unique constraint: `(extension_id, scope_type, scope_id)` — Phase 15 permits o
 | `correlation_id` | text | request correlation |
 | `created_at` | timestamptz | UTC |
 
-M-Extension tables are authoritative for Phase 15 extension definition and instance state. They must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state.
+M-Extension tables are authoritative for extension definition and instance state. They must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state.
 
-### Phase 18 SecretRef Tables
+### SecretRef v0.1 Tables
 
 #### `secret_refs`
 
@@ -447,7 +447,7 @@ Lifecycle transition audit for secret references.
 | `correlation_id` | text nullable | request correlation |
 | `created_at` | timestamptz | UTC |
 
-### Phase 19 Config Lifecycle Tables
+### Config Lifecycle v0.1 Tables
 
 #### `config_records`
 
@@ -569,7 +569,7 @@ Unique index: `config_apply_acks_service_unique` on `(config_id, target_service)
 | `trace_id` | text nullable | |
 | `payload` | jsonb nullable | secrets forbidden |
 
-### Phase 10.1 Projection Platform Tables
+### Projection Platform Tables
 
 #### `projector_jobs`
 
@@ -615,7 +615,7 @@ Projection dead-letter queue for failed facts.
 | `retries` | integer | retry count |
 | `created_at` | timestamptz | UTC |
 
-### Phase 12 Approval Flow Tables
+### Approval Flow Tables
 
 #### `policy_approvals`
 
@@ -623,7 +623,7 @@ Projection dead-letter queue for failed facts.
 |--------|------|-------|
 | `id` | text primary key | approval UUID |
 | `policy_decision_id` | text | references `policy_decisions.id` |
-| `origin_service` | text | `m-task` in Phase 12 |
+| `origin_service` | text | `m-task` |
 | `operation_id` | text | origin operation by convention |
 | `requested_by` | text | actor who triggered the blocked operation |
 | `required_action` | text | `manual_review` or `multi_approval` |
@@ -713,7 +713,7 @@ service:register
 - A network membership must be unique per `network_id` + `node_id`.
 - Core node records are system-managed.
 - Task target must be an existing Leaf node.
-- M-Task-owned task tables are the canonical task lifecycle source after Phase 11.
+- M-Task-owned task tables are the canonical task lifecycle source after M-Task cutover.
 
 ## 5. Migration Rules
 

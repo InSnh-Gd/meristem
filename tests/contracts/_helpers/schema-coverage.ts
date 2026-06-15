@@ -69,7 +69,7 @@ export function extractCoverageMapActiveSubjects(markdown: string): string[] {
 }
 
 export function extractCoverageMapDeferredSubjects(markdown: string): string[] {
-  const start = markdown.indexOf('## Non-active / deferred to Phase 20')
+  const start = markdown.indexOf('## Non-active / deferred to post-v0.1 coverage')
   const end = markdown.indexOf('## Explicit exclusions from this wave')
   const section = markdown.slice(start, end)
   const subjects: string[] = []

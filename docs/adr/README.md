@@ -1,63 +1,44 @@
 # ADR Index
 
-> Architecture Decision Records record the durable decisions behind Meristem. ADRs are referenced by implementation docs, service definitions, and PR reviews.
+> Architecture Decision Records 记录 Meristem 的持久性架构决策。ADR 被实现文档、服务定义和 PR 审查引用。
 
 ---
 
-## ADR List
+## 当前活跃决策
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| [ADR-001](ADR-001-typescript-first.md) | TypeScript-first | Accepted |
-| [ADR-002](ADR-002-elysia-first.md) | Elysia-first | Accepted |
-| [ADR-003](ADR-003-eden-first-not-eden-only.md) | Eden-first, Not Eden-only | Accepted |
-| [ADR-004](ADR-004-rest-openapi-no-graphql.md) | REST + OpenAPI, No GraphQL | Accepted |
-| [ADR-005](ADR-005-lightweight-microservices.md) | Lightweight Microservices | Accepted |
-| [ADR-006](ADR-006-core-microkernel.md) | Core Microkernel | Accepted |
-| [ADR-007](ADR-007-m-extension-naming.md) | M-Plugin Renamed to M-Extension | Accepted |
-| [ADR-008](ADR-008-no-m-services-module.md) | Microservices Are Implementation Form | Accepted |
-| [ADR-009](ADR-009-nats-eventbus.md) | NATS for M-EventBus | Accepted |
-| [ADR-010](ADR-010-postgresql-write-model.md) | PostgreSQL Write Model | Accepted for v0/MVP |
-| [ADR-011](ADR-011-opensearch-read-model.md) | OpenSearch Read Model | Accepted |
-| [ADR-012](ADR-012-nats-kv-default-cache.md) | NATS KV as Default Cache | Accepted |
-| [ADR-013](ADR-013-three-level-logging.md) | Timeline / Full / Audit Logs | Accepted |
-| [ADR-014](ADR-014-m-policy-rbac-first.md) | M-Policy RBAC First | Accepted |
-| [ADR-015](ADR-015-opentelemetry.md) | OpenTelemetry | Accepted |
-| [ADR-016](ADR-016-effect-without-effect-everywhere.md) | Effect Without Effect Everywhere | Accepted |
-| [ADR-017](ADR-017-apisix-optional.md) | APISIX Optional | Accepted |
-| [ADR-018](ADR-018-rejected-default-technologies.md) | Rejected Default Technologies | Accepted |
-| [ADR-019](ADR-019-no-m-perf-module.md) | No M-Perf Module | Accepted |
-| [ADR-020](ADR-020-identity-in-core.md) | Identity in Core | Accepted |
-| [ADR-021](ADR-021-secrets-core-policy-log.md) | Secrets Split Across Core / Policy / Log | Accepted |
-| [ADR-022](ADR-022-sveltekit-elysia-integration.md) | SvelteKit + Elysia Integration | Accepted |
-| [ADR-023](ADR-023-m-net-default-network.md) | M-Net Default Network | Proposed |
-| [ADR-024](ADR-024-m-net-cn-profile.md) | M-Net CN Regional Profile | Accepted (Phase 13 control-plane only) |
-| [ADR-025](ADR-025-promote-m-task-to-canonical-task-service.md) | Promote M-Task to Canonical Task Service | Accepted |
+| ADR | 标题 | 状态 | 主题 |
+|-----|------|------|------|
+| [ADR-F01](ADR-F01-foundational-technology-stack.md) | 基础技术栈 | Accepted | TypeScript / Elysia / REST+OpenAPI / Eden / Effect / SvelteKit / 负面清单 |
+| [ADR-F02](ADR-F02-architecture-organization.md) | 架构组织原则 | Accepted | 微服务 / Core 微内核 / M-Extension / 横切关注点 / M-Policy 起点 |
+| [ADR-F03](ADR-F03-infrastructure-backbone.md) | 基础设施主干 | Accepted | NATS / PostgreSQL / OpenSearch / NATS KV / OpenTelemetry / APISIX / M-Log 语义 |
+| [ADR-N01](ADR-N01-m-net-default-network.md) | M-Net 默认网络 | Proposed | M-Net 默认组网策略 |
+| [ADR-N02](ADR-N02-m-net-cn-profile.md) | M-Net CN 区域网络 Profile | Accepted | 区域网络 Profile（当前接受范围：control-plane profile lifecycle） |
+| [ADR-T01](ADR-T01-m-task-canonical-service.md) | M-Task 规范任务服务 | Accepted | 任务服务边界 |
 
 ---
 
-## ADR Template
+## ADR 模板
 
 ```md
-# ADR-XXX: Title
+# ADR-XXX: 标题
 
-## Status
+## 状态
 
-Accepted / Proposed / Deprecated
+Accepted / Proposed / Deprecated / Superseded by `ADR-YYY` (`ADR-YYY.md`)
 
-## Context
+## 上下文
 
-Why this decision exists.
+该决策存在的背景。
 
-## Decision
+## 决策
 
-What is decided.
+已决定的内容。
 
-## Consequences
+## 结果
 
-What this enables, what it prevents, and what costs it creates.
+该决策使能什么、阻止什么、带来什么成本。
 
-## Revisit When
+## 重访条件
 
-Concrete conditions that would justify reopening this decision.
+能够证明需要重新开启该决策的具体条件。
 ```

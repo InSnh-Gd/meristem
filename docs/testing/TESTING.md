@@ -44,7 +44,7 @@ bun run test:contracts
 bun run test:cli
 bun run test:failure-modes
 bun run test:integration
-# Phase 10 OpenSearch tests
+# OpenSearch tests
 bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
@@ -54,7 +54,7 @@ bun run skill-hygiene
 bun run nodejs-ban
 ```
 
-Phase 16 optional deployment pack static checks:
+Optional deployment pack static checks:
 
 ```bash
 docker compose config
@@ -126,16 +126,16 @@ MVP-specific contract tests:
 - PostgreSQL logical schema matches `docs/data/POSTGRES-SCHEMA-MVP.md`.
 - logical network create/join/member routes enforce documented `stem` / `leaf` rules.
 - lifecycle prototype routes and CLI match `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
-- node registration default mode and node credential issuance match the Phase 8 contract.
+- node registration default mode and node credential issuance match the node registration contract.
 - heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
-- Phase 9 UI contract tests prove M-UI BFF route schema, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
-- Phase 15 M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
-- Phase 17 Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
-- Phase 18 SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
+- M-UI functional-demo contract tests prove the current M-UI BFF route registry, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
+- M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
+- Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
+- SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
 - SecretRef schema contract tests prove `SecretRefV01`, `SecretRefVersionV01`, `SecretRefTransitionV01`, REST route schemas, and CLI command outputs match implemented names and documented redaction behavior.
-- Phase 19 Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
-- Phase 13 M-Net profile contract tests prove profile Effect Schema decode / encode, external REST route schemas and OpenAPI output, CLI network profile command contract, and profile event subject and payload schemas match the docs.
+- Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
+- M-Net profile contract tests prove profile Effect Schema decode / encode, external REST route schemas and OpenAPI output, CLI network profile command contract, and profile event subject and payload schemas match the docs.
 
 ---
 
@@ -146,7 +146,7 @@ Must cover:
 - M-Policy unavailable means protected operation fails closed.
 - Audit Log unavailable blocks high-risk operation.
 - OpenSearch unavailable does not block authoritative writes.
-- Phase 10 search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query contracts. `test:opensearch-integration` skips gracefully when OpenSearch is not running.
+- OpenSearch search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query contracts. `test:opensearch-integration` skips gracefully when OpenSearch is not running.
 - NATS unavailable degrades event-dependent capabilities.
 - Leaf Node abnormal state shrinks or revokes permissions.
 - LLM unavailable does not block normal operation and cannot authorize high-risk operation.
@@ -170,13 +170,13 @@ MVP failure-mode tests:
 - M-Net unavailable fails network routes closed with `503`.
 - viewer cannot reload a service.
 - non-reloadable service returns `409`.
-- reload failure writes Full Log and publishes `service.lifecycle.reload.failed.v0`.
+- reload failure writes Full Log; `service.lifecycle.reload.failed.v0` remains deferred until a real publisher is wired.
 - agent task submitment without an active token returns `409`.
 - M-Extension registration rejects unknown requested permissions.
 - M-Extension registration rejects high and critical risk manifests.
 - M-Extension register / enable / disable fail closed when M-Policy is unavailable or denies the actor.
 - M-Extension register / enable / disable fail closed when required Audit cannot be written.
-- M-Extension does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior in Phase 15.
+- M-Extension does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior in the M-Extension control plane.
 - revoked actor token is denied and cannot authorize protected routes.
 - Core token introspection unavailable fails protected external M-* routes closed.
 - token plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, or CLI stderr/stdout except the one-time issue response.
@@ -206,91 +206,38 @@ Must cover:
 - critical state is not color-only
 - Audit / Policy / Log / Node state components display traceable source
 
-UI contract tests are not MVP blockers because M-UI is out of scope for MVP, but the schema remains the future UI boundary.
+UI contract tests are not backend-only MVP blockers, but they are required to keep the current v0.1 functional-demo boundary and SDUI contracts coherent.
 
-Phase 9 BFF contract additions:
+M-UI functional-demo BFF contract additions:
 - M-UI BFF must expose minimal OpenAPI for UI-facing endpoints.
 - M-UI must call M-UI BFF only, not Core REST directly.
 - BFF must not cache Core data or permission context across requests.
 
 ---
 
-## 6.1 Phase 17 Identity v0.2 Test Coverage
+## 6.1 Identity v0.2 Test Expectations
 
-Identity v0.2 requires the following test coverage:
+Identity v0.2 must keep four test layers aligned:
 
-**Contract Tests** (`tests/contracts/identity-v02.test.ts`):
+- contract tests for schema shape, route shape, and documented outputs
+- failure-mode tests for revocation, introspection failure, Audit fail-closed behavior, and token redaction
+- CLI tests for actor/token command behavior
+- integration/e2e coverage for internal introspection and end-to-end token lifecycle
 
-- IdentityActorV02 schema decode/encode.
-- ActorTokenV02 schema decode/encode, including revocation fields.
-- IssueTokenRequest, RevokeTokenRequest, and InternalIntrospectionRequest schema decode/encode.
-- IntrospectTokenResponse `active: false` for revoked, expired, and unknown jti.
-- Identity REST route schemas match `docs/contracts/REST-API-MVP.md`.
-- Identity CLI command outputs match `docs/contracts/CLI-COMMANDS.md`.
-
-**Failure-Mode Tests** (`tests/failure-modes/identity-revocation.test.ts`):
-
-- revoked actor token is denied and returns 403.
-- Core token introspection unavailable fails protected external M-* routes closed with 503.
-- token issue fails closed when Audit Log is unavailable.
-- token revoke fails closed when Audit Log is unavailable.
-- expired tokens are treated as revoked for authorization.
-- missing `jti` in JWT is rejected during verification.
-- operator and admin cannot issue actor tokens (403).
-- operator cannot inspect tokens (403).
-- token plaintext never appears in Timeline, Full, Audit, OpenSearch payloads, or CLI stderr/stdout except the one-time issue response.
-
-**CLI Tests** (`tests/cli/cli-identity.test.ts`):
-
-- `meristem identity actor list` returns actors.
-- `meristem identity actor show <id>` returns one actor or non-zero exit.
-- `meristem identity token issue` returns plaintext token with metadata.
-- `meristem identity token inspect <jti>` returns metadata without plaintext.
-- `meristem identity token revoke <jti>` returns confirmed revocation.
-- missing permission returns non-zero exit.
-
-**Integration Tests** (`tests/integration/identity-introspection.test.ts`):
-
-- M-* service calls Core introspection, receives correct `active` status.
-- introspection endpoint returns 401 for missing `x-meristem-internal-token`.
-
-**E2E Tests**:
-
-- full identity lifecycle: list actors → issue token → inspect token → revoke token → inspect revoked token.
-- auth failure-mode: viewer cannot call any identity route.
-- revoked token denied on protected route.
+The exact test file set may evolve; the required behaviors above are the stable contract.
 
 ---
 
-## 6.2 SecretRef v0.1 Test Coverage
+## 6.2 SecretRef v0.1 Test Expectations
 
-SecretRef v0.1 requires the following coverage:
+SecretRef v0.1 must keep four test layers aligned:
 
-**Contract Tests** (`tests/contracts/secret-ref.test.ts`):
+- contract tests for schema shape, route shape, and redacted command outputs
+- failure-mode tests for M-Policy fail-closed behavior, Audit fail-closed behavior, and secret redaction across every surface
+- CLI tests for metadata-only list/show/create/rotate/disable flows
+- e2e coverage for full lifecycle and permission-denied paths
 
-- `SecretRefV01`, `SecretRefVersionV01`, and `SecretRefTransitionV01` schema decode / encode.
-- REST SecretRef route schemas match `docs/contracts/REST-API-MVP.md`.
-- CLI secret command outputs match `docs/contracts/CLI-COMMANDS.md` and never include plaintext values.
-
-**Failure-Mode Tests** (`tests/failure-modes/secret-redaction.test.ts`, `tests/failure-modes/secret-policy.test.ts`):
-
-- plaintext secret values are redacted from Timeline, Full, Audit, OpenSearch projection payloads, events, error envelopes, and CLI stdout/stderr.
-- M-Policy unavailable or deny results fail SecretRef operations closed.
-- Audit unavailable blocks create, rotate, and disable before mutation.
-
-**CLI Tests** (`tests/cli/cli-secrets.test.ts`):
-
-- `meristem secret list` returns metadata only.
-- `meristem secret show <secret-ref-id>` returns metadata only.
-- `meristem secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>]` returns metadata without plaintext.
-- `meristem secret rotate <secret-ref-id> --value-stdin --reason <text>` returns rotation metadata without plaintext.
-- `meristem secret disable <secret-ref-id> --reason <text>` returns disabled metadata.
-
-**E2E Tests**:
-
-- full SecretRef lifecycle: create → list → show → rotate → disable.
-- auth failure-mode: viewer cannot call SecretRef routes or CLI commands.
-- redaction check: sentinel plaintext does not appear in evidence outputs outside test source.
+The exact test file set may evolve; the required behaviors above are the stable contract.
 
 ---
 
@@ -306,7 +253,7 @@ bun run test:contracts
 bun run test:cli
 bun run test:failure-modes
 bun run test:integration
-# Phase 10 OpenSearch tests
+# OpenSearch tests
 bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration

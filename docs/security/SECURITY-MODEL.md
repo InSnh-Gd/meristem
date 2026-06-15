@@ -83,6 +83,8 @@ MVP uses a narrower permission set than the long-term baseline:
 
 MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
 
+Production identity provider integration (OIDC, SSO, SAML, MFA, browser sessions, user management UI, groups/teams/departments, refresh tokens) is deferred.
+
 ### 2.2 MVP JWT Model
 
 MVP JWTs use HS256 with `MERISTEM_JWT_SECRET`.
@@ -103,6 +105,7 @@ type MvpJwtClaims = {
 Rules:
 
 - CLI sends `Authorization: Bearer <jwt>`.
+- The JWT `sub` is the actor ID literal in the current local seed set (`viewer`, `operator`, `admin`, `security-admin`).
 - Core verifies signature, issuer, audience, expiration, and subject.
 - Core sends only the verified actor subject to M-Policy.
 - Roles and permissions are read by M-Policy from PostgreSQL seed data.
@@ -111,7 +114,7 @@ Rules:
 
 ### 2.2.1 Identity v0.2 Local Mode
 
-Phase 17 hardens local JWT mode without adding OIDC, SSO, browser sessions, MFA, or M-Identity.
+Identity v0.2 hardens local JWT mode without adding OIDC, SSO, browser sessions, MFA, or M-Identity.
 
 **Token Lifecycle**:
 
@@ -132,13 +135,7 @@ Issue (security-admin, writes Audit)
 
 **Permission Model**:
 
-| Permission | viewer | operator | admin | security-admin |
-|------------|--------|----------|-------|----------------|
-| `identity:read` | self only | self only | yes | yes |
-| `identity:token-inspect` | no | no | yes | yes |
-| `identity:token-issue` | no | no | no | yes |
-| `identity:token-revoke` | no | no | no | yes |
-
+- identity permissions inherit from the MVP RBAC matrix in `2.1`.
 - `identity:read` for viewer and operator is restricted to their own actor record.
 - `identity:token-issue` and `identity:token-revoke` are security-admin only.
 
@@ -221,9 +218,9 @@ MVP protected operations:
 | enable M-Net CN on a network | admin / security-admin | required (suspended operation + approval) |
 | disable M-Net CN on a network | admin / security-admin | required before execution |
 
-### 2.4 Phase 12 Approval Security
+### 3.1 Approval Security
 
-Phase 12 approval flow security rules:
+Approval flow security rules:
 
 - approval queue ownership stays in M-Policy.
 - approval REST routes use Bearer auth (not internal token).
@@ -238,21 +235,21 @@ Phase 12 approval flow security rules:
 - M-Policy must not execute M-Task operations or hold M-Task business payloads.
 - M-Task must not decide approval quorum or mutate approval status directly.
 
-### 2.5 Phase 13 Network Profile Security
+### 3.2 Network Profile Security
 
-Phase 13 network profile lifecycle security rules:
+Network profile lifecycle security rules:
 
 - `network:profile-read` allows operator, admin, and security-admin to list and view Regional Network Profile definitions.
 - `network:profile-enable` allows admin and security-admin to request M-Net CN enable on one network.
 - `network:profile-disable` allows admin and security-admin to disable M-Net CN and roll back to default.
-- M-Net CN enable requires Phase 12 approval: the request creates a suspended operation and an approval record; the profile is applied only after security-admin approval and M-Net resume.
+- M-Net CN enable requires approval flow integration: the request creates a suspended operation and an approval record; the profile is applied only after security-admin approval and M-Net resume.
 - M-Net CN disable is an immediate risk-reduction path guarded by M-Policy allow + Audit Log; it does not require an approval flow.
 - disable is allowed from `failed` state as a recovery path.
 - M-Policy owns approval records and quorum; M-Net owns suspended operations, profile state, transitions, and per-network applied profile.
 - enabling M-Net CN is per network, not global.
 - profile transitions write Audit Log for every state change.
 - M-Net must not execute real DERP, TCP, UDP, Headscale, or path-selection data-plane behavior.
-- profile events are emitted after PostgreSQL state changes and must not be treated as the source of truth.
+- profile events are emitted after PostgreSQL state changes and must not be treated as the canonical authority.
 - Audit must distinguish approval authorization from profile application: an approved M-Policy approval does not imply M-Net successfully applied the profile.
 - missing or revoked `network:profile-enable` or `network:profile-disable` returns `403`.
 - M-Net CN disabled network must not appear as M-Net CN active in any read path.
@@ -301,38 +298,25 @@ Minimum checks:
 - Full Log for all rejected requests
 - Audit Log for rejected high-risk requests
 
-Phase 15 M-Extension may declare future webhook extension metadata, but it must not expose webhook ingress or execute webhook payloads. Webhook execution requires reopening this section with concrete source verification, replay protection, rate limit, Audit, and failure-mode tests.
+M-Extension may declare future webhook extension metadata, but it must not expose webhook ingress or execute webhook payloads. Webhook execution requires reopening this section with concrete source verification, replay protection, rate limit, Audit, and failure-mode tests.
 
 ---
 
-## 5.1 M-Extension Boundary
+## 6. M-Extension Boundary
 
-Phase 15 M-Extension security rules:
+M-Extension is the canonical extension control-plane boundary, but its concrete acceptance and runtime restrictions are owned by `docs/services/m-extension.md`.
+
+Security interpretation rules:
 
 - extensions are untrusted by default.
-- M-Extension Manifest v0.1 is a governance declaration only.
-- `controlPlaneOnly` must be `true`.
-- only `low` and `medium` risk manifests are accepted.
-- `high` and `critical` risk manifests are rejected as unsupported.
-- unknown requested permissions are rejected.
-- extensions cannot create new permissions.
-- `register`, `enable`, and `disable` require M-Policy.
-- allowed `register`, `enable`, and `disable` write Audit before persistence or transition.
-- Phase 15 does not create approval records for extension operations.
-- Phase 15 does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior.
-
-M-Extension manifests must not contain:
-
-- inline code.
-- executable command strings.
-- secret values.
-- raw webhook tokens.
-- Wasm binaries or loadable binary paths.
-- unversioned config blobs.
+- control-plane-only manifests remain governance declarations, not executable runtime payloads.
+- unknown permissions, unsupported risk classes, and unauthorized mutations fail closed.
+- allowed mutating operations still require Audit before persistence or transition.
+- execution runtimes (Wasm, webhook, HTTP callback, script, cloud-function) remain outside the current baseline.
 
 ---
 
-## 6. Secret Lifecycle
+## 7. Secret Lifecycle
 
 Core owns:
 
@@ -353,40 +337,33 @@ M-Log owns:
 
 Secrets must not appear in Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, CLI stdout/stderr, or error envelopes.
 
-Phase 18 SecretRef v0.1 rules:
+SecretRef v0.1 rules:
 
 - Core owns secretRef metadata and local v0.1 secret value storage entrypoints.
 - M-Policy authorizes create, rotate, disable, metadata read, and reference operations.
 - mutating secretRef operations write Audit before mutation.
 - external services receive only `secretRef`, not plaintext secret values.
-- production KMS / Vault integration is deferred.
+- production KMS / Vault / cloud key-manager integration is deferred.
+- envelope encryption, key leasing, automatic rotation schedules, cross-node distribution, and backup/recovery are deferred.
 - no M-Secret service is created.
 
 ---
 
-## 7. Config Lifecycle Boundary
+## 8. Config Lifecycle Boundary
 
-Phase 19 Config Lifecycle v0.1 rules:
+`docs/config/CONFIG-LIFECYCLE.md` is the canonical config lifecycle contract. This section keeps only the security interpretation:
 
-- Core owns the generic config lifecycle control plane.
-- domain services own domain-specific apply behavior.
-- config payloads must be schema validated, versioned, hash-addressed, published, applied, and acknowledged.
-- high-risk config publish / rollback requires M-Policy and Audit.
+- config lifecycle routes must fail closed when M-Policy or required Audit writes are unavailable.
 - config payloads must use `secretRef`; plaintext secrets are prohibited.
-- M-UI config authoring and broad collaborative config editing are deferred.
+- domain services may apply config, but Core remains the generic control-plane entrypoint.
+- collaborative authoring and broad UI editing remain deferred until they reopen the same security controls.
 
-### 6.1 Node Agent Tokens
+### 8.1 Node Agent Tokens
 
-Phase 8 uses per-node opaque tokens for `node-agent` identity.
+`docs/services/node-agent.md` is the canonical node-agent runtime contract. Security-critical consequences are:
 
-Rules:
-
-- first-join plaintext enters through the Join Ticket flow: Core issues the ticket, and M-Net returns the runtime token in `join.accepted`.
-- `POST /api/v0/nodes/:id/credentials` remains an internal compatibility and operator path for re-issuing a node token; token plaintext is still returned only once per issuance.
+- first-join plaintext enters through the Join Ticket flow, not through reusable public credentials.
 - PostgreSQL stores only `token_hash`.
 - one node may have only one active token at a time.
-- `session.resume` validates the runtime token and establishes the active session lease.
-- heartbeat, forwarded log, and task reply validation rely on the authenticated session plus the current `sessionId`; they do not repeat the runtime token in every frame.
-- runtime token plaintext is only present in the `join.accepted` handshake and the `session.resume` request that reauthenticates a node.
-- invalid or revoked token usage must not update node state and must leave log evidence.
-- runtime tokens must never appear in stdout, Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, or error messages.
+- `session.resume` re-establishes the active session lease and supersedes the previous live session.
+- runtime token plaintext must never appear in stdout, Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, or error messages.

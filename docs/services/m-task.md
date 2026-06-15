@@ -14,7 +14,7 @@
 
 ## 2. Responsibility
 
-M-Task owns Meristem task lifecycle behavior after the Phase 11 cutover.
+M-Task owns Meristem task lifecycle behavior after the M-Task cutover.
 
 Owns:
 
@@ -26,7 +26,7 @@ Owns:
 - task delivery coordination through M-Net
 - task Timeline / Full / Audit behavior defined by action and outcome
 - task policy and risk requirements in cooperation with M-Policy
-- Phase 12 suspended operation state for task operations blocked by `require_manual_review` or `require_multi_approval`
+- approval flow suspended operation state for task operations blocked by `require_manual_review` or `require_multi_approval`
 - internal resume/reject execution for approved or rejected policy approvals
 
 Must not own:
@@ -44,11 +44,11 @@ Must not own:
 
 | Contract | Path / Subject | Version | Notes |
 |----------|----------------|---------|-------|
-| REST | `/api/v0/tasks`, `/api/v0/task-definitions` | `v0` | Canonical external task API after Phase 11.1 |
+| REST | `/api/v0/tasks`, `/api/v0/task-definitions` | `v0` | Canonical external task API |
 | Internal REST | `/internal/v0/task-operations/:id/resume`, `/internal/v0/task-operations/:id/reject` | `v0` | M-Policy approval callbacks; requires `x-meristem-internal-token` |
 | OpenAPI | M-Task OpenAPI document | `v0` | Task routes must be tagged as M-Task owned |
 | Eden | `@meristem/contracts/m-task` | `0.1.0` | Internal TypeScript contract for M-CLI / M-UI / service clients |
-| Effect Schema | `packages/contracts/src/schemas/tasks.ts` | `0.1.0` | Executable task contracts and drift checks |
+| Effect Schema | `packages/contracts/src/schemas/task.ts` | `0.1.0` | Executable task contracts and drift checks |
 | Events | `task.*.v0` | `v0` | See `docs/events/EVENT-CATALOG.md` |
 
 Initial REST shape:
@@ -76,7 +76,7 @@ POST /internal/v0/task-operations/:id/reject
 | `task:retry` | request retry contract path | high |
 | `task:manage` | manage task definitions and administrative task behavior | critical |
 
-The MVP-era `task:assign` permission is replaced during Phase 11.1. It is not a compatibility permission after the cutover.
+The MVP-era `task:assign` permission is replaced during M-Task cutover. It is not a compatibility permission after the cutover.
 
 ---
 
@@ -124,7 +124,7 @@ The MVP-era `task:assign` permission is replaced during Phase 11.1. It is not a 
 | Capability | Supported | Notes |
 |------------|-----------|-------|
 | reloadable | yes | dependency URLs, auth key references, and timeout scan interval may reload when supported |
-| rollbackable | no | task state migrations are not rolled back automatically in Phase 11 |
+| rollbackable | no | task state migrations are not rolled back automatically |
 | degradable | yes | read/status paths may degrade; protected writes fail closed when policy, audit, or state dependencies are unavailable |
 
 ---
@@ -146,7 +146,7 @@ Audit is defined by M-Task action and outcome rules. High risk alone does not cr
 - Every external M-Task route verifies actor JWT bearer credentials at the M-Task boundary.
 - Protected operations call M-Policy before execution.
 - RBAC denial fails closed.
-- M-Policy risk output may return `allow`, `deny`, `require_manual_review`, or `require_multi_approval` for Phase 11 task actions.
+- M-Policy risk output may return `allow`, `deny`, `require_manual_review`, or `require_multi_approval` for task actions.
 - `require_manual_review` and `require_multi_approval` create an M-Task suspended operation plus an M-Policy approval record, then block execution until M-Policy calls the internal resume or reject endpoint.
 - Internal approval callbacks do not rerun risk decision; they validate internal auth, suspended operation state, expiration, idempotency, and target task freshness.
 - Audit writes are required only for explicitly defined M-Task actions and outcomes.

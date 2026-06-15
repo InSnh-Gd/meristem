@@ -29,7 +29,7 @@ describe('workspace hygiene scanner', () => {
     const violations = findWorkspaceHygieneViolations([
       'apps/core/src/routes/projection.ts',
       'services/m-log/src/projection/engine.ts',
-      'docs/plans/2026-05-23-architecture-review-register.md',
+      'docs/contracts/CONTRACT-VERSIONING.md',
       'tests/contracts/workspace-hygiene.test.ts'
     ])
 

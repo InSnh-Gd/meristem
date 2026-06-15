@@ -1,10 +1,20 @@
 # CLI Commands MVP Contract
 
-> M-CLI is the primary MVP operator entrypoint. Commands call Core APIs and must return non-zero exit codes on failure.
+> M-CLI is the primary operator entrypoint for the current contract baseline.
+>
+> 本文档是 supporting contract：它定义命令行入口、参数、stdout/stderr 约束与操作规则；外部权限、HTTP error envelope 与 request / response shape 仍以 `REST-API-MVP.md` 为准。
 
 ---
 
-## 1. Global Rules
+## 1. Scope and Authority
+
+- 覆盖 `meristem` CLI 的命令入口、参数、输出与非零退出规则。
+- 为操作发现性保留 permission mirror，但若与 `REST-API-MVP.md` 冲突，以 REST 主契约为准。
+- 涉及 internal loopback 或 runtime lifecycle 语义时，补充规则来自 `SERVICE-LIFECYCLE-PROTOTYPE.md`。
+
+---
+
+## 2. Global Rules
 
 - Binary name: `meristem`.
 - Default Core URL: `http://localhost:3000`.
@@ -17,7 +27,7 @@
 
 ---
 
-## 2. Commands
+## 3. Commands
 
 ### `meristem status`
 
@@ -43,7 +53,7 @@ Rules:
 
 - `--kind core` is not supported in MVP.
 - default mode is `simulated`.
-- `--mode simulated` keeps the legacy in-process noop path.
+- `--mode simulated` keeps the synchronous local-only noop path used for development and tests.
 - `--mode agent` is rejected; use `meristem node ticket create` instead.
 - `simulated` registrations stay on the current synchronous `healthy` path.
 
@@ -78,7 +88,7 @@ Permission: `core:read`.
 
 Lists node ID, kind, name, status, and createdAt.
 
-The current MVP response also includes:
+The current node list output also includes these fields when present:
 
 - `mode`
 - `reachability`
@@ -147,7 +157,7 @@ Requests enabling M-Net CN on one logical network.
 Rules:
 
 - uses `MERISTEM_MNET_URL` when set.
-- enable requires Phase 12 approval; the command returns a pending approval with `approvalId` and `operationId`.
+- enable requires M-Policy approval; the command returns a pending approval with `approvalId` and `operationId`.
 - the security-admin must approve through `meristem policy approvals approve` before the profile is applied.
 - non-zero exit on missing permission, invalid network, or unsupported profile version.
 
@@ -168,7 +178,7 @@ Rules:
 
 Permission: `task:submit`.
 
-Submits a Phase 11 noop task through M-Task against a Leaf node.
+Submits a noop task through M-Task against a Leaf node.
 
 Rules:
 
@@ -207,24 +217,27 @@ Permission: `core:read`.
 
 Lists built-in service summaries and any registered service definitions visible through Core.
 
+See `REST-API-MVP.md` and `SERVICE-LIFECYCLE-PROTOTYPE.md` for the canonical route and lifecycle field semantics.
+
 ### `meristem service reload --service <service-id> [--reason <text>]`
 
 Permission: `service:reload`.
 
-Requests a synchronous reload against a reloadable service prototype.
+Requests a synchronous reload against a reloadable service.
 
 Rules:
 
-- `m-log` is the only reloadable built-in service in the current prototype.
+- `m-log` is the only reloadable built-in service in the current runtime contract.
 - non-reloadable services return `409`.
 - unknown services return `404`.
 - `--reason` is optional and is forwarded to the internal lifecycle endpoint.
+- Route shape remains canonical in `REST-API-MVP.md`; runtime reload semantics remain canonical in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
 ### `meristem extension list`
 
 Permission: `extension:read`.
 
-Lists Phase 15 extension definitions and system-scoped instance state through M-Extension.
+Lists M-Extension control plane definitions and system-scoped instance state through M-Extension.
 
 Rules:
 
@@ -246,7 +259,7 @@ Registers one `MExtensionManifestV01` document with M-Extension.
 Rules:
 
 - manifest must be `controlPlaneOnly: true`.
-- only `low` and `medium` risk classes are accepted in Phase 15.
+- only `low` and `medium` risk classes are accepted in the M-Extension control plane.
 - unknown requested permissions fail registration.
 - successful registration writes Audit before persistence.
 - this command does not install code, load Wasm, create webhook ingress, bind secrets, or execute callbacks.
@@ -259,7 +272,7 @@ Enables the extension instance for `system/default` scope.
 
 Rules:
 
-- Phase 15 does not support node, network, service, tenant, or user scopes.
+- M-Extension control plane does not support node, network, service, tenant, or user scopes.
 - successful enable writes Audit before the state transition.
 - this command does not execute extension runtime behavior.
 
@@ -428,9 +441,9 @@ Skips one projection DLQ record. Core writes Audit Log before execution and writ
 
 ---
 
-## 3. Token Defaults
+## 4. Token Defaults
 
-MVP seed actors:
+Current seed actors:
 
 | Actor | Role |
 |-------|------|
@@ -439,7 +452,7 @@ MVP seed actors:
 | `admin` | admin |
 | `security-admin` | security-admin |
 
-Generate local MVP tokens with:
+Generate local operator tokens with:
 
 ```bash
 bun run token:mint --actor viewer
@@ -452,7 +465,7 @@ If `MERISTEM_TOKEN` is not set, protected CLI commands fail with a short authent
 
 ---
 
-## 4. Acceptance Scenarios
+## 5. Operator Smoke Scenarios
 
 ```bash
 MERISTEM_TOKEN=<operator-token> meristem node register --kind leaf --name local-leaf
@@ -467,7 +480,7 @@ MERISTEM_TOKEN=<operator-token> meristem audit list
 MERISTEM_TOKEN=<security-admin-token> meristem audit list
 ```
 
-Expected:
+Expected operator-facing behavior:
 
 - operator node registration succeeds
 - operator node token issuance succeeds
@@ -477,11 +490,15 @@ Expected:
 - operator audit list fails
 - security-admin audit list succeeds
 
+Full acceptance coverage and CI gates live in `docs/testing/TESTING.md`.
+
 ### `meristem policy approvals list`
 
 Permission: `policy:approval-read` (admin + security-admin).
 
 Lists pending approval records.
+
+Canonical approval route semantics live in `REST-API-MVP.md`.
 
 Rules:
 
@@ -494,11 +511,15 @@ Permission: `policy:approval-read` (admin + security-admin).
 
 Shows one approval record with its votes.
 
+Canonical approval record shape lives in `REST-API-MVP.md`.
+
 ### `meristem policy approvals approve <approval-id> [--reason <text>]`
 
 Permission: `policy:approval-approve` (security-admin only).
 
 Approves a pending approval. Writes Audit Log.
+
+Canonical state-transition rules live in `REST-API-MVP.md`.
 
 Rules:
 
@@ -511,6 +532,8 @@ Rules:
 Permission: `policy:approval-reject` (security-admin only).
 
 Rejects a pending approval. Writes Audit Log.
+
+Canonical state-transition rules live in `REST-API-MVP.md`.
 
 Rules:
 

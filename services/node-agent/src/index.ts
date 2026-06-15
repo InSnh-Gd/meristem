@@ -4,16 +4,16 @@ import type {
   SessionTaskExecuteMessage
 } from '../../../packages/contracts/src/index.ts'
 import {
+  currentTraceId,
+  initTelemetry,
+  shutdownTelemetry
+} from '../../../packages/telemetry/src/index.ts'
+import {
   decodeMessage,
   heartbeatIntervalMs,
   parseServerMessage,
   requiredOneOf
 } from './node-agent-runtime.ts'
-import {
-  currentTraceId,
-  initTelemetry,
-  shutdownTelemetry
-} from '../../../packages/telemetry/src/index.ts'
 
 const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
@@ -89,7 +89,7 @@ function exitWithError(message: string): never {
 
 /**
  * join.accepted 会回传新的运行 token；resume 只恢复既有 token 对应的活动 session。
- * 依据 docs/services/node-agent.md §4，运行 token 只能进入内存与后续 resume，不得出现在 stdout。
+ * 依据 docs/services/node-agent.md §10，运行 token 只能进入内存与后续 resume，不得出现在 stdout。
  */
 function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): void {
   nodeId = message.node.id

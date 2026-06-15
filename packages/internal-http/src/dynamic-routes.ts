@@ -34,7 +34,7 @@ export type DynamicRouteAdapter = {
 
 /**
  * Creates a shared dynamic route adapter for Meristem REST paths where Eden inference is brittle.
- * Source: docs/plans/2026-05-23-architecture-review-register.md A-007.
+ * 来源：`docs/contracts/CONTRACT-VERSIONING.md` 的内部 HTTP 契约边界。
  */
 export function createDynamicRouteAdapter(config: DynamicRouteAdapterConfig): DynamicRouteAdapter {
   async function requestJson<TResponse>(

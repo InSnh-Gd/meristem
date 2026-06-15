@@ -1,5 +1,4 @@
-// Shared security-sensitive literals come from the Effect projection hardening plan.
-// Source: docs/plans/2026-05-23-effect-projection-hardening.md §2.2-2.3
+// 安全敏感字面量由契约包统一导出，避免权限、角色和状态字符串在服务间漂移。
 export const actorIds = ['viewer', 'operator', 'admin', 'security-admin'] as const
 
 export type ActorId = (typeof actorIds)[number]

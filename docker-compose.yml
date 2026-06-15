@@ -28,7 +28,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # Phase 10 OpenSearch 读模型，作为可选 compose profile。
+# OpenSearch 读模型，可作为可选 compose profile。
   opensearch:
     image: opensearchproject/opensearch:2-alpine
     environment:
@@ -45,7 +45,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # Phase 16 optional cache backend candidate. Redis is not a default dependency.
+# Optional cache backend candidate. Redis is not a default dependency.
   redis:
     image: redis:7-alpine
     ports:
@@ -58,7 +58,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # Phase 16 optional edge gateway example. APISIX must not become an auth or policy root.
+# Optional edge gateway example. APISIX must not become an auth or policy root.
   apisix:
     image: apache/apisix:3.9.1-debian
     ports:

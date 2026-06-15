@@ -4,7 +4,7 @@
 
 - **Active emitted events** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`.
 - **Active REST responses** = the route is mounted now and returns a concrete response shape in code.
-- **Future deferred to Phase 20** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
+- **Future deferred to post-v0.1 coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
 - **Not active** = no real publisher and no active mounted path in the current codebase.
 
 ## Active / implemented now
@@ -72,12 +72,12 @@
 
 ### Executable proof
 
-- `tests/contracts/schema-coverage.contract.test.ts` round-trips every active emitted event subject above.
-- The same contract test round-trips every active response schema listed above, including `SetNetworkProfileResponseSchema`.
+- `tests/contracts/schema-coverage.active-publishers.contract.test.ts` and the schema-coverage domain suites round-trip every active emitted event subject above.
+- The same schema-coverage contract suite round-trips every active response schema listed above, including `SetNetworkProfileResponseSchema`.
 
-## Non-active / deferred to Phase 20
+## Non-active / deferred to post-v0.1 coverage
 
-These documented event catalog entries currently have **no real publisher** in the active codebase, so their payload contracts stay explicitly deferred to Phase 20 rather than being treated as implemented now.
+These documented event catalog entries currently have **no real publisher** in the active codebase, so their payload contracts stay explicitly deferred to post-v0.1 coverage rather than being treated as implemented now.
 
 - `service.lifecycle.reload.failed.v0`
 - `task.cancel.requested.v0`
@@ -105,4 +105,4 @@ These documented event catalog entries currently have **no real publisher** in t
 
 - No fake publishers were added.
 - No inactive event catalog entries were implemented just to reach parity with docs.
-- No active emitted event or active mounted response was deferred to Phase 20.
+- No active emitted event or active mounted response was deferred to post-v0.1 coverage.

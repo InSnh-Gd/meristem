@@ -24,7 +24,7 @@ function disabledCommand(
 
 /**
  * Derives CommandWell display eligibility from Core-visible facts only.
- * Source: docs/plans/2026-05-23-architecture-review-register.md A-005.
+ * 来源：`docs/ui/SDUI-SCHEMA.md` 的 CommandWell 边界和 BFF 显示契约。
  */
 export function deriveNoopCommandEligibility(
   session: SessionFacts,

@@ -12,7 +12,7 @@ _Avoid_: Dashboard, admin panel
 A temporary operator-facing surface used to prove Meristem control-room flows before the final M-UI design is rebuilt.
 _Avoid_: Final M-UI design, production UI system
 
-**Phase 9 Functional Demo Acceptance Path**:
+**M-UI Functional Demo Acceptance Path**:
 The end-to-end proof that the temporary demo shell exercises a real control action and audit visibility, not only contract stubs.
 _Avoid_: Simulated-only UI completion, contract-test-only acceptance
 
@@ -38,7 +38,7 @@ _Avoid_: Authoritative log store, audit fact source
 
 **Projection Platform Track**:
 The platformization path for read-model projection jobs, replay, backfill, offsets, retry, dead-letter handling, schema versions, and projection health.
-_Avoid_: Phase 10.0 blocker, replacement source of truth
+_Avoid_: read-model projection blocker, replacement source of truth
 
 **CommandWell Confirmation**:
 The explicit confirmation step inside the command area before an operator sends a control action.
@@ -75,7 +75,7 @@ _Avoid_: Completed approval, allow with warning, automatic delayed execution
 ## Relationships
 
 - The **M-UI Functional Demo Shell** demonstrates a subset of the **Control Room Ledger** without becoming the final visual design.
-- The **Phase 9 Functional Demo Acceptance Path** is the completion proof for the **M-UI Functional Demo Shell**.
+- The **M-UI Functional Demo Acceptance Path** is the completion proof for the **M-UI Functional Demo Shell**.
 - The **M-UI BFF** may serve the **M-UI Functional Demo Shell**, but Core, M-Policy, and M-Log remain the fact sources.
 - A **Disabled Command Explanation** belongs to a command shown by the **M-UI Functional Demo Shell** and does not create an audit fact by itself.
 - **Audit Access State** belongs to the **M-UI Functional Demo Shell** and shows access to audit facts without becoming the full audit surface.
@@ -93,17 +93,17 @@ _Avoid_: Completed approval, allow with warning, automatic delayed execution
 
 ## Example Dialogue
 
-> **Dev:** "Should the Phase 9 screen be treated as the final M-UI design?"
+> **Dev:** "Should the M-UI Functional Demo Shell screen be treated as the final M-UI design?"
 > **Domain expert:** "No, it is an **M-UI Functional Demo Shell** that proves the **Control Room Ledger** flow before we redesign the frontend."
 
 ## Flagged Ambiguities
 
 - "M-UI" can mean either the long-term product interface or the temporary demo shell; resolved: call the temporary version **M-UI Functional Demo Shell**.
-- "Phase 9 completion" can mean contract tests or a real control-room demo path; resolved: use **Phase 9 Functional Demo Acceptance Path** for the end-to-end proof.
+- "M-UI Functional Demo completion" can mean contract tests or a real control-room demo path; resolved: use **M-UI Functional Demo Acceptance Path** for the end-to-end proof.
 - "BFF" can imply an application-specific backend of record; resolved: **M-UI BFF** is only a permission-aware display and command boundary.
 - "permission failure" can mean either a blocked request or a disabled UI command; resolved: use **Disabled Command Explanation** only for a command that was not executed.
-- "Audit visibility" can mean a complete audit product or a visible permission state; resolved: use **Audit Access State** for Phase 9.
-- "policy decision display" can mean a full policy panel or a result breadcrumb; resolved: use **Minimal Policy Decision Summary** for Phase 9.
+- "Audit visibility" can mean a complete audit product or a visible permission state; resolved: use **Audit Access State** for the M-UI Functional Demo.
+- "policy decision display" can mean a full policy panel or a result breadcrumb; resolved: use **Minimal Policy Decision Summary** for the M-UI Functional Demo.
 - "OpenSearch logs" can imply the read model is the log store; resolved: use **OpenSearch Read Model Projection** for query copies.
 - "complex projection platform" can mean the first read-model slice or the later operating model; resolved: use **Projection Platform Track** for the latter.
 - "confirmation" can mean either a browser modal or a command-area step; resolved: use **CommandWell Confirmation** for Meristem control actions.
@@ -111,4 +111,4 @@ _Avoid_: Completed approval, allow with warning, automatic delayed execution
 - "Effect schema work" can mean either internal executable contract modeling or HTTP adapter validation; resolved: use **Effect Executable Contract** for internal contract source and keep Elysia TypeBox as REST/OpenAPI adapter.
 - "projection admin" can blur read-only observation and mutating repair actions; resolved: use **Projection Read Action** and **Projection Control Action**.
 - "M-Task" can imply a general workflow platform or transport layer; resolved: use **M-Task** only for Meristem task lifecycle ownership and keep transport in M-Net / node-agent.
-- "require manual review" can sound like a complete approval system; resolved: use **Pending Policy Escalation** when Phase 11 only blocks and records the required review outcome.
+- "require manual review" can sound like a complete approval system; resolved: use **Pending Policy Escalation** when the M-Task cutover only blocks and records the required review outcome.

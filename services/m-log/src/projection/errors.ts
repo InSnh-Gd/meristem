@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema'
 
 // Projection workflow errors are typed so Core/internal adapters can preserve failure meaning.
-// Source: docs/plans/2026-05-23-effect-projection-hardening.md §3 Slice 2
+// 投影错误模型用于稳定失败分类，边界见 `docs/services/m-log.md`。
 export class ProjectionUnknownIndexError extends Schema.TaggedError<ProjectionUnknownIndexError>()(
   'ProjectionUnknownIndexError',
   {

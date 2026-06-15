@@ -8,14 +8,15 @@
 | version | `0.1.0` |
 | domain | `m-log` |
 | kind | `internal` |
+| owner | Meristem logging maintainers |
 
 ---
 
 ## 2. Responsibility
 
-M-Log owns Meristem's logging, timeline, full log, audit, and AI-analysis input layer.
+M-Log owns Timeline, Full Log, Audit Log, and the OpenSearch-backed query layer used for search and analysis.
 
-Owns:
+What this service owns:
 
 - Timeline Log
 - Full Log
@@ -23,58 +24,103 @@ Owns:
 - log schema versioning
 - event-to-log correlation
 - trace ID correlation
-- internal loopback HTTP + Eden log write/query API for Core
+- internal loopback HTTP + Eden write/query APIs
 - OpenSearch projection for query and analysis
 
-Must not own:
+What this service must not own:
 
 - OpenTelemetry collection itself
-- policy decisions
+- authorization decisions
 - authoritative operational state
 - mutable audit facts
 
 ---
 
-## 3. Log Boundaries
+## 3. Contracts
 
-| Log | Audience | Purpose | Storage Rule |
-|-----|----------|---------|--------------|
-| Timeline Log | most team members | human-readable key events | queryable, summarizable |
-| Full Log | operations and AI analysis | complete classified logs | searchable and trace-linked |
-| Audit Log | high-trust review | privileged and high-risk facts | independent, high-permission, immutable by default |
-
-Audit Log is not a category inside Full Log. It is a separate high-trust fact stream.
+| Contract | Path / Subject | Version | Notes |
+|----------|----------------|---------|-------|
+| REST / internal HTTP | `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`, `/internal/v0/search/*` | `v0` | loopback write/query surface |
+| Eden | `@meristem/contracts/mlog` | `0.1.0` | typed internal client surface |
+| Events | `audit.entry.created.v0` | `v0` | published after successful Audit writes |
 
 ---
 
-## 4. Failure Behavior
+## 4. Permissions
 
-| Failure | Behavior |
-|---------|----------|
-| Timeline write fails | mark Timeline degraded; Full and Audit continue |
-| Full Log query fails | query path degrades; writes continue if possible |
-| Audit write fails | block high-risk and privileged operations |
-| OpenSearch unavailable | write model unaffected; search and analysis degrade |
+M-Log does not expose its own external operator-facing permission surface. Core and internal services call M-Log through the internal token boundary; external read permissions are enforced before Core fan-out.
+
+| Permission | Required For | Risk |
+|------------|--------------|------|
+| internal token | `/ready` and `/internal/v0/*` | medium |
 
 ---
 
-## 5. Done Criteria
+## 5. Dependencies
+
+| Dependency | Type | Failure Behavior |
+|------------|------|------------------|
+| PostgreSQL | datastore | authoritative log-fact writes fail closed when required |
+| OpenSearch | read model | search and analysis degrade without affecting authoritative facts |
+| M-EventBus | service | post-Audit publication degrades explicitly |
+
+---
+
+## 6. Configuration
+
+| Key | Type | Required | Hot Reload | Notes |
+|-----|------|----------|------------|-------|
+| `MERISTEM_MLOG_PORT` | number | yes | no | loopback bind |
+| `OPENSEARCH_URL` | string | no | yes | read-model/search backend |
+| `MERISTEM_INTERNAL_TOKEN` | string | yes | no | internal service authentication |
+
+---
+
+## 7. Health
+
+| Check | Meaning | Failure Behavior |
+|-------|---------|------------------|
+| liveness | process is running | restart or report unavailable |
+| readiness | write path is available and required dependencies are usable | protected writes fail closed when Audit is unavailable |
+
+---
+
+## 8. Lifecycle
+
+| Capability | Supported | Notes |
+|------------|-----------|-------|
+| reloadable | yes | current runtime prototype supports bounded reload |
+| rollbackable | no | audit/log facts are not rolled back |
+| degradable | yes | search/query degrades independently from authoritative writes |
+
+---
+
+## 9. Logs
+
+| Log | When Written | Required Fields |
+|-----|--------------|-----------------|
+| Timeline | key human-readable operational events | `summary`, `subject`, `correlationId` |
+| Full | raw contextual logs and degradation details | `source`, `level`, `message`, `traceId`, `correlationId` |
+| Audit | privileged and high-risk facts | `actor`, `action`, `resource`, `decision` |
+
+Audit Log is not a category inside Full Log; it is a separate high-trust fact stream.
+
+---
+
+## 10. Policy Requirements
+
+- high-risk or privileged operations must fail closed if required Audit writes cannot be completed.
+- M-Log does not make authorization decisions.
+- search/read surfaces must not become the authority for business-state decisions.
+
+---
+
+## 11. Done Criteria
 
 - Core start writes Timeline Log.
-- Node join writes Timeline Log.
-- Privileged placeholder action writes Audit Log.
-- Full Log can store raw context with `traceId` or `correlationId`.
+- node join writes Timeline Log.
+- privileged placeholder actions write Audit Log.
+- Full Log stores raw context with `traceId` or `correlationId`.
 - Audit Log cannot be silently skipped for high-risk actions.
-
-Current MVP boundary:
-
-- listens on `http://127.0.0.1:3102`
-- requires `x-meristem-internal-token` for `/ready` and `/internal/v0/*`
-- exposes `/health`, `/ready`, `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`,
-  `/internal/v0/search/full`, `/internal/v0/search/timeline`, `/internal/v0/search/audit`,
-  `/internal/v0/lifecycle/reload`
-- is the only reloadable internal service in the current lifecycle prototype
-- owns OpenSearch adapter (`services/m-log/src/opensearch.ts`) for Full, Timeline, and Audit read model projection
-- OpenSearch projection is best-effort after PostgreSQL writes; projection failure does not roll back authoritative facts
-- internal search endpoints (`GET /internal/v0/search/*`) are owned by M-Log and called by Core via Eden HTTP
-- publishes `audit.entry.created.v0` through M-EventBus after successful Audit writes
+- the current loopback boundary remains `http://127.0.0.1:3102` with `/health`, `/ready`, `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`, and `/internal/v0/search/*`.
+- OpenSearch projection remains best-effort after PostgreSQL writes and does not roll back authoritative log facts.

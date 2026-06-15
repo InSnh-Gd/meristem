@@ -11,7 +11,7 @@
 | Bun | yes | TypeScript runtime, package manager, script runner, and test runner |
 | PostgreSQL | yes for MVP | authoritative state |
 | NATS | yes for MVP | M-EventBus |
-| OpenSearch | no until Phase 10 | read model and log search |
+| OpenSearch | no until OpenSearch read model | read model and log search |
 | Redis / KeyDB | no | optional cache fallback |
 | APISIX | no | optional gateway |
 
@@ -26,9 +26,9 @@ Node.js is not part of the supported local toolchain for this repository. Local 
 ```bash
 bun install
 docker compose up -d postgres nats
-# Phase 10: optionally start OpenSearch for log search
+# optionally start OpenSearch for log search
 # docker compose --profile opensearch up -d opensearch
-# Phase 16 optional deployment pack profiles
+# optional deployment pack profiles
 # docker compose --profile redis up -d redis
 # docker compose --profile apisix up -d apisix
 bun run db:migrate
@@ -87,17 +87,17 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-Log | `3102` | loopback HTTP + Eden + internal token |
 | M-EventBus | `3103` | loopback HTTP + Eden + internal token; publishes to NATS |
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
-| M-Task | `3105` | canonical Phase 11 task API `/api/v0/tasks` |
-| M-Extension | `3106` | Phase 15 extension control-plane API |
+| M-Task | `3105` | canonical M-Task API `/api/v0/tasks` |
+| M-Extension | `3106` | M-Extension control-plane API |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | M-UI | `5173` or framework default | SvelteKit dev server |
 | M-UI BFF | `3200` | UI-facing BFF dev server |
 | NATS TCP | `4222` | server-side listen port; not the default Bun client transport |
 | NATS WebSocket | `4223` | private Bun transport for internal services only |
 | PostgreSQL | `55432` host -> `5432` container | local write model; avoids common host PostgreSQL conflicts |
-| OpenSearch | `9200` | later phase only |
-| Redis | `6379` | optional Phase 16 cache candidate only |
-| APISIX | `9080` | optional Phase 16 edge gateway example |
+| OpenSearch | `9200` | optional read-model service |
+| Redis | `6379` | optional cache candidate only |
+| APISIX | `9080` | optional edge gateway example |
 
 Ports are provisional until the project scaffold defines them.
 
@@ -136,7 +136,7 @@ Public exposure rule:
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
 
-MVP uses locally signed HS256 JWTs. The token subject is the actor ID. Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
+MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
 ---
 
@@ -172,7 +172,7 @@ OpenTelemetry is the trace / metric / log collection layer. M-Log is Meristem's 
 MVP internal startup order:
 
 1. `docker compose up -d postgres nats
-# Phase 10: optionally start OpenSearch for log search
+# optionally start OpenSearch for log search
 # docker compose --profile opensearch up -d opensearch`
 2. `bun run db:migrate && bun run db:seed`
 3. `export MERISTEM_INTERNAL_TOKEN=change-me-internal-shared-token`
@@ -191,7 +191,7 @@ Compatibility note:
 - `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` remain available for `session.resume` and operator recovery flows.
 - `meristem node issue-token` is no longer the primary public join flow.
 
-Phase 16 optional deployment pack:
+Optional deployment pack:
 
 - detailed profile commands and failure behavior live in `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`.
 - APISIX, Redis, and OpenSearch profiles are optional and must not become test or local development prerequisites.

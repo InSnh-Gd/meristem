@@ -1,20 +1,21 @@
 # Deferred Event Gap Map
 
-> Checked-in map of every event catalog subject that remains non-active after Phase 20 Task 8.
+> Checked-in map of every event catalog subject that remains non-active after the current contract baseline.
 > A subject is non-active when there is no real `publish()` call in `apps/core/src/` or `services/*/src/`.
-> This map is the Phase 20 deliverable; it does not add schemas, publishers, or fixtures.
+> This map is a deferred-coverage audit artifact; it does not add schemas, publishers, or fixtures.
 
 ---
 
 ## Scope
 
-- Source of truth for active vs deferred classification: `tests/contracts/schema-coverage.md`.
+- `EVENT-CATALOG.md` remains the canonical event registry.
+- This file is a checked-in audit map of catalog subjects that are still deferred in the active codebase.
 - Active subjects have Effect Schema coverage and real publishers; they are intentionally absent from this map.
 - The scanner behind `getActivePublisherSubjects()` reads literal subjects from `publish()`, `publishTaskEvent()`, `publish.post({ subject: ... })`, and known dynamic helpers in `services/m-extension/src/`. It does not resolve runtime-computed subjects or subjects emitted only by future node-agent / data-plane runtimes.
 
 ## Deferred event gap map
 
-| Subject | Domain | Catalog publisher | Current publisher status | Effect Schema status | Test fixture status | Owner | Reason deferred | Reopen trigger | Phase 20 action |
+| Subject | Domain | Catalog publisher | Current publisher status | Effect Schema status | Test fixture status | Owner | Reason deferred | Reopen trigger | Deferred-work action |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `service.lifecycle.reload.failed.v0` | service lifecycle | service | no active publisher in active codebase | deferred, no Effect Schema in packages/contracts | deferred, no contract test fixture | Core / service lifecycle | Service reload failure path is not wired to emit this event yet. | When service reload failure handling is implemented and a real publisher exists. | deferred, implement when real publisher exists |
 | `task.cancel.requested.v0` | task lifecycle | M-Task | no active publisher in active codebase | deferred, no Effect Schema in packages/contracts | deferred, no contract test fixture | M-Task | Running-task cancellation only transitions to `task.canceled.v0`; the explicit cancel-requested event is not emitted. | When M-Task implements running-task cancellation hardening and emits this subject. | deferred, implement when real publisher exists |
@@ -44,7 +45,9 @@
 
 `tests/contracts/schema-coverage.deferred-map.contract.test.ts` enforces:
 
-- Every subject listed in `tests/contracts/schema-coverage.md` under `## Non-active / deferred to Phase 20` appears in the table above.
+- Every subject listed in `tests/contracts/schema-coverage.md` under `## Non-active / deferred to post-v0.1 coverage` appears in the table above.
 - No active subject (from `tests/contracts/schema-coverage.md` active table or from the source scanner) appears in the table above.
+
+The test validates this audit map against the catalog and implementation scan; it does not replace `EVENT-CATALOG.md` as the contract authority.
 
 If either rule is violated, the contract test fails.

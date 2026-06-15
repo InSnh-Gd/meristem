@@ -63,7 +63,7 @@ export function tryProjection<A>(operation: string, evaluate: () => A | PromiseL
 
 /**
  * Creates the Effect workflow for projection backfill execution.
- * Source: docs/plans/2026-05-23-effect-projection-hardening.md §3 Slice 2.
+ * 来源：`docs/services/m-log.md` 的投影补偿边界和 `docs/testing/TESTING.md` 的失败模式门禁。
  */
 export function createBackfillService(
   db: ProjectionDatabase,

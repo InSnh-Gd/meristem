@@ -1,144 +1,63 @@
 # Meristem Documentation Index
 
-> This directory contains the executable contract layer for Meristem. Root documents define intent; files under `docs/` define implementation-facing contracts.
+> `docs/` 只包含实现侧契约文档。产品意图、工程总纲和交付范围保留在仓库根文档中。
+>
+> 本文档是一份索引，不承载任何已在根文档或子目录契约中定义的具体规范。如果索引中的内容需要变更，应修改对应的根文档或契约文档，而不是在此展开。
 
 ---
 
-## 1. Root Documents
+## 1. 文档阅读顺序
 
-| Document | Role |
-|----------|------|
-| `../AGENTS.md` | AI agent entrypoint and project skill routing |
-| `../MERISTEM.md` | Product intent, product taboos, privacy and safety principles |
-| `../MERISTEM-DESIGN.md` | M-UI visual and interaction contract |
-| `../MERISTEM-DEV.md` | Engineering baseline, domain boundaries, data structures, frozen rules |
-| `../MERISTEM-ROADMAP.md` | Phased delivery plan and v0.1 guardrails |
-
----
-
-## 2. Executable Contract Documents
-
-| Directory | Purpose | Start Here |
-|-----------|---------|------------|
-| `DOCUMENTATION-AUDIT.md` | Documentation hygiene findings and cleanup order | `DOCUMENTATION-AUDIT.md` |
-| `adr/` | Architecture decision records | `adr/README.md` |
-| `services/` | Service Definition template and first service specs | `services/SERVICE-DEFINITION-TEMPLATE.md` |
-| `events/` | NATS subject and event schema catalog | `events/EVENT-CATALOG.md` |
-| `contracts/` | API, Eden, Effect Schema, event, webhook, and versioning rules | `contracts/CONTRACT-VERSIONING.md` |
-| `security/` | RBAC, policy, audit, secrets, LLM and webhook security | `security/SECURITY-MODEL.md` |
-| `data/` | Authoritative state, event state, cache, read model boundaries | `data/STATE-MODEL.md` |
-| `config/` | Config lifecycle state machine and rollback rules | `config/CONFIG-LIFECYCLE.md` |
-| `operations/` | Local runbook, dependencies, ports, failure response | `operations/RUNBOOK.md` |
-| `testing/` | Test strategy and CI gates | `testing/TESTING.md` |
-| `ui/` | SDUI schema and operational component contract | `ui/SDUI-SCHEMA.md` |
-| `roadmap/` | Phase-level implementation specs | `roadmap/PHASE-0.md` |
-| `mvp/` | MVP product and engineering target | `mvp/MVP-SPEC.md` |
-| `plans/` | Active and accepted implementation plans that are not phase documents | `plans/2026-05-23-effect-projection-hardening.md` |
-| `references/` | Current upstream technology snapshots | `references/elysiajs-latest.md` |
-| `archive/` | Historical drafts and superseded plans | `archive/meristem-v-next-developer-document-v0.1.md` |
-
-Related repository documentation outside this index:
-
-- `../.agents/skills/` contains project-local Codex skill sources.
-- `../.agents/skills/meristem-context-protocol/SKILL.md` contains the full AI context protocol, document reading order, conflict resolution, and task-specific doc routing.
-- `../.agents/skills/meristem-engineering-guardrails/SKILL.md` contains Meristem implementation guardrails for code, contracts, services, events, config, state, tests, security, logging, policy, telemetry, CLI, and UI.
-- `../.agents/skills/meristem-service-definition/SKILL.md` contains the service definition workflow for Core, M-* services, node services, task services, extension services, and BFFs.
-- `../.agents/skills/meristem-contract-versioning/SKILL.md` contains versioning and migration rules for Meristem boundary contracts.
-- `../.agents/skills/meristem-ui-contract/SKILL.md` contains M-UI, SDUI, CommandWell, BFF display, and Phase 9 functional demo guardrails.
-- `../.agents/skills/meristem-testing-gates/SKILL.md` contains test selection, TDD, failure-mode, e2e, and completion-gate rules.
-- `../doc-driven-ai/` is an ignored local tooling checkout when present; it is not part of the tracked product documentation set.
+1. `../AGENTS.md` — AI agent 入口与项目 skill 路由。
+2. `../MERISTEM.md` — 产品意图、产品边界、隐私与安全原则。
+3. `../MERISTEM-DESIGN.md` — M-UI 视觉与交互契约。
+4. `../MERISTEM-DEV.md` — 工程规范、模块边界、数据结构、冻结条款。
+5. `../MERISTEM-ROADMAP.md` — v0.1 交付范围、验收标准与后续跟踪项。
+6. `../DEFERRED-WORK.md` — v0.1 之后或暂缓的工作。
+7. 本文档（`docs/README.md`）— 查找具体契约的入口。
 
 ---
 
-## 3. Documentation Status Labels
+## 2. 按目录索引
 
-Use these labels when adding or reviewing docs:
-
-| Label | Meaning |
-|-------|---------|
-| Active | Current source of truth for implementation or review. |
-| Superseded | Kept for context, but a newer document owns current behavior. |
-| Historical | Original rationale or completed plan; do not treat as implementation guidance. |
-| Reference Snapshot | External technology snapshot that must be refreshed when relevant work touches it. |
-
----
-
-## 4. MVP and Follow-on Phase Document Set
-
-The current implementation target starts with the Core + Stem/Leaf node MVP and continues into bounded follow-on phase specs:
-
-| Document | Purpose |
-|----------|---------|
-| `mvp/MVP-SPEC.md` | MVP scope, demo loop, acceptance criteria |
-| `roadmap/PHASE-0.md` | project skeleton and engineering baseline |
-| `roadmap/PHASE-1.md` | Core microkernel and base API |
-| `roadmap/PHASE-2.md` | NATS event loop |
-| `roadmap/PHASE-3.md` | Core / Stem / Leaf node model and noop task |
-| `roadmap/PHASE-4.md` | Timeline / Full / Audit minimum logs |
-| `roadmap/PHASE-5.md` | M-Policy RBAC MVP |
-| `roadmap/PHASE-6.md` | logical node networks and M-Net orchestration |
-| `roadmap/PHASE-7.md` | service lifecycle and reload prototype |
-| `roadmap/PHASE-8.md` | real node-agent runtime prototype |
-| `roadmap/PHASE-9.md` | M-UI functional demo shell and control-room flow |
-| `roadmap/PHASE-10.md` | OpenSearch read model projection and log search |
-| `roadmap/PHASE-10.1.md` | projection platform track for projector metadata, cursor, retry, DLQ, backfill, and health |
-| `roadmap/PHASE-11.md` | M-Task service cutover, M-Policy risk foundation, and v0.1 MVP closure |
-| `roadmap/PHASE-12.md` | M-Policy approval execution flow and M-Task suspended-operation resume |
-| `roadmap/PHASE-13.md` | M-Net CN control-plane Regional Profile lifecycle |
-| `roadmap/PHASE-14.md` | formal M-UI, SDUI v0.2 route contracts, and M-UI BFF display contracts |
-| `roadmap/PHASE-15.md` | M-Extension control-plane registry, manifest, policy, lifecycle, REST, and CLI contracts |
-| `roadmap/PHASE-16.md` | optional deployment pack for compose profiles, APISIX, Redis, OpenSearch, and local topology examples |
-| `roadmap/PHASE-17.md` | Identity v0.2 local mode hardening with Core-owned token lifecycle and revocation |
-| `roadmap/PHASE-18.md` | SecretRef v0.1 control plane split across Core, M-Policy, and M-Log |
-| `roadmap/PHASE-19.md` | Config Lifecycle v0.1 draft, validate, publish, apply, ack, and rollback contracts |
-| `roadmap/PHASE-20.md` | v0.1 acceptance closure matrix, drift audit, smoke plan, and deferred work audit |
-| `roadmap/DEFERRED-WORK.md` | deferred work register for intentionally delayed phase follow-up items |
-| `contracts/REST-API-MVP.md` | REST v0 routes and schemas |
-| `contracts/EDEN-MVP.md` | internal Eden MVP contract |
-| `contracts/CLI-COMMANDS.md` | CLI MVP command behavior |
-| `contracts/SERVICE-LIFECYCLE-PROTOTYPE.md` | service list and reload prototype contract |
-| `data/POSTGRES-SCHEMA-MVP.md` | authoritative PostgreSQL schema |
-
-Phase numbering note:
-
-- `roadmap/PHASE-6.md` is the inserted logical-network execution phase.
-- `roadmap/PHASE-9.md` is the inserted M-UI functional demo phase after the real node-agent runtime prototype.
-- root `MERISTEM-ROADMAP.md` contains mapping notes for historical phase numbering.
-- use the mapping table in `MERISTEM-ROADMAP.md` when matching root phases to executable docs.
+| 目录 | 用途 | 入口文档 |
+|------|------|----------|
+| `adr/` | 架构决策记录 | `adr/README.md` |
+| `services/` | 服务定义模板与每个服务的规范 | `services/README.md` |
+| `events/` | NATS subject 与事件 schema 目录 | `events/EVENT-CATALOG.md` |
+| `contracts/` | API、Eden、Effect Schema、事件、Webhook、生命周期与版本化规则 | `contracts/README.md` |
+| `security/` | RBAC、策略、审计、密钥、LLM 与 Webhook 安全 | `security/SECURITY-MODEL.md` |
+| `data/` | 权威状态、事件状态、缓存、读模型与 schema 边界 | `data/STATE-MODEL.md` |
+| `config/` | 配置生命周期状态机与回滚规则 | `config/CONFIG-LIFECYCLE.md` |
+| `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md` |
+| `testing/` | 测试策略与 CI 门禁 | `testing/TESTING.md` |
+| `ui/` | SDUI schema 与运营组件契约 | `ui/SDUI-SCHEMA.md` |
+| `references/` | 上游技术快照 | `references/elysiajs-latest.md` |
+| `agents/` | Agent issue tracker、分类标签与领域上下文说明 | `agents/domain.md` |
 
 ---
 
-## 5. Technology Reference Set
+## 3. v0.1 最小契约集
 
-Read these before implementing or reviewing code that touches the corresponding technology:
-
-| Document | Purpose |
-|----------|---------|
-| `../.agents/skills/elysiajs/SKILL.md` | ElysiaJS route, plugin, schema, Eden, OpenAPI, and test workflow |
-| `../.agents/skills/effect-ts/SKILL.md` | Effect v4 patterns, services, layers, Schema, errors, testing, HTTP, CLI, and config references |
-| `../.agents/skills/functional-programming/SKILL.md` | Pure-first TypeScript domain logic and explicit side-effect boundaries |
-| `references/elysiajs-latest.md` | ElysiaJS current release snapshot and Meristem usage guidance |
-| `references/effect-latest.md` | Effect current project snapshot and Meristem usage guidance |
-| `references/svelte-latest.md` | Svelte current release snapshot and Svelte 5 runes guidance |
-| `references/wasm3-latest.md` | Wasm3 current release snapshot, maintenance status, and adoption checklist |
-
----
-
-## 5.1 Project Skill Set
-
-Load these project skills when their trigger matches the task:
-
-| Skill | Purpose |
-|-------|---------|
-| `../.agents/skills/meristem-context-protocol/SKILL.md` | Repository context, document order, conflict resolution, task-specific doc routing |
-| `../.agents/skills/meristem-engineering-guardrails/SKILL.md` | General implementation guardrails and completion boundaries |
-| `../.agents/skills/meristem-service-definition/SKILL.md` | Service definition, ownership, lifecycle, dependency, policy, and log behavior |
-| `../.agents/skills/meristem-contract-versioning/SKILL.md` | Versioned contracts, breaking changes, migrations, adapter drift tests |
-| `../.agents/skills/meristem-ui-contract/SKILL.md` | M-UI, SDUI, CommandWell, BFF display contract, Phase 9 UI behavior |
-| `../.agents/skills/meristem-testing-gates/SKILL.md` | Test matrix, TDD loop, failure-mode coverage, completion evidence |
+| 边界 | 对应契约 |
+|------|----------|
+| 交付范围与验收 | `../MERISTEM-ROADMAP.md` |
+| 推迟工作 | `../DEFERRED-WORK.md` |
+| REST 路由与 schema | `contracts/REST-API-MVP.md` |
+| 内部 Eden 契约 | `contracts/EDEN-MVP.md` |
+| CLI 行为 | `contracts/CLI-COMMANDS.md` |
+| 服务生命周期运行时契约 | `contracts/SERVICE-LIFECYCLE-PROTOTYPE.md` |
+| PostgreSQL 写模型 | `data/POSTGRES-SCHEMA-MVP.md` |
+| 状态边界 | `data/STATE-MODEL.md` |
+| 事件目录 | `events/EVENT-CATALOG.md` |
+| 安全与 RBAC | `security/SECURITY-MODEL.md` |
+| 测试门禁 | `testing/TESTING.md` |
+| M-UI / SDUI | `ui/SDUI-SCHEMA.md` |
 
 ---
 
-## 6. Update Rule
+## 4. 文档维护规则
 
-When a code change touches a boundary defined in a `docs/` contract, update that contract in the same change. If the root intent changes, update `MERISTEM.md` first, then cascade into the affected `docs/` files.
+- 当代码变更触及 `docs/` 中定义的契约边界时，必须在同一次变更中更新对应契约。
+- 如果根文档中的产品意图发生变化，应先更新 `../MERISTEM.md`，再级联到 `../MERISTEM-DESIGN.md`、`../MERISTEM-DEV.md`、`../MERISTEM-ROADMAP.md` 以及受影响的契约文档。
+- 索引本身只增删目录或入口链接，不展开规范细节。

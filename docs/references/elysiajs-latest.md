@@ -121,11 +121,6 @@ Validation errors can be caught with `code === 'VALIDATION'` and `error.all()` f
 })
 ```
 
-**Meristem 现状 (2026-05-22)**: 代码库未使用 `.error()` 和 `.onError()`；每个 handler 手动调用 `apiError(status, ...)`。  
-**建议**: 在 `apps/core/src/app.ts` 注册全局 `.error()` + `.onError()`，统一错误响应格式。
-
----
-
 ## 6. Testing Pattern
 
 ```ts

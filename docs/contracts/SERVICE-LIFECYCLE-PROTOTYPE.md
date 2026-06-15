@@ -1,14 +1,27 @@
-# Service Lifecycle Prototype Contract
+# Service Lifecycle Runtime Contract
 
-> This document defines the current post-MVP lifecycle prototype. It is intentionally narrower than the full config lifecycle in `docs/config/CONFIG-LIFECYCLE.md`.
+> 本文档记录服务 lifecycle reload 的运行时补充约束。
+>
+> 它是 supporting contract：外部 REST surface 仍以 `REST-API-MVP.md` 为准，CLI 命令 surface 仍以 `CLI-COMMANDS.md` 为准；本文档只补充 reload 语义、内部 loopback 行为、日志事件与非目标边界。
 
 ---
 
-## 1. Public REST
+## 1. Scope
+
+- 覆盖 `GET /api/v0/services` 与 `POST /api/v0/services/:id/reload` 的运行时补充语义。
+- 覆盖 `POST /internal/v0/lifecycle/reload` 的内部 loopback 约束。
+- 覆盖 lifecycle reload 的日志 / 事件语义与显式非目标。
+- 不定义配置发布、apply-ack、rollback 或分布式 rollout 契约；这些能力归 `docs/config/CONFIG-LIFECYCLE.md`。
+
+---
+
+## 2. Public REST
 
 Base path: `/api/v0`
 
-### `GET /services`
+### `GET /api/v0/services`
+
+Canonical route definition lives in `REST-API-MVP.md`; the type block below supplements the service lifecycle-specific fields.
 
 Permission: `core:read`
 
@@ -43,7 +56,9 @@ Rules:
 - registered service definitions may appear even when they do not expose runtime probing.
 - built-in runtime is live-probed by Core.
 
-### `POST /services/:id/reload`
+### `POST /api/v0/services/:id/reload`
+
+Canonical route definition lives in `REST-API-MVP.md`; this section defines the runtime reload semantics.
 
 Permission: `service:reload`
 
@@ -71,7 +86,9 @@ Status mapping:
 
 ---
 
-## 2. CLI
+## 3. CLI Mapping
+
+CLI command definitions live in `CLI-COMMANDS.md`:
 
 ```bash
 meristem service list
@@ -86,7 +103,7 @@ Rules:
 
 ---
 
-## 3. Internal Loopback API
+## 4. Internal Loopback API
 
 Transport: `loopback HTTP + Eden + x-meristem-internal-token`
 
@@ -113,17 +130,17 @@ Rules:
 
 ---
 
-## 4. Logging and Events
+## 5. Logging and Events
 
 - every public reload attempt writes Audit
 - successful reload writes Timeline
 - failed reload writes Timeline and Full Log
 - Core publishes `service.lifecycle.reload.requested.v0` before the internal call
-- Core publishes `service.lifecycle.reload.failed.v0` when the internal call fails
+- `service.lifecycle.reload.failed.v0` remains a deferred event subject until a real publisher exists; see `docs/events/EVENT-CATALOG.md`
 
 ---
 
-## 5. Explicit Non-Goals
+## 6. Explicit Non-Goals
 
 - no config version creation
 - no publish/apply/ack state machine

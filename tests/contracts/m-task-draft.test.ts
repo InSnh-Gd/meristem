@@ -2,29 +2,18 @@ import { describe, expect, it } from 'bun:test'
 
 describe('M-Task service alignment', () => {
   it('records the accepted M-Task cutover and implementation baseline', async () => {
-    const mTaskDraftDoc = await Bun.file('docs/roadmap/PHASE-11.md').text()
-    const adr25 = await Bun.file(
-      'docs/adr/ADR-025-promote-m-task-to-canonical-task-service.md'
-    ).text()
+    const roadmapDoc = await Bun.file('MERISTEM-ROADMAP.md').text()
+    const adrT01 = await Bun.file('docs/adr/ADR-T01-m-task-canonical-service.md').text()
     const coreApp = await Bun.file('apps/core/src/app.ts').text()
     const taskApp = await Bun.file('services/m-task/src/app.ts').text()
 
-    expect(mTaskDraftDoc).toContain('Status: Draft')
-    expect(mTaskDraftDoc).toContain('Phase 11.1 - M-Task Service Cutover')
-    expect(mTaskDraftDoc).toContain('Phase 11.2 - M-Policy Risk Foundation')
-    expect(mTaskDraftDoc).toContain('Phase 11.3 - End-to-End MVP Closure')
-    expect(mTaskDraftDoc).toContain('M-Task becomes a first-class REST / OpenAPI service')
-    expect(mTaskDraftDoc).toContain('M-Task exposes /api/v0/tasks')
-    expect(mTaskDraftDoc).toContain(
-      '`meristem task assign` is not retained as a compatibility command'
-    )
-    expect(mTaskDraftDoc).toContain(
-      'The existing `task:assign` permission is replaced by M-Task permissions'
-    )
+    expect(roadmapDoc).toContain('M-Task | Task submission and lifecycle state are owned by M-Task')
+    expect(roadmapDoc).toContain('Service lifecycle and M-Task')
+    expect(roadmapDoc).toContain('v0.1 completion claim')
 
-    expect(adr25).toContain('## Status\n\nAccepted')
-    expect(adr25).toContain('M-Task becomes the canonical external REST / OpenAPI task API')
-    expect(adr25).toContain('no Core task compatibility window is preserved')
+    expect(adrT01).toContain('## Status\n\nAccepted')
+    expect(adrT01).toContain('M-Task becomes the canonical external REST / OpenAPI task API')
+    expect(adrT01).toContain('no Core task compatibility window is preserved')
 
     expect(coreApp).not.toContain('tasksRoutes')
     expect(taskApp).toMatch(/\.post\(\s*'\/api\/v0\/tasks',/)

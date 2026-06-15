@@ -1,6 +1,8 @@
 # Service Definition Template
 
 > Every Meristem service must have a service definition before implementation. A service definition can start as Markdown and later become `service.definition.ts` or `service.json`.
+>
+> 本文档只定义服务文档的字段与结构。跨服务治理规则仍以 `MERISTEM-DEV.md`、`docs/contracts/CONTRACT-VERSIONING.md`、`docs/events/EVENT-CATALOG.md`、`docs/security/SECURITY-MODEL.md` 为准。
 
 ---
 
@@ -140,10 +142,8 @@ What this service must not own:
 
 ---
 
-## 3. Prohibited Patterns
+## 3. Notes for Authors
 
-- A service must not read another service's private state.
-- A service must not perform high-risk operations without M-Policy.
-- A service must not execute key changes without M-Log and Audit Log when required.
-- A service must not publish events that are absent from `docs/events/EVENT-CATALOG.md`.
-- A service must not introduce unversioned contracts.
+- Keep the service definition focused on ownership, contracts, dependencies, lifecycle, logging, and policy requirements for that service.
+- Do not restate cross-repo governance rules in each service definition; reference the governing document instead.
+- If a service exposes REST, Eden, events, config, or state boundaries, keep the path / subject / schema names aligned with the corresponding contract documents.

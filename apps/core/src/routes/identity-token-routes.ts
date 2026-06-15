@@ -133,45 +133,6 @@ export const createIdentityTokenRoutes = (deps: CoreDeps) =>
     )
 
 /**
- * Identity token alias 继续兼容旧测试和旧客户端使用的绝对 `/v0` 路径。
- */
-export const createIdentityTokenAliasRoutes = (deps: CoreDeps) =>
-  new Elysia()
-    // 兼容现有测试里的绝对 URL 写法，保留 /v0 只读别名，不改变正式 /api/v0 契约。
-    .get(
-      '/v0/identity/tokens/:jti',
-      async ({ params, headers }) => inspectIdentityToken(deps, { jti: params.jti, headers }),
-      {
-        params: tokenParamsSchema,
-        response: {
-          200: actorTokenSchema,
-          401: apiErrorSchema,
-          403: apiErrorSchema,
-          404: apiErrorSchema,
-          503: apiErrorSchema
-        },
-        detail: protectedRouteDetail('Inspect identity token metadata alias')
-      }
-    )
-    .post(
-      '/v0/identity/tokens/:jti/revoke',
-      async ({ params, body, headers }) =>
-        revokeIdentityToken(deps, { jti: params.jti, reason: body.reason, headers }),
-      {
-        params: tokenParamsSchema,
-        body: revokeTokenBodySchema,
-        response: {
-          200: revokeTokenResponseSchema,
-          401: apiErrorSchema,
-          403: apiErrorSchema,
-          404: apiErrorSchema,
-          503: apiErrorSchema
-        },
-        detail: protectedRouteDetail('Revoke an identity token alias')
-      }
-    )
-
-/**
  * 内部 introspection 只信任 shared internal token，并在后端失败时回落为 inactive。
  */
 export const createIdentityInternalRoutes = (deps: CoreDeps) =>

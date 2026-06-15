@@ -1,6 +1,6 @@
 # Optional Deployment Pack
 
-> Phase 16 provides optional local deployment components. These profiles are not default dependencies and do not make the repository production-ready.
+> Optional deployment pack provides optional local deployment components. These profiles are not default dependencies and do not make the repository production-ready.
 
 ---
 
@@ -38,19 +38,15 @@ docker compose --profile opensearch --profile redis --profile apisix up -d
 
 ---
 
-## 3. Ports
+## 3. Ports and Exposure
 
-| Component | Port | Exposure Rule |
-|-----------|------|---------------|
-| PostgreSQL | `55432` host -> `5432` container | local development only |
-| NATS TCP | `4222` | private development dependency |
-| NATS WebSocket | `4223` | private Bun client transport |
-| NATS monitor | `8222` | local diagnostics only |
-| OpenSearch | `9200` | optional read-model dependency |
-| Redis | `6379` | optional cache candidate only |
-| APISIX | `9080` | optional edge gateway example |
+Port assignments remain canonical in `RUNBOOK.md`.
 
-APISIX must not expose PostgreSQL, NATS, OpenSearch, Redis, or internal `/internal/v0/*` service APIs.
+Optional deployment-pack interpretation rules:
+
+- APISIX must not expose PostgreSQL, NATS, OpenSearch, Redis, or internal `/internal/v0/*` service APIs.
+- optional profiles do not change which Meristem surfaces are public versus loopback-only.
+- any port change must update `RUNBOOK.md` first, then this file only if the optional-profile meaning changes.
 
 ---
 
@@ -69,9 +65,9 @@ Allowed route groups:
 
 - Core external routes such as health, ready, status, nodes, node tickets, and networks.
 - M-Task external task routes.
-- M-Policy external approval routes when Phase 12 is implemented.
-- M-Net external network profile routes when Phase 13 is implemented.
-- M-Extension external extension routes when Phase 15 is implemented.
+- M-Policy external approval routes when approval flow is implemented.
+- M-Net external network profile routes when M-Net profile lifecycle is implemented.
+- M-Extension external extension routes when M-Extension control plane is implemented.
 - M-Net public join ingress `/join/v0/*`.
 
 Rules:
@@ -91,7 +87,7 @@ Redis is provided as a future Redis-protocol cache candidate:
 docker compose --profile redis up -d redis
 ```
 
-Phase 16 does not connect runtime code to Redis.
+Optional deployment pack does not connect runtime code to Redis.
 
 Permitted future triggers for Redis / KeyDB adapter work remain:
 
@@ -102,7 +98,7 @@ Permitted future triggers for Redis / KeyDB adapter work remain:
 - special session or ephemeral state.
 - external component requiring Redis protocol.
 
-KeyDB remains a compatible candidate but does not ship as a separate Phase 16 profile.
+KeyDB remains a compatible candidate but does not ship as a separate optional deployment pack profile.
 
 ---
 
@@ -119,7 +115,7 @@ Rules:
 - PostgreSQL and M-Log remain authoritative.
 - OpenSearch unavailability must not block authoritative writes.
 - integration tests may skip when OpenSearch is not running.
-- production OpenSearch security and cluster tuning are out of Phase 16 scope.
+- production OpenSearch security and cluster tuning are out of optional deployment pack scope.
 
 ---
 
@@ -163,4 +159,3 @@ rg -n "/internal/v0|/api/v0/\*" ops/apisix/apisix.yaml
 ```
 
 `/internal/v0` must appear only in prohibited-route comments. `/api/v0/*` must not appear as an active route.
-
