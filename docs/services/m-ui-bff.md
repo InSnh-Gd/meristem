@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|-------|
 | name | m-ui-bff |
-| version | 0.1.0 |
+| version | 0.2.0 |
 | domain | m-ui |
 | kind | bff |
 | owner | meristem-core |
@@ -29,6 +29,7 @@ What this service must not own:
 - Audit facts — never calls M-Log Audit endpoints
 - Policy facts — never calls M-Policy directly and never expands beyond Core-provided decision data
 - Direct calls to M-Policy, M-Log, or M-Net internal HTTP
+- Calls to `/internal/v0/*` routes on M-Policy, M-Net, or any other internal service
 - Token issuance, storage, or caching
 - Cross-request caching of any Core data
 - Final command authorization — Core and M-Policy remain the sources of truth
@@ -62,6 +63,18 @@ What this service must not own:
 | POST | `/api/v0/commands/:commandId/eligibility` | Bearer | Generic CommandWell eligibility for BFF-known commands |
 | POST | `/api/v0/commands/:commandId/execute` | Bearer | Generic CommandWell execution for BFF-known commands |
 | GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for M-UI display |
+| GET | `/api/v0/policy/approvals` | Bearer | Approval queue list via Core boundary; read-only, returns display-shaped approval records with state source annotation |
+| GET | `/api/v0/policy/approvals/:id` | Bearer | Approval detail via Core boundary; read-only, returns full approval record with policy, audit, and log state sources |
+| GET | `/api/v0/network/profiles` | Bearer | Network profile list via Core boundary; read-only, returns display-shaped profile records with authoritative, policy, and audit state sources |
+| GET | `/api/v0/network/profiles/:id` | Bearer | Network profile detail via Core boundary; read-only, returns full profile record with authoritative, policy, audit, and log state sources |
+
+**Display-only command handling**:
+
+The existing `POST /api/v0/commands/:commandId/eligibility` and `POST /api/v0/commands/:commandId/execute` routes handle display-only commands as follows:
+
+- `policy.approval.approve.preview`, `policy.approval.reject.preview`, `network.profile.enable.preview`, `network.profile.disable.preview` are display-only commands.
+- Eligibility returns display state (enabled/disabled with Chinese reason) but never forwards to any backend approval or profile service.
+- Execute returns `400 command.display_only` for any display-only command ID. BFF must not forward display-only execute requests to M-Policy, M-Net, or any other backend service.
 
 `GET /api/v0/policy/decisions/:id/summary` calls Core `GET /api/v0/policy/decisions/:id` with the caller's Bearer token and returns only:
 
@@ -132,6 +145,7 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 - The BFF must not make authorization decisions.
 - The BFF must forward the caller's Bearer token to Core without inspection or modification.
 - The BFF must not expose Core REST paths directly to `apps/m-ui`.
+- The BFF must not call `/internal/v0/*` routes on M-Policy, M-Net, or any other internal service. All approval and profile data flows through Core boundary routes only.
 - Disabled command reasons must be visible but must not create Audit facts.
 - Core error envelopes must be preserved when forwarded to the UI.
 - Minimal Policy Decision Summary must be trimmed from Core policy decision data and must not expose policy internals.

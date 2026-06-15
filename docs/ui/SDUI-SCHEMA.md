@@ -53,7 +53,12 @@ type MUiComponentKind =
   | "TraceLink"
   | "RawEnvelopeView"
   | "InlineOperationalAlert"
-  | "DecisionQueueSummary";
+  | "DecisionQueueSummary"
+  | "ApprovalQueuePanel"
+  | "ApprovalDetailPanel"
+  | "NetworkProfileListPanel"
+  | "NetworkProfileDetailPanel"
+  | "OperationalCommandPreview";
 ```
 
 Forbidden kinds:
@@ -243,7 +248,7 @@ type SduiV02RouteRegistry = {
 
 ### 8.3 Shared Components
 
-`StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`.
+`StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`, `ApprovalQueuePanel`, `ApprovalDetailPanel`, `NetworkProfileListPanel`, `NetworkProfileDetailPanel`, `OperationalCommandPreview`.
 
 ### 8.4 Degraded State
 
@@ -251,6 +256,159 @@ Each route may declare `degradedState: { enabled: boolean; reason: string }`. Wh
 
 ### 8.5 Route Set Gates
 
-- SDUI v0.2 contract tests verify all 7 route IDs, component allowlist, forbidden kind rejection, state source presence.
+- SDUI v0.2 contract tests verify all route IDs, component allowlist, forbidden kind rejection, state source presence.
 - UI contract tests (`test:ui-contract`) enforce token-only styling, forbidden component names, BFF-only data boundary, CommandWell-only high-risk actions.
 - BFF contract tests cover route registry, display data endpoints, generic command eligibility/execute, OpenAPI exposure.
+
+### 8.6 Formal v0.2 Approval And Profile Routes
+
+The following routes extend the SDUI v0.2 surface for M-UI v0.2 foundation scope. They are schema declarations only; the actual UI screens, page components, and backend data flows remain deferred as part of DFW-002 (Formal Approval Queue UI) and DFW-016 (M-Net Profile UI).
+
+#### 8.6.1 Route Registry Entries
+
+```ts
+const policyApprovalsRoute: MUiRouteSchema = {
+  id: "policy.approvals",
+  version: "v0",
+  title: "审批队列",
+  layout: "three-zone",
+  requiredPermissions: ["policy:approval-read"],
+  regions: {
+    navigation: { kind: "NavRail" },
+    primary: { kind: "ApprovalQueuePanel" },
+    inspector: { kind: "KeyValueInspector" },
+    commandWell: { kind: "CommandWellPanel" }
+  },
+  stateSources: ["policy", "audit"]
+};
+
+const policyApprovalsDetailRoute: MUiRouteSchema = {
+  id: "policy.approvals.detail",
+  version: "v0",
+  title: "审批详情",
+  layout: "three-zone",
+  requiredPermissions: ["policy:approval-read"],
+  regions: {
+    navigation: { kind: "NavRail" },
+    primary: { kind: "ApprovalDetailPanel" },
+    inspector: { kind: "KeyValueInspector" },
+    commandWell: { kind: "CommandWellPanel" }
+  },
+  stateSources: ["policy", "audit", "log"]
+};
+
+const networkProfilesRoute: MUiRouteSchema = {
+  id: "network.profiles",
+  version: "v0",
+  title: "网络 Profile",
+  layout: "three-zone",
+  requiredPermissions: ["network:profile-read"],
+  regions: {
+    navigation: { kind: "NavRail" },
+    primary: { kind: "NetworkProfileListPanel" },
+    inspector: { kind: "KeyValueInspector" },
+    commandWell: { kind: "CommandWellPanel" }
+  },
+  stateSources: ["authoritative", "policy", "audit"]
+};
+
+const networkProfilesDetailRoute: MUiRouteSchema = {
+  id: "network.profiles.detail",
+  version: "v0",
+  title: "Profile 详情",
+  layout: "three-zone",
+  requiredPermissions: ["network:profile-read"],
+  regions: {
+    navigation: { kind: "NavRail" },
+    primary: { kind: "NetworkProfileDetailPanel" },
+    inspector: { kind: "KeyValueInspector" },
+    commandWell: { kind: "CommandWellPanel" }
+  },
+  stateSources: ["authoritative", "policy", "audit", "log"]
+};
+```
+
+#### 8.6.2 Route Summary
+
+| Route ID | Title | Required Permissions | State Sources |
+|---|---|---|---|
+| policy.approvals | 审批队列 | policy:approval-read | policy, audit |
+| policy.approvals.detail | 审批详情 | policy:approval-read | policy, audit, log |
+| network.profiles | 网络 Profile | network:profile-read | authoritative, policy, audit |
+| network.profiles.detail | Profile 详情 | network:profile-read | authoritative, policy, audit, log |
+
+#### 8.6.3 Display-Only Commands
+
+The following commands are `displayOnly: true`. They exist only for CommandWell eligibility display. They never carry an execute URL, never send requests to the backend, and their execute endpoint returns `400 command.display_only` if ever called.
+
+```ts
+type DisplayOnlyCommand = MUiCommand & {
+  displayOnly: true;
+  action: "display-only";
+  state: "enabled" | "disabled";
+  disabledReason?: string;
+};
+
+const displayOnlyCommands: DisplayOnlyCommand[] = [
+  {
+    id: "policy.approval.approve.preview",
+    label: "批准",
+    action: "display-only",
+    resource: "policy:approval",
+    risk: "high",
+    requiredPermissions: ["policy:approval-read"],
+    requiresPolicy: true,
+    requiresAudit: true,
+    displayOnly: true,
+    state: "disabled",
+    disabledReason: "审批执行功能尚未启用"
+  },
+  {
+    id: "policy.approval.reject.preview",
+    label: "拒绝",
+    action: "display-only",
+    resource: "policy:approval",
+    risk: "high",
+    requiredPermissions: ["policy:approval-read"],
+    requiresPolicy: true,
+    requiresAudit: true,
+    displayOnly: true,
+    state: "disabled",
+    disabledReason: "审批执行功能尚未启用"
+  },
+  {
+    id: "network.profile.enable.preview",
+    label: "启用 Profile",
+    action: "display-only",
+    resource: "network:profile",
+    risk: "high",
+    requiredPermissions: ["network:profile-read"],
+    requiresPolicy: true,
+    requiresAudit: true,
+    displayOnly: true,
+    state: "disabled",
+    disabledReason: "Profile 启用功能尚未启用"
+  },
+  {
+    id: "network.profile.disable.preview",
+    label: "禁用 Profile",
+    action: "display-only",
+    resource: "network:profile",
+    risk: "critical",
+    requiredPermissions: ["network:profile-read"],
+    requiresPolicy: true,
+    requiresAudit: true,
+    displayOnly: true,
+    state: "disabled",
+    disabledReason: "Profile 禁用功能尚未启用"
+  }
+];
+```
+
+Display-only command rules:
+
+- `displayOnly: true` commands must never carry an execute URL.
+- BFF must never forward display-only command execute requests to any backend service.
+- If `POST /api/v0/commands/:commandId/execute` receives a display-only command ID, BFF must return `400 command.display_only`.
+- Display-only commands return visible Chinese disabled reasons when in disabled state.
+- Display-only commands do not create Audit facts when disabled.

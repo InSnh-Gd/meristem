@@ -1064,3 +1064,48 @@ Required before implementation:
 - Contract tests covering decode/encode and at least one failure path.
 - `tests/contracts/schema-coverage.md` active / deferred update.
 - `docs/events/EVENT-CATALOG.md` update if subscribers or payload semantics change.
+
+---
+
+### DFW-030: M-UI v0.2 Approval And Profile Foundation Scope
+
+Status: foundation declared for DFW-002 and DFW-016 reopening path.
+
+Owner: M-UI / M-UI BFF.
+
+Source: `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md`.
+
+This entry is **not** full completion of DFW-002 (Formal Approval Queue UI) or DFW-016 (M-Net Profile UI). It declares the SDUI route schema, component kinds, display-only command contracts, and BFF route boundaries that form the foundation for those deferred items. The approval queue, approval detail, network profile list, and profile detail screens remain deferred pending implementation of the actual UI pages, CommandWell approve/reject behavior, and the backend approval flow.
+
+Foundation work completed:
+
+- SDUI v0.2 route schema entries for `policy.approvals`, `policy.approvals.detail`, `network.profiles`, `network.profiles.detail`.
+- Allowed component kinds: `ApprovalQueuePanel`, `ApprovalDetailPanel`, `NetworkProfileListPanel`, `NetworkProfileDetailPanel`, `OperationalCommandPreview`.
+- Display-only command entries: `policy.approval.approve.preview`, `policy.approval.reject.preview`, `network.profile.enable.preview`, `network.profile.disable.preview`.
+- BFF read-only route entries for approval and profile data.
+- Explicit BFF rule: must not call `/internal/v0/*` M-Policy or M-Net routes.
+
+Still deferred (DFW-002):
+
+- Actual approval queue screen implementation.
+- Approval detail screen implementation.
+- Approve / reject CommandWell flow.
+- Approval status display in the Control Room Ledger.
+- UI contract tests for disabled reasons, Audit visibility, and no direct frontend calls to fact-source services.
+
+Still deferred (DFW-016):
+
+- Network profile list / detail screen implementation.
+- Enable / disable CommandWell implementation.
+- `controlPlaneOnly` warning display.
+- Per-network profile state in the formal Control Room Ledger UI.
+
+Reopen trigger:
+
+- Approval flow REST and CLI contracts are stable and DFW-002 reopens.
+- M-Net profile lifecycle REST and CLI contracts are stable and DFW-016 reopens.
+
+Required before full completion:
+
+- DFW-002: SDUI / BFF display contract, CommandWell behavior for approve / reject, UI contract tests.
+- DFW-016: BFF display contract, SDUI schema update, UI contract tests for high-risk command placement and non-misleading data-plane wording.
