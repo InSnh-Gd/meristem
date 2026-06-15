@@ -590,7 +590,7 @@ BFF Contract
 
 以下条款在产品上线、产生可持久化用户数据或跨节点协议后不应随意更改。更改任何一条都需要明确迁移策略。
 
-1. **节点类型集合** - `core | stem | leaf` 是 M 网络基础模型，不能在无迁移方案时重命名或改变语义。
+1. **节点类型集合** - `core | stem | leaf` 是 Meristem 网络基础模型，不能在无迁移方案时重命名或改变语义。
 2. **Core 微内核边界** - Core 不能扩张为业务单体；新增复杂能力必须先声明 M-* 功能域或微服务边界。
 3. **Service Definition 基础字段** - `name/version/domain/kind/contracts/permissions/dependencies/health/lifecycle/logs` 是微服务最低契约，不得移除。
 4. **MEventEnvelope 基础字段** - `id/type/version/source/timestamp/payload` 必须保留，payload 只能通过 schema 收窄。
@@ -954,9 +954,9 @@ LLM 仅作为辅助分析，不作为授权根。
 | 术语 | 定义 |
 |------|------|
 | Meristem | 整个项目与系统名称 |
-| M 网络 | Meristem 形成的多节点统一管理网络 |
+| Meristem 网络 | Meristem 形成的多节点统一管理网络 |
 | Core Node | 运行 Meristem Core 的主控节点，也可以同时作为 Stem Node |
-| Stem Node | M 网络中的长期节点，承担主要任务和网络功能 |
+| Stem Node | Meristem 网络中的长期节点，承担主要任务和网络功能 |
 | Leaf Node | 临时、任务驱动、低权限、受限 API、受限互联的节点 |
 | Meristem Core | 微内核化核心，负责 bootstrap、基础身份、服务生命周期入口、REST/OpenAPI、Eden 聚合、M-CLI 入口和安全模式 |
 | M-Net | 组网与互联功能域，负责节点互联、路径选择、DERP/UDP/TCP 策略、区域网络 profile |

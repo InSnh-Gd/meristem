@@ -18,7 +18,7 @@ import {
 import type { CoreStorage } from './types.ts'
 
 /**
- * 生成 join ticket 标识，用于节点加入 M 网络时的临时凭据。
+ * 生成 join ticket 标识，用于节点加入 Meristem 网络时的临时凭据。
  */
 function createJoinTicket(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))

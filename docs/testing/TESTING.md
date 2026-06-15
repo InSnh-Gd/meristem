@@ -16,6 +16,7 @@
 | e2e | full-stack end-to-end: Core REST, BFF, CLI, auth, RBAC | all new capabilities |
 | migration | old and new contract versions | versioned contracts |
 | UI contract | SDUI schema and forbidden component rules | M-UI |
+| performance | micro-benchmark throughput, p95 latency, flame graph profiles | contracts, policy, state machines |
 
 ---
 
@@ -57,6 +58,7 @@ bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
 bun run test:e2e
+bun run test:perf
 bun run workspace-hygiene
 bun run skill-hygiene
 bun run nodejs-ban
@@ -287,3 +289,54 @@ MERISTEM_TOKEN=<operator-token> bun run meristem task submit --node <leaf-node-i
 MERISTEM_TOKEN=<operator-token> bun run meristem log timeline
 MERISTEM_TOKEN=<security-admin-token> bun run meristem audit list
 ```
+
+---
+
+## 8. Performance Tests
+
+Performance tests live under `tests/perf/` and measure micro-benchmark throughput, latency distributions, and CPU hot-path profiles. They are independent of any running infrastructure (no PostgreSQL, NATS, or HTTP server required).
+
+### 8.1 Test Categories
+
+| Category | File | Measures |
+|----------|------|----------|
+| CPU micro-benchmarks | `baseline-cpu.perf.test.ts` | json-stringify-parse, uint8array-copy, text-encode-decode, file-io throughput |
+| HTTP handler logic | `core-http.perf.test.ts` | schema validation, JSON serialization, route parameter parsing, literal validation throughput |
+| M-Net profile operations | `mnet-profile.perf.test.ts` | profile state machine, guard predicates, store operations, suspended operations throughput |
+| Database operations | `db-operations.perf.test.ts` | schema loading, seed data generation, SQL template construction throughput |
+| P95 latency | `latency-p95.perf.test.ts` | single-operation p50/p95/p99 latency for state machine, events, policy, config hash, and secret redaction |
+| CPU flame graph | `flamegraph-cpu.perf.test.ts` | sampling-based hot-path profiles with flamegraph-compatible folded output |
+
+### 8.2 Shared Utilities
+
+`tests/perf/helpers/perf-utils.ts` provides:
+
+- `runBenchmark()` — warmup + measured round runner
+- `aggregateRounds()` — median, trimmed mean, coefficient of variation aggregation
+- `computeLatencyStats()` — p50/p95/p99 latency distribution
+- `evaluateBenchmarkGate()` — CV threshold and median regression gate
+
+### 8.3 Commands
+
+```bash
+bun run test:perf
+bun run test:perf:stable          # 5 runs, aggregated mean and cross-run CV
+bun run test:perf:stable 10       # custom run count
+```
+
+### 8.4 Benchmark Gate Policy
+
+Each benchmark round evaluates a stability gate:
+
+- Coefficient of variation (CV) must be ≤ 0.35 within a single run.
+- Median regression must not exceed 20% from baseline when a prior profile exists.
+
+### 8.5 Stability Requirements
+
+Performance tests must remain stable across runs. The `test:perf:stable` command runs the full suite multiple times and reports cross-run CV for each metric:
+
+- ✓ CV < 5% — stable
+- ~ CV < 15% — acceptable
+- ✗ CV ≥ 15% — unstable, requires investigation
+
+Results are not required for CI gates but must be verified before performance-sensitive changes to contract schemas, policy decisions, or state machine transitions.

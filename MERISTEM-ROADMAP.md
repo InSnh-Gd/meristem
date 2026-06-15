@@ -8,7 +8,7 @@
 
 ## 1. v0.1 Product Goal
 
-v0.1 proves that Meristem can operate as a lightweight, auditable M-network control plane without turning Core into a monolith.
+v0.1 proves that Meristem can operate as a lightweight, auditable Meristem network control plane without turning Core into a monolith.
 
 The release is complete only when an operator can:
 

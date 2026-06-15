@@ -1,6 +1,6 @@
 # Meristem Context
 
-Meristem language for the M network control system, focused on operator-facing control, traceability, and audit boundaries.
+Meristem language for the Meristem network control system, focused on operator-facing control, traceability, and audit boundaries.
 
 ## Language
 

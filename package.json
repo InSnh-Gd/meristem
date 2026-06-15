@@ -46,6 +46,8 @@
     "test:failure-modes": "bun test tests/failure-modes --ignore tests/failure-modes/opensearch.test.ts",
     "test:integration": "bun test tests/integration",
     "test:ui-contract": "bun test tests/ui-contract",
+    "test:perf": "bun test --timeout=60000 tests/perf",
+    "test:perf:stable": "bun run scripts/run-perf.ts",
     "test:opensearch-contracts": "bun test tests/contracts/opensearch-search.test.ts",
     "test:opensearch-failure-modes": "bun test tests/failure-modes/opensearch.test.ts",
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",
