@@ -97,6 +97,7 @@ These documented event catalog entries currently have **no real publisher** in t
 - `secret.ref.rotated.v0`
 - `secret.ref.disabled.v0`
 - `mnet.reachability.changed.v0`
+- `policy.approval.canceled.v0`
 - `mnet.path.changed.v0`
 - `mnet.derp.fallback.changed.v0`
 - `audit.lock.required.v0`

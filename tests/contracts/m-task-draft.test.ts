@@ -12,8 +12,8 @@ describe('M-Task service alignment', () => {
     expect(roadmapDoc).toContain('v0.1 completion claim')
 
     expect(adrT01).toContain('## Status\n\nAccepted')
-    expect(adrT01).toContain('M-Task becomes the canonical external REST / OpenAPI task API')
-    expect(adrT01).toContain('no Core task compatibility window is preserved')
+    expect(adrT01).toContain('M-Task 成为规范的外部 REST / OpenAPI 任务 API')
+    expect(adrT01).toContain('不保留 Core 任务兼容窗口')
 
     expect(coreApp).not.toContain('tasksRoutes')
     expect(taskApp).toMatch(/\.post\(\s*'\/api\/v0\/tasks',/)
