@@ -1,12 +1,15 @@
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import type {
+  ApprovalDetailResponse,
   ActorId,
   AuditLog,
   CoreDependencies,
   CoreMode,
+  MNetRegionalProfile,
   MNode,
   MinimalPolicyDecisionSummary,
   Permission,
+  PolicyApproval,
   PolicyDecision,
   ServiceSummary,
   TimelineLog
@@ -135,6 +138,59 @@ export function createBffDataRoutes({ cf }: MUiBffRouteDeps) {
       }
     )
     .get(
+      '/api/v0/policy/approvals',
+      async ({ headers }) => {
+        const token = bearerTokenFromHeaders(headers)
+        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+        const result = await cf('/api/v0/policy/approvals', token)
+        if (!result.ok) return passthroughCoreError(result)
+        const approvals = (result.data as { approvals: PolicyApproval[] }).approvals.map(approval =>
+          withStateSource(approval, {
+            sourceType: 'policy',
+            sourceId: `core:/api/v0/policy/approvals/${approval.id}`
+          })
+        )
+        return {
+          approvals,
+          stateSource: {
+            sourceType: 'policy',
+            sourceId: 'core:/api/v0/policy/approvals'
+          } satisfies StateSourceMetadata
+        }
+      },
+      {
+        detail: { summary: 'Read display-shaped approval queue' }
+      }
+    )
+    .get(
+      '/api/v0/network/profiles',
+      async ({ headers }) => {
+        const token = bearerTokenFromHeaders(headers)
+        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+        // BFF 公开 UI 友好路径，但底层必须命中 Core facade 的标准 `/api/v0/network-profiles`。
+        const result = await cf('/api/v0/network-profiles', token)
+        if (!result.ok) return passthroughCoreError(result)
+        const profiles = (result.data as { profiles: MNetRegionalProfile[] }).profiles.map(profile =>
+          withStateSource(profile, {
+            sourceType: 'authoritative',
+            sourceId: `core:/api/v0/network-profiles/${profile.profileVersion}`
+          })
+        )
+        return {
+          profiles,
+          stateSource: {
+            sourceType: 'authoritative',
+            sourceId: 'core:/api/v0/network-profiles'
+          } satisfies StateSourceMetadata
+        }
+      },
+      {
+        detail: { summary: 'Read display-shaped network profile list' }
+      }
+    )
+    .get(
       '/api/v0/services',
       async ({ headers }) => {
         const token = bearerTokenFromHeaders(headers)
@@ -240,6 +296,24 @@ export function createBffDataRoutes({ cf }: MUiBffRouteDeps) {
       }
     )
     .get(
+      '/api/v0/policy/approvals/:id',
+      async ({ params, headers }) => {
+        const token = bearerTokenFromHeaders(headers)
+        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+        const result = await cf(`/api/v0/policy/approvals/${params.id}`, token)
+        if (!result.ok) return passthroughCoreError(result)
+        return withStateSource(result.data as ApprovalDetailResponse, {
+          sourceType: 'policy',
+          sourceId: `core:/api/v0/policy/approvals/${params.id}`
+        })
+      },
+      {
+        params: idParamsSchema,
+        detail: { summary: 'Read full policy approval with state source' }
+      }
+    )
+    .get(
       '/api/v0/policy/decisions/:id/summary',
       async ({ params, headers }) => {
         const token = bearerTokenFromHeaders(headers)
@@ -263,6 +337,25 @@ export function createBffDataRoutes({ cf }: MUiBffRouteDeps) {
       {
         params: idParamsSchema,
         detail: { summary: 'Read policy decision summary (reasons redacted)' }
+      }
+    )
+    .get(
+      '/api/v0/network/profiles/:profileVersion',
+      async ({ params, headers }) => {
+        const token = bearerTokenFromHeaders(headers)
+        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+        // BFF detail 路由保留 `/network/profiles/*` 形状，但只读转发到 Core facade。
+        const result = await cf(`/api/v0/network-profiles/${params.profileVersion}`, token)
+        if (!result.ok) return passthroughCoreError(result)
+        return withStateSource(result.data as MNetRegionalProfile, {
+          sourceType: 'authoritative',
+          sourceId: `core:/api/v0/network-profiles/${params.profileVersion}`
+        })
+      },
+      {
+        params: t.Object({ profileVersion: t.String({ minLength: 1 }) }),
+        detail: { summary: 'Read one network profile with state source' }
       }
     )
     .get(

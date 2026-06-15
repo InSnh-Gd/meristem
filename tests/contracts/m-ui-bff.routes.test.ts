@@ -149,6 +149,203 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(body.stateSource.sourceType).toBe('policy')
   })
 
+  it('GET /api/v0/policy/approvals returns approval queue with stateSource metadata', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'admin-token')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      approvals: Array<{ id: string; stateSource: { sourceType: string; sourceId: string } }>
+      stateSource: { sourceType: string; sourceId: string }
+    }
+    expect(Array.isArray(body.approvals)).toBe(true)
+    expect(body.approvals[0]?.stateSource.sourceType).toBe('policy')
+    expect(body.stateSource).toEqual({
+      sourceType: 'policy',
+      sourceId: 'core:/api/v0/policy/approvals'
+    })
+  })
+
+  it('GET /api/v0/policy/approvals returns empty queue as 200', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin', approvals: [] })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'admin-token')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      approvals: unknown[]
+      stateSource: { sourceType: string; sourceId: string }
+    }
+    expect(body.approvals).toEqual([])
+    expect(body.stateSource.sourceId).toBe('core:/api/v0/policy/approvals')
+  })
+
+  it('GET /api/v0/policy/approvals/:id returns approval detail with stateSource', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/policy/approvals/approval-core-facade-1',
+      'GET',
+      'admin-token'
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      id: string
+      votes: unknown[]
+      stateSource: { sourceType: string; sourceId: string }
+    }
+    expect(body.id).toBe('approval-core-facade-1')
+    expect(Array.isArray(body.votes)).toBe(true)
+    expect(body.stateSource).toEqual({
+      sourceType: 'policy',
+      sourceId: 'core:/api/v0/policy/approvals/approval-core-facade-1'
+    })
+  })
+
+  it('GET /api/v0/policy/approvals preserves 401, 403, and 503 envelopes', async () => {
+    const adminCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'admin' }))
+    const operatorCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
+    const downCoreApp = createCoreApp(
+      createInMemoryCoreDeps({ actor: 'admin', approvalReaderAvailable: false })
+    )
+
+    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/policy/approvals')
+    expect(missingToken.status).toBe(401)
+    expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
+
+    const denied = await makeRequest(
+      createBffWithCore(operatorCoreApp),
+      '/api/v0/policy/approvals',
+      'GET',
+      'operator-token'
+    )
+    expect(denied.status).toBe(403)
+    expect(await denied.json()).toMatchObject({ error: { code: 'policy.denied' } })
+
+    const unavailable = await makeRequest(
+      createBffWithCore(downCoreApp),
+      '/api/v0/policy/approvals',
+      'GET',
+      'admin-token'
+    )
+    expect(unavailable.status).toBe(503)
+    expect(await unavailable.json()).toMatchObject({ error: { code: 'm-policy.unavailable' } })
+  })
+
+  it('GET /api/v0/policy/approvals/:id preserves 404 envelope', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/policy/approvals/missing-approval',
+      'GET',
+      'admin-token'
+    )
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ error: { code: 'approval.not_found' } })
+  })
+
+  it('GET /api/v0/network/profiles returns profiles with authoritative stateSource metadata', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'admin-token')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      profiles: Array<{
+        profileVersion: string
+        stateSource: { sourceType: string; sourceId: string }
+      }>
+      stateSource: { sourceType: string; sourceId: string }
+    }
+    expect(body.profiles.map(profile => profile.profileVersion).sort()).toEqual([
+      'm-net-cn@0.1.0',
+      'm-net-default@0.1.0'
+    ])
+    expect(body.profiles[0]?.stateSource.sourceType).toBe('authoritative')
+    expect(body.stateSource).toEqual({
+      sourceType: 'authoritative',
+      sourceId: 'core:/api/v0/network-profiles'
+    })
+  })
+
+  it('GET /api/v0/network/profiles/:profileVersion returns profile detail with authoritative stateSource', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/network/profiles/m-net-cn@0.1.0',
+      'GET',
+      'admin-token'
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      profileVersion: string
+      stateSource: { sourceType: string; sourceId: string }
+    }
+    expect(body.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(body.stateSource).toEqual({
+      sourceType: 'authoritative',
+      sourceId: 'core:/api/v0/network-profiles/m-net-cn@0.1.0'
+    })
+  })
+
+  it('GET /api/v0/network/profiles preserves 401, 403, and 503 envelopes', async () => {
+    const adminCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'admin' }))
+    const viewerCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'viewer' }))
+    const downCoreApp = createCoreApp(
+      createInMemoryCoreDeps({ actor: 'admin', networkProfileReaderAvailable: false })
+    )
+
+    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/network/profiles')
+    expect(missingToken.status).toBe(401)
+    expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
+
+    const denied = await makeRequest(
+      createBffWithCore(viewerCoreApp),
+      '/api/v0/network/profiles',
+      'GET',
+      'viewer-token'
+    )
+    expect(denied.status).toBe(403)
+    expect(await denied.json()).toMatchObject({ error: { code: 'policy.denied' } })
+
+    const unavailable = await makeRequest(
+      createBffWithCore(downCoreApp),
+      '/api/v0/network/profiles',
+      'GET',
+      'admin-token'
+    )
+    expect(unavailable.status).toBe(503)
+    expect(await unavailable.json()).toMatchObject({ error: { code: 'mnet.unavailable' } })
+  })
+
+  it('GET /api/v0/network/profiles/:profileVersion preserves 404 envelope', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/network/profiles/unknown-profile@0.1.0',
+      'GET',
+      'admin-token'
+    )
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ error: { code: 'profile.not_found' } })
+  })
+
   it('GET /api/v0/services returns service list', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'operator' })
     const coreApp = createCoreApp(deps)
@@ -255,6 +452,41 @@ describe('SDUI v0.2 BFF routes', () => {
       { leafNodeId: 'leaf-placeholder' }
     )
     expect(res.status).toBe(400)
+  })
+
+  it('POST /api/v0/commands/:commandId/eligibility supports approval preview command ids', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/policy.approval.approve.preview/eligibility',
+      'POST',
+      'security-admin-token',
+      { approvalId: 'approval-core-facade-1' }
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { commandId: string; displayOnly: boolean }
+    expect(body.commandId).toBe('policy.approval.approve.preview')
+    expect(body.displayOnly).toBe(true)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute rejects display-only preview command ids', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.enable.preview/execute',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+    )
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('command.display_only')
   })
 })
 
