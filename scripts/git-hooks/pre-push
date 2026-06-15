@@ -3,3 +3,6 @@ set -eu
 
 printf '%s\n' 'Running format:check before push...'
 bun run format:check
+
+printf '%s\n' 'Running agent submit drift guards before push...'
+bun run test:agent-submit

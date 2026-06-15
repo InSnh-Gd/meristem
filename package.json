@@ -41,6 +41,7 @@
     "test": "bun test tests/contracts tests/failure-modes tests/cli tests/integration --ignore tests/contracts/opensearch-search.test.ts --ignore tests/failure-modes/opensearch.test.ts",
     "test:cli": "bun test tests/cli",
     "test:contracts": "bun test tests/contracts --ignore tests/contracts/opensearch-search.test.ts",
+    "test:agent-submit": "bun test tests/contracts/schema-coverage.drift.contract.test.ts tests/contracts/m-task-draft.test.ts",
     "test:e2e": "bun test --timeout=30000 tests/e2e",
     "test:failure-modes": "bun test tests/failure-modes --ignore tests/failure-modes/opensearch.test.ts",
     "test:integration": "bun test tests/integration",

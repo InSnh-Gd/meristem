@@ -47,6 +47,16 @@
 
 ## 3. Agent 项目上下文
 
+### Agent submit gate
+
+Before submitting changes, agents must run the focused drift guard that mirrors the latest CI failure mode:
+
+```bash
+bun run test:agent-submit
+```
+
+This does not replace the boundary-specific gates from `docs/testing/TESTING.md`; it catches schema coverage map drift and M-Task cutover alignment before handoff.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/meristem`. See `docs/agents/issue-tracker.md`.

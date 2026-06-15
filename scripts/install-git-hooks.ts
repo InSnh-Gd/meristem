@@ -34,4 +34,4 @@ if (chmodResult.exitCode !== 0) {
   process.exit(chmodResult.exitCode)
 }
 
-console.log('Installed pre-push hook: bun run format:check')
+console.log('Installed pre-push hook: bun run format:check && bun run test:agent-submit')

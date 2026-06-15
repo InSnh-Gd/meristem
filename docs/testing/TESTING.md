@@ -34,6 +34,14 @@ For core logic:
 
 ## 3. Minimum CI Gates
 
+Agent pre-submit focused gate:
+
+```bash
+bun run test:agent-submit
+```
+
+This gate runs the contract drift checks most likely to fail after documentation, event catalog, or M-Task cutover edits. It complements, but does not replace, the boundary-specific gates below.
+
 Target commands once scripts exist:
 
 ```bash
