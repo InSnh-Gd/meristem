@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'bun:test'
 import { mExtensionEventContracts } from './_helpers/schema-coverage.m-extension.ts'
-import { mnetEventContracts } from './_helpers/schema-coverage.mnet.ts'
 import { mPolicyEventContracts } from './_helpers/schema-coverage.m-policy.ts'
 import { mTaskEventContracts } from './_helpers/schema-coverage.m-task.ts'
+import { mnetEventContracts } from './_helpers/schema-coverage.mnet.ts'
 import { sharedEventContracts } from './_helpers/schema-coverage.shared-domain.ts'
 import {
+  activePublisherSchemaContracts,
   eventCatalogUrl,
   extractCatalogSubjects,
   extractCoverageMapActiveSubjects,
   extractCoverageMapDeferredSubjects,
-  activePublisherSchemaContracts,
   getActivePublisherSubjects,
   schemaCoverageMapUrl,
   sorted
@@ -77,9 +77,7 @@ describe('schema coverage map drift guards', () => {
       subject => !activePublisherSubjects.has(subject)
     )
 
-    expect(coverageMap).toContain(
-      '## Non-active / deferred to post-v0.1 coverage'
-    )
+    expect(coverageMap).toContain('## Non-active / deferred to post-v0.1 coverage')
     expect(sorted(extractCoverageMapDeferredSubjects(coverageMap))).toEqual(
       sorted(deferredSubjects)
     )
