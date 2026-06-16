@@ -1,7 +1,11 @@
 import {
   executeCommand,
+  fetchApprovalDetail as fetchBffApprovalDetail,
+  fetchApprovalQueue as fetchBffApprovalQueue,
   fetchAudit as fetchBffAudit,
   fetchNodes as fetchBffNodes,
+  fetchNetworkProfileDetail as fetchBffNetworkProfileDetail,
+  fetchNetworkProfiles as fetchBffNetworkProfiles,
   fetchPolicyDecisions as fetchBffPolicyDecisions,
   fetchRoutes as fetchBffRoutes,
   fetchServices as fetchBffServices,
@@ -12,9 +16,13 @@ import {
   formatBffError
 } from './bff'
 import type {
+  ApprovalDetailResponseData,
+  ApprovalQueueResponseData,
   AuditData,
   AuditEntry,
   CommandState,
+  NetworkProfileDetailResponseData,
+  NetworkProfileListResponseData,
   NodeListData,
   OverviewData,
   PolicyDecisionData,
@@ -47,6 +55,18 @@ class AppState {
   audit = $state<AuditData | null>(null)
   policyDecisions = $state<PolicyDecisionData | null>(null)
   services = $state<ServiceListData | null>(null)
+  approvalQueue = $state<ApprovalQueueResponseData | null>(null)
+  approvalQueueLoading = $state(false)
+  approvalQueueError = $state<string | null>(null)
+  selectedApproval = $state<ApprovalDetailResponseData | null>(null)
+  selectedApprovalLoading = $state(false)
+  selectedApprovalError = $state<string | null>(null)
+  networkProfiles = $state<NetworkProfileListResponseData | null>(null)
+  networkProfilesLoading = $state(false)
+  networkProfilesError = $state<string | null>(null)
+  selectedProfile = $state<NetworkProfileDetailResponseData | null>(null)
+  selectedProfileLoading = $state(false)
+  selectedProfileError = $state<string | null>(null)
 
   actor = $derived(this.overview?.session.actor ?? null)
   permissions = $derived(this.overview?.session.permissions ?? [])
@@ -113,6 +133,60 @@ class AppState {
   async fetchServices() {
     if (!this.token) return
     this.services = await fetchBffServices(this.token)
+  }
+
+  async fetchApprovalQueue() {
+    if (!this.token) return
+    this.approvalQueueLoading = true
+    this.approvalQueueError = null
+    try {
+      this.approvalQueue = await fetchBffApprovalQueue(this.token)
+    } catch (e: unknown) {
+      this.approvalQueueError = formatBffError(e, '审批队列加载失败')
+    } finally {
+      this.approvalQueueLoading = false
+    }
+  }
+
+  async fetchApprovalDetail(approvalId: string) {
+    if (!this.token) return
+    this.selectedApprovalLoading = true
+    this.selectedApprovalError = null
+    try {
+      this.selectedApproval = await fetchBffApprovalDetail(this.token, approvalId)
+    } catch (e: unknown) {
+      this.selectedApproval = null
+      this.selectedApprovalError = formatBffError(e, '审批详情加载失败')
+    } finally {
+      this.selectedApprovalLoading = false
+    }
+  }
+
+  async fetchNetworkProfiles() {
+    if (!this.token) return
+    this.networkProfilesLoading = true
+    this.networkProfilesError = null
+    try {
+      this.networkProfiles = await fetchBffNetworkProfiles(this.token)
+    } catch (e: unknown) {
+      this.networkProfilesError = formatBffError(e, '网络配置加载失败')
+    } finally {
+      this.networkProfilesLoading = false
+    }
+  }
+
+  async fetchNetworkProfileDetail(profileVersion: string) {
+    if (!this.token) return
+    this.selectedProfileLoading = true
+    this.selectedProfileError = null
+    try {
+      this.selectedProfile = await fetchBffNetworkProfileDetail(this.token, profileVersion)
+    } catch (e: unknown) {
+      this.selectedProfile = null
+      this.selectedProfileError = formatBffError(e, '网络配置详情加载失败')
+    } finally {
+      this.selectedProfileLoading = false
+    }
   }
 
   clearAudit() {

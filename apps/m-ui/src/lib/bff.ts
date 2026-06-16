@@ -1,7 +1,11 @@
 import type {
+  ApprovalDetailResponseData,
+  ApprovalQueueResponseData,
   AuditData,
   CommandState,
   GenericCommandParams,
+  NetworkProfileDetailResponseData,
+  NetworkProfileListResponseData,
   NodeListData,
   OverviewData,
   PolicyDecisionData,
@@ -134,6 +138,28 @@ export function executeCommand(token: string, commandId: string, params: Generic
 export function fetchPolicySummary(token: string, decisionId: string) {
   return bffFetch<{ decision: PolicyDecisionSummary }>(
     `/api/v0/policy/decisions/${decisionId}/summary`,
+    token
+  )
+}
+
+export function fetchApprovalQueue(token: string) {
+  return bffFetch<ApprovalQueueResponseData>('/api/v0/policy/approvals', token)
+}
+
+export function fetchApprovalDetail(token: string, approvalId: string) {
+  return bffFetch<ApprovalDetailResponseData>(
+    `/api/v0/policy/approvals/${encodeURIComponent(approvalId)}`,
+    token
+  )
+}
+
+export function fetchNetworkProfiles(token: string) {
+  return bffFetch<NetworkProfileListResponseData>('/api/v0/network/profiles', token)
+}
+
+export function fetchNetworkProfileDetail(token: string, profileVersion: string) {
+  return bffFetch<NetworkProfileDetailResponseData>(
+    `/api/v0/network/profiles/${encodeURIComponent(profileVersion)}`,
     token
   )
 }
