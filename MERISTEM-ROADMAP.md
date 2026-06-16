@@ -110,7 +110,6 @@ bun run test:cli
 bun run test:failure-modes
 bun run test:integration
 bun run test:e2e
-bun run nodejs-ban
 ```
 
 If infrastructure-dependent tests cannot run locally, the completion note must name the skipped gate, the missing dependency, and the fallback evidence. Contract and failure-mode tests should not be skipped for missing optional infrastructure.

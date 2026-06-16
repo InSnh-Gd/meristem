@@ -42,7 +42,6 @@ bun run test:integration
 bun run test:e2e
 bun run workspace-hygiene
 bun run skill-hygiene
-bun run nodejs-ban
 bun run dev:core
 bun run dev:webui
 bun run dev:full

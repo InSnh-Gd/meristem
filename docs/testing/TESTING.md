@@ -8,7 +8,7 @@
 
 | Test Type | Purpose | Applies To |
 |-----------|---------|------------|
-| typecheck | TypeScript strict and no `any` | all packages |
+| typecheck | TypeScript strictness and contract type coverage | all packages |
 | unit | pure logic, Effect Schema decode/encode, and schema narrowing | contracts, policy, config, codec |
 | contract | API, Eden, event, service definition compatibility | contracts and services |
 | integration | Core with service, NATS, PostgreSQL boundaries | Core and M-* services |
@@ -61,7 +61,6 @@ bun run test:e2e
 bun run test:perf
 bun run workspace-hygiene
 bun run skill-hygiene
-bun run nodejs-ban
 ```
 
 Optional deployment pack static checks:
@@ -81,8 +80,8 @@ Any new capability must also add or extend e2e coverage in `tests/e2e/`.
 
 Additional hard gates:
 
-- repository code must remain Bun-only
-- repository code must not import `node:*`
+- repository code must remain Bun-runtime-only: scripts, tests, services, and tooling run through Bun rather than the Node.js executable
+- Node-compatible standard-library imports may use the `node:` protocol when required by Biome or TypeScript tooling, provided they are executed by Bun and do not introduce a Node.js runtime prerequisite
 - workspace hygiene must reject generated output, dependency installs, local agent mirrors, local Codex runtime output, local Antigravity CLI output, and ignored `doc-driven-ai/` checkouts on review surfaces
 - project skill hygiene must pass without Python or Node.js tooling
 - source comments must satisfy `MERISTEM-DEV.md §8.2`
@@ -268,7 +267,6 @@ bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
 bun run test:e2e
-bun run nodejs-ban
 docker compose up -d postgres nats
 bun run db:migrate
 bun run db:seed
