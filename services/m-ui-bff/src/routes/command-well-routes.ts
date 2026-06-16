@@ -75,7 +75,10 @@ function deriveApprovalPreviewEligibility(
   approval: ApprovalReadModel,
   body: ApprovalPreviewBody
 ) {
-  const requiredPermission = COMMAND_PREVIEW_DEFINITIONS[commandId].requiredPermissions[0]!
+  const def = COMMAND_PREVIEW_DEFINITIONS[commandId]
+  if (!def) throw new Error(`command definition not found: ${commandId}`)
+  const requiredPermission = def.requiredPermissions[0]
+  if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
   if (!session.permissions.includes(requiredPermission)) {
     return displayOnlyPreview(
       commandId,
@@ -97,7 +100,10 @@ function deriveNetworkProfilePreviewEligibility(
   profile: NetworkProfileReadModel,
   body: NetworkProfilePreviewBody
 ) {
-  const requiredPermission = COMMAND_PREVIEW_DEFINITIONS[commandId].requiredPermissions[0]!
+  const def = COMMAND_PREVIEW_DEFINITIONS[commandId]
+  if (!def) throw new Error(`command definition not found: ${commandId}`)
+  const requiredPermission = def.requiredPermissions[0]
+  if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
   if (!session.permissions.includes(requiredPermission)) {
     return displayOnlyPreview(
       commandId,
@@ -215,7 +221,10 @@ export function createCommandWellRoutes({ cf, tf }: MUiBffRouteDeps) {
           commandId === 'policy.approval.reject.preview'
         ) {
           const approvalBody = body as ApprovalPreviewBody
-          const requiredPermission = COMMAND_PREVIEW_DEFINITIONS[commandId].requiredPermissions[0]!
+          const approvalDef = COMMAND_PREVIEW_DEFINITIONS[commandId]
+          if (!approvalDef) throw new Error(`command definition not found: ${commandId}`)
+          const requiredPermission = approvalDef.requiredPermissions[0]
+          if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
           if (!session.permissions.includes(requiredPermission)) {
             return displayOnlyPreview(
               commandId,
@@ -236,7 +245,10 @@ export function createCommandWellRoutes({ cf, tf }: MUiBffRouteDeps) {
           commandId === 'network.profile.disable.preview'
         ) {
           const profileBody = body as NetworkProfilePreviewBody
-          const requiredPermission = COMMAND_PREVIEW_DEFINITIONS[commandId].requiredPermissions[0]!
+          const profileDef = COMMAND_PREVIEW_DEFINITIONS[commandId]
+          if (!profileDef) throw new Error(`command definition not found: ${commandId}`)
+          const requiredPermission = profileDef.requiredPermissions[0]
+          if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
           if (!session.permissions.includes(requiredPermission)) {
             return displayOnlyPreview(
               commandId,
