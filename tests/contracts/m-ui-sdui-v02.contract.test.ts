@@ -16,6 +16,10 @@ const requiredSduiV02RouteIds = [
   'timeline.index',
   'audit.index',
   'policy.decisions',
+  'policy.approvals',
+  'policy.approvals.detail',
+  'network.profiles',
+  'network.profiles.detail',
   'services.index'
 ] as const
 
@@ -219,7 +223,7 @@ describe('SDUI v0.2 route schema', () => {
     // Bun 的 toEqual 重载在 strict 模式下不接受 readonly tuple；
     // 展开为普通字符串列表进行比较，语义不变且消除 TS2769。
     expect(routeIds).toEqual([...requiredSduiV02RouteIds])
-    expect(new Set(routeIds).size).toBe(7)
+    expect(new Set(routeIds).size).toBe(11)
   })
 
   it('every route declares state sources', () => {

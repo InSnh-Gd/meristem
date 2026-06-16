@@ -84,6 +84,54 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       ]
     },
     {
+      id: 'policy.approvals',
+      title: '审批队列',
+      requiredPermissions: ['policy:approval-read'],
+      stateSources: ['policy', 'audit'],
+      degradedState: { enabled: true, reason: '审批队列读路径降级时显示待处理来源与空列表' },
+      components: [
+        { kind: 'ApprovalQueuePanel', id: 'policy-approval-queue-panel' },
+        { kind: 'DecisionQueueSummary', id: 'policy-approval-queue-summary' },
+        { kind: 'OperationalCommandPreview', id: 'policy-approval-command-preview' }
+      ]
+    },
+    {
+      id: 'policy.approvals.detail',
+      title: '审批详情',
+      requiredPermissions: ['policy:approval-read'],
+      stateSources: ['policy', 'audit', 'log'],
+      degradedState: { enabled: true, reason: '审批详情缺失时保留审计、日志与原始 envelope' },
+      components: [
+        { kind: 'ApprovalDetailPanel', id: 'policy-approval-detail-panel' },
+        { kind: 'TraceLink', id: 'policy-approval-trace-link' },
+        { kind: 'RawEnvelopeView', id: 'policy-approval-envelope' },
+        { kind: 'OperationalCommandPreview', id: 'policy-approval-detail-command-preview' }
+      ]
+    },
+    {
+      id: 'network.profiles',
+      title: '网络 Profile',
+      requiredPermissions: ['network:profile-read'],
+      stateSources: ['authoritative', 'policy', 'audit'],
+      degradedState: { enabled: true, reason: '网络 Profile 读路径降级时显示来源与内联告警' },
+      components: [
+        { kind: 'NetworkProfileListPanel', id: 'network-profile-list-panel' },
+        { kind: 'InlineOperationalAlert', id: 'network-profile-operational-alert' }
+      ]
+    },
+    {
+      id: 'network.profiles.detail',
+      title: 'Profile 详情',
+      requiredPermissions: ['network:profile-read'],
+      stateSources: ['authoritative', 'policy', 'audit', 'log'],
+      degradedState: { enabled: true, reason: 'Profile 详情缺失时保留追踪链接与命令预览' },
+      components: [
+        { kind: 'NetworkProfileDetailPanel', id: 'network-profile-detail-panel' },
+        { kind: 'TraceLink', id: 'network-profile-trace-link' },
+        { kind: 'OperationalCommandPreview', id: 'network-profile-detail-command-preview' }
+      ]
+    },
+    {
       id: 'services.index',
       title: '服务列表',
       requiredPermissions: ['core:read'],

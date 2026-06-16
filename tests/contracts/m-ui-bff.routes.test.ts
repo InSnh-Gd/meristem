@@ -30,6 +30,20 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { routes: Array<{ id: string }> }
     expect(Array.isArray(body.routes)).toBe(true)
+    expect(body.routes).toHaveLength(11)
+    expect(body.routes.map(route => route.id)).toEqual([
+      'control-room.overview',
+      'nodes.index',
+      'nodes.detail',
+      'timeline.index',
+      'audit.index',
+      'policy.decisions',
+      'policy.approvals',
+      'policy.approvals.detail',
+      'network.profiles',
+      'network.profiles.detail',
+      'services.index'
+    ])
   })
 
   it('GET /api/v0/routes/:id returns one route', async () => {
