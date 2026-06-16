@@ -107,7 +107,7 @@
               </div>
               <div>
                 <dt>来源继承</dt>
-                <dd>{approval.stateSource.sourceType}</dd>
+                <dd>{vote.stateSource.sourceType}</dd>
               </div>
               {#if vote.reason}
                 <div class="vote-reason">

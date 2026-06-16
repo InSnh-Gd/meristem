@@ -154,12 +154,12 @@ export function fetchApprovalDetail(token: string, approvalId: string) {
 }
 
 export function fetchNetworkProfiles(token: string) {
-  return bffFetch<NetworkProfileListResponseData>('/api/v0/network/profiles', token)
+  return bffFetch<NetworkProfileListResponseData>('/api/v0/network-profiles', token)
 }
 
 export function fetchNetworkProfileDetail(token: string, profileVersion: string) {
   return bffFetch<NetworkProfileDetailResponseData>(
-    `/api/v0/network/profiles/${encodeURIComponent(profileVersion)}`,
+    `/api/v0/network-profiles/${encodeURIComponent(profileVersion)}`,
     token
   )
 }

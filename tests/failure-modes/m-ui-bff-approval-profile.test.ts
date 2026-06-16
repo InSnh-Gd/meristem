@@ -37,7 +37,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
 
     const profileRes = await makeRequest(
       profileDownApp,
-      '/api/v0/network/profiles',
+      '/api/v0/network-profiles',
       'GET',
       'admin-token'
     )
@@ -126,10 +126,10 @@ describe('M-UI BFF approval/profile failure modes', () => {
     expect(operatorApproval.status).toBe(403)
     expect(await operatorApproval.json()).toMatchObject({ error: { code: 'policy.denied' } })
 
-    const adminProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'admin-token')
+    const adminProfiles = await makeRequest(app, '/api/v0/network-profiles', 'GET', 'admin-token')
     expect(adminProfiles.status).toBe(200)
 
-    const viewerProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'viewer-token')
+    const viewerProfiles = await makeRequest(app, '/api/v0/network-profiles', 'GET', 'viewer-token')
     expect(viewerProfiles.status).toBe(403)
     expect(await viewerProfiles.json()).toMatchObject({ error: { code: 'policy.denied' } })
   })

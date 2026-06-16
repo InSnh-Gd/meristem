@@ -267,12 +267,12 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(await res.json()).toMatchObject({ error: { code: 'approval.not_found' } })
   })
 
-  it('GET /api/v0/network/profiles returns profiles with authoritative stateSource metadata', async () => {
+  it('GET /api/v0/network-profiles returns profiles with authoritative stateSource metadata', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'admin' })
     const coreApp = createCoreApp(deps)
     const app = createBffWithCore(coreApp)
 
-    const res = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'admin-token')
+    const res = await makeRequest(app, '/api/v0/network-profiles', 'GET', 'admin-token')
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       profiles: Array<{
@@ -294,14 +294,14 @@ describe('SDUI v0.2 BFF routes', () => {
     })
   })
 
-  it('GET /api/v0/network/profiles/:profileVersion returns profile detail with authoritative stateSource', async () => {
+  it('GET /api/v0/network-profiles/:profileVersion returns profile detail with authoritative stateSource', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'admin' })
     const coreApp = createCoreApp(deps)
     const app = createBffWithCore(coreApp)
 
     const res = await makeRequest(
       app,
-      '/api/v0/network/profiles/m-net-cn@0.1.0',
+      '/api/v0/network-profiles/m-net-cn@0.1.0',
       'GET',
       'admin-token'
     )
@@ -317,20 +317,20 @@ describe('SDUI v0.2 BFF routes', () => {
     })
   })
 
-  it('GET /api/v0/network/profiles preserves 401, 403, and 503 envelopes', async () => {
+  it('GET /api/v0/network-profiles preserves 401, 403, and 503 envelopes', async () => {
     const adminCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'admin' }))
     const viewerCoreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'viewer' }))
     const downCoreApp = createCoreApp(
       createInMemoryCoreDeps({ actor: 'admin', networkProfileReaderAvailable: false })
     )
 
-    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/network/profiles')
+    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/network-profiles')
     expect(missingToken.status).toBe(401)
     expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
 
     const denied = await makeRequest(
       createBffWithCore(viewerCoreApp),
-      '/api/v0/network/profiles',
+      '/api/v0/network-profiles',
       'GET',
       'viewer-token'
     )
@@ -339,7 +339,7 @@ describe('SDUI v0.2 BFF routes', () => {
 
     const unavailable = await makeRequest(
       createBffWithCore(downCoreApp),
-      '/api/v0/network/profiles',
+      '/api/v0/network-profiles',
       'GET',
       'admin-token'
     )
@@ -347,14 +347,14 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(await unavailable.json()).toMatchObject({ error: { code: 'mnet.unavailable' } })
   })
 
-  it('GET /api/v0/network/profiles/:profileVersion preserves 404 envelope', async () => {
+  it('GET /api/v0/network-profiles/:profileVersion preserves 404 envelope', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'admin' })
     const coreApp = createCoreApp(deps)
     const app = createBffWithCore(coreApp)
 
     const res = await makeRequest(
       app,
-      '/api/v0/network/profiles/unknown-profile@0.1.0',
+      '/api/v0/network-profiles/unknown-profile@0.1.0',
       'GET',
       'admin-token'
     )
@@ -515,10 +515,10 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(operatorApproval.status).toBe(403)
     expect(await operatorApproval.json()).toMatchObject({ error: { code: 'policy.denied' } })
 
-    const adminProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'admin-token')
+    const adminProfiles = await makeRequest(app, '/api/v0/network-profiles', 'GET', 'admin-token')
     expect(adminProfiles.status).toBe(200)
 
-    const viewerProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'viewer-token')
+    const viewerProfiles = await makeRequest(app, '/api/v0/network-profiles', 'GET', 'viewer-token')
     expect(viewerProfiles.status).toBe(403)
     expect(await viewerProfiles.json()).toMatchObject({ error: { code: 'policy.denied' } })
   })

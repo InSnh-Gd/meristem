@@ -5,7 +5,7 @@ const ALLOWED_BFF_URL = 'http://localhost:3200'
 const FORBIDDEN_CORE_URL = 'http://localhost:3000'
 const APPROVAL_PROFILE_BFF_CALLS = [
   '/api/v0/policy/approvals',
-  '/api/v0/network/profiles'
+  '/api/v0/network-profiles'
 ] as const
 
 type Violation = {

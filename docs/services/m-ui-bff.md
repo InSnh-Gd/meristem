@@ -65,8 +65,8 @@ What this service must not own:
 | GET | `/api/v0/policy/decisions/:id/summary` | Bearer | Trims Core policy decision data for M-UI display |
 | GET | `/api/v0/policy/approvals` | Bearer | Approval queue list via Core boundary; read-only, returns display-shaped approval records with state source annotation |
 | GET | `/api/v0/policy/approvals/:id` | Bearer | Approval detail via Core boundary; read-only, returns full approval record with policy, audit, and log state sources |
-| GET | `/api/v0/network/profiles` | Bearer | Network profile list via Core boundary; read-only, returns display-shaped profile records with authoritative, policy, and audit state sources |
-| GET | `/api/v0/network/profiles/:id` | Bearer | Network profile detail via Core boundary; read-only, returns full profile record with authoritative, policy, audit, and log state sources |
+| GET | `/api/v0/network-profiles` | Bearer | Network profile list via Core boundary; read-only, returns display-shaped profile records with authoritative, policy, and audit state sources |
+| GET | `/api/v0/network-profiles/:id` | Bearer | Network profile detail via Core boundary; read-only, returns full profile record with authoritative, policy, audit, and log state sources |
 
 **Display-only command handling**:
 

@@ -271,8 +271,8 @@ if (!infraOk) {
         expect(body.error.code).toBe('approval.not_found')
       })
 
-      it('GET /api/v0/network/profiles returns profiles and CN controlPlaneOnly profile', async () => {
-        const res = await bffFetch('/api/v0/network/profiles', adminToken)
+      it('GET /api/v0/network-profiles returns profiles and CN controlPlaneOnly profile', async () => {
+        const res = await bffFetch('/api/v0/network-profiles', adminToken)
         expect(res.ok).toBe(true)
         const body = res.data as {
           profiles: Array<{
@@ -297,7 +297,7 @@ if (!infraOk) {
         const deniedApprovalBody = deniedApproval.data as { error: { code: string } }
         expect(deniedApprovalBody.error.code).toBe('policy.denied')
 
-        const deniedProfile = await bffFetch('/api/v0/network/profiles', viewerToken)
+        const deniedProfile = await bffFetch('/api/v0/network-profiles', viewerToken)
         expect(deniedProfile.status).toBe(403)
         const deniedProfileBody = deniedProfile.data as { error: { code: string } }
         expect(deniedProfileBody.error.code).toBe('policy.denied')
