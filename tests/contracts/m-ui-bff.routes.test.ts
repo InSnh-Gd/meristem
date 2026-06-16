@@ -285,6 +285,8 @@ describe('SDUI v0.2 BFF routes', () => {
       'm-net-cn@0.1.0',
       'm-net-default@0.1.0'
     ])
+    const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.1.0')
+    expect(cnProfile?.stateSource.sourceId).toBe('core:/api/v0/network-profiles/m-net-cn@0.1.0')
     expect(body.profiles[0]?.stateSource.sourceType).toBe('authoritative')
     expect(body.stateSource).toEqual({
       sourceType: 'authoritative',
@@ -501,6 +503,24 @@ describe('SDUI v0.2 BFF routes', () => {
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: { code: string } }
     expect(body.error.code).toBe('command.display_only')
+  })
+
+  it('request permissions are not cached between different tokens in one BFF app', async () => {
+    const app = createBffWithCore(createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })))
+
+    const adminApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'admin-token')
+    expect(adminApproval.status).toBe(200)
+
+    const operatorApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'operator-token')
+    expect(operatorApproval.status).toBe(403)
+    expect(await operatorApproval.json()).toMatchObject({ error: { code: 'policy.denied' } })
+
+    const adminProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'admin-token')
+    expect(adminProfiles.status).toBe(200)
+
+    const viewerProfiles = await makeRequest(app, '/api/v0/network/profiles', 'GET', 'viewer-token')
+    expect(viewerProfiles.status).toBe(403)
+    expect(await viewerProfiles.json()).toMatchObject({ error: { code: 'policy.denied' } })
   })
 })
 

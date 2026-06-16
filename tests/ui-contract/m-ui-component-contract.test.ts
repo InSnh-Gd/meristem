@@ -2,6 +2,12 @@ import { describe, expect, it } from 'bun:test'
 
 const COMPONENTS_ROOT = 'apps/m-ui/src/lib/components'
 
+const DISPLAY_ONLY_ROUTE_FILES = [
+  'apps/m-ui/src/routes/policy/approvals/+page.svelte',
+  'apps/m-ui/src/routes/policy/approvals/[id]/+page.svelte',
+  'apps/m-ui/src/routes/network/profiles/[profileVersion]/+page.svelte'
+] as const
+
 const FORBIDDEN_COMPONENT_NAMES = [
   'Toast',
   'Snackbar',
@@ -75,5 +81,17 @@ describe('M-UI component contract: forbidden UI patterns', () => {
         )
         .join('\n')
     ).toEqual([])
+  })
+
+  it('approval/profile display-only pages keep preview commands non-executable and avoid hidden action forms', async () => {
+    const forbiddenTokens = ['<form', 'type="submit"', '/execute', 'fetch('] as const
+
+    for (const filePath of DISPLAY_ONLY_ROUTE_FILES) {
+      const source = await Bun.file(filePath).text()
+      expect(source).toContain('OperationalCommandPreview')
+      for (const token of forbiddenTokens) {
+        expect(source, `${filePath} should not contain ${token}`).not.toContain(token)
+      }
+    }
   })
 })

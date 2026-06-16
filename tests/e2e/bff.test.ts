@@ -20,6 +20,7 @@ if (!infraOk) {
   let devAll: ManagedProcess
   let bffProcess: ManagedProcess
   let operatorToken = ''
+  let adminToken = ''
   let viewerToken = ''
   let securityAdminToken = ''
   let leafName = ''
@@ -30,6 +31,7 @@ if (!infraOk) {
       devAll = stack.devAll
       bffProcess = stack.bffProcess
       operatorToken = stack.operatorToken
+      adminToken = stack.adminToken
       viewerToken = stack.viewerToken
       securityAdminToken = stack.securityAdminToken
       leafName = `e2e-bff-leaf-${Date.now()}`
@@ -253,6 +255,52 @@ if (!infraOk) {
         expect(res.ok).toBe(true)
         const body = res.data as { decisions: Array<{ id: string }> }
         expect(Array.isArray(body.decisions)).toBe(true)
+      })
+
+      it('GET /api/v0/policy/approvals returns approval queue as 200 with approvals array', async () => {
+        const res = await bffFetch('/api/v0/policy/approvals', adminToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as { approvals: Array<{ id: string }> }
+        expect(Array.isArray(body.approvals)).toBe(true)
+      })
+
+      it('GET /api/v0/policy/approvals/:id returns 404 Core envelope for unknown approval', async () => {
+        const res = await bffFetch('/api/v0/policy/approvals/missing-approval', adminToken)
+        expect(res.status).toBe(404)
+        const body = res.data as { error: { code: string } }
+        expect(body.error.code).toBe('approval.not_found')
+      })
+
+      it('GET /api/v0/network/profiles returns profiles and CN controlPlaneOnly profile', async () => {
+        const res = await bffFetch('/api/v0/network/profiles', adminToken)
+        expect(res.ok).toBe(true)
+        const body = res.data as {
+          profiles: Array<{
+            profileVersion: string
+            capabilities: { controlPlaneOnly: boolean }
+          }>
+        }
+        expect(Array.isArray(body.profiles)).toBe(true)
+        const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.1.0')
+        expect(cnProfile).toBeDefined()
+        expect(cnProfile?.capabilities.controlPlaneOnly).toBe(true)
+      })
+
+      it('approval/profile routes preserve 401 and 403 permission failures', async () => {
+        const missingApprovalToken = await bffFetch('/api/v0/policy/approvals')
+        expect(missingApprovalToken.status).toBe(401)
+        const missingApprovalBody = missingApprovalToken.data as { error: { code: string } }
+        expect(missingApprovalBody.error.code).toBe('auth.missing_token')
+
+        const deniedApproval = await bffFetch('/api/v0/policy/approvals', operatorToken)
+        expect(deniedApproval.status).toBe(403)
+        const deniedApprovalBody = deniedApproval.data as { error: { code: string } }
+        expect(deniedApprovalBody.error.code).toBe('policy.denied')
+
+        const deniedProfile = await bffFetch('/api/v0/network/profiles', viewerToken)
+        expect(deniedProfile.status).toBe(403)
+        const deniedProfileBody = deniedProfile.data as { error: { code: string } }
+        expect(deniedProfileBody.error.code).toBe('policy.denied')
       })
 
       it('GET /api/v0/services returns service list', async () => {
