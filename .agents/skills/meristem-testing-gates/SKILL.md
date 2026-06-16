@@ -19,7 +19,7 @@ Primary source documents:
 
 Select tests by boundary touched:
 
-- `typecheck`: TypeScript strict and no `any`.
+- `typecheck`: TypeScript strictness and contract type coverage.
 - `unit`: pure logic, Effect Schema decode/encode, schema narrowing.
 - `contract`: API, Eden, event, service definition compatibility.
 - `integration`: Core with service, NATS, PostgreSQL, OpenSearch, or internal HTTP boundaries.
@@ -50,7 +50,6 @@ bun run test:cli
 bun run test:failure-modes
 bun run test:integration
 bun run test:e2e
-bun run nodejs-ban
 ```
 
 For Phase 10 OpenSearch work also run or justify:
@@ -79,7 +78,8 @@ Do not claim a capability complete until the relevant gates pass or a documented
 ## Hard Gates
 
 - Repository code remains Bun-only.
-- Repository code does not import `node:*`.
+- Scripts, tests, services, and tooling run through Bun rather than the Node.js executable.
+- Node-compatible standard-library imports may use the `node:` protocol when required by Biome or TypeScript tooling, provided they are executed by Bun and do not introduce a Node.js runtime prerequisite.
 - Source comments satisfy `MERISTEM-DEV.md §8.2` for touched code.
 - Elysia method chains explain auth, policy, lifecycle, logging, and error mapping where non-obvious.
 - Contract docs, tests, and implementation are updated together.

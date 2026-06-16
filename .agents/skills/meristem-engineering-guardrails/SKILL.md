@@ -67,10 +67,10 @@ Meristem 当前仓库执行 Bun-only：
 
 - 包管理、脚本执行、测试执行、服务运行统一使用 Bun。
 - 禁止使用 `node` 运行时执行仓库代码。
-- 禁止引入 `node:*` 标准库 API。
+- `node:` 标准库导入只允许在 Bun 兼容的脚本、测试或工具代码中作为显式内置模块协议使用，不能让 Node.js 成为运行前提。
 - 禁止让 Node.js 成为本地开发、测试、运行或联调前提。
 
-领域里的 `Core Node`、`Stem Node`、`Leaf Node` 不是禁词；禁令只针对 Node.js 运行时和 Node.js API。
+领域里的 `Core Node`、`Stem Node`、`Leaf Node` 不是禁词；禁令只针对 Node.js 运行时前提。
 
 ## Effect 默认规则
 
@@ -139,14 +139,14 @@ Meristem 采用 `ADR-F01` 中的 Effect 使用边界：
 任何核心能力完成前，必须满足：
 
 - TypeScript strict 通过。
-- 无 `any`。
+- 避免显式 `any`；必须依赖 TypeScript strict、Biome 与代码审查，而不是仓库级文本扫描脚本。
 - 有测试和错误路径测试。
 - 有必要注释，Elysia 方法链有说明。
 - 有日志行为。
 - 必要时有 Audit Log、M-Policy 检查和 OpenTelemetry trace。
 - 契约已版本化。
 - 文档已更新。
-- 无 Node.js 运行时依赖，无 `node:*` API 依赖。
+- 无 Node.js 运行时依赖；Bun 可执行的脚本、测试或工具代码可以使用 Biome 要求的 `node:` 内置模块协议。
 
 微服务、高权限能力和跨节点契约还必须满足 `MERISTEM-DEV.md` 与 `MERISTEM-ROADMAP.md` 的专项完成标准。
 
