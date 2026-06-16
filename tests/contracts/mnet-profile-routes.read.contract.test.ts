@@ -10,8 +10,8 @@ import {
   createTestApp,
   decodeJson,
   ErrorResponseSchema,
-  jwtSecret,
   internalToken,
+  jwtSecret,
   mintTestToken
 } from './_helpers/mnet-profile-routes.ts'
 

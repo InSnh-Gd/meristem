@@ -1,4 +1,4 @@
-import { requireArg, requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, requireArg, requireMethod, success } from './shared.ts'
 
 const IDENTITY_USAGE =
   'usage: meristem identity actor list | identity actor show <actor-id> | identity token issue --actor <actor-id> --ttl <duration> --purpose <text> | identity token inspect <jti> | identity token revoke <jti> --reason <text>'

@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
-import { canDisable, canRequestEnable, type ProfileState } from './profile-state-machine.ts'
 import type { MNetAppDeps } from './deps.ts'
+import { canDisable, canRequestEnable, type ProfileState } from './profile-state-machine.ts'
 import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import {
   networkIdParamsSchema,

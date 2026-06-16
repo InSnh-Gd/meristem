@@ -12,13 +12,13 @@ import {
   mExtensionResource,
   mExtensionScope
 } from '../../../packages/contracts/src/types/extension.ts'
-import { validateExtensionManifest } from './manifest.ts'
 import type {
   AuthContext,
   LifecyclePayloadInput,
   MExtensionDeps,
   MExtensionPolicyDecision
 } from './deps.ts'
+import { validateExtensionManifest } from './manifest.ts'
 
 export function correlationIdFromHeaders(headers: Record<string, string | undefined>): string {
   const value = headers['x-correlation-id']

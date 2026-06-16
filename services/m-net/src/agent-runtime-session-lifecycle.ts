@@ -9,14 +9,14 @@ import type {
   SessionResumeMessage
 } from '../../../packages/contracts/src/index.ts'
 import { nodeCredentials, nodeJoinTickets, nodes } from '../../../packages/db/src/schema.ts'
+import type { AgentRuntimeContext, CredentialStore } from './agent-runtime-types.ts'
 import {
   deriveHeartbeatTransition,
   joinTicketRedeemability,
   shouldTransitionOffline,
   shouldTransitionOfflineOnDisconnect
 } from './runtime.ts'
-import { asRuntimeNode, err, mapNode, ok, type JoinSessionData } from './shared.ts'
-import type { AgentRuntimeContext, CredentialStore } from './agent-runtime-types.ts'
+import { asRuntimeNode, err, type JoinSessionData, mapNode, ok } from './shared.ts'
 import type { MNetServiceResult } from './types.ts'
 
 export function sessionNodeId(ws: ServerWebSocket<JoinSessionData>): string | null {

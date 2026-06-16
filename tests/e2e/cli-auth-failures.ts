@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { startProcess } from '../helpers/process.ts'
 import type { CliE2eContext } from '../helpers/e2e-cli.ts'
+import { startProcess } from '../helpers/process.ts'
 import { baseEnv } from './_shared.ts'
 
 export function registerCliAuthFailureTests(context: CliE2eContext): void {

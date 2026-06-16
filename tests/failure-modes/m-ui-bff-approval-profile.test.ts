@@ -32,7 +32,9 @@ describe('M-UI BFF approval/profile failure modes', () => {
     expect(await approvalRes.json()).toMatchObject({ error: { code: 'm-policy.unavailable' } })
 
     const profileDownApp = createBffWithCore(
-      createCoreApp(createInMemoryCoreDeps({ actor: 'admin', networkProfileReaderAvailable: false }))
+      createCoreApp(
+        createInMemoryCoreDeps({ actor: 'admin', networkProfileReaderAvailable: false })
+      )
     )
 
     const profileRes = await makeRequest(
@@ -94,7 +96,9 @@ describe('M-UI BFF approval/profile failure modes', () => {
     const requests: string[] = []
     globalThis.fetch = (async (input, init) => {
       const request =
-        input instanceof Request ? input : new Request(typeof input === 'string' ? input : input.href, init)
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
       requests.push(`${request.method} ${request.url}`)
       return delegatedFetch(input, init)
     }) as typeof globalThis.fetch
@@ -122,7 +126,12 @@ describe('M-UI BFF approval/profile failure modes', () => {
     const adminApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'admin-token')
     expect(adminApproval.status).toBe(200)
 
-    const operatorApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'operator-token')
+    const operatorApproval = await makeRequest(
+      app,
+      '/api/v0/policy/approvals',
+      'GET',
+      'operator-token'
+    )
     expect(operatorApproval.status).toBe(403)
     expect(await operatorApproval.json()).toMatchObject({ error: { code: 'policy.denied' } })
 

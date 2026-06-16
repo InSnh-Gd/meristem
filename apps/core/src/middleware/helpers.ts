@@ -1,6 +1,6 @@
 import {
-  createEventEnvelope,
-  type CreateEventInput
+  type CreateEventInput,
+  createEventEnvelope
 } from '../../../../packages/events/src/index.ts'
 import { currentTraceId } from '../../../../packages/telemetry/src/index.ts'
 

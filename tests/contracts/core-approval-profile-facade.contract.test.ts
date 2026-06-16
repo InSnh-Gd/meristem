@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
-import { createCoreApp } from '../../apps/core/src/app.ts'
+import type { PublicReaderFetch } from '../../apps/core/src/adapters/http-approval-profile-readers.ts'
 import {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
 } from '../../apps/core/src/adapters.ts'
-import type { PublicReaderFetch } from '../../apps/core/src/adapters/http-approval-profile-readers.ts'
+import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import type { PolicyApproval } from '../../packages/contracts/src/index.ts'
 import {
@@ -15,7 +15,10 @@ import {
   MNetProfileListResponseSchema
 } from '../../packages/contracts/src/index.ts'
 
-const headers = (token: string) => ({ authorization: `Bearer ${token}`, 'x-correlation-id': 'facade-corr-1' })
+const headers = (token: string) => ({
+  authorization: `Bearer ${token}`,
+  'x-correlation-id': 'facade-corr-1'
+})
 
 const approval: PolicyApproval = {
   id: 'approval-facade-1',
@@ -72,8 +75,12 @@ describe('Core approval and network profile read facade contract', () => {
   })
 
   it('approval facade returns Core error envelopes for auth, permission, not found, and service failure', async () => {
-    const adminApp = createCoreApp(createInMemoryCoreDeps({ actor: 'admin', approvals: [approval] }))
-    const operatorApp = createCoreApp(createInMemoryCoreDeps({ actor: 'operator', approvals: [approval] }))
+    const adminApp = createCoreApp(
+      createInMemoryCoreDeps({ actor: 'admin', approvals: [approval] })
+    )
+    const operatorApp = createCoreApp(
+      createInMemoryCoreDeps({ actor: 'operator', approvals: [approval] })
+    )
     const downApp = createCoreApp(
       createInMemoryCoreDeps({ actor: 'admin', approvalReaderAvailable: false })
     )
@@ -85,7 +92,9 @@ describe('Core approval and network profile read facade contract', () => {
     expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
 
     const denied = await operatorApp.handle(
-      new Request('http://localhost/api/v0/policy/approvals', { headers: headers('operator-token') })
+      new Request('http://localhost/api/v0/policy/approvals', {
+        headers: headers('operator-token')
+      })
     )
     expect(denied.status).toBe(403)
     expect(await denied.json()).toMatchObject({ error: { code: 'policy.denied' } })
@@ -175,9 +184,7 @@ describe('Core approval and network profile read facade contract', () => {
       const url = String(input)
       const headers = new Headers(init?.headers)
       calls.push({ url, authorization: headers.get('authorization') })
-      const data = url.includes('policy/approvals')
-        ? { approvals: [] }
-        : { profiles: [] }
+      const data = url.includes('policy/approvals') ? { approvals: [] } : { profiles: [] }
       return new Response(JSON.stringify(data), {
         status: 200,
         headers: { 'content-type': 'application/json' }
@@ -186,7 +193,9 @@ describe('Core approval and network profile read facade contract', () => {
     const context = { actor: 'admin' as const, bearerToken: 'admin-token', correlationId: 'corr-1' }
 
     await createHttpApprovalReaderPort({ baseUrl: 'http://m-policy.local', fetcher }).list(context)
-    await createHttpNetworkProfileReaderPort({ baseUrl: 'http://m-net.local', fetcher }).list(context)
+    await createHttpNetworkProfileReaderPort({ baseUrl: 'http://m-net.local', fetcher }).list(
+      context
+    )
 
     expect(calls.map(call => new URL(call.url).pathname)).toEqual([
       '/api/v0/policy/approvals',

@@ -2,8 +2,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { createCliE2eContext } from '../helpers/e2e-cli.ts'
 import {
-  runTextCommand,
   infrastructureAvailable,
+  runTextCommand,
   startFullStack,
   stopFullStack
 } from './_shared.ts'

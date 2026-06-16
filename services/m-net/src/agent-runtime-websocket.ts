@@ -1,8 +1,3 @@
-import type { JoinSessionData } from './shared.ts'
-import { joinIngressPort, joinTlsConfig } from './config.ts'
-import { authorizeSessionMessage } from './runtime.ts'
-import { messageText, parseClientMessage, sendServerMessage } from './shared.ts'
-import type { AgentRuntimeContext } from './agent-runtime-types.ts'
 import {
   applyHeartbeat,
   bindSession,
@@ -17,6 +12,11 @@ import {
   rejectPendingTasksForNode,
   resolvePendingTaskResult
 } from './agent-runtime-task-dispatch.ts'
+import type { AgentRuntimeContext } from './agent-runtime-types.ts'
+import { joinIngressPort, joinTlsConfig } from './config.ts'
+import { authorizeSessionMessage } from './runtime.ts'
+import type { JoinSessionData } from './shared.ts'
+import { messageText, parseClientMessage, sendServerMessage } from './shared.ts'
 
 /**
  * WebSocket ingress 只承载 session 协议装配：具体的 join、resume、heartbeat、task 逻辑全部委托给子模块。

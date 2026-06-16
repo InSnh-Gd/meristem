@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import {
   decidePermission,
-  rolePermissions,
-  type PolicyInput
+  type PolicyInput,
+  rolePermissions
 } from '../../../packages/policy/src/index.ts'
 
 describe('decidePermission', () => {

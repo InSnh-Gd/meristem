@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
 import type { NodeAgentTaskExecuteResponse } from '../../../packages/contracts/src/index.ts'
 import { nodes } from '../../../packages/db/src/schema.ts'
+import type { AgentRuntimeContext } from './agent-runtime-types.ts'
 import { taskTimeoutMs } from './config.ts'
 import { err, ok, sendServerMessage } from './shared.ts'
-import type { AgentRuntimeContext } from './agent-runtime-types.ts'
 import type { MNetServiceError, MNetServiceResult } from './types.ts'
 
 /**

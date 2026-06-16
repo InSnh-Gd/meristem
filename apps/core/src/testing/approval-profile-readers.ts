@@ -68,7 +68,9 @@ export function createApprovalReaderPort(helpers: InMemoryCoreTestingHelpers): A
       if (helpers.options.approvalReaderAvailable === false) {
         return err({ code: 'm-policy.unavailable', message: 'M-Policy approval API unavailable' })
       }
-      const approval = (helpers.options.approvals ?? [defaultApproval]).find(record => record.id === id)
+      const approval = (helpers.options.approvals ?? [defaultApproval]).find(
+        record => record.id === id
+      )
       if (!approval) return ok(null)
       return ok({
         ...approval,

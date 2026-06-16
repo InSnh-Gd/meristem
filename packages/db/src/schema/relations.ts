@@ -1,9 +1,8 @@
 import { relations } from 'drizzle-orm'
-
-import { actors, actorTokenRevocations, actorTokens } from './identity.ts'
 import { configApplyAcks, configRecords, configTransitions, configVersions } from './config.ts'
 import { nodes, tasks } from './core.ts'
 import { extensionDefinitions, extensionInstances, extensionTransitions } from './extension.ts'
+import { actors, actorTokenRevocations, actorTokens } from './identity.ts'
 import { auditLogs } from './log.ts'
 import {
   mnetNetworkProfileStates,
@@ -11,8 +10,8 @@ import {
   mnetSuspendedOperations,
   networks
 } from './network.ts'
-import { policyApprovalVotes, policyApprovals, policyDecisions } from './policy.ts'
-import { secretRefTransitions, secretRefVersions, secretRefs } from './secrets.ts'
+import { policyApprovals, policyApprovalVotes, policyDecisions } from './policy.ts'
+import { secretRefs, secretRefTransitions, secretRefVersions } from './secrets.ts'
 import { taskRequests } from './task.ts'
 
 export const nodesRelations = relations(nodes, ({ many }) => ({

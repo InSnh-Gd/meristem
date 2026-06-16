@@ -136,7 +136,9 @@ describe('SDUI v0.2 route schema', () => {
   })
 
   it('decodes and encodes operational command previews', () => {
-    const decoded = Schema.decodeUnknownSync(OperationalCommandPreviewSchema)(operationalCommandPreview)
+    const decoded = Schema.decodeUnknownSync(OperationalCommandPreviewSchema)(
+      operationalCommandPreview
+    )
     const encoded = Schema.encodeSync(OperationalCommandPreviewSchema)(decoded)
 
     expect(decoded).toEqual(operationalCommandPreview)

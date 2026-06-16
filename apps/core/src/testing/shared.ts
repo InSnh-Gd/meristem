@@ -5,9 +5,9 @@ import type {
   MNetwork,
   MNetworkMember,
   MNode,
-  PolicyDecision,
   PolicyApproval,
   PolicyApprovalVote,
+  PolicyDecision,
   ServiceSummary
 } from '../../../../packages/contracts/src/index.ts'
 

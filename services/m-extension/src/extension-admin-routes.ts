@@ -7,8 +7,8 @@ import {
 } from '../../../packages/contracts/src/types/extension.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import type { MExtensionDeps } from './deps.ts'
-import { extensionPairSchema, errorSchema } from './route-schemas.ts'
 import { authorize, readStore, requireActor } from './route-helpers.ts'
+import { errorSchema, extensionPairSchema } from './route-schemas.ts'
 
 /**
  * 管理路由保留原始 URL 与只读策略动作，只把实现从 facade 中拆出。

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe } from 'bun:test'
 import {
+  type ConfigPayloadFiles,
   createConfigPayloadFiles,
-  removeConfigPayloadFiles,
-  type ConfigPayloadFiles
+  removeConfigPayloadFiles
 } from '../helpers/cli-config.ts'
 import { registerCliConfigBasicTests } from './cli-config-basic.ts'
 import { registerCliConfigLifecycleTests } from './cli-config-lifecycle.ts'

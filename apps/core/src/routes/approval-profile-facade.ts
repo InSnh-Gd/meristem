@@ -1,5 +1,5 @@
-import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
 import { Elysia, t } from 'elysia'
+import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
 import { CoreError } from '../core-error.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
 import { statusCodeForServiceError } from '../middleware/route-support.ts'
@@ -14,9 +14,13 @@ import {
 } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 
-function bearerTokenOrThrow(headers: Record<string, string | undefined>, correlationId: string): string {
+function bearerTokenOrThrow(
+  headers: Record<string, string | undefined>,
+  correlationId: string
+): string {
   const token = extractBearerToken(headers.authorization)
-  if (!token) throw new CoreError(401, 'auth.missing_token', 'Bearer token is required', correlationId)
+  if (!token)
+    throw new CoreError(401, 'auth.missing_token', 'Bearer token is required', correlationId)
   return token
 }
 

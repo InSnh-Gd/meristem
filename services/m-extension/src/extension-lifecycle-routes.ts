@@ -16,14 +16,6 @@ import {
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import type { MExtensionDeps } from './deps.ts'
 import {
-  controlBodySchema,
-  definitionSchema,
-  errorSchema,
-  extensionPairSchema,
-  instanceSchema,
-  registerBodySchema
-} from './route-schemas.ts'
-import {
   assertSystemDefault,
   auditBeforeMutation,
   authorize,
@@ -33,6 +25,14 @@ import {
   requireActor,
   validateManifestOrReject
 } from './route-helpers.ts'
+import {
+  controlBodySchema,
+  definitionSchema,
+  errorSchema,
+  extensionPairSchema,
+  instanceSchema,
+  registerBodySchema
+} from './route-schemas.ts'
 
 /**
  * 生命周期路由必须保持 register / enable / disable 的策略、审计、存储、Timeline、事件顺序不变。

@@ -265,7 +265,9 @@ describe('M-UI BFF contract tests', () => {
     const requests: Array<{ method: string; url: string }> = []
     globalThis.fetch = (async (input, init) => {
       const request =
-        input instanceof Request ? input : new Request(typeof input === 'string' ? input : input.href, init)
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
       requests.push({ method: request.method, url: request.url })
       return delegatedFetch(input, init)
     }) as typeof globalThis.fetch
@@ -412,7 +414,9 @@ describe('M-UI BFF contract tests', () => {
     const requests: Array<{ method: string; url: string }> = []
     globalThis.fetch = (async (input, init) => {
       const request =
-        input instanceof Request ? input : new Request(typeof input === 'string' ? input : input.href, init)
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
       requests.push({ method: request.method, url: request.url })
       return delegatedFetch(input, init)
     }) as typeof globalThis.fetch

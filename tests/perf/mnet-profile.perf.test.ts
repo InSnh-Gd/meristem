@@ -1,6 +1,4 @@
 import { describe, it } from 'bun:test'
-
-import { runBenchmark, aggregateRounds, type BenchmarkResult } from './helpers/perf-utils.ts'
 import {
   canDisable,
   canRequestEnable,
@@ -10,6 +8,7 @@ import {
   type ProfileState
 } from '../../services/m-net/src/profile-state-machine.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import { aggregateRounds, type BenchmarkResult, runBenchmark } from './helpers/perf-utils.ts'
 
 function logBenchmark(name: string, aggregated: BenchmarkResult): void {
   console.info(

@@ -2,11 +2,11 @@ import { expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import {
+  bearerHeaders,
   draftConfig,
   getConfig,
   publishConfig,
-  rollbackConfig,
-  bearerHeaders
+  rollbackConfig
 } from '../helpers/config-lifecycle.ts'
 
 export function registerConfigLifecycleDegradedOpsTests(): void {

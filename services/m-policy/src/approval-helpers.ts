@@ -2,10 +2,10 @@ import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId,
   ApprovalStatus,
+  Permission,
   PolicyApproval,
   PolicyApprovalVote
 } from '../../../packages/contracts/src/index.ts'
-import type { Permission } from '../../../packages/contracts/src/index.ts'
 import type { ApprovalDeps, ApprovalStore } from './approval-schemas.ts'
 
 /**

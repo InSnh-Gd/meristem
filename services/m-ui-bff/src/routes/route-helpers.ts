@@ -1,11 +1,11 @@
 import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
 import type { CommandWellEligibility } from '../../../../packages/contracts/src/index.ts'
+import type { ServiceFetchResult } from '../deps.ts'
 import {
   GENERIC_NOOP_COMMAND_ID,
   type GenericNoopEligibility,
   type StateSourceMetadata
 } from '../types.ts'
-import type { ServiceFetchResult } from '../deps.ts'
 
 /**
  * 从请求头里提取 Bearer token，兼容不同大小写拼写。

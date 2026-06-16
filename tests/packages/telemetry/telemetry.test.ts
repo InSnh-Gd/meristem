@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import {
   currentTraceId,
-  injectTraceHeaders,
   initTelemetry,
+  injectTraceHeaders,
   recordGauge,
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'

@@ -1,11 +1,10 @@
 import { describe, it } from 'bun:test'
-
-import { computeLatencyStats, type LatencyStats } from './helpers/perf-utils.ts'
-import { nextProfileState } from '../../services/m-net/src/profile-state-machine.ts'
-import { createEventEnvelope, validateEventEnvelope } from '../../packages/events/src/index.ts'
-import { decidePermission } from '../../packages/policy/src/index.ts'
 import { computeConfigHash } from '../../apps/core/src/config-state-machine.ts'
 import { redactSecrets } from '../../packages/common/src/secret-redaction.ts'
+import { createEventEnvelope, validateEventEnvelope } from '../../packages/events/src/index.ts'
+import { decidePermission } from '../../packages/policy/src/index.ts'
+import { nextProfileState } from '../../services/m-net/src/profile-state-machine.ts'
+import { computeLatencyStats, type LatencyStats } from './helpers/perf-utils.ts'
 
 const toUs = (ms: number) => (ms * 1000).toFixed(2)
 

@@ -1,10 +1,10 @@
 import { err, ok } from '../../../../packages/common/src/result.ts'
-import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import type {
   ApprovalDetailResponse,
   ApprovalListResponse,
   MNetRegionalProfile
 } from '../../../../packages/contracts/src/index.ts'
+import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import { serviceErrorFromHttpResponse } from '../effect-helpers.ts'
 import type {
   ApprovalReaderPort,
@@ -17,7 +17,10 @@ type PublicReaderAdapterOptions = {
   fetcher?: PublicReaderFetch
 }
 
-export type PublicReaderFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+export type PublicReaderFetch = (
+  input: string | URL | Request,
+  init?: RequestInit
+) => Promise<Response>
 
 async function parseJson(response: Response): Promise<unknown> {
   try {
@@ -101,7 +104,10 @@ export function createHttpApprovalReaderPort(
       const body = asApprovalList(result.value)
       return body
         ? ok(body)
-        : err({ code: 'm-policy.invalid_response', message: 'M-Policy approval API invalid response' })
+        : err({
+            code: 'm-policy.invalid_response',
+            message: 'M-Policy approval API invalid response'
+          })
     },
     async get(id, context) {
       const result = await fetchPublicJson(
@@ -116,7 +122,10 @@ export function createHttpApprovalReaderPort(
       const body = asApprovalDetail(result.value)
       return body
         ? ok(body)
-        : err({ code: 'm-policy.invalid_response', message: 'M-Policy approval API invalid response' })
+        : err({
+            code: 'm-policy.invalid_response',
+            message: 'M-Policy approval API invalid response'
+          })
     }
   }
 }

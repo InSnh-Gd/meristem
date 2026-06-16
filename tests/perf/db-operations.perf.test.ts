@@ -1,6 +1,6 @@
 import { describe, it } from 'bun:test'
-import { aggregateRounds, runBenchmark } from './helpers/perf-utils.ts'
 import * as schemaDefinitions from '../../packages/db/src/schema.ts'
+import { aggregateRounds, runBenchmark } from './helpers/perf-utils.ts'
 
 const benchmarkRounds = {
   warmupRounds: 1,

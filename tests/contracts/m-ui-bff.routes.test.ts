@@ -229,7 +229,10 @@ describe('SDUI v0.2 BFF routes', () => {
       createInMemoryCoreDeps({ actor: 'admin', approvalReaderAvailable: false })
     )
 
-    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/policy/approvals')
+    const missingToken = await makeRequest(
+      createBffWithCore(adminCoreApp),
+      '/api/v0/policy/approvals'
+    )
     expect(missingToken.status).toBe(401)
     expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
 
@@ -324,7 +327,10 @@ describe('SDUI v0.2 BFF routes', () => {
       createInMemoryCoreDeps({ actor: 'admin', networkProfileReaderAvailable: false })
     )
 
-    const missingToken = await makeRequest(createBffWithCore(adminCoreApp), '/api/v0/network-profiles')
+    const missingToken = await makeRequest(
+      createBffWithCore(adminCoreApp),
+      '/api/v0/network-profiles'
+    )
     expect(missingToken.status).toBe(401)
     expect(await missingToken.json()).toMatchObject({ error: { code: 'auth.missing_token' } })
 
@@ -511,7 +517,12 @@ describe('SDUI v0.2 BFF routes', () => {
     const adminApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'admin-token')
     expect(adminApproval.status).toBe(200)
 
-    const operatorApproval = await makeRequest(app, '/api/v0/policy/approvals', 'GET', 'operator-token')
+    const operatorApproval = await makeRequest(
+      app,
+      '/api/v0/policy/approvals',
+      'GET',
+      'operator-token'
+    )
     expect(operatorApproval.status).toBe(403)
     expect(await operatorApproval.json()).toMatchObject({ error: { code: 'policy.denied' } })
 

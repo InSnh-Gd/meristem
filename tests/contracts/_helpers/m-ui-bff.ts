@@ -6,8 +6,8 @@ import type { MTaskApp } from '../../../services/m-task/src/public-types.ts'
 import { createMUiBffApp } from '../../../services/m-ui-bff/src/app.ts'
 import type { MUiBffApp } from '../../../services/m-ui-bff/src/public-types.ts'
 
-export { createCoreApp, createInMemoryCoreDeps, createInMemoryMTaskDeps, createMTaskApp }
 export type { CoreApp, MTaskApp, MUiBffApp }
+export { createCoreApp, createInMemoryCoreDeps, createInMemoryMTaskDeps, createMTaskApp }
 
 export const CORE_BASE = 'http://mock-core'
 export const TASK_BASE = 'http://mock-task'

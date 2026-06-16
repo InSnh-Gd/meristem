@@ -1,13 +1,13 @@
 import { Elysia, t } from 'elysia'
 import type {
-  ApprovalDetailResponse,
   ActorId,
+  ApprovalDetailResponse,
   AuditLog,
   CoreDependencies,
   CoreMode,
+  MinimalPolicyDecisionSummary,
   MNetRegionalProfile,
   MNode,
-  MinimalPolicyDecisionSummary,
   Permission,
   PolicyApproval,
   PolicyDecision,
@@ -16,13 +16,13 @@ import type {
 } from '../../../../packages/contracts/src/index.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import type { StateSourceMetadata } from '../types.ts'
-import { idParamsSchema } from './route-schemas.ts'
 import {
   bearerTokenFromHeaders,
   bffError,
   passthroughCoreError,
   withStateSource
 } from './route-helpers.ts'
+import { idParamsSchema } from './route-schemas.ts'
 
 /**
  * createBffDataRoutes 负责 BFF 展示读模型：只补 stateSource，不改变 Core/M-Log/Audit 事实归属。
@@ -175,11 +175,12 @@ export function createBffDataRoutes({ cf }: MUiBffRouteDeps) {
         // BFF 底层命中 Core facade 的标准 `/api/v0/network-profiles`。
         const result = await cf('/api/v0/network-profiles', token)
         if (!result.ok) return passthroughCoreError(result)
-        const profiles = (result.data as { profiles: MNetRegionalProfile[] }).profiles.map(profile =>
-          withStateSource(profile, {
-            sourceType: 'authoritative',
-            sourceId: `core:/api/v0/network-profiles/${profile.profileVersion}`
-          })
+        const profiles = (result.data as { profiles: MNetRegionalProfile[] }).profiles.map(
+          profile =>
+            withStateSource(profile, {
+              sourceType: 'authoritative',
+              sourceId: `core:/api/v0/network-profiles/${profile.profileVersion}`
+            })
         )
         return {
           profiles,

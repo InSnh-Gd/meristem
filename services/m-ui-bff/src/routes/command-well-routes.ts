@@ -7,20 +7,20 @@ import {
 } from '../command-well/eligibility.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import {
+  type ApprovalPreviewBody,
   COMMAND_PREVIEW_DEFINITIONS,
   DISPLAY_ONLY_COMMAND_IDS,
   GENERIC_NOOP_COMMAND_ID,
-  type ApprovalPreviewBody,
   type GenericCommandEligibilityBody,
   type NetworkProfilePreviewBody
 } from '../types.ts'
-import { commandIdParamsSchema, leafNodeIdBodySchema } from './route-schemas.ts'
 import {
   bearerTokenFromHeaders,
   bffError,
   passthroughCoreError,
   toGenericNoopEligibility
 } from './route-helpers.ts'
+import { commandIdParamsSchema, leafNodeIdBodySchema } from './route-schemas.ts'
 
 const genericCommandEligibilityBodySchema = t.Union([
   leafNodeIdBodySchema,
@@ -88,7 +88,12 @@ function deriveApprovalPreviewEligibility(
     )
   }
   if (approval.status !== 'pending') {
-    return displayOnlyPreview(commandId, `approval/${body.approvalId}`, 'disabled', '审批已不是 pending 状态')
+    return displayOnlyPreview(
+      commandId,
+      `approval/${body.approvalId}`,
+      'disabled',
+      '审批已不是 pending 状态'
+    )
   }
   return displayOnlyPreview(commandId, `approval/${body.approvalId}`, 'enabled')
 }
@@ -224,7 +229,8 @@ export function createCommandWellRoutes({ cf, tf }: MUiBffRouteDeps) {
           const approvalDef = COMMAND_PREVIEW_DEFINITIONS[commandId]
           if (!approvalDef) throw new Error(`command definition not found: ${commandId}`)
           const requiredPermission = approvalDef.requiredPermissions[0]
-          if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
+          if (!requiredPermission)
+            throw new Error(`command ${commandId} has no required permissions`)
           if (!session.permissions.includes(requiredPermission)) {
             return displayOnlyPreview(
               commandId,
@@ -248,7 +254,8 @@ export function createCommandWellRoutes({ cf, tf }: MUiBffRouteDeps) {
           const profileDef = COMMAND_PREVIEW_DEFINITIONS[commandId]
           if (!profileDef) throw new Error(`command definition not found: ${commandId}`)
           const requiredPermission = profileDef.requiredPermissions[0]
-          if (!requiredPermission) throw new Error(`command ${commandId} has no required permissions`)
+          if (!requiredPermission)
+            throw new Error(`command ${commandId} has no required permissions`)
           if (!session.permissions.includes(requiredPermission)) {
             return displayOnlyPreview(
               commandId,
@@ -258,7 +265,10 @@ export function createCommandWellRoutes({ cf, tf }: MUiBffRouteDeps) {
             )
           }
 
-          const profileRes = await cf(`/api/v0/network-profiles/${profileBody.profileVersion}`, token)
+          const profileRes = await cf(
+            `/api/v0/network-profiles/${profileBody.profileVersion}`,
+            token
+          )
           if (!profileRes.ok) return passthroughCoreError(profileRes)
           const profile = profileRes.data as NetworkProfileReadModel
           return deriveNetworkProfilePreviewEligibility(commandId, session, profile, profileBody)

@@ -2,6 +2,14 @@ import { Elysia, t } from 'elysia'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import type { LogAppDeps } from './deps.ts'
 import {
+  toAuditSearchQuery,
+  toBackfillParams,
+  toFullSearchQuery,
+  toTimelineSearchQuery
+} from './route-helpers.ts'
+import {
+  auditLogSchema,
+  auditSearchQuerySchema,
   backfillParamsSchema,
   backfillResultSchema,
   degradedSearchSchema,
@@ -12,16 +20,8 @@ import {
   logSearchResultSchema,
   projectionHealthSchema,
   timelineLogSchema,
-  timelineSearchQuerySchema,
-  auditLogSchema,
-  auditSearchQuerySchema
+  timelineSearchQuerySchema
 } from './route-schemas.ts'
-import {
-  toAuditSearchQuery,
-  toBackfillParams,
-  toFullSearchQuery,
-  toTimelineSearchQuery
-} from './route-helpers.ts'
 
 type ErrorResponse = { error: { code: string; message: string } }
 

@@ -1,4 +1,4 @@
-import { requireArg, requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, requireArg, requireMethod, success } from './shared.ts'
 
 const PROJECTION_DLQ_USAGE =
   'usage: meristem projection dlq list [--index <name>] | projection dlq replay --id <dlq-id> | projection dlq skip --id <dlq-id>'

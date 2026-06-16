@@ -8,10 +8,10 @@ import {
   NodeKindSchema
 } from '../../packages/contracts/src/schemas/core.ts'
 import {
-  runBenchmark,
   aggregateRounds,
+  type BenchmarkResult,
   computeLatencyStats,
-  type BenchmarkResult
+  runBenchmark
 } from './helpers/perf-utils.ts'
 
 function logBenchmark(name: string, aggregated: BenchmarkResult): void {

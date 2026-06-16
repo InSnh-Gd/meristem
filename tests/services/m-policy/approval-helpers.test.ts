@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import type { ActorId, PolicyApproval } from '../../../packages/contracts/src/index.ts'
-import type { ApprovalDeps } from '../../../services/m-policy/src/approval-schemas.ts'
 import {
   createInMemoryApprovalStore,
   createTestApproval,
@@ -10,6 +9,7 @@ import {
   requirePermission,
   withUpdatedStatus
 } from '../../../services/m-policy/src/approval-helpers.ts'
+import type { ApprovalDeps } from '../../../services/m-policy/src/approval-schemas.ts'
 
 const createDeps = (
   verifyResult: { ok: true; actor: ActorId } | { ok: false; code: string; message: string },

@@ -6,13 +6,13 @@ import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
-import { createHttpEventPort } from './adapters/http-eventbus.ts'
-import { createHttpLogPort } from './adapters/http-log.ts'
-import { createHttpMNetPort } from './adapters/http-mnet.ts'
 import {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
 } from './adapters/http-approval-profile-readers.ts'
+import { createHttpEventPort } from './adapters/http-eventbus.ts'
+import { createHttpLogPort } from './adapters/http-log.ts'
+import { createHttpMNetPort } from './adapters/http-mnet.ts'
 import { createHttpPolicyPort } from './adapters/http-policy.ts'
 import { createHttpProjectionPort } from './adapters/http-projection.ts'
 import {
@@ -25,13 +25,13 @@ import type { CoreDeps } from './types.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
 export { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
-export { createHttpEventPort } from './adapters/http-eventbus.ts'
-export { createHttpLogPort } from './adapters/http-log.ts'
-export { createHttpMNetPort } from './adapters/http-mnet.ts'
 export {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
 } from './adapters/http-approval-profile-readers.ts'
+export { createHttpEventPort } from './adapters/http-eventbus.ts'
+export { createHttpLogPort } from './adapters/http-log.ts'
+export { createHttpMNetPort } from './adapters/http-mnet.ts'
 export { createHttpPolicyPort } from './adapters/http-policy.ts'
 export { createRpcEventPort, createRpcLogPort, createRpcPolicyPort } from './adapters/rpc-legacy.ts'
 export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'

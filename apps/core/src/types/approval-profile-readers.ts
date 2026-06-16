@@ -20,7 +20,10 @@ export type ReaderContext = {
 export type ApprovalReaderPort = {
   requiredPermission: Permission
   list(context: ReaderContext): Promise<Result<ApprovalListResponse, ServiceError>>
-  get(id: string, context: ReaderContext): Promise<Result<ApprovalDetailResponse | null, ServiceError>>
+  get(
+    id: string,
+    context: ReaderContext
+  ): Promise<Result<ApprovalDetailResponse | null, ServiceError>>
 }
 
 /**

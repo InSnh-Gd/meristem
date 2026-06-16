@@ -2,9 +2,9 @@ import { describe, expect, it } from 'bun:test'
 import type { ActorId, PolicyApproval } from '../../packages/contracts/src/index.ts'
 import {
   createApprovalRoutes,
-  createTestApproval,
+  createInMemoryApprovalStore,
   createInternalApprovalRoutes,
-  createInMemoryApprovalStore
+  createTestApproval
 } from '../../services/m-policy/src/approvals.ts'
 import { createTestApprovalRoutes } from './_helpers/approval-execution.ts'
 

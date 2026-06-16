@@ -31,27 +31,27 @@ import type {
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
-import type { EventBusAppDeps, createEventBusApp } from '../../services/m-eventbus/src/app.ts'
+import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
 import type {
+  createLogApp,
   LogAppDeps,
   ProjectionDeps,
-  SearchDeps,
-  createLogApp
+  SearchDeps
 } from '../../services/m-log/src/app.ts'
 import type { LogApp as PublicLogApp } from '../../services/m-log/src/public-types.ts'
 import type {
+  createMNetApp,
   MNetAppDeps,
   MNetServiceError,
-  MNetServiceResult,
-  createMNetApp
+  MNetServiceResult
 } from '../../services/m-net/src/app.ts'
 import type { MNetApp as PublicMNetApp } from '../../services/m-net/src/public-types.ts'
 import type {
+  createMTaskApp,
   MTaskCreateInput,
   MTaskDeliveryPort,
-  MTaskDeps,
-  createMTaskApp
+  MTaskDeps
 } from '../../services/m-task/src/app.ts'
 import type { MTaskApp as PublicMTaskApp } from '../../services/m-task/src/public-types.ts'
 

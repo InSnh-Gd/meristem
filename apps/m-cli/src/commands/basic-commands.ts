@@ -1,4 +1,4 @@
-import { requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, requireMethod, success } from './shared.ts'
 
 /**
  * 状态、服务和基础可观测性命令维持在同一分组，避免在 facade 中重新展开细节。

@@ -5,8 +5,8 @@ import {
   createSecret,
   disableSecret,
   rotateSecret,
-  showSecret,
-  secretHeaders
+  secretHeaders,
+  showSecret
 } from '../helpers/secret-policy.ts'
 
 export function registerSecretPolicyStateTests(): void {

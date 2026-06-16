@@ -1,17 +1,17 @@
 import * as Schema from 'effect/Schema'
 import { ActorIdSchema } from './identity.ts'
 import {
+  MNetProfileRegionSchema,
+  MNetProfileVersionSchema,
+  NetworkProfileStateSchema
+} from './mnet-profile.ts'
+import {
   ApprovalOriginServiceSchema,
   ApprovalStatusSchema,
   ApprovalVoteTypeSchema,
   PermissionSchema,
   RequiredActionSchema
 } from './policy.ts'
-import {
-  MNetProfileRegionSchema,
-  MNetProfileVersionSchema,
-  NetworkProfileStateSchema
-} from './mnet-profile.ts'
 
 export const DisabledCommandExplanationSchema = Schema.Struct({
   code: Schema.Literal(

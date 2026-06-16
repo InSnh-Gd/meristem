@@ -1,5 +1,5 @@
 import type { MExtensionManifestV01 } from '../../../../packages/contracts/src/index.ts'
-import { readJsonFile, requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, readJsonFile, requireMethod, success } from './shared.ts'
 
 const APPROVALS_USAGE =
   'usage: meristem policy approvals list | policy approvals show <approval-id> | policy approvals approve <approval-id> [--reason <text>] | policy approvals reject <approval-id> [--reason <text>]'

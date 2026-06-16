@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 import { policyDecisions } from './policy.ts'
 

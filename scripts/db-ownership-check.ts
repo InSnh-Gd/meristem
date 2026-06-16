@@ -1,11 +1,11 @@
 import ts from 'typescript'
 import {
   approvedExceptionTablesForFile,
+  type DbOwnedTable,
+  type DbOwnerDomain,
   isDbOwnedTable,
   sourceDomainForFile,
-  tableOwners,
-  type DbOwnedTable,
-  type DbOwnerDomain
+  tableOwners
 } from './db-ownership-allowlist.ts'
 
 export type DbOwnershipViolation = {

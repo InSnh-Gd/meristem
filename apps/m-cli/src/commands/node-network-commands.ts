@@ -1,4 +1,4 @@
-import { requireArg, requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, requireArg, requireMethod, success } from './shared.ts'
 
 const NETWORK_PROFILE_USAGE =
   'usage: meristem network profile list | network profile show <version> | network profile enable --network <id> --profile <version> --reason <text> | network profile disable --network <id> --reason <text>'

@@ -2,9 +2,9 @@ import { expect, it } from 'bun:test'
 import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
 import {
   bareConfigClient,
-  configClient,
   type ConfigPayloadFiles,
-  type ConfigRecord
+  type ConfigRecord,
+  configClient
 } from '../helpers/cli-config.ts'
 
 export function registerCliConfigBasicTests(getFiles: () => ConfigPayloadFiles): void {

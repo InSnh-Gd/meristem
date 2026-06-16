@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import {
   authHeaders,
+  type EdenResponse,
   errorMessage,
-  unwrap,
-  type EdenResponse
+  unwrap
 } from '../../../apps/m-cli/src/clients/shared.ts'
 
 describe('m-cli client shared utilities', () => {

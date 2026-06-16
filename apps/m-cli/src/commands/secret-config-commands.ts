@@ -1,4 +1,4 @@
-import { readStdin, requireArg, requireMethod, success, type CliCommandHandler } from './shared.ts'
+import { type CliCommandHandler, readStdin, requireArg, requireMethod, success } from './shared.ts'
 
 const SECRET_USAGE =
   'usage: meristem secret list | secret show <secret-ref-id> | secret create --name <name> --scope system|service|node --value-stdin [--metadata <json>] | secret rotate <secret-ref-id> --value-stdin --reason <text> | secret disable <secret-ref-id> --reason <text>'

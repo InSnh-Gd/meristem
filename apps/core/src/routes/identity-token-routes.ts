@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import type { ActorId } from '../../../../packages/contracts/src/index.ts'
 import { actorIds } from '../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../core-error.ts'
+import { authorize, requireActor } from '../middleware/auth.ts'
 import { apiErrorSchema, protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 import {
@@ -22,7 +23,6 @@ import {
   validateIdentityInternalRequest,
   writeIdentityAudit
 } from './identity-support.ts'
-import { authorize, requireActor } from '../middleware/auth.ts'
 
 /**
  * Identity token 与 introspection 路由统一处理高风险控制面写操作和内部服务鉴权。

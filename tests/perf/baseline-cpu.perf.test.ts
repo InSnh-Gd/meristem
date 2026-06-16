@@ -1,12 +1,12 @@
 import { describe, it } from 'bun:test'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import {
-  runBenchmark,
   aggregateRounds,
+  type BenchmarkResult,
   evaluateBenchmarkGate,
-  tempFilePath,
-  type BenchmarkResult
+  runBenchmark,
+  tempFilePath
 } from './helpers/perf-utils.ts'
-import { mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 
 function reportAndAssert(name: string, aggregated: BenchmarkResult): void {
   console.log(

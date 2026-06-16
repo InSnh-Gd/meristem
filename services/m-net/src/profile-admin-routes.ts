@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
-import { canResume, type ProfileState } from './profile-state-machine.ts'
 import type { MNetAppDeps } from './deps.ts'
+import { canResume, type ProfileState } from './profile-state-machine.ts'
 import { internalError, requireInternal } from './route-helpers.ts'
 import { operationIdParamsSchema } from './route-schemas.ts'
 

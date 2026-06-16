@@ -22,9 +22,9 @@ import type {
   TimelineSearchQuery
 } from '../../../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../../../packages/events/src/index.ts'
+import type { ApprovalReaderPort, NetworkProfileReaderPort } from './approval-profile-readers.ts'
 import type { ServiceError } from './common.ts'
 import type { ConfigPort } from './config.ts'
-import type { ApprovalReaderPort, NetworkProfileReaderPort } from './approval-profile-readers.ts'
 import type { IdentityPort } from './identity.ts'
 import type { MNetPort } from './mnet.ts'
 import type { SecretRefPort } from './secrets.ts'

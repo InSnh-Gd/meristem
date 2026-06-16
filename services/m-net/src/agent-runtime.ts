@@ -1,7 +1,7 @@
-import { createJoinIngress } from './agent-runtime-websocket.ts'
 import { markOfflineNodes } from './agent-runtime-session-lifecycle.ts'
 import { executeNoop, rejectPendingTasksOnShutdown } from './agent-runtime-task-dispatch.ts'
 import type { AgentRuntimeDeps } from './agent-runtime-types.ts'
+import { createJoinIngress } from './agent-runtime-websocket.ts'
 
 /**
  * agent join/session/task/offline 运行态统一收敛在这里，入口文件只保留装配职责。
