@@ -32,13 +32,13 @@ const seedDataTemplate = {
 const selectNodeTemplate =
   "SELECT * FROM meristem.nodes WHERE kind = '{kind}' AND status = '{status}' ORDER BY {orderColumn} DESC"
 
-let benchmarkSink = 0
+let _benchmarkSink = 0
 
 function recordBenchmark(name: string, opsPerSecond: number): void {
   if (!Number.isFinite(opsPerSecond) || opsPerSecond <= 0) {
     throw new Error(`${name} did not produce a positive throughput result`)
   }
-  benchmarkSink += Math.trunc(opsPerSecond)
+  _benchmarkSink += Math.trunc(opsPerSecond)
 }
 
 describe('Database operations performance', () => {
@@ -52,9 +52,9 @@ describe('Database operations performance', () => {
       fn: () => {
         // Drizzle 表定义是静态对象；这里只遍历导出元数据，避免触发任何数据库连接。
         for (const [name, definition] of schemaEntries) {
-          benchmarkSink += name.length
+          _benchmarkSink += name.length
           if (typeof definition === 'object' && definition !== null) {
-            benchmarkSink += Object.keys(definition).length
+            _benchmarkSink += Object.keys(definition).length
           }
         }
       }
@@ -75,7 +75,7 @@ describe('Database operations performance', () => {
         // seed.ts 没有导出生成函数且含顶层数据库写入；使用等价的种子对象序列化吞吐作为纯 JS 替代。
         const serializedSeed = JSON.stringify(seedDataTemplate)
         const parsedSeed = JSON.parse(serializedSeed) as typeof seedDataTemplate
-        benchmarkSink += parsedSeed.users.length + parsedSeed.permissions.length
+        _benchmarkSink += parsedSeed.users.length + parsedSeed.permissions.length
       }
     })
 
@@ -95,7 +95,7 @@ describe('Database operations performance', () => {
           .replace('{kind}', 'stem')
           .replace('{status}', 'online')
           .replace('{orderColumn}', 'created_at')
-        benchmarkSink += query.length
+        _benchmarkSink += query.length
       }
     })
 

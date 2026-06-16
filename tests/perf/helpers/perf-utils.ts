@@ -1,6 +1,6 @@
-import { mkdirSync, writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 export interface RoundResult {
   name: string
@@ -29,6 +29,14 @@ export interface BenchmarkResult {
   maxOpsPerSecond: number
 }
 
+function requireSample(values: number[], index: number, label: string): number {
+  const value = values[index]
+  if (value === undefined) {
+    throw new Error(`${label} missing sample at index ${index}`)
+  }
+  return value
+}
+
 export function computeLatencyStats(samples: number[]): LatencyStats {
   if (samples.length === 0) {
     return { min: 0, max: 0, avg: 0, p50: 0, p95: 0, p99: 0, count: 0 }
@@ -36,8 +44,8 @@ export function computeLatencyStats(samples: number[]): LatencyStats {
   const sorted = [...samples].sort((a, b) => a - b)
   const sum = sorted.reduce((a, b) => a + b, 0)
   return {
-    min: sorted[0]!,
-    max: sorted[sorted.length - 1]!,
+    min: requireSample(sorted, 0, 'latency stats'),
+    max: requireSample(sorted, sorted.length - 1, 'latency stats'),
     avg: sum / sorted.length,
     p50: percentile(sorted, 50),
     p95: percentile(sorted, 95),
@@ -50,8 +58,10 @@ function percentile(sorted: number[], p: number): number {
   const index = (p / 100) * (sorted.length - 1)
   const lower = Math.floor(index)
   const upper = Math.ceil(index)
-  if (lower === upper) return sorted[lower]!
-  return sorted[lower]! + (sorted[upper]! - sorted[lower]!) * (index - lower)
+  const lowerValue = requireSample(sorted, lower, 'percentile')
+  if (lower === upper) return lowerValue
+  const upperValue = requireSample(sorted, upper, 'percentile')
+  return lowerValue + (upperValue - lowerValue) * (index - lower)
 }
 
 function mean(values: number[]): number {
@@ -68,8 +78,14 @@ function stddev(values: number[], avg: number): number {
 export function aggregateRounds(name: string, rounds: RoundResult[]): BenchmarkResult {
   const opsValues = rounds.map(r => r.opsPerSecond)
   const sorted = [...opsValues].sort((a, b) => a - b)
+  if (sorted.length === 0) {
+    throw new Error(`${name} produced no measured rounds`)
+  }
   const mid = Math.floor(sorted.length / 2)
-  const medianVal = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!
+  const medianVal =
+    sorted.length % 2 === 0
+      ? (requireSample(sorted, mid - 1, name) + requireSample(sorted, mid, name)) / 2
+      : requireSample(sorted, mid, name)
 
   let trimmedMeanVal: number | null = null
   if (opsValues.length >= 4) {
@@ -87,8 +103,8 @@ export function aggregateRounds(name: string, rounds: RoundResult[]): BenchmarkR
     medianOpsPerSecond: medianVal,
     trimmedMeanOpsPerSecond: trimmedMeanVal,
     coefficientOfVariation: cv,
-    minOpsPerSecond: sorted[0]!,
-    maxOpsPerSecond: sorted[sorted.length - 1]!
+    minOpsPerSecond: requireSample(sorted, 0, name),
+    maxOpsPerSecond: requireSample(sorted, sorted.length - 1, name)
   }
 }
 

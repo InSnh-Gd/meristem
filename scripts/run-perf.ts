@@ -1,7 +1,4 @@
-import { $ } from 'bun'
-
 const RUNS = Number(Bun.argv[2]) || 5
-const TIMEOUT = 120_000
 
 type MetricValue = { values: number[]; unit: string }
 type RunMetrics = Map<string, MetricValue>
@@ -50,17 +47,14 @@ function computeStats(values: number[]): {
   const sum = values.reduce((a, b) => a + b, 0)
   const mean = sum / values.length
   const sorted = [...values].sort((a, b) => a - b)
-  const min = sorted[0]!
-  const max = sorted[sorted.length - 1]!
+  const min = sorted[0]
+  const max = sorted[sorted.length - 1]
+  if (min === undefined || max === undefined) {
+    throw new Error('performance stats unexpectedly missing sorted values')
+  }
   if (values.length <= 1) return { mean, stddev: 0, min, max }
   const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1)
   return { mean, stddev: Math.sqrt(variance), min, max }
-}
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
-  return n < 1 ? n.toFixed(2) : n.toFixed(0)
 }
 
 function formatWithUnit(value: number, unit: string, decimals: number): string {
@@ -136,7 +130,7 @@ console.log(`\n=== Stable Performance Report (${stableCount} runs) ===\n`)
 
 const groups = new Map<string, string[]>()
 for (const key of globalMetrics.keys()) {
-  const group = key.split(':')[0]!
+  const group = key.split(':')[0] ?? 'ungrouped'
   let keys = groups.get(group)
   if (!keys) {
     keys = []
@@ -148,7 +142,8 @@ for (const key of globalMetrics.keys()) {
 for (const [group, keys] of groups) {
   console.log(`  ${group}:`)
   for (const key of keys) {
-    const entry = globalMetrics.get(key)!
+    const entry = globalMetrics.get(key)
+    if (!entry) continue
     const stats = computeStats(entry.means)
     const metricName = key.split(':').slice(1).join(':')
     const cv = stats.mean > 0 ? stats.stddev / stats.mean : 0
