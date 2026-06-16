@@ -1,5 +1,5 @@
 import { describe, it } from 'bun:test'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import {
   aggregateRounds,
   type BenchmarkResult,
