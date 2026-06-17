@@ -46,7 +46,8 @@ export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
 export { createConfigStateMachine } from './config-state-machine.ts'
 export { createDbStorage } from './storage-adapter.ts'
 
-function parseDurationToMs(value: string): number {
+/** 导出供单元测试覆盖 switch/case 分支；生产代码仍只通过 createProductionDeps 间接使用。 */
+export function parseDurationToMs(value: string): number {
   const numericSeconds = Number(value)
   if (Number.isFinite(numericSeconds) && numericSeconds > 0) return numericSeconds * 1_000
   const match = /^(\d+)(ms|s|m|h|d)$/.exec(value)
