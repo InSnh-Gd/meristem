@@ -17,6 +17,9 @@ What this service owns:
 - Aggregating Core REST v0 operational data into a single control-room overview response
 - Deriving disabled/enabled command state for the M-UI CommandWell from Core-visible permission and node state
 - Forwarding confirmed noop task execution to M-Task `POST /api/v0/tasks`
+- **Forwarding approval/profile mutation execute commands to Core public facades** (`POST /api/v0/policy/approvals/:id/approve|reject`, `POST /api/v0/networks/:id/profile`)
+- **Serving network list via `GET /api/v0/networks` as proxy to Core public facade**
+- **Forwarding global M-Net profile default, migration, disable-policy, and break-glass controls to Core public facades**
 - Returning a trimmed Minimal Policy Decision Summary from Core policy decision records
 - Publishing the current SDUI v0.2 route registry for the v0.1 functional-demo surface
 - Returning display-shaped node, timeline, audit, policy decision, and service lists with state-source annotations
@@ -67,6 +70,9 @@ What this service must not own:
 | GET | `/api/v0/policy/approvals/:id` | Bearer | Approval detail via Core boundary; read-only, returns full approval record with policy, audit, and log state sources |
 | GET | `/api/v0/network-profiles` | Bearer | Network profile list via Core boundary; read-only, returns display-shaped profile records with authoritative, policy, and audit state sources |
 | GET | `/api/v0/network-profiles/:id` | Bearer | Network profile detail via Core boundary; read-only, returns full profile record with authoritative, policy, audit, and log state sources |
+| GET | `/api/v0/networks` | Bearer | Network list via Core boundary; read-only target list for explicit M-UI profile command selection |
+| GET | `/api/v0/networks/profile-defaults` | Bearer | Global profile defaults via Core boundary; control-plane state only |
+| GET | `/api/v0/networks/profile-switches/:operationId` | Bearer | Global profile migration status via Core boundary; control-plane state only |
 
 **Display-only command handling**:
 
@@ -75,6 +81,14 @@ The existing `POST /api/v0/commands/:commandId/eligibility` and `POST /api/v0/co
 - `policy.approval.approve.preview`, `policy.approval.reject.preview`, `network.profile.enable.preview`, `network.profile.disable.preview` are display-only commands.
 - Eligibility returns display state (enabled/disabled with Chinese reason) but never forwards to any backend approval or profile service.
 - Execute returns `400 command.display_only` for any display-only command ID. BFF must not forward display-only execute requests to M-Policy, M-Net, or any other backend service.
+
+**Execute body validation and response rules**:
+
+- `POST /api/v0/commands/:commandId/execute` must validate request bodies per command ID before forwarding to Core.
+- Wrong-shaped bodies fail closed with `400 command.invalid_body`; BFF must not forward partially parsed or `undefined` fields upstream.
+- Approval execute commands pass through Core public facade responses unchanged, including non-2xx Core error envelopes and status codes.
+- Profile execute commands pass through Core public facade responses unchanged; the UI must not assume a shared task-envelope success shape.
+- Global profile default / switch / disable-policy / break-glass commands are forwarded only through Core public facades and remain control-plane-only.
 
 `GET /api/v0/policy/decisions/:id/summary` calls Core `GET /api/v0/policy/decisions/:id` with the caller's Bearer token and returns only:
 

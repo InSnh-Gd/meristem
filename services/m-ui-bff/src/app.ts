@@ -35,6 +35,21 @@ export function createMUiBffApp(deps: MUiBffDeps) {
         }
       })
     )
+
+    // 全局错误钩子：将 Elysia 框架级错误统一为 BFF 错误 envelope
+    .onError(({ code, error, set }): unknown => {
+      if (code === 'VALIDATION') {
+        set.status = 400
+        const message =
+          error instanceof Error ? error.message : 'Request body validation failed'
+        return { error: { code: 'command.invalid_body', message } }
+      }
+      if (code === 'NOT_FOUND') {
+        set.status = 404
+        return { error: { code: 'NOT_FOUND', message: 'Route not found' } }
+      }
+      return undefined
+    })
     .get('/health', () => ({ ok: true as const, service: 'm-ui-bff' as const }))
     .get('/ready', async () => {
       const result = await routeDeps.cf('/api/v0/health', undefined)

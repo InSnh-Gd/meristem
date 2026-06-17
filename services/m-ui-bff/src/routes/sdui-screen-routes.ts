@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import type { MUiBffRouteDeps } from '../deps.ts'
-import { bearerTokenFromHeaders, bffError, passthroughCoreError } from './route-helpers.ts'
+import { bffError, requireCoreSession } from './route-helpers.ts'
 import { SDUI_V02_ROUTE_REGISTRY } from './route-registry.ts'
 import { idParamsSchema } from './route-schemas.ts'
 
@@ -12,11 +12,8 @@ export function createSduiScreenRoutes({ cf }: MUiBffRouteDeps) {
     .get(
       '/api/v0/routes',
       async ({ headers }) => {
-        const token = bearerTokenFromHeaders(headers)
-        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
-
-        const sessionRes = await cf('/api/v0/session', token)
-        if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+        const session = await requireCoreSession(cf, headers)
+        if (session instanceof Response) return session
         return SDUI_V02_ROUTE_REGISTRY
       },
       {
@@ -26,11 +23,8 @@ export function createSduiScreenRoutes({ cf }: MUiBffRouteDeps) {
     .get(
       '/api/v0/routes/:id',
       async ({ params, headers }) => {
-        const token = bearerTokenFromHeaders(headers)
-        if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
-
-        const sessionRes = await cf('/api/v0/session', token)
-        if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+        const session = await requireCoreSession(cf, headers)
+        if (session instanceof Response) return session
 
         const route = SDUI_V02_ROUTE_REGISTRY.routes.find(candidate => candidate.id === params.id)
         if (!route) return bffError(404, 'route.not_found', 'route not found')

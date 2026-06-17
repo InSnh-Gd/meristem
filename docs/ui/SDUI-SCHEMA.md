@@ -207,7 +207,9 @@ const controlRoomRoute: MUiRouteSchema = {
 
 - `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
 - `PolicyDecisionPanel`: Not implemented in the functional demo; only a minimal summary is shown inline after command execution.
-- `CommandWellPanel` only surfaces one executable command (`noop`) against reachable Leaf nodes with `task:submit`.
+- `CommandWellPanel` executes `noop` on the overview route and also hosts approval/profile mutation flows on the approval-detail and profile-detail routes.
+- Approval detail and profile detail keep confirmation, inline result evidence, and visible disabled reasons inside the CommandWell surface.
+- Global profile default / switch / break-glass controls may appear as disabled control-plane-only UI and must not imply live data-plane mutation.
 
 **Functional demo state sources**:
 
@@ -262,7 +264,7 @@ Each route may declare `degradedState: { enabled: boolean; reason: string }`. Wh
 
 ### 8.6 Formal v0.2 Approval And Profile Routes
 
-The following routes extend the SDUI v0.2 surface for M-UI v0.2 foundation scope. They are schema declarations only; the actual UI screens, page components, and backend data flows remain deferred as part of DFW-002 (Formal Approval Queue UI) and DFW-016 (M-Net Profile UI).
+The following routes extend the SDUI v0.2 surface for the implemented approval/profile control-room workflows. The route registry, UI screens, and BFF/Core data flows are active for approval mutation and per-network profile mutation. Real data-plane rollout remains deferred.
 
 #### 8.6.1 Route Registry Entries
 
@@ -361,7 +363,7 @@ const displayOnlyCommands: DisplayOnlyCommand[] = [
     requiresAudit: true,
     displayOnly: true,
     state: "disabled",
-    disabledReason: "审批执行功能尚未启用"
+    disabledReason: "仅展示命令资格，实际执行请使用 execute 命令"
   },
   {
     id: "policy.approval.reject.preview",
@@ -374,7 +376,7 @@ const displayOnlyCommands: DisplayOnlyCommand[] = [
     requiresAudit: true,
     displayOnly: true,
     state: "disabled",
-    disabledReason: "审批执行功能尚未启用"
+    disabledReason: "仅展示命令资格，实际执行请使用 execute 命令"
   },
   {
     id: "network.profile.enable.preview",
@@ -412,3 +414,43 @@ Display-only command rules:
 - If `POST /api/v0/commands/:commandId/execute` receives a display-only command ID, BFF must return `400 command.display_only`.
 - Display-only commands return visible Chinese disabled reasons when in disabled state.
 - Display-only commands do not create Audit facts when disabled.
+
+#### 8.6.4 Execute Command IDs
+
+The following execute command IDs are active and routed through BFF to Core public facades:
+
+| Command ID | Target Service | Core Facade | BFF Route |
+|------------|---------------|-------------|-----------|
+| `policy.approval.approve.execute` | M-Policy | `POST /api/v0/policy/approvals/:id/approve` | `POST /api/v0/commands/policy.approval.approve.execute/execute` |
+| `policy.approval.reject.execute` | M-Policy | `POST /api/v0/policy/approvals/:id/reject` | `POST /api/v0/commands/policy.approval.reject.execute/execute` |
+| `network.profile.enable.execute` | M-Net | `POST /api/v0/networks/:id/profile` | `POST /api/v0/commands/network.profile.enable.execute/execute` |
+| `network.profile.disable.execute` | M-Net | `POST /api/v0/networks/:id/profile` | `POST /api/v0/commands/network.profile.disable.execute/execute` |
+| `network.profile.default.set.execute` | M-Net | `PUT /api/v0/networks/profile-defaults` | `POST /api/v0/commands/network.profile.default.set.execute/execute` |
+| `network.profile.switch.plan.execute` | M-Net | `POST /api/v0/networks/profile-switches/plan` | `POST /api/v0/commands/network.profile.switch.plan.execute/execute` |
+| `network.profile.switch.apply.execute` | M-Net | `POST /api/v0/networks/profile-switches/:operationId/apply` | `POST /api/v0/commands/network.profile.switch.apply.execute/execute` |
+| `network.profile.disable-policy.set.execute` | M-Net | `PUT /api/v0/networks/profile-disable-policy` | `POST /api/v0/commands/network.profile.disable-policy.set.execute/execute` |
+| `network.profile.break-glass.disable.execute` | M-Net | `POST /api/v0/networks/:id/profile/disable-break-glass` | `POST /api/v0/commands/network.profile.break-glass.disable.execute/execute` |
+
+Execute command rules:
+
+- Execute commands use BFF → Core public facades only; BFF must not call `/internal/v0/*` routes.
+- BFF validates execute body shape per command ID and fails closed with `400 command.invalid_body` on wrong-shaped bodies.
+- Core error envelopes are preserved when forwarded to the UI.
+- Success displays `correlationId`, `policyDecisionId`, and relevant IDs where the downstream command returns them; command success payloads are not a shared task envelope.
+- Post-action refresh updates the relevant UI surface.
+- No toast/snackbar. Chinese labels.
+
+#### 8.6.5 controlPlaneOnly Warnings
+
+Network profile commands must display a `controlPlaneOnly` warning when the profile carries `controlPlaneOnly: true`:
+
+- Chinese: "配置变更仅影响控制平面，运行时数据面不受影响"
+- English: "Configuration changes affect control plane only; runtime data plane is not affected"
+
+The warning is displayed on:
+
+- `network.profile.enable.execute` confirmation
+- `network.profile.disable.execute` confirmation
+- Network profile detail view when `controlPlaneOnly: true`
+
+This warning is required because `m-net-cn@0.1.0` carries `controlPlaneOnly: true`. Operators must not expect runtime transport changes when enabling or disabling the CN profile.

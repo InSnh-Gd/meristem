@@ -6,7 +6,7 @@ import type {
 } from '../../../../packages/contracts/src/index.ts'
 
 type SessionFacts = {
-  permissions: Permission[]
+  permissions: readonly Permission[]
 }
 
 function disabledCommand(

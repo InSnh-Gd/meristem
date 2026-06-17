@@ -15,9 +15,53 @@ export type ServiceFetch = (
   init?: RequestInit
 ) => Promise<ServiceFetchResult>
 
+export type RawServiceFetch = (
+  path: string,
+  token?: string,
+  init?: RequestInit
+) => Promise<Response>
+
 export type MUiBffRouteDeps = {
   cf: ServiceFetch
   tf: ServiceFetch
+  cfRaw: RawServiceFetch
+}
+
+function upstreamHeaders(token?: string, init?: RequestInit) {
+  const hasBody = init?.body !== undefined
+  return {
+    ...(hasBody ? { 'content-type': 'application/json' } : {}),
+    ...(init?.headers ?? {}),
+    ...(token ? { authorization: `Bearer ${token}` } : {})
+  }
+}
+
+function upstreamUnreachableResponse() {
+  return new Response(
+    JSON.stringify({
+      error: { code: 'bff.service_unreachable', message: 'Upstream service unreachable' }
+    }),
+    {
+      status: 502,
+      headers: { 'content-type': 'application/json' }
+    }
+  )
+}
+
+async function serviceFetchRaw(
+  baseUrl: string,
+  path: string,
+  token?: string,
+  init?: RequestInit
+): Promise<Response> {
+  try {
+    return await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: upstreamHeaders(token, init)
+    })
+  } catch {
+    return upstreamUnreachableResponse()
+  }
 }
 
 /**
@@ -31,15 +75,7 @@ async function serviceFetch(
   init?: RequestInit
 ): Promise<ServiceFetchResult> {
   try {
-    const hasBody = init?.body !== undefined
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: {
-        ...(hasBody ? { 'content-type': 'application/json' } : {}),
-        ...(init?.headers ?? {}),
-        ...(token ? { authorization: `Bearer ${token}` } : {})
-      }
-    })
+    const response = await serviceFetchRaw(baseUrl, path, token, init)
     const data = await response.json()
     return { ok: response.ok, status: response.status, data }
   } catch {
@@ -57,6 +93,7 @@ async function serviceFetch(
 export function createMUiBffRouteDeps(deps: MUiBffDeps): MUiBffRouteDeps {
   return {
     cf: (path, token, init) => serviceFetch(deps.coreBaseUrl, path, token, init),
-    tf: (path, token, init) => serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init)
+    tf: (path, token, init) => serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init),
+    cfRaw: (path, token, init) => serviceFetchRaw(deps.coreBaseUrl, path, token, init)
   }
 }
