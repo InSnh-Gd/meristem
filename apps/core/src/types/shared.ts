@@ -23,8 +23,14 @@ import type {
 } from '../../../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../../../packages/events/src/index.ts'
 import type { ApprovalReaderPort, NetworkProfileReaderPort } from './approval-profile-readers.ts'
+import type { ApprovalWriterPort, NetworkProfileWriterPort } from './approval-profile-writers.ts'
 import type { ServiceError } from './common.ts'
 import type { ConfigPort } from './config.ts'
+import type {
+  GlobalDefaultsReaderPort,
+  GlobalDefaultsWriterPort,
+  ProfileSwitchWriterPort
+} from './global-defaults-ports.ts'
 import type { IdentityPort } from './identity.ts'
 import type { MNetPort } from './mnet.ts'
 import type { SecretRefPort } from './secrets.ts'
@@ -162,6 +168,11 @@ export type CoreDeps = {
   projection: ProjectionPort
   approvalReader: ApprovalReaderPort
   networkProfileReader: NetworkProfileReaderPort
+  approvalWriter: ApprovalWriterPort
+  networkProfileWriter: NetworkProfileWriterPort
+  globalDefaultsReader?: GlobalDefaultsReaderPort
+  globalDefaultsWriter?: GlobalDefaultsWriterPort
+  profileSwitchWriter?: ProfileSwitchWriterPort
   identity: IdentityPort
   secrets: SecretRefPort
   config: ConfigPort

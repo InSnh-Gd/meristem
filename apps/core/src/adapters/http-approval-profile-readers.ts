@@ -1,8 +1,16 @@
+import { Either } from 'effect'
+import * as Schema from 'effect/Schema'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type {
   ApprovalDetailResponse,
   ApprovalListResponse,
   MNetRegionalProfile
+} from '../../../../packages/contracts/src/index.ts'
+import {
+  ApprovalDetailResponseSchema,
+  ApprovalListResponseSchema,
+  MNetProfileDetailResponseSchema,
+  MNetProfileListResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import { serviceErrorFromHttpResponse } from '../effect-helpers.ts'
@@ -58,28 +66,87 @@ async function fetchPublicJson(
 }
 
 function asApprovalList(value: unknown): ApprovalListResponse | null {
-  if (typeof value !== 'object' || value === null) return null
-  const approvals = Reflect.get(value, 'approvals')
-  return Array.isArray(approvals) ? (value as ApprovalListResponse) : null
+  const decoded = Schema.decodeUnknownEither(ApprovalListResponseSchema)(value)
+  return Either.isRight(decoded)
+    ? {
+        approvals: decoded.right.approvals.map(approval => ({
+          id: approval.id,
+          policyDecisionId: approval.policyDecisionId,
+          originService: approval.originService,
+          operationId: approval.operationId,
+          requestedBy: approval.requestedBy,
+          requiredAction: approval.requiredAction,
+          status: approval.status,
+          quorumRequired: approval.quorumRequired,
+          expiresAt: approval.expiresAt,
+          createdAt: approval.createdAt,
+          updatedAt: approval.updatedAt,
+          ...(approval.completedAt !== undefined ? { completedAt: approval.completedAt } : {})
+        }))
+      }
+    : null
 }
 
 function asApprovalDetail(value: unknown): ApprovalDetailResponse | null {
-  if (typeof value !== 'object' || value === null) return null
-  const id = Reflect.get(value, 'id')
-  const votes = Reflect.get(value, 'votes')
-  return typeof id === 'string' && Array.isArray(votes) ? (value as ApprovalDetailResponse) : null
+  const decoded = Schema.decodeUnknownEither(ApprovalDetailResponseSchema)(value)
+  return Either.isRight(decoded)
+    ? {
+        id: decoded.right.id,
+        policyDecisionId: decoded.right.policyDecisionId,
+        originService: decoded.right.originService,
+        operationId: decoded.right.operationId,
+        requestedBy: decoded.right.requestedBy,
+        requiredAction: decoded.right.requiredAction,
+        status: decoded.right.status,
+        quorumRequired: decoded.right.quorumRequired,
+        expiresAt: decoded.right.expiresAt,
+        createdAt: decoded.right.createdAt,
+        updatedAt: decoded.right.updatedAt,
+        ...(decoded.right.completedAt !== undefined
+          ? { completedAt: decoded.right.completedAt }
+          : {}),
+        votes: decoded.right.votes.map(vote => ({
+          id: vote.id,
+          approvalId: vote.approvalId,
+          actor: vote.actor,
+          vote: vote.vote,
+          createdAt: vote.createdAt,
+          ...(vote.reason !== undefined ? { reason: vote.reason } : {})
+        }))
+      }
+    : null
 }
 
 function asProfileList(value: unknown): { profiles: MNetRegionalProfile[] } | null {
-  if (typeof value !== 'object' || value === null) return null
-  const profiles = Reflect.get(value, 'profiles')
-  return Array.isArray(profiles) ? (value as { profiles: MNetRegionalProfile[] }) : null
+  const decoded = Schema.decodeUnknownEither(MNetProfileListResponseSchema)(value)
+  return Either.isRight(decoded)
+    ? {
+        profiles: decoded.right.profiles.map(profile => ({
+          profileVersion: profile.profileVersion,
+          region: profile.region,
+          displayName: profile.displayName,
+          schemaVersion: profile.schemaVersion,
+          status: profile.status,
+          rules: { ...profile.rules },
+          capabilities: { ...profile.capabilities }
+        }))
+      }
+    : null
 }
 
 function asProfileDetail(value: unknown): MNetRegionalProfile | null {
-  if (typeof value !== 'object' || value === null) return null
-  const profileVersion = Reflect.get(value, 'profileVersion')
-  return typeof profileVersion === 'string' ? (value as MNetRegionalProfile) : null
+  const decoded = Schema.decodeUnknownEither(MNetProfileDetailResponseSchema)(value)
+  return Either.isRight(decoded)
+    ? {
+        profileVersion: decoded.right.profileVersion,
+        region: decoded.right.region,
+        displayName: decoded.right.displayName,
+        schemaVersion: decoded.right.schemaVersion,
+        status: decoded.right.status,
+        rules: { ...decoded.right.rules },
+        capabilities: { ...decoded.right.capabilities }
+      }
+    : null
 }
 
 /**

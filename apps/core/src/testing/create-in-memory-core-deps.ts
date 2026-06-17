@@ -4,6 +4,10 @@ import {
   createNetworkProfileReaderPort
 } from './approval-profile-readers.ts'
 import {
+  createApprovalWriterPort,
+  createNetworkProfileWriterPort
+} from './approval-profile-writers.ts'
+import {
   createAuthPort,
   createEventPort,
   createLogPort,
@@ -40,6 +44,8 @@ export function createInMemoryCoreDeps(options: InMemoryOptions = {}): CoreDeps 
     mNet: createMNetPort(state, helpers),
     approvalReader: createApprovalReaderPort(helpers),
     networkProfileReader: createNetworkProfileReaderPort(helpers),
+    approvalWriter: createApprovalWriterPort(),
+    networkProfileWriter: createNetworkProfileWriterPort(),
     agentTasks: createAgentTaskPort(state),
     services: createServiceLifecyclePort(state),
     projection: createProjectionPort(),

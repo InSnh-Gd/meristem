@@ -1,6 +1,4 @@
 import { Elysia } from 'elysia'
-import { CoreError } from '../core-error.ts'
-import { authorize, requireActor } from '../middleware/auth.ts'
 import { apiErrorSchema, protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 import {
@@ -8,7 +6,12 @@ import {
   identityActorResponseSchema,
   identityActorsResponseSchema
 } from './identity-schemas.ts'
-import { identityErrorStatus, toIdentityActorRecord } from './identity-support.ts'
+import {
+  requireIdentityReadAccess,
+  requireIdentityRecord,
+  toIdentityActorRecord,
+  unwrapIdentityResult
+} from './identity-support.ts'
 
 /**
  * Identity actor 路由只暴露生命周期元数据读取，避免与 token 控制面写操作耦合。
@@ -19,25 +22,14 @@ export const createIdentityLifecycleRoutes = (deps: CoreDeps) =>
     .get(
       '/actors',
       async ({ headers }) => {
-        const auth = await requireActor(deps, headers)
-        await authorize(deps, {
-          actor: auth.actor,
-          action: 'identity:read',
-          resource: 'identity:actors',
-          correlationId: auth.correlationId
+        const auth = await requireIdentityReadAccess(deps, {
+          headers,
+          resource: 'identity:actors'
         })
 
-        const result = await deps.identity.listActors()
-        if (!result.ok) {
-          throw new CoreError(
-            identityErrorStatus(result.error),
-            result.error.code,
-            result.error.message,
-            auth.correlationId
-          )
-        }
+        const actors = unwrapIdentityResult(await deps.identity.listActors(), auth.correlationId)
 
-        return { actors: result.value.map(toIdentityActorRecord) }
+        return { actors: actors.map(toIdentityActorRecord) }
       },
       {
         response: {
@@ -53,33 +45,17 @@ export const createIdentityLifecycleRoutes = (deps: CoreDeps) =>
     .get(
       '/actors/:id',
       async ({ params, headers }) => {
-        const auth = await requireActor(deps, headers)
-        await authorize(deps, {
-          actor: auth.actor,
-          action: 'identity:read',
-          resource: `identity:actor:${params.id}`,
-          correlationId: auth.correlationId
+        const auth = await requireIdentityReadAccess(deps, {
+          headers,
+          resource: `identity:actor:${params.id}`
         })
 
-        const result = await deps.identity.getActor(params.id)
-        if (!result.ok) {
-          throw new CoreError(
-            identityErrorStatus(result.error),
-            result.error.code,
-            result.error.message,
-            auth.correlationId
-          )
-        }
-        if (result.value === null) {
-          throw new CoreError(
-            404,
-            'identity.actor.not_found',
-            'identity actor not found',
-            auth.correlationId
-          )
-        }
+        const actor = requireIdentityRecord(
+          unwrapIdentityResult(await deps.identity.getActor(params.id), auth.correlationId),
+          { kind: 'actor', correlationId: auth.correlationId }
+        )
 
-        return { actor: toIdentityActorRecord(result.value) }
+        return { actor: toIdentityActorRecord(actor) }
       },
       {
         params: actorParamsSchema,

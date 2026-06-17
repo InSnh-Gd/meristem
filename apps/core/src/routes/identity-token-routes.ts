@@ -1,8 +1,4 @@
 import { Elysia } from 'elysia'
-import type { ActorId } from '../../../../packages/contracts/src/index.ts'
-import { actorIds } from '../../../../packages/contracts/src/index.ts'
-import { CoreError } from '../core-error.ts'
-import { authorize, requireActor } from '../middleware/auth.ts'
 import { apiErrorSchema, protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 import {
@@ -16,12 +12,10 @@ import {
   tokenParamsSchema
 } from './identity-schemas.ts'
 import {
-  identityErrorStatus,
+  introspectIdentityTokenInternal,
+  issueIdentityToken,
   inspectIdentityToken,
-  issueTokenAuditPayload,
   revokeIdentityToken,
-  validateIdentityInternalRequest,
-  writeIdentityAudit
 } from './identity-support.ts'
 
 /**
@@ -33,58 +27,15 @@ export const createIdentityTokenRoutes = (deps: CoreDeps) =>
     .post(
       '/tokens',
       async ({ body, headers, set }) => {
-        if (!actorIds.includes(body.actor) || !body.ttl || !body.purpose) {
-          throw new CoreError(
-            400,
-            'identity.token.invalid_request',
-            'actor, ttl, and purpose are required'
-          )
-        }
-        const auth = await requireActor(deps, headers)
-        const permission = await authorize(deps, {
-          actor: auth.actor,
-          action: 'identity:token-issue',
-          resource: `identity:token-issue:${body.actor}`,
-          correlationId: auth.correlationId
-        })
-
-        await writeIdentityAudit(deps, {
-          actor: auth.actor,
-          action: 'identity:token-issue',
-          resource: `identity:token:${body.actor}`,
-          decisionId: permission.id,
-          result: permission.result,
-          correlationId: auth.correlationId,
-          payload: issueTokenAuditPayload({
-            targetActor: body.actor,
-            ttl: body.ttl,
-            purpose: body.purpose
-          })
-        })
-
-        const issued = await deps.identity.issueToken({
+        const token = await issueIdentityToken(deps, {
           actor: body.actor,
           ttl: body.ttl,
           purpose: body.purpose,
-          correlationId: auth.correlationId
+          headers
         })
-        if (!issued.ok) {
-          throw new CoreError(
-            identityErrorStatus(issued.error),
-            issued.error.code,
-            issued.error.message,
-            auth.correlationId
-          )
-        }
 
         set.status = 201
-        return {
-          ...issued.value,
-          issuer: 'meristem-local' as const,
-          audience: 'meristem-core' as const,
-          purpose: body.purpose,
-          status: 'active' as const
-        }
+        return token
       },
       {
         body: issueTokenBodySchema,
@@ -139,44 +90,16 @@ export const createIdentityInternalRoutes = (deps: CoreDeps) =>
   new Elysia().post(
     '/internal/v0/identity/tokens/introspect',
     async ({ body, headers: _headers, set, request }) => {
-      const internalAuth = validateIdentityInternalRequest(request)
-      if (!internalAuth.ok) {
-        set.status = internalAuth.error.code === 'internal.unavailable' ? 503 : 401
-        return { error: internalAuth.error }
+      const introspection = await introspectIdentityTokenInternal(deps, {
+        request,
+        jti: body.jti
+      })
+      if (!introspection.ok) {
+        set.status = introspection.status
+        return { error: introspection.error }
       }
 
-      const result = await deps.identity.introspect(body.jti)
-      if (!result.ok) {
-        return { jti: body.jti, active: false }
-      }
-
-      if (result.value.jti) {
-        if (result.value.actor) {
-          return {
-            jti: result.value.jti,
-            active: result.value.active,
-            actor: result.value.actor as ActorId
-          }
-        }
-
-        return {
-          jti: result.value.jti,
-          active: result.value.active
-        }
-      }
-
-      if (result.value.actor) {
-        return {
-          jti: body.jti,
-          active: result.value.active,
-          actor: result.value.actor as ActorId
-        }
-      }
-
-      return {
-        jti: body.jti,
-        active: result.value.active
-      }
+      return introspection.value
     },
     {
       body: internalIntrospectionBodySchema,

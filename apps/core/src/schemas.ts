@@ -7,7 +7,9 @@ export {
   approvalDetailResponseSchema,
   approvalListResponseSchema,
   mNetRegionalProfileSchema,
-  networkProfileListResponseSchema
+  networkProfileListResponseSchema,
+  policyApprovalSchema,
+  policyApprovalVoteSchema
 } from './schemas/approval-profile-facade.ts'
 export { auditLogSchema, fullLogSchema, timelineLogSchema } from './schemas/logs.ts'
 export { networkMemberSchema, networkSchema, networkSummarySchema } from './schemas/networks.ts'

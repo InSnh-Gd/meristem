@@ -1,6 +1,11 @@
 import { edenTreaty } from '@elysiajs/eden'
-import { Effect } from 'effect'
-import type { PolicyDecision, RiskFactor } from '../../../../packages/contracts/src/index.ts'
+import { Effect, Either } from 'effect'
+import * as Schema from 'effect/Schema'
+import {
+  PolicyDecisionResponseSchema,
+  PolicyDecisionSchema,
+  type PolicyDecision
+} from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import type { PolicyApp } from '../../../../services/m-policy/src/public-types.ts'
 import {
@@ -12,6 +17,43 @@ import {
   tryServiceCall
 } from '../effect-helpers.ts'
 import type { CoreDeps } from '../types.ts'
+
+const invalidPolicyDecisionFailure = {
+  code: 'policy.invalid_response',
+  message: 'M-Policy returned invalid decision payload'
+} as const
+
+function toMutablePolicyDecision(decision: typeof PolicyDecisionSchema.Type): PolicyDecision {
+  return {
+    id: decision.id,
+    actor: decision.actor,
+    action: decision.action,
+    resource: decision.resource,
+    result: decision.result,
+    reasons: [...decision.reasons],
+    ...(decision.operationDangerLevel !== undefined
+      ? { operationDangerLevel: decision.operationDangerLevel }
+      : {}),
+    ...(decision.suspicionScore !== undefined ? { suspicionScore: decision.suspicionScore } : {}),
+    ...(decision.riskFactors !== undefined ? { riskFactors: [...decision.riskFactors] } : {}),
+    ...(decision.requiredAction !== undefined ? { requiredAction: decision.requiredAction } : {}),
+    createdAt: decision.createdAt
+  }
+}
+
+function decodePolicyDecision(value: unknown) {
+  const decoded = Schema.decodeUnknownEither(PolicyDecisionSchema)(value)
+  return Either.isRight(decoded)
+    ? Effect.succeed(toMutablePolicyDecision(decoded.right))
+    : Effect.fail(invalidPolicyDecisionFailure)
+}
+
+function decodePolicyDecisionResponse(value: unknown) {
+  const decoded = Schema.decodeUnknownEither(PolicyDecisionResponseSchema)(value)
+  return Either.isRight(decoded)
+    ? Effect.succeed(toMutablePolicyDecision(decoded.right.decision))
+    : Effect.fail(invalidPolicyDecisionFailure)
+}
 
 /**
  * Core 到 M-Policy 的同步调用已经收敛到 loopback HTTP + Eden。
@@ -33,7 +75,7 @@ export function createHttpPolicyPort() {
               message: 'M-Policy unavailable'
             })
           ),
-          Effect.map(data => normalizePolicyDecision(data.decision as unknown))
+          Effect.flatMap(decodePolicyDecisionResponse)
         )
       )
     },
@@ -70,37 +112,12 @@ export function createHttpPolicyPort() {
                     'M-Policy unavailable'
                   )
                 })
-              : Effect.succeed(
-                  response.data ? normalizePolicyDecision(response.data as unknown) : null
-                )
+              : response.data
+                ? decodePolicyDecision(response.data)
+                : Effect.succeed(null)
           })
         )
       )
     }
-  }
-}
-
-const riskFactors: readonly RiskFactor[] = [
-  'actor_permission_level',
-  'operation_danger_level',
-  'target_node_kind',
-  'target_node_reachability',
-  'task_type_risk',
-  'recent_failure_count',
-  'outside_expected_scope',
-  'audit_visibility'
-]
-
-function isRiskFactor(value: unknown): value is RiskFactor {
-  return typeof value === 'string' && riskFactors.includes(value as RiskFactor)
-}
-
-function normalizePolicyDecision(value: unknown): PolicyDecision {
-  const decision = value as PolicyDecision & { riskFactors?: unknown[] }
-  return {
-    ...decision,
-    ...(Array.isArray(decision.riskFactors)
-      ? { riskFactors: decision.riskFactors.filter(isRiskFactor) }
-      : {})
   }
 }

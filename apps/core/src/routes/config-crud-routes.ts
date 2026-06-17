@@ -1,14 +1,12 @@
 import { Elysia } from 'elysia'
-import { CoreError } from '../core-error.ts'
 import { protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 import { configDraftBodySchema, configParamsSchema } from './config-schemas.ts'
 import {
-  containsPlaintextSecret,
-  requireConfiguredPermission,
-  throwConfigError,
-  toConfigDetailRecord,
-  toConfigListRecord
+  createConfigDraft,
+  listConfigRecords,
+  readConfigDetail,
+  validateConfigRecord
 } from './config-support.ts'
 
 /**
@@ -19,12 +17,7 @@ export const createConfigCrudRoutes = (deps: CoreDeps) =>
     // 读取配置要求 Bearer 身份和 config:read 权限，但不依赖 M-Policy/Audit 可用性，保证只读排障路径可降级工作。
     .get(
       '/',
-      async ({ headers }) => {
-        await requireConfiguredPermission(deps, { headers, action: 'config:read' })
-        const result = await deps.config.list()
-        if (!result.ok) throwConfigError(result.error)
-        return { configs: result.value.map(toConfigListRecord) }
-      },
+      async ({ headers }) => ({ configs: await listConfigRecords(deps, headers) }),
       {
         detail: protectedRouteDetail('List config records')
       }
@@ -32,20 +25,7 @@ export const createConfigCrudRoutes = (deps: CoreDeps) =>
     // 单条配置详情返回 payload 供控制面确认，但 payload 已由草稿边界禁止明文 secret。
     .get(
       '/:id',
-      async ({ params, headers }) => {
-        const auth = await requireConfiguredPermission(deps, { headers, action: 'config:read' })
-        const result = await deps.config.get(params.id)
-        if (!result.ok) throwConfigError(result.error, auth.correlationId)
-        if (!result.value) {
-          throw new CoreError(
-            404,
-            'config.not_found',
-            'config record not found',
-            auth.correlationId
-          )
-        }
-        return { config: toConfigDetailRecord(result.value) }
-      },
+      async ({ params, headers }) => ({ config: await readConfigDetail(deps, { headers, id: params.id }) }),
       {
         params: configParamsSchema,
         detail: protectedRouteDetail('Show one config record')
@@ -55,24 +35,14 @@ export const createConfigCrudRoutes = (deps: CoreDeps) =>
     .post(
       '/drafts',
       async ({ body, headers, set }) => {
-        const auth = await requireConfiguredPermission(deps, { headers, action: 'config:draft' })
-        if (containsPlaintextSecret(body.payload)) {
-          throw new CoreError(
-            400,
-            'config.secret_plaintext_rejected',
-            'config payload contains plaintext secret values; use secretRef',
-            auth.correlationId
-          )
-        }
-        const result = await deps.config.draft({
+        const config = await createConfigDraft(deps, {
+          headers,
           domain: body.domain,
           payload: body.payload,
-          ...(body.targetScope ? { targetScope: body.targetScope } : {}),
-          correlationId: auth.correlationId
+          ...(body.targetScope ? { targetScope: body.targetScope } : {})
         })
-        if (!result.ok) throwConfigError(result.error, auth.correlationId)
         set.status = 201
-        return { config: result.value }
+        return { config }
       },
       {
         body: configDraftBodySchema,
@@ -82,12 +52,7 @@ export const createConfigCrudRoutes = (deps: CoreDeps) =>
     // validate 是中风险生命周期转换：需要 actor 具备 config:validate，但不强依赖 Audit 可用性。
     .post(
       '/:id/validate',
-      async ({ params, headers }) => {
-        const auth = await requireConfiguredPermission(deps, { headers, action: 'config:validate' })
-        const result = await deps.config.validate(params.id)
-        if (!result.ok) throwConfigError(result.error, auth.correlationId)
-        return { config: { id: result.value.id, status: result.value.status as 'validated' } }
-      },
+      async ({ params, headers }) => ({ config: await validateConfigRecord(deps, { headers, id: params.id }) }),
       {
         params: configParamsSchema,
         detail: protectedRouteDetail('Validate config record')

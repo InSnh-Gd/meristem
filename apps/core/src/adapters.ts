@@ -10,6 +10,10 @@ import {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
 } from './adapters/http-approval-profile-readers.ts'
+import {
+  createHttpApprovalWriterPort,
+  createHttpNetworkProfileWriterPort
+} from './adapters/http-approval-profile-writers.ts'
 import { createHttpEventPort } from './adapters/http-eventbus.ts'
 import { createHttpLogPort } from './adapters/http-log.ts'
 import { createHttpMNetPort } from './adapters/http-mnet.ts'
@@ -29,6 +33,10 @@ export {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
 } from './adapters/http-approval-profile-readers.ts'
+export {
+  createHttpApprovalWriterPort,
+  createHttpNetworkProfileWriterPort
+} from './adapters/http-approval-profile-writers.ts'
 export { createHttpEventPort } from './adapters/http-eventbus.ts'
 export { createHttpLogPort } from './adapters/http-log.ts'
 export { createHttpMNetPort } from './adapters/http-mnet.ts'
@@ -125,6 +133,8 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     mNet: createHttpMNetPort(),
     approvalReader: createHttpApprovalReaderPort(),
     networkProfileReader: createHttpNetworkProfileReaderPort(),
+    approvalWriter: createHttpApprovalWriterPort(),
+    networkProfileWriter: createHttpNetworkProfileWriterPort(),
     agentTasks: createHttpAgentTaskPort(),
     services: createServiceLifecyclePort(storage, readinessChecks),
     projection: createHttpProjectionPort(),

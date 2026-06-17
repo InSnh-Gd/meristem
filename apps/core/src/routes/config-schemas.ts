@@ -51,7 +51,7 @@ export const configParamsSchema = t.Object({
   id: t.String({ minLength: 1 })
 })
 
-export const configStatusSchema = t.UnionEnum(configStatuses)
+const configStatusSchema = t.UnionEnum(configStatuses)
 
 export const configListRecordSchema = t.Object({
   id: t.String(),
@@ -62,64 +62,19 @@ export const configListRecordSchema = t.Object({
   createdAt: t.String()
 })
 
-export const _configDetailRecordSchema = t.Object({
-  ...configListRecordSchema.properties,
-  schemaVersion: t.String(),
-  configHash: t.String(),
-  targetScope: t.Array(t.String()),
-  payload: t.Unknown(),
-  updatedAt: t.String(),
-  publishedBy: t.Optional(t.String()),
-  publishedAt: t.Optional(t.String()),
-  rollbackVersion: t.Optional(t.String())
-})
-
 export const configDraftBodySchema = t.Object({
   domain: t.UnionEnum(configDomains),
   payload: t.Unknown(),
   targetScope: t.Optional(t.Array(t.String()))
 })
 
-export const _configDraftResponseSchema = t.Object({
-  config: t.Object({
-    id: t.String(),
-    configVersion: t.String(),
-    status: t.Literal('draft'),
-    createdAt: t.String()
-  })
-})
-
-export const _configValidateResponseSchema = t.Object({
-  config: t.Object({
-    id: t.String(),
-    status: t.Literal('validated')
-  })
-})
-
 export const configPublishBodySchema = t.Object({
   reason: t.String({ minLength: 1 })
-})
-
-export const _configPublishResponseSchema = t.Object({
-  config: t.Object({
-    id: t.String(),
-    configVersion: t.String(),
-    status: t.Literal('published'),
-    publishedAt: t.String(),
-    publishedBy: t.String()
-  })
 })
 
 export const configRollbackBodySchema = t.Object({
   toVersion: t.String({ minLength: 1 }),
   reason: t.String({ minLength: 1 })
-})
-
-export const _configRollbackResponseSchema = t.Object({
-  config: t.Object({
-    id: t.String(),
-    status: t.Literal('rolled_back')
-  })
 })
 
 export const configApplyAckBodySchema = t.Object({
@@ -131,17 +86,4 @@ export const configApplyAckBodySchema = t.Object({
   error: t.Optional(t.String()),
   errorCode: t.Optional(t.String()),
   errorMessage: t.Optional(t.String())
-})
-
-export const _configApplyAckResponseSchema = t.Object({
-  ack: t.Object({
-    ackId: t.String(),
-    configId: t.String(),
-    configVersion: t.String(),
-    ackedBy: t.String(),
-    status: t.UnionEnum(ackStatuses),
-    ackedAt: t.String(),
-    errorCode: t.Optional(t.String()),
-    errorMessage: t.Optional(t.String())
-  })
 })

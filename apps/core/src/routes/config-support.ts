@@ -94,6 +94,80 @@ export function toConfigDetailRecord(
   }
 }
 
+/**
+ * Config 只读列表统一完成 permission check、端口错误收口与对外 record 映射。
+ */
+export async function listConfigRecords(
+  deps: CoreDeps,
+  headers: Record<string, string | undefined>
+) {
+  await requireConfiguredPermission(deps, { headers, action: 'config:read' })
+  const result = await deps.config.list()
+  if (!result.ok) throwConfigError(result.error)
+  return result.value.map(toConfigListRecord)
+}
+
+/**
+ * Config 详情统一把 null 结果提升成 404，并在 support 内完成 detail record 映射。
+ */
+export async function readConfigDetail(
+  deps: CoreDeps,
+  input: { headers: Record<string, string | undefined>; id: string }
+) {
+  const auth = await requireConfiguredPermission(deps, { headers: input.headers, action: 'config:read' })
+  const result = await deps.config.get(input.id)
+  if (!result.ok) throwConfigError(result.error, auth.correlationId)
+  const config = requireConfigRecord(result.value, { correlationId: auth.correlationId })
+  return toConfigDetailRecord(config)
+}
+
+/**
+ * 草稿创建共享本地权限、明文 secret 拦截与端口错误收口。
+ */
+export async function createConfigDraft(
+  deps: CoreDeps,
+  input: {
+    headers: Record<string, string | undefined>
+    domain: string
+    payload: unknown
+    targetScope?: string[]
+  }
+) {
+  const auth = await requireConfiguredPermission(deps, { headers: input.headers, action: 'config:draft' })
+  if (containsPlaintextSecret(input.payload)) {
+    throw new CoreError(
+      400,
+      'config.secret_plaintext_rejected',
+      'config payload contains plaintext secret values; use secretRef',
+      auth.correlationId
+    )
+  }
+  const result = await deps.config.draft({
+    domain: input.domain,
+    payload: input.payload,
+    ...(input.targetScope ? { targetScope: input.targetScope } : {}),
+    correlationId: auth.correlationId
+  })
+  if (!result.ok) throwConfigError(result.error, auth.correlationId)
+  return result.value
+}
+
+/**
+ * validate 属于本地生命周期转换，统一复用 permission gate 与错误收口。
+ */
+export async function validateConfigRecord(
+  deps: CoreDeps,
+  input: { headers: Record<string, string | undefined>; id: string }
+) {
+  const auth = await requireConfiguredPermission(deps, {
+    headers: input.headers,
+    action: 'config:validate'
+  })
+  const result = await deps.config.validate(input.id)
+  if (!result.ok) throwConfigError(result.error, auth.correlationId)
+  return { id: result.value.id, status: result.value.status as 'validated' }
+}
+
 export function throwConfigError(error: ServiceError, correlationId?: string): never {
   throw new CoreError(
     configErrorStatus(error),
@@ -101,6 +175,24 @@ export function throwConfigError(error: ServiceError, correlationId?: string): n
     error.message,
     correlationId
   )
+}
+
+/**
+ * Config get/detail 边界把 null 结果提升成显式 404，避免路由层重复拼装同一 not_found 语义。
+ */
+export function requireConfigRecord<T>(
+  value: T | null,
+  input: { correlationId: string; message?: string }
+): T {
+  if (value === null) {
+    throw new CoreError(
+      404,
+      'config.not_found',
+      input.message ?? 'config record not found',
+      input.correlationId
+    )
+  }
+  return value
 }
 
 export async function requireConfiguredPermission(
@@ -164,6 +256,38 @@ export async function writeConfigAudit(
   if (!audit.ok) {
     throw new CoreError(503, audit.error.code, audit.error.message, input.correlationId)
   }
+}
+
+/**
+ * Config 高风险突变统一遵循 policy → audit → port mutate → error unwrap 的 fail-closed 顺序。
+ */
+export async function runConfigMutation<T>(
+  deps: CoreDeps,
+  input: {
+    headers: Record<string, string | undefined>
+    action: Permission
+    resource: string
+    auditPayload: Record<string, unknown>
+    run: (correlationId: string) => Promise<{ ok: true; value: T } | { ok: false; error: ServiceError }>
+  }
+): Promise<T> {
+  const { auth, decision } = await requireConfigPolicy(deps, {
+    headers: input.headers,
+    action: input.action,
+    resource: input.resource
+  })
+  await writeConfigAudit(deps, {
+    actor: auth.actor,
+    action: input.action,
+    resource: input.resource,
+    decisionId: decision.id,
+    result: decision.result,
+    correlationId: auth.correlationId,
+    payload: input.auditPayload
+  })
+  const result = await input.run(auth.correlationId)
+  if (!result.ok) throwConfigError(result.error, auth.correlationId)
+  return result.value
 }
 
 export function validateConfigInternalRequest(request: Request, correlationId: string) {

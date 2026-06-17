@@ -1,5 +1,4 @@
 import { Elysia, t } from 'elysia'
-import { CoreError } from '../core-error.ts'
 import { apiErrorSchema, protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
 import {
@@ -16,9 +15,10 @@ import {
 import {
   assertSecretIsMutable,
   redactSecretRecord,
+  requireSecretRecord,
   requireSecretPermission,
-  secretErrorStatus,
-  writeSecretAudit
+  runSecretMutation,
+  unwrapSecretResult,
 } from './secrets-support.ts'
 
 /**
@@ -37,11 +37,9 @@ export const createSecretCrudRoutes = (deps: CoreDeps) =>
         })
 
         const result = await deps.secrets.list()
-        if (!result.ok) {
-          throw new CoreError(500, result.error.code, result.error.message, auth.correlationId)
-        }
+        const secrets = unwrapSecretResult(result, auth.correlationId)
 
-        return result.value.map(secret => redactSecretRecord(secret))
+        return secrets.map(secret => redactSecretRecord(secret))
       },
       {
         response: {
@@ -65,19 +63,11 @@ export const createSecretCrudRoutes = (deps: CoreDeps) =>
         })
 
         const result = await deps.secrets.get(params.id)
-        if (!result.ok) {
-          throw new CoreError(
-            secretErrorStatus(result.error),
-            result.error.code,
-            result.error.message,
-            auth.correlationId
-          )
-        }
-        if (result.value === null) {
-          throw new CoreError(404, 'secret.not_found', 'secretRef not found', auth.correlationId)
-        }
+        const secret = requireSecretRecord(unwrapSecretResult(result, auth.correlationId), {
+          correlationId: auth.correlationId
+        })
 
-        return redactSecretRecord(result.value)
+        return redactSecretRecord(secret)
       },
       {
         params: secretParamsSchema,
@@ -96,35 +86,23 @@ export const createSecretCrudRoutes = (deps: CoreDeps) =>
     .post(
       '/',
       async ({ body, headers, set }) => {
-        const { auth, decision } = await requireSecretPermission(deps, {
+        const secret = await runSecretMutation(deps, {
           headers,
           action: 'secret:create',
-          resource: `secret:${body.name}`
-        })
-
-        await writeSecretAudit(deps, {
-          actor: auth.actor,
-          action: 'secret:create',
           resource: `secret:${body.name}`,
-          decisionId: decision.id,
-          result: decision.result,
-          correlationId: auth.correlationId,
-          payload: { name: body.name, scope: body.scope, metadata: body.metadata ?? {} }
+          auditPayload: { name: body.name, scope: body.scope, metadata: body.metadata ?? {} },
+          run: correlationId =>
+            deps.secrets.create({
+              name: body.name,
+              scope: body.scope,
+              value: body.value,
+              ...(body.metadata ? { metadata: body.metadata } : {}),
+              correlationId
+            })
         })
-
-        const created = await deps.secrets.create({
-          name: body.name,
-          scope: body.scope,
-          value: body.value,
-          ...(body.metadata ? { metadata: body.metadata } : {}),
-          correlationId: auth.correlationId
-        })
-        if (!created.ok) {
-          throw new CoreError(500, created.error.code, created.error.message, auth.correlationId)
-        }
 
         set.status = 201
-        return redactSecretRecord(created.value)
+        return redactSecretRecord(secret)
       },
       {
         body: secretCreateBodySchema,
@@ -142,43 +120,26 @@ export const createSecretCrudRoutes = (deps: CoreDeps) =>
     .post(
       '/:id/rotate',
       async ({ params, body, headers }) => {
-        const { auth, decision } = await requireSecretPermission(deps, {
+        const secret = await runSecretMutation(deps, {
           headers,
           action: 'secret:rotate',
-          resource: `secret:${params.id}`
-        })
-
-        await writeSecretAudit(deps, {
-          actor: auth.actor,
-          action: 'secret:rotate',
           resource: `secret:${params.id}`,
-          decisionId: decision.id,
-          result: decision.result,
-          correlationId: auth.correlationId,
-          payload: { reason: body.reason }
+          auditPayload: { reason: body.reason },
+          before: correlationId =>
+            assertSecretIsMutable(deps, {
+              id: params.id,
+              correlationId,
+              operation: 'rotate'
+            }),
+          run: correlationId =>
+            deps.secrets.rotate(params.id, {
+              value: body.value,
+              reason: body.reason,
+              correlationId
+            })
         })
 
-        await assertSecretIsMutable(deps, {
-          id: params.id,
-          correlationId: auth.correlationId,
-          operation: 'rotate'
-        })
-
-        const rotated = await deps.secrets.rotate(params.id, {
-          value: body.value,
-          reason: body.reason,
-          correlationId: auth.correlationId
-        })
-        if (!rotated.ok) {
-          throw new CoreError(
-            secretErrorStatus(rotated.error),
-            rotated.error.code,
-            rotated.error.message,
-            auth.correlationId
-          )
-        }
-
-        return redactSecretRecord(rotated.value)
+        return redactSecretRecord(secret)
       },
       {
         params: secretParamsSchema,
@@ -198,42 +159,25 @@ export const createSecretCrudRoutes = (deps: CoreDeps) =>
     .post(
       '/:id/disable',
       async ({ params, body, headers }) => {
-        const { auth, decision } = await requireSecretPermission(deps, {
+        const secret = await runSecretMutation(deps, {
           headers,
           action: 'secret:disable',
-          resource: `secret:${params.id}`
-        })
-
-        await writeSecretAudit(deps, {
-          actor: auth.actor,
-          action: 'secret:disable',
           resource: `secret:${params.id}`,
-          decisionId: decision.id,
-          result: decision.result,
-          correlationId: auth.correlationId,
-          payload: { reason: body.reason }
+          auditPayload: { reason: body.reason },
+          before: correlationId =>
+            assertSecretIsMutable(deps, {
+              id: params.id,
+              correlationId,
+              operation: 'disable'
+            }),
+          run: correlationId =>
+            deps.secrets.disable(params.id, {
+              reason: body.reason,
+              correlationId
+            })
         })
 
-        await assertSecretIsMutable(deps, {
-          id: params.id,
-          correlationId: auth.correlationId,
-          operation: 'disable'
-        })
-
-        const disabled = await deps.secrets.disable(params.id, {
-          reason: body.reason,
-          correlationId: auth.correlationId
-        })
-        if (!disabled.ok) {
-          throw new CoreError(
-            secretErrorStatus(disabled.error),
-            disabled.error.code,
-            disabled.error.message,
-            auth.correlationId
-          )
-        }
-
-        return redactSecretRecord(disabled.value)
+        return redactSecretRecord(secret)
       },
       {
         params: secretParamsSchema,

@@ -10,11 +10,10 @@ import {
 } from './config-schemas.ts'
 import {
   normalizeAckInput,
-  requireConfigPolicy,
+  runConfigMutation,
   throwConfigError,
   toAckResponseError,
   validateConfigInternalRequest,
-  writeConfigAudit
 } from './config-support.ts'
 
 /**
@@ -26,26 +25,18 @@ export const createConfigApplyRoutes = (deps: CoreDeps) =>
     .post(
       '/:id/publish',
       async ({ params, body, headers }) => {
-        const { auth, decision } = await requireConfigPolicy(deps, {
+        const config = await runConfigMutation(deps, {
           headers,
           action: 'config:publish',
-          resource: `config:${params.id}`
-        })
-        await writeConfigAudit(deps, {
-          actor: auth.actor,
-          action: 'config:publish',
           resource: `config:${params.id}`,
-          decisionId: decision.id,
-          result: decision.result,
-          correlationId: auth.correlationId,
-          payload: { reason: body.reason }
+          auditPayload: { reason: body.reason },
+          run: correlationId =>
+            deps.config.publish(params.id, {
+              reason: body.reason,
+              correlationId
+            })
         })
-        const result = await deps.config.publish(params.id, {
-          reason: body.reason,
-          correlationId: auth.correlationId
-        })
-        if (!result.ok) throwConfigError(result.error, auth.correlationId)
-        return { config: { ...result.value, status: result.value.status as 'published' } }
+        return { config: { ...config, status: config.status as 'published' } }
       },
       {
         params: configParamsSchema,
@@ -57,27 +48,19 @@ export const createConfigApplyRoutes = (deps: CoreDeps) =>
     .post(
       '/:id/rollback',
       async ({ params, body, headers }) => {
-        const { auth, decision } = await requireConfigPolicy(deps, {
+        const config = await runConfigMutation(deps, {
           headers,
           action: 'config:rollback',
-          resource: `config:${params.id}`
-        })
-        await writeConfigAudit(deps, {
-          actor: auth.actor,
-          action: 'config:rollback',
           resource: `config:${params.id}`,
-          decisionId: decision.id,
-          result: decision.result,
-          correlationId: auth.correlationId,
-          payload: { toVersion: body.toVersion, reason: body.reason }
+          auditPayload: { toVersion: body.toVersion, reason: body.reason },
+          run: correlationId =>
+            deps.config.rollback(params.id, {
+              toVersion: body.toVersion,
+              reason: body.reason,
+              correlationId
+            })
         })
-        const result = await deps.config.rollback(params.id, {
-          toVersion: body.toVersion,
-          reason: body.reason,
-          correlationId: auth.correlationId
-        })
-        if (!result.ok) throwConfigError(result.error, auth.correlationId)
-        return { config: { id: result.value.id, status: result.value.status as 'rolled_back' } }
+        return { config: { id: config.id, status: config.status as 'rolled_back' } }
       },
       {
         params: configParamsSchema,

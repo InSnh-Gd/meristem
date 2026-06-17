@@ -1,12 +1,5 @@
 import { Elysia, t } from 'elysia'
-import {
-  actorIds,
-  permissions as permissionLiterals
-} from '../../../../packages/contracts/src/index.ts'
 import { withExtractedSpan } from '../../../../packages/telemetry/src/index.ts'
-import { CoreError } from '../core-error.ts'
-import { authorize, requireActor } from '../middleware/auth.ts'
-import { tracedEvent } from '../middleware/route-support.ts'
 import {
   apiErrorSchema,
   dependenciesSchema,
@@ -14,6 +7,13 @@ import {
   protectedRouteDetail
 } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
+import {
+  readCoreReadiness,
+  readSession,
+  requireCoreStatusRead,
+  sessionActorIds,
+  sessionPermissions
+} from './health-support.ts'
 
 export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean }) {
   return (
@@ -38,25 +38,12 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
       // 会话端点供 UI 和 BFF 在不触发授权的情况下读取当前操作者身份和权限列表。
       .get(
         '/api/v0/session',
-        async ({ headers, status: _status }) => {
-          const auth = await requireActor(deps, headers)
-
-          const permissions = await deps.auth.getPermissions(auth.actor)
-          if (!permissions.ok)
-            throw new CoreError(
-              503,
-              permissions.error.code,
-              permissions.error.message,
-              auth.correlationId
-            )
-
-          return { actor: auth.actor, permissions: permissions.value }
-        },
+        async ({ headers, status: _status }) => readSession(deps, headers),
         {
           response: {
             200: t.Object({
-              actor: t.UnionEnum(actorIds),
-              permissions: t.Array(t.UnionEnum(permissionLiterals))
+              actor: t.UnionEnum(sessionActorIds),
+              permissions: t.Array(t.UnionEnum(sessionPermissions))
             }),
             401: apiErrorSchema
           },
@@ -66,23 +53,9 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
       .get(
         '/api/v0/ready',
         async ({ headers }) =>
-          withExtractedSpan('meristem-core', 'core.ready', headers, async () => {
-            const dependencies = await deps.storage.readiness()
-            const ready = Object.values(dependencies).every(dependency => dependency === 'ready')
-            if (!ready && !degradedEventOpen.value) {
-              degradedEventOpen.value = true
-              await deps.events.publish(
-                'core.lifecycle.degraded.v0',
-                tracedEvent({
-                  type: 'core.lifecycle.degraded',
-                  source: 'meristem-core',
-                  payload: { dependencies }
-                })
-              )
-            }
-            if (ready) degradedEventOpen.value = false
-            return { ready, dependencies }
-          }),
+          withExtractedSpan('meristem-core', 'core.ready', headers, async () =>
+            readCoreReadiness(deps, degradedEventOpen)
+          ),
         {
           response: t.Object({
             ready: t.Boolean(),
@@ -94,13 +67,7 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
         '/api/v0/status',
         async ({ headers, status: _status }) =>
           withExtractedSpan('meristem-core', 'core.status', headers, async () => {
-            const auth = await requireActor(deps, headers)
-            const _permission = await authorize(deps, {
-              actor: auth.actor,
-              action: 'core:read',
-              resource: 'core',
-              correlationId: auth.correlationId
-            })
+            await requireCoreStatusRead(deps, headers)
 
             const dependencies = await deps.storage.readiness()
             const counts = await deps.storage.counts()

@@ -1,8 +1,5 @@
 import { Elysia, t } from 'elysia'
 import { withExtractedSpan } from '../../../../packages/telemetry/src/index.ts'
-import { CoreError } from '../core-error.ts'
-import { authorize, requireActor } from '../middleware/auth.ts'
-import { statusCodeForServiceError, tracedEvent } from '../middleware/route-support.ts'
 import {
   apiErrorSchema,
   protectedResponse,
@@ -10,6 +7,16 @@ import {
   serviceSummarySchema
 } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
+import {
+  publishServiceRegistered,
+  publishServiceReloadRequested,
+  requireServiceMutationAccess,
+  requireServiceReadAccess,
+  unwrapServiceResult,
+  writeServiceAuditOrThrow,
+  writeServiceReloadFailure,
+  writeServiceTimeline
+} from './services-support.ts'
 
 export function servicesRoutes(deps: CoreDeps) {
   return new Elysia()
@@ -17,36 +24,28 @@ export function servicesRoutes(deps: CoreDeps) {
       '/api/v0/services',
       async ({ body, headers, status: _status }) => {
         return withExtractedSpan('meristem-core', 'core.service.register', headers, async () => {
-          const auth = await requireActor(deps, headers)
-          const permission = await authorize(deps, {
-            actor: auth.actor,
+          const auth = await requireServiceMutationAccess(deps, {
+            headers,
             action: 'service:register',
-            resource: 'service-definition',
-            correlationId: auth.correlationId
+            resource: 'service-definition'
           })
 
-          const audit = await deps.log.writeAudit({
+          await writeServiceAuditOrThrow(deps, {
             actor: auth.actor,
             action: 'service:register',
             resource: 'service-definition',
-            decisionId: permission.id,
-            result: permission.result,
+            permission: auth.permission,
             correlationId: auth.correlationId
           })
-          if (!audit.ok)
-            throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
 
           const service = await deps.storage.registerService(body)
-          await deps.events.publish(
-            'service.lifecycle.registered.v0',
-            tracedEvent({
-              type: 'service.lifecycle.registered',
-              source: 'meristem-core',
-              payload: service,
-              correlationId: auth.correlationId
-            })
-          )
-          return { service, policyDecisionId: permission.id, correlationId: auth.correlationId }
+          await publishServiceRegistered(deps, service, auth.correlationId)
+
+          return {
+            service,
+            policyDecisionId: auth.permission.id,
+            correlationId: auth.correlationId
+          }
         })
       },
       {
@@ -64,18 +63,9 @@ export function servicesRoutes(deps: CoreDeps) {
     .get(
       '/api/v0/services',
       async ({ headers, status: _status }) => {
-        const auth = await requireActor(deps, headers)
-        const _permission = await authorize(deps, {
-          actor: auth.actor,
-          action: 'core:read',
-          resource: 'services',
-          correlationId: auth.correlationId
-        })
-        const svcs = await deps.services.list()
-        if (!svcs.ok) {
-          throw new CoreError(503, svcs.error.code, svcs.error.message, auth.correlationId)
-        }
-        return { services: svcs.value }
+        const auth = await requireServiceReadAccess(deps, headers, 'services')
+        const services = unwrapServiceResult(await deps.services.list(), auth.correlationId)
+        return { services }
       },
       {
         response: protectedResponse(t.Object({ services: t.Array(serviceSummarySchema) }), {
@@ -88,73 +78,55 @@ export function servicesRoutes(deps: CoreDeps) {
       '/api/v0/services/:id/reload',
       async ({ params, body, headers, status: _status }) => {
         return withExtractedSpan('meristem-core', 'core.service.reload', headers, async () => {
-          const auth = await requireActor(deps, headers)
-          const permission = await authorize(deps, {
-            actor: auth.actor,
+          const auth = await requireServiceMutationAccess(deps, {
+            headers,
             action: 'service:reload',
-            resource: `service:${params.id}`,
-            correlationId: auth.correlationId
+            resource: `service:${params.id}`
           })
 
-          const audit = await deps.log.writeAudit({
+          await writeServiceAuditOrThrow(deps, {
             actor: auth.actor,
             action: 'service:reload',
             resource: `service:${params.id}`,
-            decisionId: permission.id,
-            result: permission.result,
+            permission: auth.permission,
             correlationId: auth.correlationId,
-            payload: body.reason ? { reason: body.reason } : undefined
+            ...(body.reason ? { payload: { reason: body.reason } } : {})
           })
-          if (!audit.ok)
-            throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
 
-          await deps.events.publish(
-            'service.lifecycle.reload.requested.v0',
-            tracedEvent({
-              type: 'service.lifecycle.reload.requested',
-              source: 'meristem-core',
-              payload: { serviceId: params.id, ...(body.reason ? { reason: body.reason } : {}) },
-              correlationId: auth.correlationId
-            })
-          )
-          await deps.log.writeTimeline({
+          await publishServiceReloadRequested(deps, {
+            serviceId: params.id,
+            correlationId: auth.correlationId,
+            ...(body.reason ? { reason: body.reason } : {})
+          })
+
+          await writeServiceTimeline(deps, {
             summary: `requested reload for service ${params.id}`,
             subject: params.id,
             correlationId: auth.correlationId
           })
 
-          const reloaded = await deps.services.reload({
+          const reloadedResult = await deps.services.reload({
             serviceId: params.id,
             correlationId: auth.correlationId,
             ...(body.reason ? { reason: body.reason } : {})
           })
-          if (!reloaded.ok) {
-            await deps.log.writeFull({
-              level: 'warn',
-              source: 'meristem-core',
-              message: `service reload failed: ${reloaded.error.message}`,
-              correlationId: auth.correlationId,
-              payload: { code: reloaded.error.code, message: reloaded.error.message }
-            })
-            throw new CoreError(
-              statusCodeForServiceError(reloaded.error.code),
-              reloaded.error.code,
-              reloaded.error.message,
-              auth.correlationId
-            )
-          }
 
-          await deps.log.writeTimeline({
+          if (!reloadedResult.ok) {
+            await writeServiceReloadFailure(deps, auth.correlationId, reloadedResult.error)
+          }
+          const reloaded = unwrapServiceResult(reloadedResult, auth.correlationId)
+
+          await writeServiceTimeline(deps, {
             summary: `reloaded service ${params.id}`,
             subject: params.id,
             correlationId: auth.correlationId
           })
 
           return {
-            serviceId: reloaded.value.serviceId,
+            serviceId: reloaded.serviceId,
             accepted: true as const,
-            reloadedAt: reloaded.value.reloadedAt,
-            policyDecisionId: permission.id,
+            reloadedAt: reloaded.reloadedAt,
+            policyDecisionId: auth.permission.id,
             correlationId: auth.correlationId
           }
         })
