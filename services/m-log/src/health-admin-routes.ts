@@ -4,8 +4,6 @@ import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import type { LogAppDeps } from './deps.ts'
 import { internalErrorSchema, readyResponseSchema, reloadBodySchema } from './route-schemas.ts'
 
-type ErrorResponse = { error: { code: string; message: string } }
-
 /**
  * 健康与生命周期路由单独成层，保持 facade 只做组装并维持原有鉴权与错误语义。
  */
@@ -36,7 +34,7 @@ export function createHealthAdminRoutes(deps: LogAppDeps) {
         '/internal/v0/lifecycle/reload',
         async ({ body, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           return withExtractedSpan('m-log', 'm-log.lifecycle.reload', headers, async () => {
             try {
               return await deps.reload(body)
@@ -46,7 +44,7 @@ export function createHealthAdminRoutes(deps: LogAppDeps) {
                   code: 'service.reload_failed',
                   message: error instanceof Error ? error.message : 'service reload failed'
                 }
-              }) as unknown as ErrorResponse
+              })
             }
           })
         },

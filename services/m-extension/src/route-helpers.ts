@@ -104,7 +104,7 @@ export async function authorize(
 }
 
 export function assertSystemDefault(
-  body: EnableExtensionRequest | DisableExtensionRequest,
+  body: { scopeType?: string; scopeId?: string },
   correlationId: string
 ): void {
   if (
@@ -292,4 +292,32 @@ export async function readStore<T>(correlationId: string, operation: () => Promi
   } catch {
     raise(503, 'extension.store_unavailable', 'Extension store unavailable', correlationId)
   }
+}
+
+/**
+ * enable/disable 共享“先确认 definition 存在”这一步，避免路由层重复 404 分支。
+ */
+export async function requireStoredDefinition(
+  deps: MExtensionDeps,
+  auth: AuthContext,
+  extensionId: string
+) {
+  const existing = await readStore(auth.correlationId, () => deps.store.get(extensionId))
+  if (!existing) {
+    raise(404, 'extension.not_found', 'extension not found', auth.correlationId)
+  }
+  return existing
+}
+
+/** 生命周期写操作统一附加策略决策与关联 ID，保持对外响应 shape 稳定。 */
+export function lifecycleResponse<T extends { definition: unknown }>(
+  value: T,
+  decisionId: string,
+  correlationId: string
+): Response {
+  return Response.json({
+    ...value,
+    policyDecisionId: decisionId,
+    correlationId
+  })
 }

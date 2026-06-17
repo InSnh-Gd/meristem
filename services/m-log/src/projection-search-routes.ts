@@ -23,8 +23,6 @@ import {
   timelineSearchQuerySchema
 } from './route-schemas.ts'
 
-type ErrorResponse = { error: { code: string; message: string } }
-
 /**
  * 搜索与投影管理路由共享同一内部边界：依赖不可用时返回 503，避免把降级细节泄漏给 facade。
  */
@@ -35,17 +33,17 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/search/full',
         async ({ query, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.search.isAvailable()) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'OpenSearch is not available' }
-            }) as unknown as ErrorResponse
+            })
           }
           const result = await deps.search.full(toFullSearchQuery(query))
           if (!result) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'search query failed' }
-            }) as unknown as ErrorResponse
+            })
           }
           return result
         },
@@ -62,17 +60,17 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/search/timeline',
         async ({ query, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.search.isAvailable()) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'OpenSearch is not available' }
-            }) as unknown as ErrorResponse
+            })
           }
           const result = await deps.search.timeline(toTimelineSearchQuery(query))
           if (!result) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'search query failed' }
-            }) as unknown as ErrorResponse
+            })
           }
           return result
         },
@@ -89,17 +87,17 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/search/audit',
         async ({ query, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.search.isAvailable()) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'OpenSearch is not available' }
-            }) as unknown as ErrorResponse
+            })
           }
           const result = await deps.search.audit(toAuditSearchQuery(query))
           if (!result) {
             return status(503, {
               error: { code: 'search_unavailable', message: 'search query failed' }
-            }) as unknown as ErrorResponse
+            })
           }
           return result
         },
@@ -117,14 +115,14 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/projection/health',
         async ({ headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.projection.isAvailable()) {
             return status(503, {
               error: {
                 code: 'projection_unavailable',
                 message: 'projection engine is not available'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           const health = await deps.projection.getProjectionHealth()
           return { indices: health }
@@ -142,14 +140,14 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/projection/backfill',
         async ({ body, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.projection.isAvailable()) {
             return status(503, {
               error: {
                 code: 'projection_unavailable',
                 message: 'projection engine is not available'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           try {
             return await deps.projection.executeBackfill(toBackfillParams(body))
@@ -159,7 +157,7 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
                 code: 'backfill_failed',
                 message: error instanceof Error ? error.message : 'backfill failed'
               }
-            }) as unknown as ErrorResponse
+            })
           }
         },
         {
@@ -175,14 +173,14 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/projection/dlq',
         async ({ query, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.projection.isAvailable()) {
             return status(503, {
               error: {
                 code: 'projection_unavailable',
                 message: 'projection engine is not available'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           const records = await deps.projection.listDLQ(query.index)
           return { records }
@@ -200,14 +198,14 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/projection/dlq/:id/replay',
         async ({ params, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.projection.isAvailable()) {
             return status(503, {
               error: {
                 code: 'projection_unavailable',
                 message: 'projection engine is not available'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           const success = await deps.projection.replayDLQ(params.id)
           if (!success) {
@@ -216,7 +214,7 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
                 code: 'dlq_not_found_or_replay_failed',
                 message: 'DLQ record not found or replay failed'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           return { replayed: true }
         },
@@ -233,14 +231,14 @@ export function createProjectionSearchRoutes(deps: LogAppDeps) {
         '/internal/v0/projection/dlq/:id/skip',
         async ({ params, headers, status }) => {
           const auth = validateInternalRequest(headers)
-          if (!auth.ok) return status(401, { error: auth.error }) as unknown as ErrorResponse
+          if (!auth.ok) return status(401, { error: auth.error })
           if (!deps.projection.isAvailable()) {
             return status(503, {
               error: {
                 code: 'projection_unavailable',
                 message: 'projection engine is not available'
               }
-            }) as unknown as ErrorResponse
+            })
           }
           await deps.projection.skipDLQ(params.id)
           return { skipped: true }

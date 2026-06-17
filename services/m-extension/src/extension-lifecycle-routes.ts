@@ -1,10 +1,5 @@
 import { Elysia, t } from 'elysia'
 import { extensionPermission } from '../../../packages/contracts/src/literals.ts'
-import type {
-  DisableExtensionRequest,
-  EnableExtensionRequest,
-  RegisterExtensionRequest
-} from '../../../packages/contracts/src/types/extension.ts'
 import {
   mExtensionApiRoutes,
   mExtensionEventSubjects,
@@ -20,9 +15,11 @@ import {
   auditBeforeMutation,
   authorize,
   lifecyclePayload,
+  lifecycleResponse,
   publishLifecycle,
   readStore,
   requireActor,
+  requireStoredDefinition,
   validateManifestOrReject
 } from './route-helpers.ts'
 import {
@@ -48,8 +45,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
           `${mExtensionServiceName}.extension.register`,
           headers,
           async () => {
-            const request = body as RegisterExtensionRequest
-            const manifest = await validateManifestOrReject(deps, auth, request.manifest)
+            const manifest = await validateManifestOrReject(deps, auth, body.manifest)
             const resource = `${mExtensionResource.prefix}:${manifest.id}`
             const decision = await authorize(deps, auth, extensionPermission.register, resource)
             await auditBeforeMutation(deps, {
@@ -82,17 +78,13 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
                 definition: registered.definition,
                 actor: auth.actor,
                 decisionId: decision.id,
-                ...(request.reason ? { reason: request.reason } : {}),
+                ...(body.reason ? { reason: body.reason } : {}),
                 correlationId: auth.correlationId
               }),
               correlationId: auth.correlationId,
               failureCode: 'extension.event_publish_failed'
             })
-            return Response.json({
-              ...registered,
-              policyDecisionId: decision.id,
-              correlationId: auth.correlationId
-            })
+            return lifecycleResponse(registered, decision.id, auth.correlationId)
           }
         )
       },
@@ -119,15 +111,8 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
           `${mExtensionServiceName}.extension.enable`,
           headers,
           async () => {
-            const request = body as EnableExtensionRequest
-            assertSystemDefault(request, auth.correlationId)
-            const existing = await readStore(auth.correlationId, () => deps.store.get(params.id))
-            if (!existing)
-              throw Object.assign(new Error('extension not found'), {
-                status: 404,
-                code: 'extension.not_found',
-                correlationId: auth.correlationId
-              })
+            assertSystemDefault(body, auth.correlationId)
+            await requireStoredDefinition(deps, auth, params.id)
 
             const resource = `${mExtensionResource.prefix}:${params.id}`
             const decision = await authorize(deps, auth, extensionPermission.enable, resource)
@@ -142,7 +127,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
               deps.store.enable({
                 extensionId: params.id,
                 actor: auth.actor,
-                ...(request.reason ? { reason: request.reason } : {}),
+                ...(body.reason ? { reason: body.reason } : {}),
                 policyDecisionId: decision.id,
                 correlationId: auth.correlationId
               })
@@ -166,7 +151,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
                 definition: enabled.definition,
                 actor: auth.actor,
                 decisionId: decision.id,
-                ...(request.reason ? { reason: request.reason } : {}),
+                ...(body.reason ? { reason: body.reason } : {}),
                 correlationId: auth.correlationId
               }),
               correlationId: auth.correlationId,
@@ -174,11 +159,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
               failureSubject: mExtensionEventSubjects.instanceEnableFailed,
               failureType: mExtensionEventTypes.instanceEnableFailed
             })
-            return Response.json({
-              ...enabled,
-              policyDecisionId: decision.id,
-              correlationId: auth.correlationId
-            })
+            return lifecycleResponse(enabled, decision.id, auth.correlationId)
           }
         )
       },
@@ -208,15 +189,8 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
           `${mExtensionServiceName}.extension.disable`,
           headers,
           async () => {
-            const request = body as DisableExtensionRequest
-            assertSystemDefault(request, auth.correlationId)
-            const existing = await readStore(auth.correlationId, () => deps.store.get(params.id))
-            if (!existing)
-              throw Object.assign(new Error('extension not found'), {
-                status: 404,
-                code: 'extension.not_found',
-                correlationId: auth.correlationId
-              })
+            assertSystemDefault(body, auth.correlationId)
+            await requireStoredDefinition(deps, auth, params.id)
 
             const resource = `${mExtensionResource.prefix}:${params.id}`
             const decision = await authorize(deps, auth, extensionPermission.disable, resource)
@@ -231,7 +205,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
               deps.store.disable({
                 extensionId: params.id,
                 actor: auth.actor,
-                ...(request.reason ? { reason: request.reason } : {}),
+                ...(body.reason ? { reason: body.reason } : {}),
                 policyDecisionId: decision.id,
                 correlationId: auth.correlationId
               })
@@ -255,7 +229,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
                 definition: disabled.definition,
                 actor: auth.actor,
                 decisionId: decision.id,
-                ...(request.reason ? { reason: request.reason } : {}),
+                ...(body.reason ? { reason: body.reason } : {}),
                 correlationId: auth.correlationId
               }),
               correlationId: auth.correlationId,
@@ -263,11 +237,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
               failureSubject: mExtensionEventSubjects.instanceDisableFailed,
               failureType: mExtensionEventTypes.instanceDisableFailed
             })
-            return Response.json({
-              ...disabled,
-              policyDecisionId: decision.id,
-              correlationId: auth.correlationId
-            })
+            return lifecycleResponse(disabled, decision.id, auth.correlationId)
           }
         )
       },

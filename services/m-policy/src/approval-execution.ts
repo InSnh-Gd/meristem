@@ -6,6 +6,8 @@ import type {
   ApprovalStatus,
   PolicyApproval
 } from '../../../packages/contracts/src/index.ts'
+import * as Schema from 'effect/Schema'
+import { PolicyApprovalVoteEventPayloadSchema } from '../../../packages/contracts/src/schemas/policy.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import { evaluateQuorum } from './approval-decisions.ts'
 import { isApprovalExpired, isDuplicateVoteError, withUpdatedStatus } from './approval-helpers.ts'
@@ -78,6 +80,36 @@ export async function publishApprovalEvent(
         requiredAction: approval.requiredAction,
         status: approval.status
       }
+    })
+  )
+}
+
+/**
+ * publishVoteEvent 为单次投票发布 vote-level 事件，与生命周期终态事件解耦，
+ * 供 read-model 投影和审批 UI 使用。
+ */
+export async function publishVoteEvent(
+  deps: ApprovalDeps,
+  approval: PolicyApproval,
+  actor: ActorId,
+  vote: 'approve' | 'reject',
+  reason?: string
+): Promise<void> {
+  const payload = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)({
+    approvalId: approval.id,
+    actor,
+    vote,
+    ...(reason !== undefined && { reason }),
+    timestamp: new Date().toISOString()
+  })
+  await deps.events.publish(
+    `policy.approval.vote.${vote === 'approve' ? 'approved' : 'rejected'}.v0`,
+    createEventEnvelope({
+      type: `policy.approval.vote.${vote === 'approve' ? 'approved' : 'rejected'}`,
+      source: 'm-policy',
+      subject: approval.id,
+      correlationId: approval.operationId,
+      payload
     })
   )
 }
@@ -231,6 +263,32 @@ async function logDuplicateVote(
 }
 
 /**
+ * vote-level 事件只服务 read-model / UI 投影；authoritative vote 已写入后，不应因事件总线抖动把调用方误判成失败。
+ */
+async function publishVoteEventBestEffort(
+  deps: ApprovalDeps,
+  approval: PolicyApproval,
+  actor: ActorId,
+  vote: 'approve' | 'reject',
+  reason?: string
+): Promise<void> {
+  try {
+    await publishVoteEvent(deps, approval, actor, vote, reason)
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    await deps.log
+      .writeFull({
+        level: 'error',
+        source: 'm-policy',
+        message: `vote event publish failed for ${approval.id}: ${message}`,
+        correlationId: approval.operationId,
+        payload: { approvalId: approval.id, actor, vote, reason }
+      })
+      .catch(() => undefined)
+  }
+}
+
+/**
  * approveApprovalForActor 处理 approve 投票、quorum 判定与来源服务恢复回调。
  */
 export async function approveApprovalForActor(
@@ -245,6 +303,7 @@ export async function approveApprovalForActor(
 
   try {
     await deps.approvals.addVote(approval.id, input.actor, 'approve', input.reason)
+    await publishVoteEventBestEffort(deps, approval, input.actor, 'approve', input.reason)
     const votes = await deps.approvals.getVotes(approval.id)
     const terminal = evaluateQuorum(approval, votes)
     if (!terminal) {
@@ -307,6 +366,7 @@ export async function rejectApprovalForActor(
 
   try {
     await deps.approvals.addVote(approval.id, input.actor, 'reject', input.reason)
+    await publishVoteEventBestEffort(deps, approval, input.actor, 'reject', input.reason)
     const now = new Date().toISOString()
     await deps.approvals.updateApprovalStatus(approval.id, 'rejected', now)
     await deps.log.writeAudit({

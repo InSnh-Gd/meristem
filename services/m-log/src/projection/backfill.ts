@@ -165,8 +165,8 @@ export function createBackfillService(
       }
 
       yield* tryProjection('complete-backfill-job', () => jobs.transitionJob(job.id, 'completed'))
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : String(e)
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error)
       yield* tryProjection('fail-backfill-job', () => jobs.transitionJob(job.id, 'failed', errMsg))
       errors++
     }
