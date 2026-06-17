@@ -1,11 +1,13 @@
 <script lang="ts">
-  import type { MNode } from '../../../../packages/contracts/src/index.ts'
+  import type { OverviewData } from '../types.ts'
 
-  let { nodes, selectedNodeId, onSelect } = $props<{
-    nodes: MNode[]
+  type Props = {
+    nodes: OverviewData['nodes']
     selectedNodeId: string | null
     onSelect: (id: string) => void
-  }>()
+  }
+
+  let { nodes, selectedNodeId, onSelect }: Props = $props()
 
   function statusColor(s: string): string {
     if (s === 'healthy') return 'var(--signal-ok)'

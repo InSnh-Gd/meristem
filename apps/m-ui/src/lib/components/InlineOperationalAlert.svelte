@@ -7,10 +7,12 @@
     block: 'var(--signal-block)'
   }
 
-  let { message, severity } = $props<{
+  type Props = {
     message: string
     severity: Severity
-  }>()
+  }
+
+  let { message, severity }: Props = $props()
 
   const color = $derived(severityColor[severity])
 </script>

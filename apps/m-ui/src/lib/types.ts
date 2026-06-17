@@ -1,5 +1,6 @@
 import type {
   ActorId,
+  ApprovalActionResponse,
   ApprovalStatus,
   AuditLog,
   ApprovalDetailResponse as ContractApprovalDetailResponse,
@@ -10,6 +11,7 @@ import type {
   MNetProfileVersion,
   MNetRegionalProfile,
   MNode,
+  NetworkSummary,
   NetworkProfileState,
   OperationalCommandPreviewCommandId,
   Permission,
@@ -74,6 +76,33 @@ export type NetworkProfileListResponseData = {
 
 export type NetworkProfileDetailResponseData = WithStateSource<MNetRegionalProfile>
 
+export type NetworkListResponseData = {
+  networks: NetworkSummary[]
+}
+
+export type GlobalProfileSwitchState =
+  | 'idle'
+  | 'planned'
+  | 'applying'
+  | 'applied'
+  | 'rolled_back'
+  | 'failed'
+
+export type GlobalDefaultsResponseData = WithStateSource<{
+  defaultProfileVersion: string
+  globalSwitchState: GlobalProfileSwitchState
+  updatedAt: string
+  switchOperationId?: string
+}>
+
+export type MigrationStatusResponseData = WithStateSource<{
+  operationId: string
+  globalSwitchState?: GlobalProfileSwitchState
+  candidateCount?: number
+  remainingBatches?: number
+  nextBatchId?: number | null
+}>
+
 export interface ApprovalDisplayItem {
   approvalId: string
   policyDecisionId: string
@@ -128,9 +157,25 @@ export interface CommandPreviewResult {
   disabledReason?: string
 }
 
-export type GenericCommandParams = {
-  leafNodeId: string
-}
+export type GenericCommandParams =
+  | { leafNodeId: string }
+  | { approvalId: string; reason?: string }
+  | { networkId: string; profileVersion: string; reason?: string }
+  | { profileVersion: string; reason?: string; idempotencyKey?: string }
+  | {
+      targetProfileVersion: string
+      batchSize?: number
+      reason?: string
+      idempotencyKey?: string
+    }
+  | { operationId: string }
+  | {
+      requireApproval: boolean
+      emergencyBreakGlassEnabled: boolean
+      reason?: string
+      idempotencyKey?: string
+    }
+  | { networkId: string; emergencyReason?: string }
 
 export type OverviewData = {
   session: { actor: ActorId; permissions: Permission[] }
@@ -159,6 +204,18 @@ export type CommandState = {
 }
 
 export type TaskResult = SubmitTaskResponse
+
+export type ApprovalCommandResult = ApprovalActionResponse & {
+  correlationId?: string
+}
+
+export type ProfileCommandResult = {
+  status: 'pending_approval' | 'disabled'
+  correlationId: string
+  operationId?: string
+  approvalId?: string
+  profileVersion?: string
+}
 
 export type PolicyDecisionSummary = MinimalPolicyDecisionSummary
 

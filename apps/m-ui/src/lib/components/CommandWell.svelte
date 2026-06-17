@@ -1,15 +1,16 @@
 <script lang="ts">
-  import type { MNode } from '../../../../packages/contracts/src/index.ts'
-  import type { CommandState } from '../types.ts'
+  import type { CommandState, OverviewData } from '../types.ts'
 
-  let { commandState, selectedNode, confirming, onRequestConfirm, onCancel, onConfirm } = $props<{
+  type Props = {
     commandState: CommandState | null
-    selectedNode: MNode | null
+    selectedNode: OverviewData['nodes'][number] | null
     confirming: boolean
     onRequestConfirm: () => void
     onCancel: () => void
     onConfirm: () => void
-  }>()
+  }
+
+  let { commandState, selectedNode, confirming, onRequestConfirm, onCancel, onConfirm }: Props = $props()
 </script>
 
 <div class="command-well">

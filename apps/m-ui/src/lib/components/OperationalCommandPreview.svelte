@@ -41,19 +41,21 @@
     }
   }
 
+  type Props = {
+    commandId: CommandPreviewResult['commandId']
+    disabledReason: string
+    resource?: string
+    requiredPermissions?: string[]
+    label?: string
+  }
+
   let {
     commandId,
     disabledReason,
     resource = 'display-only',
     requiredPermissions,
     label
-  } = $props<{
-    commandId: CommandPreviewResult['commandId']
-    disabledReason: string
-    resource?: string
-    requiredPermissions?: string[]
-    label?: string
-  }>()
+  }: Props = $props()
 
   const definition = $derived(commandDefinitions[commandId])
   const visiblePermissions = $derived(requiredPermissions ?? definition.requiredPermissions)

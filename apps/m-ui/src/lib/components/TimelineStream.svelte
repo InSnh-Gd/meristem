@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { TimelineLog } from '../../../../packages/contracts/src/index.ts'
+  import type { OverviewData } from '../types.ts'
 
-  let { entries } = $props<{ entries: TimelineLog[] }>()
+  type Props = { entries: OverviewData['timeline'] }
+
+  let { entries }: Props = $props()
 </script>
 
 <div class="timeline">

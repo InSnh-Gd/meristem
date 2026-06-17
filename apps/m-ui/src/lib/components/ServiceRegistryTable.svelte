@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { ServiceSummary } from '../../../../packages/contracts/src/index.ts'
+  import type { OverviewData } from '../types.ts'
 
-  let { services } = $props<{ services: ServiceSummary[] }>()
+  type Props = { services: OverviewData['services'] }
+
+  let { services }: Props = $props()
 </script>
 
 <div class="service-table">

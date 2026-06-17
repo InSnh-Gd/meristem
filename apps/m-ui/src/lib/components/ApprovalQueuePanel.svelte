@@ -1,13 +1,20 @@
 <script lang="ts">
-  import type { ApprovalDisplayItem } from '$lib/types.ts'
+  import type { ApprovalQueueResponseData } from '$lib/types.ts'
   import StateSourceBadge from './StateSourceBadge.svelte'
 
-  const requiredActionLabel: Record<ApprovalDisplayItem['requiredAction'], string> = {
+  type ApprovalItem = ApprovalQueueResponseData['approvals'][number]
+  type Props = {
+    approvals: ApprovalItem[]
+    detailBasePath?: string
+    selectedApprovalId?: string | null
+  }
+
+  const requiredActionLabel: Record<ApprovalItem['requiredAction'], string> = {
     manual_review: '人工审核',
     multi_approval: '多重审批'
   }
 
-  const statusLabel: Record<ApprovalDisplayItem['status'], string> = {
+  const statusLabel: Record<ApprovalItem['status'], string> = {
     pending: '待处理',
     approved: '已批准',
     rejected: '已拒绝',
@@ -19,11 +26,7 @@
     approvals,
     detailBasePath = '/policy/approvals',
     selectedApprovalId = null
-  } = $props<{
-    approvals: ApprovalDisplayItem[]
-    detailBasePath?: string
-    selectedApprovalId?: string | null
-  }>()
+  }: Props = $props()
 
   function formatTimestamp(value: string) {
     return new Date(value).toLocaleString('zh-CN')
@@ -35,17 +38,17 @@
 {:else}
   <div class="approval-list" role="list" aria-label="审批队列">
     {#each approvals as approval}
-      <a
-        class:selected={selectedApprovalId === approval.approvalId}
-        class="approval-card"
-        href={`${detailBasePath}/${encodeURIComponent(approval.approvalId)}`}
-      >
-        <div class="approval-header">
-          <div class="approval-title-block">
-            <span class="approval-id">{approval.approvalId}</span>
-            <span class="approval-status">{statusLabel[approval.status]}</span>
-          </div>
-          <StateSourceBadge source={approval.stateSource.sourceType} />
+        <a
+          class:selected={selectedApprovalId === approval.id}
+          class="approval-card"
+          href={`${detailBasePath}/${encodeURIComponent(approval.id)}`}
+        >
+          <div class="approval-header">
+            <div class="approval-title-block">
+              <span class="approval-id">{approval.id}</span>
+              <span class="approval-status">{statusLabel[approval.status]}</span>
+            </div>
+            <StateSourceBadge source={approval.stateSource.sourceType} />
         </div>
 
         <dl class="approval-meta">

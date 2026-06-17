@@ -20,7 +20,9 @@
     reject: '拒绝'
   } as const
 
-  let { approval } = $props<{ approval: ApprovalDetailResponseData }>()
+  type Props = { approval: ApprovalDetailResponseData }
+
+  let { approval }: Props = $props()
 
   function formatTimestamp(value: string) {
     return new Date(value).toLocaleString('zh-CN')
@@ -107,7 +109,7 @@
               </div>
               <div>
                 <dt>来源继承</dt>
-                <dd>{vote.stateSource.sourceType}</dd>
+                <dd>{approval.stateSource.sourceType}</dd>
               </div>
               {#if vote.reason}
                 <div class="vote-reason">

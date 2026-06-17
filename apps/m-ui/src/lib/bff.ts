@@ -4,8 +4,11 @@ import type {
   AuditData,
   CommandState,
   GenericCommandParams,
+  GlobalDefaultsResponseData,
+  MigrationStatusResponseData,
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
+  NetworkListResponseData,
   NodeListData,
   OverviewData,
   PolicyDecisionData,
@@ -52,7 +55,7 @@ export function formatBffError(error: unknown, fallback: string): string {
   return code ? `${message} (${code})` : message
 }
 
-async function bffFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+export async function bffFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const normalizedToken = normalizeBearerTokenInput(token)
   const response = await fetch(`${BFF_URL}${path}`, {
     ...init,
@@ -125,11 +128,15 @@ export function fetchCommandEligibility(
 }
 
 export function executeNoop(token: string, leafNodeId: string) {
-  return executeCommand(token, 'task.noop.submit', { leafNodeId })
+  return executeCommand<TaskResult>(token, 'task.noop.submit', { leafNodeId })
 }
 
-export function executeCommand(token: string, commandId: string, params: GenericCommandParams) {
-  return bffFetch<TaskResult>(`/api/v0/commands/${encodeURIComponent(commandId)}/execute`, token, {
+export function executeCommand<T = unknown>(
+  token: string,
+  commandId: string,
+  params: GenericCommandParams
+) {
+  return bffFetch<T>(`/api/v0/commands/${encodeURIComponent(commandId)}/execute`, token, {
     method: 'POST',
     body: JSON.stringify(params)
   })
@@ -160,6 +167,21 @@ export function fetchNetworkProfiles(token: string) {
 export function fetchNetworkProfileDetail(token: string, profileVersion: string) {
   return bffFetch<NetworkProfileDetailResponseData>(
     `/api/v0/network-profiles/${encodeURIComponent(profileVersion)}`,
+    token
+  )
+}
+
+export function fetchNetworks(token: string) {
+  return bffFetch<NetworkListResponseData>('/api/v0/networks', token)
+}
+
+export function fetchGlobalDefaults(token: string) {
+  return bffFetch<GlobalDefaultsResponseData>('/api/v0/networks/profile-defaults', token)
+}
+
+export function fetchMigrationStatus(token: string, operationId: string) {
+  return bffFetch<MigrationStatusResponseData>(
+    `/api/v0/networks/profile-switches/${encodeURIComponent(operationId)}`,
     token
   )
 }
