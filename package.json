@@ -52,6 +52,7 @@
     "test:opensearch-integration": "bun test tests/integration/opensearch-projection.test.ts",
     "token:mint": "bun run packages/auth/src/mint-token.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:m-ui": "cd apps/m-ui && bun run check",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "workspace-hygiene": "bun run scripts/workspace-hygiene.ts && bun run scripts/skill-hygiene.ts"
   },

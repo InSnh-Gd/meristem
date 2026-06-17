@@ -4,5 +4,14 @@ set -eu
 printf '%s\n' 'Running format:check before push...'
 bun run format:check
 
+printf '%s\n' 'Running repository typecheck before push...'
+bun run typecheck
+
+printf '%s\n' 'Running e2e typecheck before push...'
+bun run typecheck:e2e
+
+printf '%s\n' 'Running M-UI typecheck before push...'
+bun run typecheck:m-ui
+
 printf '%s\n' 'Running agent submit drift guards before push...'
 bun run test:agent-submit

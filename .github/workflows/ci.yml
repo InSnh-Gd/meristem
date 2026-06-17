@@ -18,6 +18,7 @@ jobs:
           - typecheck
           - test
           - typecheck:e2e
+          - typecheck:m-ui
 
     services:
       postgres:
