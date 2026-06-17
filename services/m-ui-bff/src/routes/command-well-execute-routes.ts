@@ -99,10 +99,16 @@ export function createCommandWellExecuteRoutes({ cf, tf, cfRaw }: MUiBffRouteDep
         const permissionCheck = await requireExecuteSessionPermission(cf, token, commandId)
         if (permissionCheck instanceof Response) return permissionCheck
         return forwardCoreExecute(
-          cfRaw(`/api/v0/policy/approvals/${encodeURIComponent(approvalBody.approvalId)}/approve`, token, {
-            method: 'POST',
-            body: JSON.stringify(approvalBody.reason !== undefined ? { reason: approvalBody.reason } : {})
-          })
+          cfRaw(
+            `/api/v0/policy/approvals/${encodeURIComponent(approvalBody.approvalId)}/approve`,
+            token,
+            {
+              method: 'POST',
+              body: JSON.stringify(
+                approvalBody.reason !== undefined ? { reason: approvalBody.reason } : {}
+              )
+            }
+          )
         )
       }
 
@@ -115,10 +121,16 @@ export function createCommandWellExecuteRoutes({ cf, tf, cfRaw }: MUiBffRouteDep
         const permissionCheck = await requireExecuteSessionPermission(cf, token, commandId)
         if (permissionCheck instanceof Response) return permissionCheck
         return forwardCoreExecute(
-          cfRaw(`/api/v0/policy/approvals/${encodeURIComponent(approvalBody.approvalId)}/reject`, token, {
-            method: 'POST',
-            body: JSON.stringify(approvalBody.reason !== undefined ? { reason: approvalBody.reason } : {})
-          })
+          cfRaw(
+            `/api/v0/policy/approvals/${encodeURIComponent(approvalBody.approvalId)}/reject`,
+            token,
+            {
+              method: 'POST',
+              body: JSON.stringify(
+                approvalBody.reason !== undefined ? { reason: approvalBody.reason } : {}
+              )
+            }
+          )
         )
       }
 

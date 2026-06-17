@@ -1,4 +1,7 @@
-import { actorIds, permissions as permissionLiterals } from '../../../../packages/contracts/src/index.ts'
+import {
+  actorIds,
+  permissions as permissionLiterals
+} from '../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../core-error.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
 import { tracedEvent } from '../middleware/route-support.ts'
@@ -8,12 +11,7 @@ export async function readSession(deps: CoreDeps, headers: Record<string, string
   const auth = await requireActor(deps, headers)
   const permissions = await deps.auth.getPermissions(auth.actor)
   if (!permissions.ok) {
-    throw new CoreError(
-      503,
-      permissions.error.code,
-      permissions.error.message,
-      auth.correlationId
-    )
+    throw new CoreError(503, permissions.error.code, permissions.error.message, auth.correlationId)
   }
   return { actor: auth.actor, permissions: permissions.value }
 }
@@ -32,10 +30,7 @@ export async function requireCoreStatusRead(
   return auth
 }
 
-export async function readCoreReadiness(
-  deps: CoreDeps,
-  degradedEventOpen: { value: boolean }
-) {
+export async function readCoreReadiness(deps: CoreDeps, degradedEventOpen: { value: boolean }) {
   const dependencies = await deps.storage.readiness()
   const ready = Object.values(dependencies).every(dependency => dependency === 'ready')
   if (!ready && !degradedEventOpen.value) {

@@ -1,7 +1,4 @@
-import type {
-  ActorId,
-  Permission
-} from '../../../../packages/contracts/src/index.ts'
+import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
 import {
   COMMAND_PREVIEW_DEFINITIONS,
   DISPLAY_ONLY_COMMAND_IDS,
@@ -98,7 +95,9 @@ export function readLeafNodeIdBody(body: unknown): { leafNodeId: string } | null
   return leafNodeId ? { leafNodeId } : null
 }
 
-export function readApprovalBody(body: unknown): ApprovalPreviewBody & { reason?: string } | null {
+export function readApprovalBody(
+  body: unknown
+): (ApprovalPreviewBody & { reason?: string }) | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
   const approvalId = getStringField(objectBody, 'approvalId')

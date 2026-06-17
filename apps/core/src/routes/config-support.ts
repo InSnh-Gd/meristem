@@ -114,7 +114,10 @@ export async function readConfigDetail(
   deps: CoreDeps,
   input: { headers: Record<string, string | undefined>; id: string }
 ) {
-  const auth = await requireConfiguredPermission(deps, { headers: input.headers, action: 'config:read' })
+  const auth = await requireConfiguredPermission(deps, {
+    headers: input.headers,
+    action: 'config:read'
+  })
   const result = await deps.config.get(input.id)
   if (!result.ok) throwConfigError(result.error, auth.correlationId)
   const config = requireConfigRecord(result.value, { correlationId: auth.correlationId })
@@ -133,7 +136,10 @@ export async function createConfigDraft(
     targetScope?: string[]
   }
 ) {
-  const auth = await requireConfiguredPermission(deps, { headers: input.headers, action: 'config:draft' })
+  const auth = await requireConfiguredPermission(deps, {
+    headers: input.headers,
+    action: 'config:draft'
+  })
   if (containsPlaintextSecret(input.payload)) {
     throw new CoreError(
       400,
@@ -268,7 +274,9 @@ export async function runConfigMutation<T>(
     action: Permission
     resource: string
     auditPayload: Record<string, unknown>
-    run: (correlationId: string) => Promise<{ ok: true; value: T } | { ok: false; error: ServiceError }>
+    run: (
+      correlationId: string
+    ) => Promise<{ ok: true; value: T } | { ok: false; error: ServiceError }>
   }
 ): Promise<T> {
   const { auth, decision } = await requireConfigPolicy(deps, {

@@ -1044,7 +1044,9 @@ describe('M-UI BFF contract tests', () => {
 
         // Every outbound request must go to Core base URL only
         for (const req of requests) {
-          expect(req.url).toMatch(new RegExp(`^${CORE_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`))
+          expect(req.url).toMatch(
+            new RegExp(`^${CORE_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`)
+          )
           expect(req.url).not.toMatch(/\/internal\/v0\//)
           expect(req.url).not.toMatch(/m-policy/)
           expect(req.url).not.toMatch(/m-net/)
@@ -1193,8 +1195,8 @@ describe('M-UI BFF contract tests', () => {
           return delegatedFetch(input, init)
         }) as typeof globalThis.fetch
 
-      try {
-        const _res = await makeRequest(
+        try {
+          const _res = await makeRequest(
             app,
             `/api/v0/commands/${previewId}/execute`,
             'POST',

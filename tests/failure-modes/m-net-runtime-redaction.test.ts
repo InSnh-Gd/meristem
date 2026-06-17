@@ -21,9 +21,7 @@ import {
   MNetRuntimeConfigSchema,
   SecretRefFieldSchema
 } from '../../packages/contracts/src/schemas/runtime-config.ts'
-import {
-  ApprovalContextSchema
-} from '../../packages/contracts/src/schemas/approval-llm-context.ts'
+import { ApprovalContextSchema } from '../../packages/contracts/src/schemas/approval-llm-context.ts'
 
 // ── Sentinel helpers ────────────────────────────────────────────────────
 
@@ -47,7 +45,9 @@ const ALL_SENTINELS = [
 function assertNoSentinelLeak(...outputs: string[]): void {
   for (const output of outputs) {
     for (const sentinel of ALL_SENTINELS) {
-      expect(output, `Sentinel leak detected: "${sentinel.substring(0, 30)}..."`).not.toContain(sentinel)
+      expect(output, `Sentinel leak detected: "${sentinel.substring(0, 30)}..."`).not.toContain(
+        sentinel
+      )
     }
     // Also verify generic plaintext field names don't appear
     expect(output).not.toContain('"tlsCertificate"')
@@ -122,7 +122,9 @@ describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () =
     expect(decoded.udpPath).toBeDefined()
     expect(Object.keys(decoded.udpPath as Record<string, unknown>)).toEqual(['secretRefId'])
     expect(decoded.headscaleEndpoint).toBeDefined()
-    expect(Object.keys(decoded.headscaleEndpoint as Record<string, unknown>)).toEqual(['secretRefId'])
+    expect(Object.keys(decoded.headscaleEndpoint as Record<string, unknown>)).toEqual([
+      'secretRefId'
+    ])
     expect(decoded.routingTable).toBeDefined()
     expect(Object.keys(decoded.routingTable as Record<string, unknown>)).toEqual(['secretRefId'])
   })
@@ -249,10 +251,7 @@ describe('DFW-013 UI error envelope redaction', () => {
         apiKey: SENTINEL_HEADSCALE_KEY
       }
     }
-    const errorEnvelope = simulateUIErrorEnvelope(
-      input,
-      'Headscale endpoint configuration error'
-    )
+    const errorEnvelope = simulateUIErrorEnvelope(input, 'Headscale endpoint configuration error')
     assertNoSentinelLeak(errorEnvelope)
     // secretRefId must be present; apiKey must NOT be present
     expect(errorEnvelope).toContain('"secretRefId":"secret-headscale-001"')
@@ -473,7 +472,8 @@ describe('DFW-013 redaction boundary — secretRefId is the only surviving field
     for (const key of keys) {
       // Each field is an optional(SecretRefFieldSchema)
       // Verify no single primitive string/number fields for credentials
-      const fieldSchema = MNetRuntimeConfigSchema.fields[key as keyof typeof MNetRuntimeConfigSchema.fields]
+      const fieldSchema =
+        MNetRuntimeConfigSchema.fields[key as keyof typeof MNetRuntimeConfigSchema.fields]
       // The field should be an optional around a Struct, not a bare Schema.String
       expect(fieldSchema).toBeDefined()
     }
@@ -535,28 +535,34 @@ describe('DFW-013 zero-match canonical redaction assertion', () => {
     outputs.push(JSON.stringify(decoded))
 
     // 2. Simulated log entry
-    outputs.push(JSON.stringify({
-      level: 'info',
-      message: 'config applied',
-      configPayload: decoded,
-      timestamp: new Date().toISOString()
-    }))
+    outputs.push(
+      JSON.stringify({
+        level: 'info',
+        message: 'config applied',
+        configPayload: decoded,
+        timestamp: new Date().toISOString()
+      })
+    )
 
     // 3. Simulated UI error envelope
-    outputs.push(JSON.stringify({
-      error: {
-        code: 'runtime_config.validation_failed',
-        message: 'Plaintext secrets detected',
-        configSnapshot: decoded,
-        correlationId: 'corr-zero-match-001'
-      }
-    }))
+    outputs.push(
+      JSON.stringify({
+        error: {
+          code: 'runtime_config.validation_failed',
+          message: 'Plaintext secrets detected',
+          configSnapshot: decoded,
+          correlationId: 'corr-zero-match-001'
+        }
+      })
+    )
 
     // 4. Simulated projection payload
-    outputs.push(JSON.stringify({
-      _index: 'config-projections',
-      _source: { configPayload: decoded }
-    }))
+    outputs.push(
+      JSON.stringify({
+        _index: 'config-projections',
+        _source: { configPayload: decoded }
+      })
+    )
 
     // 5. Simulated LLM context with injected runtime config
     const approvalContext = {

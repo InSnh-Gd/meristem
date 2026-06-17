@@ -30,7 +30,8 @@ describe('HTTP approval/profile writers', () => {
 
   it('maps approval 404 to approval.not_found', async () => {
     const port = createHttpApprovalWriterPort({
-      fetcher: async () => new Response(JSON.stringify({ error: { code: 'approval.not_found' } }), { status: 404 })
+      fetcher: async () =>
+        new Response(JSON.stringify({ error: { code: 'approval.not_found' } }), { status: 404 })
     })
     const result = await port.reject('missing', {}, context)
     expect(result.ok).toBe(false)
@@ -39,7 +40,10 @@ describe('HTTP approval/profile writers', () => {
 
   it('maps non-404 error envelopes and invalid success payloads', async () => {
     const unavailable = createHttpApprovalWriterPort({
-      fetcher: async () => new Response(JSON.stringify({ error: { code: 'm-policy.unavailable', message: 'down' } }), { status: 503 })
+      fetcher: async () =>
+        new Response(JSON.stringify({ error: { code: 'm-policy.unavailable', message: 'down' } }), {
+          status: 503
+        })
     })
     const invalid = createHttpApprovalWriterPort({
       fetcher: async () => new Response(JSON.stringify({ ok: true }), { status: 200 })
@@ -57,7 +61,8 @@ describe('HTTP approval/profile writers', () => {
       fetcher: async () => new Response('not-json', { status: 503 })
     })
     const rejectSuccess = createHttpApprovalWriterPort({
-      fetcher: async () => new Response(JSON.stringify({ approval: { id: 'a2' }, votes: [] }), { status: 200 })
+      fetcher: async () =>
+        new Response(JSON.stringify({ approval: { id: 'a2' }, votes: [] }), { status: 200 })
     })
 
     const nonJsonResult = await nonJson.approve('a1', {}, context)
@@ -70,7 +75,11 @@ describe('HTTP approval/profile writers', () => {
 
   it('maps profile conflict, invalid success payload, and thrown transport failure', async () => {
     const conflict = createHttpNetworkProfileWriterPort({
-      fetcher: async () => new Response(JSON.stringify({ error: { code: 'profile.enable.invalid_state', message: 'bad state' } }), { status: 409 })
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({ error: { code: 'profile.enable.invalid_state', message: 'bad state' } }),
+          { status: 409 }
+        )
     })
     const invalid = createHttpNetworkProfileWriterPort({
       fetcher: async () => new Response(JSON.stringify({ ok: true }), { status: 200 })
@@ -81,9 +90,21 @@ describe('HTTP approval/profile writers', () => {
       }
     })
 
-    const conflictResult = await conflict.setProfile('net-1', { profileVersion: 'm-net-cn@0.1.0', reason: 'x' }, context)
-    const invalidResult = await invalid.setProfile('net-1', { profileVersion: 'm-net-cn@0.1.0', reason: 'x' }, context)
-    const unavailableResult = await unavailable.setProfile('net-1', { profileVersion: 'm-net-cn@0.1.0', reason: 'x' }, context)
+    const conflictResult = await conflict.setProfile(
+      'net-1',
+      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      context
+    )
+    const invalidResult = await invalid.setProfile(
+      'net-1',
+      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      context
+    )
+    const unavailableResult = await unavailable.setProfile(
+      'net-1',
+      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      context
+    )
 
     expect(conflictResult.ok).toBe(false)
     expect(invalidResult.ok).toBe(false)

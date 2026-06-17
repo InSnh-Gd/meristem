@@ -78,15 +78,9 @@ describe('DFW-001 no LLM provider leakage', () => {
 
   it('approval-llm-context schema contains no display/UI contract fields', () => {
     // The schema must remain internal-only — no display contracts
-    expect(
-      ApprovalContextSchema.ast
-    ).not.toHaveProperty('displayTitle')
-    expect(
-      ApprovalContextSchema.ast
-    ).not.toHaveProperty('displayDescription')
-    expect(
-      ApprovalContextSchema.ast
-    ).not.toHaveProperty('uiHint')
+    expect(ApprovalContextSchema.ast).not.toHaveProperty('displayTitle')
+    expect(ApprovalContextSchema.ast).not.toHaveProperty('displayDescription')
+    expect(ApprovalContextSchema.ast).not.toHaveProperty('uiHint')
   })
 })
 
@@ -150,7 +144,10 @@ describe('DFW-001 redaction — no raw secrets in schema surface', () => {
   it('ApprovalContextSchema has no optional unbounded catch-all', () => {
     // Schema.Struct uses exact object encoding — extra fields means decode
     // failure unless the schema has a rest field. Verify none exists.
-    const ast = ApprovalContextSchema.ast as { propertySignatures?: Record<string, unknown>; indexSignature?: unknown }
+    const ast = ApprovalContextSchema.ast as {
+      propertySignatures?: Record<string, unknown>
+      indexSignature?: unknown
+    }
     expect(ast.indexSignature).toBeUndefined()
   })
 })
@@ -285,9 +282,7 @@ describe('DFW-001 complete error code coverage', () => {
       'approval_context.partial'
     ]
     for (const code of invalidCodes) {
-      expect(() =>
-        Schema.decodeUnknownSync(ApprovalContextErrorCodeSchema)(code)
-      ).toThrow()
+      expect(() => Schema.decodeUnknownSync(ApprovalContextErrorCodeSchema)(code)).toThrow()
     }
   })
 

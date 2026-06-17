@@ -20,12 +20,12 @@ const FORBIDDEN_PATTERNS = [
   { pattern: /\btoast\b/i, reason: 'toast/snackbar libraries prohibited' },
   { pattern: /\bsnackbar\b/i, reason: 'snackbar patterns prohibited' },
   { pattern: /svelte-french-toast/, reason: 'svelte-french-toast library prohibited' },
-  { pattern: /svelte-toast/, reason: 'svelte-toast library prohibited' },
+  { pattern: /svelte-toast/, reason: 'svelte-toast library prohibited' }
 ]
 const _REQUIRED_CHINESE_LABELS = [
   { label: '确认执行', files: ['lib/components/CommandWell.svelte'] },
   { label: '操作成功', files: ['lib/components/CommandWell.svelte'] },
-  { label: '操作失败', files: ['lib/components/CommandWell.svelte'] },
+  { label: '操作失败', files: ['lib/components/CommandWell.svelte'] }
 ]
 
 type Violation = { filePath: string; line: number; reason: string; snippet: string }

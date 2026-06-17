@@ -45,9 +45,7 @@ describe('SecretRefFieldSchema decode', () => {
   })
 
   it('rejects missing secretRefId', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(SecretRefFieldSchema)({})
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(SecretRefFieldSchema)({})).toThrow()
   })
 
   it('rejects secretRefId as number', () => {
@@ -88,9 +86,7 @@ describe('SecretRefFieldSchema decode', () => {
 
 describe('MNetRuntimeConfigSchema decode', () => {
   it('decodes valid runtime config with all secretRef fields', () => {
-    const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(
-      makeValidRuntimeConfig()
-    )
+    const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(makeValidRuntimeConfig())
     expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-001')
     expect(decoded.tcpInterconnect?.secretRefId).toBe('secret-tcp-001')
     expect(decoded.udpPath?.secretRefId).toBe('secret-udp-001')
@@ -256,14 +252,8 @@ describe('MNetRuntimeConfigSchema surface verification', () => {
   })
 
   it('MNetRuntimeConfigSchema does not accept null / non-object payloads', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(null)
-    ).toThrow()
-    expect(() =>
-      Schema.decodeUnknownSync(MNetRuntimeConfigSchema)('not an object')
-    ).toThrow()
-    expect(() =>
-      Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(42)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(null)).toThrow()
+    expect(() => Schema.decodeUnknownSync(MNetRuntimeConfigSchema)('not an object')).toThrow()
+    expect(() => Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(42)).toThrow()
   })
 })

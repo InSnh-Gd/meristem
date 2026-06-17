@@ -19,9 +19,7 @@ export function bearerTokenFromHeaders(headers: Record<string, string | undefine
 }
 
 /** 需要鉴权的 BFF 路由统一在入口处取 Bearer token；缺失时立即返回固定错误契约。 */
-export function requireBearerToken(
-  headers: Record<string, string | undefined>
-): string | Response {
+export function requireBearerToken(headers: Record<string, string | undefined>): string | Response {
   const token = bearerTokenFromHeaders(headers)
   return token ?? bffError(401, 'auth.missing_token', 'Bearer token is required')
 }

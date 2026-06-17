@@ -5,7 +5,6 @@ import {
   DEFAULT_PROFILE_VERSION,
   type BreakGlassBody,
   type BreakGlassDeps,
-  type KnownNetworkState,
   isProfileWorkflowFailure,
   profileWorkflowFailure,
   type ProfileWorkflowFailure,
@@ -18,11 +17,21 @@ import {
 export function requireBreakGlassDeps(
   deps: Pick<
     MNetAppDeps,
-    'profileStore' | 'policyAuthorize' | 'profileDisablePolicy' | 'policyHealthCheck' | 'events' | 'log' | 'networkUpdater'
+    | 'profileStore'
+    | 'policyAuthorize'
+    | 'profileDisablePolicy'
+    | 'policyHealthCheck'
+    | 'events'
+    | 'log'
+    | 'networkUpdater'
   >
 ): BreakGlassDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.policyAuthorize || !deps.profileDisablePolicy) {
-    return profileWorkflowFailure(503, 'feature.unavailable', 'break-glass features are not available')
+    return profileWorkflowFailure(
+      503,
+      'feature.unavailable',
+      'break-glass features are not available'
+    )
   }
   return {
     profileStore: deps.profileStore,
@@ -57,18 +66,30 @@ export async function executeBreakGlassDisable(
       undefined,
       { reason: 'actor is not security-admin' }
     )
-    return profileWorkflowFailure(403, 'break-glass.forbidden', 'only security-admin may use break-glass disable')
+    return profileWorkflowFailure(
+      403,
+      'break-glass.forbidden',
+      'only security-admin may use break-glass disable'
+    )
   }
 
   const rawState = await deps.profileStore.getNetworkState(input.networkId)
   if (!rawState) return profileWorkflowFailure(404, 'network.not_found', 'network not found')
   const state = toKnownState(rawState)
   if (!state) {
-    return profileWorkflowFailure(503, 'profile.state_invalid', `unknown profile state ${rawState.status}`)
+    return profileWorkflowFailure(
+      503,
+      'profile.state_invalid',
+      `unknown profile state ${rawState.status}`
+    )
   }
 
   if (!canDisable(state.status)) {
-    return profileWorkflowFailure(409, 'break-glass.invalid_state', `cannot break-glass disable from ${state.status}`)
+    return profileWorkflowFailure(
+      409,
+      'break-glass.invalid_state',
+      `cannot break-glass disable from ${state.status}`
+    )
   }
 
   let approvalDegraded = false
@@ -83,7 +104,11 @@ export async function executeBreakGlassDisable(
 
   const emergencyReason = input.body.emergencyReason.trim()
   if (!emergencyReason && !approvalDegraded) {
-    return profileWorkflowFailure(400, 'reason.missing', 'emergency reason is required when approval is healthy')
+    return profileWorkflowFailure(
+      400,
+      'reason.missing',
+      'emergency reason is required when approval is healthy'
+    )
   }
 
   const breakGlassCorrelationId = correlationId()
@@ -98,12 +123,20 @@ export async function executeBreakGlassDisable(
       `network:${input.networkId}`
     )
     if (disablePolicyResult.result === 'deny') {
-      return profileWorkflowFailure(403, 'policy.denied', `profile disable denied: ${disablePolicyResult.reasons.join(', ')}`)
+      return profileWorkflowFailure(
+        403,
+        'policy.denied',
+        `profile disable denied: ${disablePolicyResult.reasons.join(', ')}`
+      )
     }
     policyDecisionId = disablePolicyResult.id
   } catch {
     if (!approvalDegraded) {
-      return profileWorkflowFailure(503, 'policy.unavailable', 'policy service is not available and no approval degradation detected')
+      return profileWorkflowFailure(
+        503,
+        'policy.unavailable',
+        'policy service is not available and no approval degradation detected'
+      )
     }
   }
 

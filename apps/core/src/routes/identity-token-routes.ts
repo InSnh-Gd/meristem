@@ -15,7 +15,7 @@ import {
   introspectIdentityTokenInternal,
   issueIdentityToken,
   inspectIdentityToken,
-  revokeIdentityToken,
+  revokeIdentityToken
 } from './identity-support.ts'
 
 /**

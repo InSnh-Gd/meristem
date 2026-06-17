@@ -15,7 +15,8 @@ export const createSecretReferenceRoutes = (deps: CoreDeps) =>
     // 内部 reference 路由只返回 metadata 与当前版本号，通过 shared internal token 认证服务间调用。
     .post(
       '/:id/reference',
-      async ({ params, headers: _headers, request }) => resolveInternalSecretReference(deps, { id: params.id, request }),
+      async ({ params, headers: _headers, request }) =>
+        resolveInternalSecretReference(deps, { id: params.id, request }),
       {
         params: secretParamsSchema,
         response: {

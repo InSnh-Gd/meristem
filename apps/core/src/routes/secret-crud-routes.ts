@@ -18,7 +18,7 @@ import {
   requireSecretRecord,
   requireSecretPermission,
   runSecretMutation,
-  unwrapSecretResult,
+  unwrapSecretResult
 } from './secrets-support.ts'
 
 /**

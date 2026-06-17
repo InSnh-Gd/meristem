@@ -73,7 +73,10 @@ export function networksRoutes(deps: CoreDeps) {
       '/api/v0/networks',
       async ({ headers, status: _status }) => {
         const auth = await requireNetworkReadAccess(deps, headers, 'networks')
-        const networks = await unwrapNetworkResult(await deps.mNet.listNetworks(), auth.correlationId)
+        const networks = await unwrapNetworkResult(
+          await deps.mNet.listNetworks(),
+          auth.correlationId
+        )
         return { networks }
       },
       {

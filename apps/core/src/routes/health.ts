@@ -36,20 +36,16 @@ export function healthRoutes(deps: CoreDeps, degradedEventOpen: { value: boolean
         }
       )
       // 会话端点供 UI 和 BFF 在不触发授权的情况下读取当前操作者身份和权限列表。
-      .get(
-        '/api/v0/session',
-        async ({ headers, status: _status }) => readSession(deps, headers),
-        {
-          response: {
-            200: t.Object({
-              actor: t.UnionEnum(sessionActorIds),
-              permissions: t.Array(t.UnionEnum(sessionPermissions))
-            }),
-            401: apiErrorSchema
-          },
-          detail: protectedRouteDetail('Read current session identity and permissions')
-        }
-      )
+      .get('/api/v0/session', async ({ headers, status: _status }) => readSession(deps, headers), {
+        response: {
+          200: t.Object({
+            actor: t.UnionEnum(sessionActorIds),
+            permissions: t.Array(t.UnionEnum(sessionPermissions))
+          }),
+          401: apiErrorSchema
+        },
+        detail: protectedRouteDetail('Read current session identity and permissions')
+      })
       .get(
         '/api/v0/ready',
         async ({ headers }) =>

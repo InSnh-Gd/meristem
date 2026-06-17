@@ -5,7 +5,7 @@ import {
   optionalCursorPayload,
   runProjectionControl,
   runProjectionRead,
-  toBackfillParams,
+  toBackfillParams
 } from './projection-support.ts'
 
 /**

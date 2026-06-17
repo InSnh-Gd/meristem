@@ -93,7 +93,8 @@ async function serviceFetch(
 export function createMUiBffRouteDeps(deps: MUiBffDeps): MUiBffRouteDeps {
   return {
     cf: (path, token, init) => serviceFetch(deps.coreBaseUrl, path, token, init),
-    tf: (path, token, init) => serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init),
+    tf: (path, token, init) =>
+      serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init),
     cfRaw: (path, token, init) => serviceFetchRaw(deps.coreBaseUrl, path, token, init)
   }
 }

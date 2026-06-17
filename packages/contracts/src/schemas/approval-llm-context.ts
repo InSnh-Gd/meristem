@@ -1,6 +1,10 @@
 import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
-import { ApprovalOriginServiceSchema, ApprovalStatusSchema, RequiredActionSchema } from './policy.ts'
+import {
+  ApprovalOriginServiceSchema,
+  ApprovalStatusSchema,
+  RequiredActionSchema
+} from './policy.ts'
 
 /**
  * DFW-001: Internal-only bounded/redacted approval context contract for
@@ -65,13 +69,7 @@ export type ApprovalContextDecisionRefFromSchema = typeof ApprovalContextDecisio
 export const ApprovalContextOperationRefSchema = Schema.Struct({
   operationId: Schema.String,
   action: Schema.String.pipe(Schema.maxLength(64)),
-  status: Schema.Literal(
-    'suspended',
-    'resumed',
-    'rejected',
-    'expired',
-    'resume_failed'
-  )
+  status: Schema.Literal('suspended', 'resumed', 'rejected', 'expired', 'resume_failed')
 })
 export type ApprovalContextOperationRefFromSchema = typeof ApprovalContextOperationRefSchema.Type
 

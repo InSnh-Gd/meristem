@@ -81,9 +81,7 @@ function makeValidContext(overrides?: Record<string, unknown>) {
 
 describe('ApprovalContextSchema bounded context decode', () => {
   it('decodes valid bounded context with all five required sections', () => {
-    const decoded = Schema.decodeUnknownSync(ApprovalContextSchema)(
-      makeValidContext()
-    )
+    const decoded = Schema.decodeUnknownSync(ApprovalContextSchema)(makeValidContext())
     expect(decoded.approval.id).toBe('approval-test-001')
     expect(decoded.approval.status).toBe('pending')
     expect(decoded.votes).toHaveLength(1)
@@ -213,17 +211,13 @@ describe('ApprovalContextSchema invalid payload decode', () => {
   it('rejects missing approval section', () => {
     const invalid = makeValidContext()
     delete (invalid as Record<string, unknown>).approval
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects missing policyDecision section', () => {
     const invalid = makeValidContext()
     delete (invalid as Record<string, unknown>).policyDecision
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects invalid approval status', () => {
@@ -232,9 +226,7 @@ describe('ApprovalContextSchema invalid payload decode', () => {
       ...makeValidContext().approval,
       status: 'in_progress'
     }
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects invalid vote value', () => {
@@ -246,9 +238,7 @@ describe('ApprovalContextSchema invalid payload decode', () => {
         createdAt: '2026-06-15T12:00:00.000Z'
       }
     ]
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects invalid policy decision result', () => {
@@ -257,9 +247,7 @@ describe('ApprovalContextSchema invalid payload decode', () => {
       ...makeValidContext().policyDecision,
       result: 'maybe'
     }
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects invalid operation status', () => {
@@ -271,27 +259,19 @@ describe('ApprovalContextSchema invalid payload decode', () => {
         status: 'running'
       }
     ]
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects empty object', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)({})
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)({})).toThrow()
   })
 
   it('rejects null', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(null)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(null)).toThrow()
   })
 
   it('rejects non-object primitive', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)('not an object')
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)('not an object')).toThrow()
   })
 })
 
@@ -327,9 +307,7 @@ describe('ApprovalContextErrorSchema and error codes', () => {
 
   it('decodes error code literal directly', () => {
     expect(
-      Schema.decodeUnknownSync(ApprovalContextErrorCodeSchema)(
-        'approval_context.not_found'
-      )
+      Schema.decodeUnknownSync(ApprovalContextErrorCodeSchema)('approval_context.not_found')
     ).toBe('approval_context.not_found')
   })
 
@@ -435,9 +413,7 @@ describe('ApprovalContextSchema structural invalidity', () => {
       ...makeValidContext().approval,
       quorumRequired: 'two'
     }
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects vote entry with unknown actor', () => {
@@ -449,9 +425,7 @@ describe('ApprovalContextSchema structural invalidity', () => {
         createdAt: '2026-06-15T12:00:00.000Z'
       }
     ] as typeof invalid.votes
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 
   it('rejects log ref with unknown source', () => {
@@ -463,8 +437,6 @@ describe('ApprovalContextSchema structural invalidity', () => {
         truncated: false
       }
     ]
-    expect(() =>
-      Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(ApprovalContextSchema)(invalid)).toThrow()
   })
 })

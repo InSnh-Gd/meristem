@@ -22,7 +22,11 @@ export function createApprovalRoutes(deps: MTaskDeps) {
         const route = requireApprovalRouteContext(deps, headers)
         if (isApprovalRouteFailure(route)) return status(route.status, route.body)
 
-        const suspendedOp = await loadSuspendedOperation(route.suspendedOps, params.id, route.correlationId)
+        const suspendedOp = await loadSuspendedOperation(
+          route.suspendedOps,
+          params.id,
+          route.correlationId
+        )
         if (isApprovalRouteFailure(suspendedOp)) return status(suspendedOp.status, suspendedOp.body)
 
         const suspendedCheck = await ensureSuspendedForAction(deps, {
@@ -60,7 +64,11 @@ export function createApprovalRoutes(deps: MTaskDeps) {
         const route = requireApprovalRouteContext(deps, headers)
         if (isApprovalRouteFailure(route)) return status(route.status, route.body)
 
-        const suspendedOp = await loadSuspendedOperation(route.suspendedOps, params.id, route.correlationId)
+        const suspendedOp = await loadSuspendedOperation(
+          route.suspendedOps,
+          params.id,
+          route.correlationId
+        )
         if (isApprovalRouteFailure(suspendedOp)) return status(suspendedOp.status, suspendedOp.body)
 
         const suspendedCheck = await ensureSuspendedForAction(deps, {

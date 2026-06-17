@@ -1,10 +1,6 @@
 import { extractBearerToken, verifyLocalToken } from '../../../packages/auth/src/index.ts'
 import { extensionPermission, type Permission } from '../../../packages/contracts/src/literals.ts'
-import type {
-  DisableExtensionRequest,
-  EnableExtensionRequest,
-  MExtensionLifecyclePayload
-} from '../../../packages/contracts/src/types/extension.ts'
+import type { MExtensionLifecyclePayload } from '../../../packages/contracts/src/types/extension.ts'
 import {
   mExtensionEventSubjects,
   mExtensionEventTypes,

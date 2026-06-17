@@ -44,9 +44,7 @@ const CANNED_VOTE = {
  * 默认行为：所有调用成功（便于愉快路径测试）。
  * 通过 WriterMockOptions 控制错误、404 等场景。
  */
-export function createApprovalWriterPort(
-  opts: WriterMockOptions = {}
-): ApprovalWriterPort {
+export function createApprovalWriterPort(opts: WriterMockOptions = {}): ApprovalWriterPort {
   return {
     async approve(id, _body, context) {
       if (opts.forceError) return err(opts.forceError)

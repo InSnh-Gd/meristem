@@ -75,7 +75,9 @@ export function createGlobalDefaultsRoutes(
 
           // 幂等性检查
           const existingResult =
-            await defaultsDeps.globalDefaultsStore.getDefaultSetResultByIdempotencyKey(idempotencyKey)
+            await defaultsDeps.globalDefaultsStore.getDefaultSetResultByIdempotencyKey(
+              idempotencyKey
+            )
           if (existingResult) {
             return existingResult
           }
@@ -118,7 +120,10 @@ export function createGlobalDefaultsRoutes(
           }
 
           // 记录幂等
-          await defaultsDeps.globalDefaultsStore.recordDefaultSetResult(idempotencyKey, responseBody)
+          await defaultsDeps.globalDefaultsStore.recordDefaultSetResult(
+            idempotencyKey,
+            responseBody
+          )
 
           await deps.log?.writeTimeline(
             `global default profile set to ${profileVersion}`,
@@ -262,9 +267,7 @@ export function createGlobalDefaultsRoutes(
             operationId: result.operationId,
             batchId: result.batchId,
             results: result.results,
-            globalSwitchState: result.isComplete
-              ? ('applied' as const)
-              : ('applying' as const)
+            globalSwitchState: result.isComplete ? ('applied' as const) : ('applying' as const)
           }
         },
         {
@@ -313,9 +316,7 @@ export function createGlobalDefaultsRoutes(
           return {
             operationId: result.operationId,
             nextBatchId: result.nextBatchId,
-            globalSwitchState: result.isComplete
-              ? ('applied' as const)
-              : ('applying' as const),
+            globalSwitchState: result.isComplete ? ('applied' as const) : ('applying' as const),
             remainingBatches: result.remainingBatches
           }
         },

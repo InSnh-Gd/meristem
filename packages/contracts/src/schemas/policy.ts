@@ -153,7 +153,8 @@ export const PolicyApprovalVoteEventPayloadSchema = Schema.Struct({
   reason: Schema.optional(Schema.String),
   timestamp: Schema.String
 })
-export type PolicyApprovalVoteEventPayloadFromSchema = typeof PolicyApprovalVoteEventPayloadSchema.Type
+export type PolicyApprovalVoteEventPayloadFromSchema =
+  typeof PolicyApprovalVoteEventPayloadSchema.Type
 
 export const PolicyDecisionCreatedPayloadSchema = Schema.Struct({
   decisionId: Schema.String,

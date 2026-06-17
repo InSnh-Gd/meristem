@@ -3,7 +3,7 @@ import { canDisable, canRequestEnable } from './profile-state-machine.ts'
 import {
   CHINA_PROFILE_VERSION,
   correlationId,
-  DEFAULT_PROFILE_VERSION,
+  type DEFAULT_PROFILE_VERSION,
   expiresAtFromNow,
   isProfileWorkflowFailure,
   type KnownNetworkState,
@@ -191,7 +191,11 @@ async function requestEnableProfile(
   }
 ) {
   if (!canRequestEnable(input.state.status)) {
-    return profileWorkflowFailure(409, 'profile.enable.invalid_state', `cannot enable from ${input.state.status}`)
+    return profileWorkflowFailure(
+      409,
+      'profile.enable.invalid_state',
+      `cannot enable from ${input.state.status}`
+    )
   }
 
   const policyResult = await deps.policyAuthorize.authorize(
@@ -200,7 +204,11 @@ async function requestEnableProfile(
     `network:${input.networkId}`
   )
   if (policyResult.result === 'deny') {
-    return profileWorkflowFailure(403, 'policy.denied', `profile enable denied: ${policyResult.reasons.join(', ')}`)
+    return profileWorkflowFailure(
+      403,
+      'policy.denied',
+      `profile enable denied: ${policyResult.reasons.join(', ')}`
+    )
   }
 
   const pending = await createPendingApprovalFlow(deps, {
@@ -239,7 +247,11 @@ async function requestDisableWithApproval(
     `network:${input.networkId}`
   )
   if (policyResult.result === 'deny') {
-    return profileWorkflowFailure(403, 'policy.denied', `profile disable denied: ${policyResult.reasons.join(', ')}`)
+    return profileWorkflowFailure(
+      403,
+      'policy.denied',
+      `profile disable denied: ${policyResult.reasons.join(', ')}`
+    )
   }
 
   const pending = await createPendingApprovalFlow(deps, {
@@ -278,7 +290,11 @@ async function disableImmediately(
     `network:${input.networkId}`
   )
   if (disableResult.result !== 'allow') {
-    return profileWorkflowFailure(403, 'policy.denied', `profile disable denied: ${disableResult.reasons.join(', ')}`)
+    return profileWorkflowFailure(
+      403,
+      'policy.denied',
+      `profile disable denied: ${disableResult.reasons.join(', ')}`
+    )
   }
 
   const disableCorrelationId = correlationId()
@@ -380,7 +396,11 @@ export async function requestNetworkProfileChange(
   if (!rawState) return profileWorkflowFailure(404, 'network.not_found', 'network not found')
   const state = toKnownState(rawState)
   if (!state) {
-    return profileWorkflowFailure(503, 'profile.state_invalid', `unknown profile state ${rawState.status}`)
+    return profileWorkflowFailure(
+      503,
+      'profile.state_invalid',
+      `unknown profile state ${rawState.status}`
+    )
   }
 
   if (input.body.profileVersion === CHINA_PROFILE_VERSION) {
@@ -394,11 +414,19 @@ export async function requestNetworkProfileChange(
   }
 
   if (state.profileVersion === input.body.profileVersion && state.status === 'disabled') {
-    return profileWorkflowFailure(409, 'profile.not_enabled', 'network is already using default profile in disabled state')
+    return profileWorkflowFailure(
+      409,
+      'profile.not_enabled',
+      'network is already using default profile in disabled state'
+    )
   }
 
   if (!canDisable(state.status)) {
-    return profileWorkflowFailure(409, 'profile.disable.invalid_state', `cannot disable from ${state.status}`)
+    return profileWorkflowFailure(
+      409,
+      'profile.disable.invalid_state',
+      `cannot disable from ${state.status}`
+    )
   }
 
   const disablePolicy = deps.profileDisablePolicy

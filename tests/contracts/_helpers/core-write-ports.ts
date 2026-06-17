@@ -45,7 +45,10 @@ export type MockResponse = {
 
 // ---- Mock writer port wrappers (add call tracking to testing adapters) ----
 
-function createTrackedApprovalWriter(calls: TrackedCall[], opts: WriterMockOptions = {}): ApprovalWriterPort {
+function createTrackedApprovalWriter(
+  calls: TrackedCall[],
+  opts: WriterMockOptions = {}
+): ApprovalWriterPort {
   const inner = createApprovalWriterPort(opts)
   return {
     async approve(id, body, context) {
@@ -71,7 +74,10 @@ function createTrackedApprovalWriter(calls: TrackedCall[], opts: WriterMockOptio
   }
 }
 
-function createTrackedNetworkProfileWriter(calls: TrackedCall[], opts: WriterMockOptions = {}): NetworkProfileWriterPort {
+function createTrackedNetworkProfileWriter(
+  calls: TrackedCall[],
+  opts: WriterMockOptions = {}
+): NetworkProfileWriterPort {
   const inner = createNetworkProfileWriterPort(opts)
   return {
     async setProfile(networkId, body, context) {

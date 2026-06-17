@@ -16,7 +16,14 @@ import {
 /** GET /api/v0/networks/profile-defaults 响应 */
 const ProfileDefaultsResponseSchema = Schema.Struct({
   defaultProfileVersion: Schema.String,
-  globalSwitchState: Schema.Literal('idle', 'planned', 'applying', 'applied', 'rolled_back', 'failed'),
+  globalSwitchState: Schema.Literal(
+    'idle',
+    'planned',
+    'applying',
+    'applied',
+    'rolled_back',
+    'failed'
+  ),
   updatedAt: Schema.String,
   switchOperationId: Schema.optional(Schema.String)
 })
@@ -44,10 +51,12 @@ const MigrationResultSchema = Schema.Struct({
 const PlanSwitchResponseSchema = Schema.Struct({
   operationId: Schema.String,
   candidateCount: Schema.Number,
-  batches: Schema.Array(Schema.Struct({
-    batchId: Schema.Number,
-    networkIds: Schema.Array(Schema.String)
-  })),
+  batches: Schema.Array(
+    Schema.Struct({
+      batchId: Schema.Number,
+      networkIds: Schema.Array(Schema.String)
+    })
+  ),
   globalSwitchState: Schema.Literal('planned')
 })
 

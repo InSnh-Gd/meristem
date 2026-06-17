@@ -30,8 +30,12 @@ export async function startMNetService(): Promise<void> {
   // Policy health check: probes M-Policy /health endpoint
   async function checkPolicyHealth(): Promise<{ healthy: boolean }> {
     try {
-      const fetcher = (globalThis as unknown as { __mnet_internal_fetcher?: typeof fetch }).__mnet_internal_fetcher ?? fetch
-      const response = await fetcher(`${process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:5101'}/health`)
+      const fetcher =
+        (globalThis as unknown as { __mnet_internal_fetcher?: typeof fetch })
+          .__mnet_internal_fetcher ?? fetch
+      const response = await fetcher(
+        `${process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:5101'}/health`
+      )
       return { healthy: response.ok }
     } catch {
       return { healthy: false }

@@ -66,18 +66,23 @@ export function secretClient(methods: SecretCliMethods): CliClient {
       ? {
           get: async (id: string) => {
             const { secretRef } = await methods.getSecret!(id)
-            return { ...secretRef, updatedAt: secretRef.rotatedAt ?? secretRef.disabledAt ?? secretRef.createdAt }
+            return {
+              ...secretRef,
+              updatedAt: secretRef.rotatedAt ?? secretRef.disabledAt ?? secretRef.createdAt
+            }
           }
         }
       : {}),
     ...(methods.createSecret
       ? {
           create: async (input: { name: string; scope: string; value: string }) => {
-            const { secretRef } = await methods.createSecret!(input as {
-              name: string
-              scope: 'system' | 'service' | 'node'
-              value: string
-            })
+            const { secretRef } = await methods.createSecret!(
+              input as {
+                name: string
+                scope: 'system' | 'service' | 'node'
+                value: string
+              }
+            )
             return { ...secretRef }
           }
         }
@@ -86,7 +91,11 @@ export function secretClient(methods: SecretCliMethods): CliClient {
       ? {
           rotate: async (secretId: string, input: { value: string; reason: string }) => {
             const result = await methods.rotateSecret!(secretId, input)
-            return { ...result.secretRef, version: String(result.version), rotatedAt: result.secretRef.rotatedAt ?? result.secretRef.createdAt }
+            return {
+              ...result.secretRef,
+              version: String(result.version),
+              rotatedAt: result.secretRef.rotatedAt ?? result.secretRef.createdAt
+            }
           }
         }
       : {}),

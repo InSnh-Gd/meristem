@@ -39,7 +39,9 @@ describe('Approval profile projections — schema contract', () => {
 
   it('ProjectionSourceTypeSchema only allows valid source types', () => {
     expect(Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('nats_event')).toBe('nats_event')
-    expect(Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('postgres_cdc')).toBe('postgres_cdc')
+    expect(Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('postgres_cdc')).toBe(
+      'postgres_cdc'
+    )
     expect(Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('rest_api')).toBe('rest_api')
     expect(Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('backfill')).toBe('backfill')
     expect(() => Schema.decodeUnknownSync(ProjectionSourceTypeSchema)('direct_db')).toThrow()

@@ -1,11 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { apiErrorSchema, protectedResponse, protectedRouteDetail } from '../schemas.ts'
 import type { CoreDeps } from '../types.ts'
-import {
-  facadeFeatureUnavailable,
-  runFacadeRead,
-  runFacadeWrite
-} from './facade-support.ts'
+import { facadeFeatureUnavailable, runFacadeRead, runFacadeWrite } from './facade-support.ts'
 
 /**
  * Core 公开 facade：全局默认 Profile 读写与批量迁移。

@@ -6,8 +6,14 @@ import { createInMemoryProfileStore } from '../../services/m-net/src/profile-sto
 describe('migration engine branch coverage', () => {
   it('marks missing networks as skipped and store failures as failed', async () => {
     const profileStore = createInMemoryProfileStore()
-    await profileStore.setNetworkState('net-ok', { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
-    await profileStore.setNetworkState('net-fail', { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
+    await profileStore.setNetworkState('net-ok', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
+    await profileStore.setNetworkState('net-fail', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
 
     const originalSet = profileStore.setNetworkState.bind(profileStore)
     profileStore.setNetworkState = async (networkId, state) => {

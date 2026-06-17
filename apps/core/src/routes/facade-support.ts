@@ -1,5 +1,5 @@
 import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
-import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
+import type { Permission } from '../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../core-error.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
 import { statusCodeForServiceError } from '../middleware/route-support.ts'
@@ -7,9 +7,7 @@ import type { CoreDeps } from '../types.ts'
 
 type ServiceErrorLike = { code: string; message: string }
 
-export type FacadeServiceResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: ServiceErrorLike }
+export type FacadeServiceResult<T> = { ok: true; value: T } | { ok: false; error: ServiceErrorLike }
 
 export type FacadeAuth = Awaited<ReturnType<typeof requireActor>>
 export type FacadeWriterContext = ReturnType<typeof facadeContext>
@@ -60,7 +58,10 @@ export async function runFacadeMaybeRead<T>(
     resource: input.resource
   })
   return {
-    value: unwrapFacadeResult(await input.run(auth, facadeContext(auth, input.headers)), auth.correlationId),
+    value: unwrapFacadeResult(
+      await input.run(auth, facadeContext(auth, input.headers)),
+      auth.correlationId
+    ),
     correlationId: auth.correlationId
   }
 }
@@ -132,10 +133,7 @@ export async function requireFacadeAccess(
 }
 
 /** 下游 facade 端口统一复用 Core service-error → HTTP status 映射，避免每条路由重复 switch。 */
-export function unwrapFacadeResult<T>(
-  result: FacadeServiceResult<T>,
-  correlationId: string
-): T {
+export function unwrapFacadeResult<T>(result: FacadeServiceResult<T>, correlationId: string): T {
   if (!result.ok) {
     throw new CoreError(
       statusCodeForServiceError(result.error.code),
@@ -147,10 +145,6 @@ export function unwrapFacadeResult<T>(
   return result.value
 }
 
-export function missingFacadeResource(
-  correlationId: string,
-  code: string,
-  message: string
-): never {
+export function missingFacadeResource(correlationId: string, code: string, message: string): never {
   throw new CoreError(404, code, message, correlationId)
 }

@@ -34,13 +34,15 @@ export function toOverviewService(service: {
     readonly rollbackable: boolean
     readonly degradable: boolean
   }
-  readonly runtime?: {
-    readonly liveness: boolean
-    readonly readiness: boolean
-    readonly mode: string
-    readonly lastError?: string | undefined
-    readonly lastReloadedAt?: string | undefined
-  } | undefined
+  readonly runtime?:
+    | {
+        readonly liveness: boolean
+        readonly readiness: boolean
+        readonly mode: string
+        readonly lastError?: string | undefined
+        readonly lastReloadedAt?: string | undefined
+      }
+    | undefined
 }) {
   return {
     id: service.id,

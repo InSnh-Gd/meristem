@@ -1,7 +1,10 @@
 import type { MNetAppDeps } from './deps.ts'
 import { canResume, type ProfileState } from './profile-state-machine.ts'
 
-type FeatureDeps = Pick<MNetAppDeps, 'profileStore' | 'suspendedOps' | 'networkUpdater' | 'events' | 'log'> & {
+type FeatureDeps = Pick<
+  MNetAppDeps,
+  'profileStore' | 'suspendedOps' | 'networkUpdater' | 'events' | 'log'
+> & {
   profileStore: NonNullable<MNetAppDeps['profileStore']>
   suspendedOps: NonNullable<MNetAppDeps['suspendedOps']>
 }

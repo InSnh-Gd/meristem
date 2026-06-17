@@ -27,7 +27,12 @@ export async function readPolicyDecisionOrThrow(
     throw new CoreError(503, decision.error.code, decision.error.message, correlationId)
   }
   if (!decision.value) {
-    throw new CoreError(404, 'policy_decision.not_found', 'policy decision not found', correlationId)
+    throw new CoreError(
+      404,
+      'policy_decision.not_found',
+      'policy decision not found',
+      correlationId
+    )
   }
   return decision.value
 }

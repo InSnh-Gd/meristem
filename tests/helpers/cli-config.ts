@@ -70,10 +70,12 @@ export function configClient(configMethods: ConfigCliMethods): CliClient {
     ...(configMethods.draft
       ? {
           draft: async (input: { domain: string; payload: unknown; targetScope?: string[] }) => {
-            const config = await configMethods.draft!(input as {
-              domain: string
-              payload: Record<string, unknown>
-            })
+            const config = await configMethods.draft!(
+              input as {
+                domain: string
+                payload: Record<string, unknown>
+              }
+            )
             return { ...config }
           }
         }

@@ -21,10 +21,7 @@ import { describe, expect, it } from 'bun:test'
 import type { ActorId } from '../../packages/contracts/src/index.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import type { CoreApp } from '../../apps/core/src/public-types.ts'
-import {
-  createCoreDepsWithWriters,
-  type TrackedCall
-} from './_helpers/core-write-ports.ts'
+import { createCoreDepsWithWriters, type TrackedCall } from './_helpers/core-write-ports.ts'
 import type { WriterMockOptions } from '../../apps/core/src/testing/approval-profile-writers.ts'
 
 /**
@@ -50,7 +47,9 @@ async function expectErrorEnvelope(
   expectedCode: string
 ) {
   expect(response.status).toBe(expectedStatus)
-  const body = (await response.json()) as { error: { code: string; message: string; correlationId?: string } }
+  const body = (await response.json()) as {
+    error: { code: string; message: string; correlationId?: string }
+  }
   expect(body).toHaveProperty('error')
   expect(body.error.code).toBe(expectedCode)
   expect(body.error).toHaveProperty('message')
@@ -66,9 +65,12 @@ function createApp(
   mockWriterOpts: WriterMockOptions = {}
 ): { app: CoreApp; calls: TrackedCall[] } {
   // Use actor to inject the right token-to-actor mapping in mock auth port
-  const { deps, calls } = createCoreDepsWithWriters({
-    actor
-  }, mockWriterOpts)
+  const { deps, calls } = createCoreDepsWithWriters(
+    {
+      actor
+    },
+    mockWriterOpts
+  )
   return { app: createCoreApp(deps), calls }
 }
 
@@ -77,18 +79,14 @@ function createApp(
 describe('Core facade write auth gate', () => {
   it('POST /api/v0/policy/approvals/:id/approve returns 401 without token', async () => {
     const { app } = createApp()
-    const res = await app.handle(
-      post('/api/v0/policy/approvals/test-id/approve')
-    )
+    const res = await app.handle(post('/api/v0/policy/approvals/test-id/approve'))
     // Expected: 401 auth.missing_token (currently 404 because route not registered)
     await expectErrorEnvelope(res, 401, 'auth.missing_token')
   })
 
   it('POST /api/v0/policy/approvals/:id/reject returns 401 without token', async () => {
     const { app } = createApp()
-    const res = await app.handle(
-      post('/api/v0/policy/approvals/test-id/reject')
-    )
+    const res = await app.handle(post('/api/v0/policy/approvals/test-id/reject'))
     await expectErrorEnvelope(res, 401, 'auth.missing_token')
   })
 
@@ -106,11 +104,7 @@ describe('Core facade write auth gate', () => {
   it('POST /api/v0/policy/approvals/:id/approve returns 401 for invalid token', async () => {
     const { app } = createApp()
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'not-a-valid-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'not-a-valid-token', { reason: 'test' })
     )
     await expectErrorEnvelope(res, 401, 'invalid_token')
   })
@@ -122,11 +116,7 @@ describe('Core facade write authorization gate', () => {
   it('operator cannot approve — returns 403', async () => {
     const { app } = createApp('operator')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'operator-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'operator-token', { reason: 'test' })
     )
     // operator lacks policy:approval-approve
     await expectErrorEnvelope(res, 403, 'policy.denied')
@@ -135,11 +125,7 @@ describe('Core facade write authorization gate', () => {
   it('operator cannot reject — returns 403', async () => {
     const { app } = createApp('operator')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/reject',
-        'operator-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/reject', 'operator-token', { reason: 'test' })
     )
     await expectErrorEnvelope(res, 403, 'policy.denied')
   })
@@ -147,14 +133,10 @@ describe('Core facade write authorization gate', () => {
   it('viewer cannot set network profile — returns 403', async () => {
     const { app } = createApp('viewer')
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-test-1/profile',
-        'viewer-token',
-        {
-          profileVersion: 'm-net-cn@0.1.0',
-          reason: 'test enable'
-        }
-      )
+      post('/api/v0/networks/net-test-1/profile', 'viewer-token', {
+        profileVersion: 'm-net-cn@0.1.0',
+        reason: 'test enable'
+      })
     )
     // viewer lacks network:profile-enable and network:profile-disable
     await expectErrorEnvelope(res, 403, 'policy.denied')
@@ -163,14 +145,10 @@ describe('Core facade write authorization gate', () => {
   it('admin can set network profile (has permissions) — returns 200', async () => {
     const { app } = createApp('admin')
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-test-1/profile',
-        'admin-token',
-        {
-          profileVersion: 'm-net-default@0.1.0',
-          reason: 'test disable'
-        }
-      )
+      post('/api/v0/networks/net-test-1/profile', 'admin-token', {
+        profileVersion: 'm-net-default@0.1.0',
+        reason: 'test disable'
+      })
     )
     // admin has network:profile-disable and network:profile-enable
     expect(res.status).toBe(200)
@@ -195,10 +173,10 @@ describe('Core facade approval approve', () => {
     )
     // security-admin has policy:approval-approve permission
     expect(res.status).toBe(200)
-    const body = await res.json() as Record<string, unknown>
+    const body = (await res.json()) as Record<string, unknown>
     expect(body).toHaveProperty('approval')
-    expect((body.approval as Record<string, unknown>)).toHaveProperty('id', 'test-id')
-    expect((body.approval as Record<string, unknown>)).toHaveProperty('status', 'approved')
+    expect(body.approval as Record<string, unknown>).toHaveProperty('id', 'test-id')
+    expect(body.approval as Record<string, unknown>).toHaveProperty('status', 'approved')
     expect(body).toHaveProperty('votes')
     expect(body.votes).toBeInstanceOf(Array)
   })
@@ -206,11 +184,9 @@ describe('Core facade approval approve', () => {
   it('approve body with reason field is accepted', async () => {
     const { app } = createApp('security-admin')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'security-admin-token',
-        { reason: 'manual review passed' }
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'security-admin-token', {
+        reason: 'manual review passed'
+      })
     )
     expect(res.status).toBe(200)
   })
@@ -218,11 +194,7 @@ describe('Core facade approval approve', () => {
   it('approve body without reason field is accepted (optional)', async () => {
     const { app } = createApp('security-admin')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'security-admin-token',
-        {}
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'security-admin-token', {})
     )
     expect(res.status).toBe(200)
   })
@@ -243,10 +215,10 @@ describe('Core facade approval reject', () => {
     )
     // security-admin has policy:approval-reject permission
     expect(res.status).toBe(200)
-    const body = await res.json() as Record<string, unknown>
+    const body = (await res.json()) as Record<string, unknown>
     expect(body).toHaveProperty('approval')
-    expect((body.approval as Record<string, unknown>)).toHaveProperty('id', 'test-id')
-    expect((body.approval as Record<string, unknown>)).toHaveProperty('status', 'rejected')
+    expect(body.approval as Record<string, unknown>).toHaveProperty('id', 'test-id')
+    expect(body.approval as Record<string, unknown>).toHaveProperty('status', 'rejected')
     expect(body).toHaveProperty('votes')
   })
 })
@@ -304,14 +276,10 @@ describe('Core facade profile disable', () => {
   it('profile disable requires reason field', async () => {
     const { app } = createApp('admin')
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-test-1/profile',
-        'admin-token',
-        {
-          profileVersion: 'm-net-default@0.1.0'
-          // missing reason
-        }
-      )
+      post('/api/v0/networks/net-test-1/profile', 'admin-token', {
+        profileVersion: 'm-net-default@0.1.0'
+        // missing reason
+      })
     )
     // Should be 400 validation error (Elysia validates body schema)
     // Currently 404 because route not registered
@@ -327,11 +295,9 @@ describe('Core facade write error passthrough', () => {
       notFoundApprovalIds: new Set(['nonexistent-id'])
     })
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/nonexistent-id/approve',
-        'security-admin-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/nonexistent-id/approve', 'security-admin-token', {
+        reason: 'test'
+      })
     )
     // Core must preserve downstream 404 on unknown approval IDs
     await expectErrorEnvelope(res, 404, 'approval.not_found')
@@ -342,14 +308,10 @@ describe('Core facade write error passthrough', () => {
       conflictNetworkIds: new Set(['net-in-conflict'])
     })
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-in-conflict/profile',
-        'admin-token',
-        {
-          profileVersion: 'm-net-cn@0.1.0',
-          reason: 'trigger conflict'
-        }
-      )
+      post('/api/v0/networks/net-in-conflict/profile', 'admin-token', {
+        profileVersion: 'm-net-cn@0.1.0',
+        reason: 'trigger conflict'
+      })
     )
     // Core must preserve downstream 409 on invalid state transitions
     await expectErrorEnvelope(res, 409, 'profile.enable.invalid_state')
@@ -360,11 +322,7 @@ describe('Core facade write error passthrough', () => {
       forceError: { code: 'm-policy.unavailable', message: 'M-Policy approval API unavailable' }
     })
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'security-admin-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'security-admin-token', { reason: 'test' })
     )
     // When M-Policy is down, Core passes through 503
     await expectErrorEnvelope(res, 503, 'm-policy.unavailable')
@@ -375,14 +333,10 @@ describe('Core facade write error passthrough', () => {
       forceError: { code: 'mnet.unavailable', message: 'M-Net profile API unavailable' }
     })
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-test-1/profile',
-        'admin-token',
-        {
-          profileVersion: 'm-net-cn@0.1.0',
-          reason: 'test'
-        }
-      )
+      post('/api/v0/networks/net-test-1/profile', 'admin-token', {
+        profileVersion: 'm-net-cn@0.1.0',
+        reason: 'test'
+      })
     )
     await expectErrorEnvelope(res, 503, 'mnet.unavailable')
   })
@@ -446,11 +400,7 @@ describe('Core facade write never calls internal routes', () => {
   it('approve does not call /internal/v0/*', async () => {
     const { app } = createApp('security-admin')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/approve',
-        'security-admin-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/approve', 'security-admin-token', { reason: 'test' })
     )
     // Regardless of status, Core must not expose or forward to internal paths
     expect(res.status).not.toBe(500) // internal leaks often manifest as 500
@@ -459,11 +409,7 @@ describe('Core facade write never calls internal routes', () => {
   it('reject does not call /internal/v0/*', async () => {
     const { app } = createApp('security-admin')
     const res = await app.handle(
-      post(
-        '/api/v0/policy/approvals/test-id/reject',
-        'security-admin-token',
-        { reason: 'test' }
-      )
+      post('/api/v0/policy/approvals/test-id/reject', 'security-admin-token', { reason: 'test' })
     )
     expect(res.status).not.toBe(500)
   })
@@ -471,14 +417,10 @@ describe('Core facade write never calls internal routes', () => {
   it('profile set does not call /internal/v0/*', async () => {
     const { app } = createApp('admin')
     const res = await app.handle(
-      post(
-        '/api/v0/networks/net-test-1/profile',
-        'admin-token',
-        {
-          profileVersion: 'm-net-default@0.1.0',
-          reason: 'test'
-        }
-      )
+      post('/api/v0/networks/net-test-1/profile', 'admin-token', {
+        profileVersion: 'm-net-default@0.1.0',
+        reason: 'test'
+      })
     )
     expect(res.status).not.toBe(500)
   })

@@ -64,10 +64,7 @@ export async function writeNodeAudit(
   }
 }
 
-export function assertDirectNodeRegistrationAllowed(
-  requestedMode: unknown,
-  correlationId: string
-) {
+export function assertDirectNodeRegistrationAllowed(requestedMode: unknown, correlationId: string) {
   if (requestedMode === 'agent') {
     throw new CoreError(
       409,
@@ -152,10 +149,9 @@ export async function publishNodeRegistrationArtifacts(
   })
 }
 
-export function requireNodeCredential<T extends { nodeId: string; token: string; issuedAt: string }>(
-  credential: T | null,
-  correlationId: string
-): T {
+export function requireNodeCredential<
+  T extends { nodeId: string; token: string; issuedAt: string }
+>(credential: T | null, correlationId: string): T {
   if (!credential) {
     throw new CoreError(404, 'node.not_found', 'node not found', correlationId)
   }

@@ -51,7 +51,10 @@ async function expectError(response: Response, status: number, code: string) {
   expect(body.error.code).toBe(code)
 }
 
-type Calls = Array<{ op: string; context: { actor: string; bearerToken: string; correlationId: string } }>
+type Calls = Array<{
+  op: string
+  context: { actor: string; bearerToken: string; correlationId: string }
+}>
 
 function createPorts(calls: Calls): {
   reader: GlobalDefaultsReaderPort
@@ -165,7 +168,11 @@ function createApp(actor: ActorId = 'admin', withPorts = true) {
 describe('Core global defaults facade contract', () => {
   it('returns 503 on every route when the facade ports are not wired', async () => {
     const { app } = createApp('admin', false)
-    await expectError(await app.handle(get('/api/v0/networks/profile-defaults')), 503, 'feature.unavailable')
+    await expectError(
+      await app.handle(get('/api/v0/networks/profile-defaults')),
+      503,
+      'feature.unavailable'
+    )
     await expectError(
       await app.handle(
         put('/api/v0/networks/profile-defaults', 'admin-token', {
@@ -209,7 +216,9 @@ describe('Core global defaults facade contract', () => {
     const correlationId = 'corr-global-facade-1'
     const { app, calls } = createApp('admin')
 
-    const getRes = await app.handle(get('/api/v0/networks/profile-defaults', 'admin-token', correlationId))
+    const getRes = await app.handle(
+      get('/api/v0/networks/profile-defaults', 'admin-token', correlationId)
+    )
     expect(getRes.status).toBe(200)
     const getBody = (await getRes.json()) as ProfileDefaultsResponse
     expect(getBody.defaultProfileVersion).toBe('m-net-default@0.1.0')
@@ -250,7 +259,12 @@ describe('Core global defaults facade contract', () => {
     expect(resumeRes.status).toBe(200)
 
     const rollbackRes = await app.handle(
-      post('/api/v0/networks/profile-switches/switch-op-1/rollback', 'admin-token', {}, correlationId)
+      post(
+        '/api/v0/networks/profile-switches/switch-op-1/rollback',
+        'admin-token',
+        {},
+        correlationId
+      )
     )
     expect(rollbackRes.status).toBe(200)
 
@@ -310,7 +324,11 @@ describe('Core global defaults facade contract', () => {
     }
 
     const app = createCoreApp(deps)
-    await expectError(await app.handle(get('/api/v0/networks/profile-defaults', 'admin-token')), 503, 'mnet.unavailable')
+    await expectError(
+      await app.handle(get('/api/v0/networks/profile-defaults', 'admin-token')),
+      503,
+      'mnet.unavailable'
+    )
     await expectError(
       await app.handle(
         put('/api/v0/networks/profile-defaults', 'admin-token', {
@@ -334,17 +352,23 @@ describe('Core global defaults facade contract', () => {
       'network.not_found'
     )
     await expectError(
-      await app.handle(post('/api/v0/networks/profile-switches/switch-op-1/apply', 'admin-token', {})),
+      await app.handle(
+        post('/api/v0/networks/profile-switches/switch-op-1/apply', 'admin-token', {})
+      ),
       409,
       'network.conflict'
     )
     await expectError(
-      await app.handle(post('/api/v0/networks/profile-switches/switch-op-1/resume', 'admin-token', {})),
+      await app.handle(
+        post('/api/v0/networks/profile-switches/switch-op-1/resume', 'admin-token', {})
+      ),
       503,
       'mnet.unavailable'
     )
     await expectError(
-      await app.handle(post('/api/v0/networks/profile-switches/switch-op-1/rollback', 'admin-token', {})),
+      await app.handle(
+        post('/api/v0/networks/profile-switches/switch-op-1/rollback', 'admin-token', {})
+      ),
       404,
       'network.not_found'
     )

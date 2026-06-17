@@ -1,8 +1,5 @@
 import type { Result } from '../../../../packages/common/src/result.ts'
-import type {
-  ActorId,
-  ApprovalActionResponse
-} from '../../../../packages/contracts/src/index.ts'
+import type { ActorId, ApprovalActionResponse } from '../../../../packages/contracts/src/index.ts'
 import type { ServiceError } from './common.ts'
 
 /** WriterContext 与 ReaderContext 保持相同结构，Core 路由透传 actor + token + correlationId 到下游 */

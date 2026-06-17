@@ -147,7 +147,9 @@ export async function runProjectionRead<T>(
   input: {
     headers: Record<string, string | undefined>
     resource: string
-    run: () => Promise<{ ok: true; value: T } | { ok: false; error: { code: string; message: string } }>
+    run: () => Promise<
+      { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
+    >
   }
 ): Promise<T> {
   const auth = await requireProjectionReadAccess(deps, input.headers, input.resource)
@@ -179,7 +181,9 @@ export async function runProjectionControl<T>(
     resource: string
     auditPayload: Record<string, unknown>
     timeline: { summary: string; subject: string }
-    run: () => Promise<{ ok: true; value: T } | { ok: false; error: { code: string; message: string } }>
+    run: () => Promise<
+      { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
+    >
   }
 ): Promise<T> {
   const auth = await requireProjectionControlAccess(deps, {

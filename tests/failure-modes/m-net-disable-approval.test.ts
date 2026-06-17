@@ -14,7 +14,9 @@ function bearerHeaders(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
 }
 
-async function mintToken(actor: 'viewer' | 'operator' | 'admin' | 'security-admin'): Promise<string> {
+async function mintToken(
+  actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+): Promise<string> {
   return mintLocalToken({ actor, secret: jwtSecret })
 }
 
@@ -25,8 +27,7 @@ function createTestApp(overrides: {
 }) {
   const profileStore = createInMemoryProfileStore()
   const suspendedOps = createInMemorySuspendedOperationStore()
-  const policyStore =
-    overrides.disablePolicy ?? createInMemoryProfileDisablePolicyStore()
+  const policyStore = overrides.disablePolicy ?? createInMemoryProfileDisablePolicyStore()
   const healthy = overrides.policyHealthy ?? true
   const policyResult = overrides.policyResult ?? 'allow'
 

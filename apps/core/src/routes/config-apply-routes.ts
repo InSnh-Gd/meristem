@@ -13,7 +13,7 @@ import {
   runConfigMutation,
   throwConfigError,
   toAckResponseError,
-  validateConfigInternalRequest,
+  validateConfigInternalRequest
 } from './config-support.ts'
 
 /**

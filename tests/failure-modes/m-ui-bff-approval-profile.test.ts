@@ -285,7 +285,11 @@ describe('M-UI BFF approval/profile failure modes', () => {
     it('preserves Core 404 not-found envelope for approval execute', async () => {
       const coreApp = addMockCoreWriteFacades(
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
-        { approveStatus: 404, approveCode: 'approval.not_found', approveMessage: 'Approval not found' }
+        {
+          approveStatus: 404,
+          approveCode: 'approval.not_found',
+          approveMessage: 'Approval not found'
+        }
       )
       const app = createBffWithCore(coreApp)
 
@@ -506,9 +510,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
 
         // RED: currently BFF returns 400 command.unknown, zero outbound requests
         // After Task 6, all outbound requests must go through CORE_BASE only
-        const outboundRequests = requests.filter(
-          r => r.url.startsWith(CORE_BASE)
-        )
+        const outboundRequests = requests.filter(r => r.url.startsWith(CORE_BASE))
         expect(outboundRequests.length).toBeGreaterThan(0)
 
         for (const req of requests) {
@@ -520,7 +522,9 @@ describe('M-UI BFF approval/profile failure modes', () => {
           expect(req.url).not.toMatch(/m-log(?!\/api)/i)
           // All outbound must be to Core
           if (req.url.startsWith('http')) {
-            expect(req.url).toMatch(new RegExp(`^${CORE_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`))
+            expect(req.url).toMatch(
+              new RegExp(`^${CORE_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`)
+            )
           }
         }
       } finally {
@@ -595,7 +599,9 @@ describe('M-UI BFF approval/profile failure modes', () => {
                 '/api/v0/policy/approvals/:id/approve',
                 () =>
                   new Response(
-                    JSON.stringify({ error: { code: tc.expectedCode, message: 'Controlled error' } }),
+                    JSON.stringify({
+                      error: { code: tc.expectedCode, message: 'Controlled error' }
+                    }),
                     { status: tc.expectedStatus, headers: { 'content-type': 'application/json' } }
                   )
               )
@@ -606,7 +612,9 @@ describe('M-UI BFF approval/profile failure modes', () => {
                 '/api/v0/policy/approvals/:id/reject',
                 () =>
                   new Response(
-                    JSON.stringify({ error: { code: tc.expectedCode, message: 'Controlled error' } }),
+                    JSON.stringify({
+                      error: { code: tc.expectedCode, message: 'Controlled error' }
+                    }),
                     { status: tc.expectedStatus, headers: { 'content-type': 'application/json' } }
                   )
               )

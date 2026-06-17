@@ -2,10 +2,7 @@ import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
 import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
-import {
-  executeBreakGlassDisable,
-  requireBreakGlassDeps
-} from './profile-break-glass-workflow.ts'
+import { executeBreakGlassDisable, requireBreakGlassDeps } from './profile-break-glass-workflow.ts'
 import {
   isProfileWorkflowFailure as isEnableDisableFailure,
   requestNetworkProfileChange,
@@ -43,165 +40,218 @@ export function createProfileRoutes(
     | 'networkUpdater'
   >
 ) {
-  return new Elysia({ prefix: '/api/v0' })
-    // ── Profile Disable Policy Config ──
-    .put(
-      '/networks/profile-disable-policy',
-      async ({ body, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
-        if (!actor)
-          return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
-        if (!deps.profileDisablePolicy)
-          return externalApiError(
-            set,
-            503,
-            'feature.unavailable',
-            'disable policy features are not available'
-          )
+  return (
+    new Elysia({ prefix: '/api/v0' })
+      // ── Profile Disable Policy Config ──
+      .put(
+        '/networks/profile-disable-policy',
+        async ({ body, headers, set }) => {
+          const actor = await verifyBearerAuth(headers)
+          if (!actor)
+            return externalApiError(
+              set,
+              401,
+              'auth.invalid_token',
+              'invalid or missing bearer token'
+            )
+          if (!deps.profileDisablePolicy)
+            return externalApiError(
+              set,
+              503,
+              'feature.unavailable',
+              'disable policy features are not available'
+            )
 
-        // Only admin / security-admin can configure policy
-        if (actor !== 'admin' && actor !== 'security-admin') {
-          return externalApiError(
-            set,
-            403,
-            'policy.denied',
-            'only admin and security-admin can configure disable policy'
-          )
-        }
+          // Only admin / security-admin can configure policy
+          if (actor !== 'admin' && actor !== 'security-admin') {
+            return externalApiError(
+              set,
+              403,
+              'policy.denied',
+              'only admin and security-admin can configure disable policy'
+            )
+          }
 
-        const policy = await deps.profileDisablePolicy.setPolicy(body)
-        await deps.log?.writeAudit(
-          actor,
-          'mnet.profile.disable-policy.configure',
-          'network:profile-disable-policy',
-          'success',
-          undefined,
-          policy
-        )
-        return policy
-      },
-      {
-        body: disablePolicyBodySchema,
-        response: {
-          200: disablePolicyResponseSchema,
-          401: externalReadErrorResponses[401],
-          403: externalReadErrorResponses[403],
-          503: externalReadErrorResponses[503]
+          const policy = await deps.profileDisablePolicy.setPolicy(body)
+          await deps.log?.writeAudit(
+            actor,
+            'mnet.profile.disable-policy.configure',
+            'network:profile-disable-policy',
+            'success',
+            undefined,
+            policy
+          )
+          return policy
+        },
+        {
+          body: disablePolicyBodySchema,
+          response: {
+            200: disablePolicyResponseSchema,
+            401: externalReadErrorResponses[401],
+            403: externalReadErrorResponses[403],
+            503: externalReadErrorResponses[503]
+          }
         }
-      }
-    )
-    .get('/network-profiles', async ({ headers, set }) => {
-      const actor = await verifyBearerAuth(headers)
-      if (!actor)
-        return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
-      const profileDeps = requireProfileReadDeps(deps)
-      if (isEnableDisableFailure(profileDeps))
-        return externalApiError(set, profileDeps.status, profileDeps.error.code, profileDeps.error.message)
-      const policyResult = await profileDeps.policyAuthorize.authorize(
-        actor,
-        'network:profile-read',
-        'network-profiles'
       )
-      if (policyResult.result !== 'allow') {
-        return externalApiError(
-          set,
-          403,
-          'policy.denied',
-          `read denied: ${policyResult.reasons.join(', ')}`
+      .get(
+        '/network-profiles',
+        async ({ headers, set }) => {
+          const actor = await verifyBearerAuth(headers)
+          if (!actor)
+            return externalApiError(
+              set,
+              401,
+              'auth.invalid_token',
+              'invalid or missing bearer token'
+            )
+          const profileDeps = requireProfileReadDeps(deps)
+          if (isEnableDisableFailure(profileDeps))
+            return externalApiError(
+              set,
+              profileDeps.status,
+              profileDeps.error.code,
+              profileDeps.error.message
+            )
+          const policyResult = await profileDeps.policyAuthorize.authorize(
+            actor,
+            'network:profile-read',
+            'network-profiles'
           )
-      }
+          if (policyResult.result !== 'allow') {
+            return externalApiError(
+              set,
+              403,
+              'policy.denied',
+              `read denied: ${policyResult.reasons.join(', ')}`
+            )
+          }
 
-      const defs = await profileDeps.profileStore.getDefinitions()
-      return { profiles: defs }
-    }, { response: { 200: t.Object({ profiles: t.Array(t.Any()) }), ...externalReadErrorResponses } })
-    .get(
-      '/network-profiles/:profileVersion',
-      async ({ params, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
-        if (!actor)
-          return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
-        const profileDeps = requireProfileReadDeps(deps)
-        if (isEnableDisableFailure(profileDeps))
-          return externalApiError(set, profileDeps.status, profileDeps.error.code, profileDeps.error.message)
-        const policyResult = await profileDeps.policyAuthorize.authorize(
-          actor,
-          'network:profile-read',
-          `network-profile:${params.profileVersion}`
-        )
-        if (policyResult.result !== 'allow') {
-          return externalApiError(
-            set,
-            403,
-            'policy.denied',
-            `read denied: ${policyResult.reasons.join(', ')}`
+          const defs = await profileDeps.profileStore.getDefinitions()
+          return { profiles: defs }
+        },
+        {
+          response: { 200: t.Object({ profiles: t.Array(t.Any()) }), ...externalReadErrorResponses }
+        }
+      )
+      .get(
+        '/network-profiles/:profileVersion',
+        async ({ params, headers, set }) => {
+          const actor = await verifyBearerAuth(headers)
+          if (!actor)
+            return externalApiError(
+              set,
+              401,
+              'auth.invalid_token',
+              'invalid or missing bearer token'
+            )
+          const profileDeps = requireProfileReadDeps(deps)
+          if (isEnableDisableFailure(profileDeps))
+            return externalApiError(
+              set,
+              profileDeps.status,
+              profileDeps.error.code,
+              profileDeps.error.message
+            )
+          const policyResult = await profileDeps.policyAuthorize.authorize(
+            actor,
+            'network:profile-read',
+            `network-profile:${params.profileVersion}`
           )
-        }
+          if (policyResult.result !== 'allow') {
+            return externalApiError(
+              set,
+              403,
+              'policy.denied',
+              `read denied: ${policyResult.reasons.join(', ')}`
+            )
+          }
 
-        const def = await profileDeps.profileStore.getDefinition(params.profileVersion)
-        if (!def) return externalApiError(set, 404, 'profile.not_found', 'profile not found')
-        return def
-      },
-      {
-        params: profileVersionParamsSchema,
-        response: {
-          200: t.Any(),
-          ...externalReadErrorResponses
+          const def = await profileDeps.profileStore.getDefinition(params.profileVersion)
+          if (!def) return externalApiError(set, 404, 'profile.not_found', 'profile not found')
+          return def
+        },
+        {
+          params: profileVersionParamsSchema,
+          response: {
+            200: t.Any(),
+            ...externalReadErrorResponses
+          }
         }
-      }
-    )
-    .post(
-      '/networks/:id/profile',
-      async ({ params, body, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
-        if (!actor)
-          return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
-        const profileDeps = requireProfileWriteDeps(deps)
-        if (isEnableDisableFailure(profileDeps))
-          return externalApiError(set, profileDeps.status, profileDeps.error.code, profileDeps.error.message)
-        const result = await requestNetworkProfileChange(profileDeps, {
-          actor,
-          networkId: params.id,
-          body
-        })
-        if (isEnableDisableFailure(result))
-          return externalApiError(set, result.status, result.error.code, result.error.message)
-        return result
-      },
-      {
-        params: networkIdParamsSchema,
-        body: setNetworkProfileBodySchema,
-        response: {
-          200: setNetworkProfileResponseSchema,
-          ...externalWriteErrorResponses
+      )
+      .post(
+        '/networks/:id/profile',
+        async ({ params, body, headers, set }) => {
+          const actor = await verifyBearerAuth(headers)
+          if (!actor)
+            return externalApiError(
+              set,
+              401,
+              'auth.invalid_token',
+              'invalid or missing bearer token'
+            )
+          const profileDeps = requireProfileWriteDeps(deps)
+          if (isEnableDisableFailure(profileDeps))
+            return externalApiError(
+              set,
+              profileDeps.status,
+              profileDeps.error.code,
+              profileDeps.error.message
+            )
+          const result = await requestNetworkProfileChange(profileDeps, {
+            actor,
+            networkId: params.id,
+            body
+          })
+          if (isEnableDisableFailure(result))
+            return externalApiError(set, result.status, result.error.code, result.error.message)
+          return result
+        },
+        {
+          params: networkIdParamsSchema,
+          body: setNetworkProfileBodySchema,
+          response: {
+            200: setNetworkProfileResponseSchema,
+            ...externalWriteErrorResponses
+          }
         }
-      }
-    )
-    // ── Break-Glass Emergency Disable Route ──
-    .post(
-      '/networks/:id/profile/disable-break-glass',
-      async ({ params, body, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
-        if (!actor)
-          return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
-        const breakGlassDeps = requireBreakGlassDeps(deps)
-        if (isProfileWorkflowFailure(breakGlassDeps))
-          return externalApiError(set, breakGlassDeps.status, breakGlassDeps.error.code, breakGlassDeps.error.message)
-        const result = await executeBreakGlassDisable(breakGlassDeps, {
-          actor,
-          networkId: params.id,
-          body
-        })
-        if (isProfileWorkflowFailure(result))
-          return externalApiError(set, result.status, result.error.code, result.error.message)
-        return result
-      },
-      {
-        params: networkIdParamsSchema,
-        body: breakGlassDisableBodySchema,
-        response: {
-          200: breakGlassDisableResponseSchema,
-          ...externalBreakGlassErrorResponses
+      )
+      // ── Break-Glass Emergency Disable Route ──
+      .post(
+        '/networks/:id/profile/disable-break-glass',
+        async ({ params, body, headers, set }) => {
+          const actor = await verifyBearerAuth(headers)
+          if (!actor)
+            return externalApiError(
+              set,
+              401,
+              'auth.invalid_token',
+              'invalid or missing bearer token'
+            )
+          const breakGlassDeps = requireBreakGlassDeps(deps)
+          if (isProfileWorkflowFailure(breakGlassDeps))
+            return externalApiError(
+              set,
+              breakGlassDeps.status,
+              breakGlassDeps.error.code,
+              breakGlassDeps.error.message
+            )
+          const result = await executeBreakGlassDisable(breakGlassDeps, {
+            actor,
+            networkId: params.id,
+            body
+          })
+          if (isProfileWorkflowFailure(result))
+            return externalApiError(set, result.status, result.error.code, result.error.message)
+          return result
+        },
+        {
+          params: networkIdParamsSchema,
+          body: breakGlassDisableBodySchema,
+          response: {
+            200: breakGlassDisableResponseSchema,
+            ...externalBreakGlassErrorResponses
+          }
         }
-      }
-    )
+      )
+  )
 }

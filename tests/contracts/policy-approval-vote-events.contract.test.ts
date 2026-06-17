@@ -22,7 +22,9 @@ describe('Policy approval vote event contracts', () => {
   }
 
   it('round-trips approve vote event payload via Effect Schema decode/encode', () => {
-    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(validApprovePayload)
+    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(
+      validApprovePayload
+    )
     expect(decoded.approvalId).toBe('approval-test-1')
     expect(decoded.actor).toBe('security-admin')
     expect(decoded.vote).toBe('approve')
@@ -34,7 +36,9 @@ describe('Policy approval vote event contracts', () => {
   })
 
   it('round-trips reject vote event payload via Effect Schema decode/encode', () => {
-    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(validRejectPayload)
+    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(
+      validRejectPayload
+    )
     expect(decoded.approvalId).toBe('approval-test-2')
     expect(decoded.actor).toBe('admin')
     expect(decoded.vote).toBe('reject')
@@ -58,9 +62,7 @@ describe('Policy approval vote event contracts', () => {
       })
     ).toThrow()
 
-    expect(() =>
-      Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(null)
-    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(null)).toThrow()
   })
 
   it('rejects vote payloads with invalid actor values', () => {
@@ -86,7 +88,9 @@ describe('Policy approval vote event contracts', () => {
   })
 
   it('vote event payload contains expected fields: approvalId, actor, vote, reason?, timestamp', () => {
-    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(validApprovePayload)
+    const decoded = Schema.decodeUnknownSync(PolicyApprovalVoteEventPayloadSchema)(
+      validApprovePayload
+    )
     expect(decoded).toHaveProperty('approvalId')
     expect(decoded).toHaveProperty('actor')
     expect(decoded).toHaveProperty('vote')

@@ -58,22 +58,78 @@ describe('M-Net global defaults route guards', () => {
     const app = createMNetApp(deps)
     const token = await mintTestToken('admin')
 
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-defaults', { headers: bearerHeaders(token) }))).status).toBe(503)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-defaults', {
-      method: 'PUT', headers: bearerHeaders(token), body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'x', idempotencyKey: 'a' })
-    }))).status).toBe(503)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/plan', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({ targetProfileVersion: 'm-net-cn@0.1.0', reason: 'x', idempotencyKey: 'b' })
-    }))).status).toBe(503)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/apply', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({})
-    }))).status).toBe(503)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({})
-    }))).status).toBe(503)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({ reason: 'x' })
-    }))).status).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-defaults', {
+            headers: bearerHeaders(token)
+          })
+        )
+      ).status
+    ).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-defaults', {
+            method: 'PUT',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({
+              profileVersion: 'm-net-cn@0.1.0',
+              reason: 'x',
+              idempotencyKey: 'a'
+            })
+          })
+        )
+      ).status
+    ).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/plan', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({
+              targetProfileVersion: 'm-net-cn@0.1.0',
+              reason: 'x',
+              idempotencyKey: 'b'
+            })
+          })
+        )
+      ).status
+    ).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/apply', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({})
+          })
+        )
+      ).status
+    ).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({})
+          })
+        )
+      ).status
+    ).toBe(503)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({ reason: 'x' })
+          })
+        )
+      ).status
+    ).toBe(503)
   })
 
   it('returns 403 when policy denies defaults and switch operations', async () => {
@@ -84,49 +140,121 @@ describe('M-Net global defaults route guards', () => {
         return { result: 'deny', id: 'deny-1', reasons: ['denied for test'] }
       }
     }
-    const app = createMNetApp(createDeps({
-      policyAuthorize: denyPolicy,
-      globalDefaultsStore: (await import('../../services/m-net/src/global-defaults-store.ts')).createInMemoryGlobalDefaultsStore(profileStore),
-      migrationEngine: (await import('../../services/m-net/src/migration-engine.ts')).createMigrationEngine({
-        globalDefaultsStore: (await import('../../services/m-net/src/global-defaults-store.ts')).createInMemoryGlobalDefaultsStore(profileStore),
-        profileStore,
-        async writeAudit() { return 'audit-1' },
-        async writeFull(input) { await log.writeFull(input.level, input.message, input.correlationId, input.metadata) }
-      }),
-      profileStore
-    }))
+    const app = createMNetApp(
+      createDeps({
+        policyAuthorize: denyPolicy,
+        globalDefaultsStore: (
+          await import('../../services/m-net/src/global-defaults-store.ts')
+        ).createInMemoryGlobalDefaultsStore(profileStore),
+        migrationEngine: (
+          await import('../../services/m-net/src/migration-engine.ts')
+        ).createMigrationEngine({
+          globalDefaultsStore: (
+            await import('../../services/m-net/src/global-defaults-store.ts')
+          ).createInMemoryGlobalDefaultsStore(profileStore),
+          profileStore,
+          async writeAudit() {
+            return 'audit-1'
+          },
+          async writeFull(input) {
+            await log.writeFull(input.level, input.message, input.correlationId, input.metadata)
+          }
+        }),
+        profileStore
+      })
+    )
     const token = await mintTestToken('admin')
 
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-defaults', {
-      method: 'PUT', headers: bearerHeaders(token), body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'x', idempotencyKey: 'a' })
-    }))).status).toBe(403)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/plan', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({ targetProfileVersion: 'm-net-cn@0.1.0', reason: 'x', idempotencyKey: 'b' })
-    }))).status).toBe(403)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/apply', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({})
-    }))).status).toBe(403)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({})
-    }))).status).toBe(403)
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
-      method: 'POST', headers: bearerHeaders(token), body: JSON.stringify({ reason: 'x' })
-    }))).status).toBe(403)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-defaults', {
+            method: 'PUT',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({
+              profileVersion: 'm-net-cn@0.1.0',
+              reason: 'x',
+              idempotencyKey: 'a'
+            })
+          })
+        )
+      ).status
+    ).toBe(403)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/plan', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({
+              targetProfileVersion: 'm-net-cn@0.1.0',
+              reason: 'x',
+              idempotencyKey: 'b'
+            })
+          })
+        )
+      ).status
+    ).toBe(403)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/apply', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({})
+          })
+        )
+      ).status
+    ).toBe(403)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({})
+          })
+        )
+      ).status
+    ).toBe(403)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
+            method: 'POST',
+            headers: bearerHeaders(token),
+            body: JSON.stringify({ reason: 'x' })
+          })
+        )
+      ).status
+    ).toBe(403)
   })
 
   it('returns 401 on rollback/resume when bearer auth is missing', async () => {
     const app = createMNetApp(createDeps())
 
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({})
-    }))).status).toBe(401)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/resume', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({})
+          })
+        )
+      ).status
+    ).toBe(401)
 
-    expect((await app.handle(new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reason: 'x' })
-    }))).status).toBe(401)
+    expect(
+      (
+        await app.handle(
+          new Request('http://localhost/api/v0/networks/profile-switches/op/rollback', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ reason: 'x' })
+          })
+        )
+      ).status
+    ).toBe(401)
   })
 })

@@ -213,12 +213,11 @@ export function createBffListRoutes({ cf, cfRaw }: MUiBffRouteDeps) {
           errorMessage: 'Core returned invalid network profile list payload'
         })
         if (decoded instanceof Response) return decoded
-        const profiles = decoded.profiles.map(
-          profile =>
-            withStateSource(profile, {
-              sourceType: 'authoritative',
-              sourceId: `core:/api/v0/network-profiles/${profile.profileVersion}`
-            })
+        const profiles = decoded.profiles.map(profile =>
+          withStateSource(profile, {
+            sourceType: 'authoritative',
+            sourceId: `core:/api/v0/network-profiles/${profile.profileVersion}`
+          })
         )
         return {
           profiles,
@@ -262,10 +261,7 @@ export function createBffListRoutes({ cf, cfRaw }: MUiBffRouteDeps) {
         if (token instanceof Response) return token
 
         // 迁移状态只经过 Core facade，不暴露 M-Net 内部路径或数据面承诺。
-        const result = await cf(
-          `/api/v0/networks/profile-switches/${params.operationId}`,
-          token
-        )
+        const result = await cf(`/api/v0/networks/profile-switches/${params.operationId}`, token)
         if (!result.ok) return passthroughCoreError(result)
         const switchState = requireObjectRecord(
           result.data,

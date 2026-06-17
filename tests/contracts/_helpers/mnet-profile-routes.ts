@@ -65,12 +65,7 @@ export function createInMemoryTestLog() {
       async writeTimeline(summary: string, subject?: string, correlationId?: string) {
         records.push({ kind: 'timeline', data: { summary, subject, correlationId } })
       },
-      async writeFull(
-        level: string,
-        message: string,
-        correlationId?: string,
-        payload?: unknown
-      ) {
+      async writeFull(level: string, message: string, correlationId?: string, payload?: unknown) {
         records.push({ kind: 'full', data: { level, message, correlationId, payload } })
       },
       async writeAudit(
@@ -81,7 +76,10 @@ export function createInMemoryTestLog() {
         correlationId?: string,
         payload?: unknown
       ) {
-        records.push({ kind: 'audit', data: { actor, action, resource, result, correlationId, payload } })
+        records.push({
+          kind: 'audit',
+          data: { actor, action, resource, result, correlationId, payload }
+        })
       }
     }
   }
@@ -126,7 +124,14 @@ export function createTestApp(
     globalDefaultsStore,
     profileStore,
     async writeAudit(input) {
-      await log.writeAudit(input.actor, input.action, input.resource, input.result, input.correlationId, input.metadata)
+      await log.writeAudit(
+        input.actor,
+        input.action,
+        input.resource,
+        input.result,
+        input.correlationId,
+        input.metadata
+      )
       return input.correlationId
     },
     async writeFull(input) {
@@ -161,7 +166,9 @@ export function createTestApp(
     migrationEngine,
     log,
     events: {
-      async publish() { /* noop for tests */ }
+      async publish() {
+        /* noop for tests */
+      }
     }
   })
 }

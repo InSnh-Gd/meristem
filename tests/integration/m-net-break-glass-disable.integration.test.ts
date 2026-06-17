@@ -14,13 +14,21 @@ function bearerHeaders(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
 }
 
-async function mintToken(actor: 'viewer' | 'operator' | 'admin' | 'security-admin'): Promise<string> {
+async function mintToken(
+  actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+): Promise<string> {
   return mintLocalToken({ actor, secret: jwtSecret })
 }
 
 /** 可追踪日志断言用的审计/全量日志收集器 */
 function createLogCapture() {
-  const auditLogs: Array<{ actor: string; action: string; resource: string; result: string; payload?: unknown }> = []
+  const auditLogs: Array<{
+    actor: string
+    action: string
+    resource: string
+    result: string
+    payload?: unknown
+  }> = []
   const fullLogs: Array<{ level: string; message: string; payload?: unknown }> = []
   const timelineLogs: string[] = []
 
@@ -56,8 +64,7 @@ function createTestApp(overrides: {
 }) {
   const profileStore = createInMemoryProfileStore()
   const suspendedOps = createInMemorySuspendedOperationStore()
-  const policyStore =
-    overrides.disablePolicy ?? createInMemoryProfileDisablePolicyStore()
+  const policyStore = overrides.disablePolicy ?? createInMemoryProfileDisablePolicyStore()
   const healthy = overrides.policyHealthy ?? true
   const policyResult = overrides.policyResult ?? 'allow'
   const logCapture = createLogCapture()
@@ -124,17 +131,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'critical: immediate containment required',
-            approvalDegraded: true
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'critical: immediate containment required',
+          approvalDegraded: true
+        })
+      })
     )
 
     expect(response.status).toBe(200)
@@ -157,7 +161,7 @@ describe('integration: M-Net break-glass disable', () => {
 
     // Check Audit Log was written
     const audit = logCapture.auditLogs.find(
-      (a) => a.action === 'mnet.profile.disable.break-glass.emergency'
+      a => a.action === 'mnet.profile.disable.break-glass.emergency'
     )
     expect(audit).toBeDefined()
     expect(audit?.actor).toBe('security-admin')
@@ -180,17 +184,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'urgent: regulatory compliance',
-            approvalDegraded: false
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'urgent: regulatory compliance',
+          approvalDegraded: false
+        })
+      })
     )
 
     expect(response.status).toBe(200)
@@ -205,7 +206,7 @@ describe('integration: M-Net break-glass disable', () => {
 
     // audit records reason
     const emergencyAudit = logCapture.auditLogs.find(
-      (a) => a.action === 'mnet.profile.disable.break-glass.emergency'
+      a => a.action === 'mnet.profile.disable.break-glass.emergency'
     )
     expect(emergencyAudit).toBeDefined()
     expect(emergencyAudit?.payload).toBeDefined()
@@ -222,17 +223,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'urgent action',
-            approvalDegraded: true
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'urgent action',
+          approvalDegraded: true
+        })
+      })
     )
 
     expect(response.status).toBe(403)
@@ -241,7 +239,7 @@ describe('integration: M-Net break-glass disable', () => {
 
     // Check audit was written
     const deniedAudit = logCapture.auditLogs.find(
-      (a) => a.action === 'mnet.profile.disable.break-glass.denied'
+      a => a.action === 'mnet.profile.disable.break-glass.denied'
     )
     expect(deniedAudit).toBeDefined()
     expect(deniedAudit?.actor).toBe('admin')
@@ -263,17 +261,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: '',
-            approvalDegraded: false
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: '',
+          approvalDegraded: false
+        })
+      })
     )
 
     expect(response.status).toBe(400)
@@ -296,17 +291,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'urgent reason provided',
-            approvalDegraded: true
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'urgent reason provided',
+          approvalDegraded: true
+        })
+      })
     )
 
     // Still succeeds since emergencyReason is provided, but approvalDegraded is false
@@ -338,17 +330,14 @@ describe('integration: M-Net break-glass disable', () => {
     // Even with empty/minimal emergency reason, approval degradation allows break-glass
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'degraded approval',
-            approvalDegraded: false
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'degraded approval',
+          approvalDegraded: false
+        })
+      })
     )
 
     expect(response.status).toBe(200)
@@ -371,17 +360,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'recovery: failed state emergency disable',
-            approvalDegraded: false
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'recovery: failed state emergency disable',
+          approvalDegraded: false
+        })
+      })
     )
 
     expect(response.status).toBe(200)
@@ -403,17 +389,14 @@ describe('integration: M-Net break-glass disable', () => {
 
     const token = await mintToken('security-admin')
     const response = await app.handle(
-      new Request(
-        `http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`,
-        {
-          method: 'POST',
-          headers: bearerHeaders(token),
-          body: JSON.stringify({
-            emergencyReason: 'integration test: verify response shape',
-            approvalDegraded: false
-          })
-        }
-      )
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile/disable-break-glass`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          emergencyReason: 'integration test: verify response shape',
+          approvalDegraded: false
+        })
+      })
     )
 
     expect(response.status).toBe(200)

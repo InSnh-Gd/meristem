@@ -16,48 +16,49 @@ export type { MUiBffDeps } from './deps.ts'
 export function createMUiBffApp(deps: MUiBffDeps) {
   const routeDeps = createMUiBffRouteDeps(deps)
 
-  return new Elysia()
-    .use(
-      cors({
-        origin: true,
-        methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['content-type', 'authorization'],
-        credentials: true
-      })
-    ) // 开发环境允许任意 origin；生产部署需替换为具体允许域名。
-    .use(
-      openapi({
-        path: '/openapi-ui',
-        specPath: '/openapi',
-        provider: null,
-        documentation: {
-          info: { title: 'Meristem M-UI BFF API', version: 'v0' }
-        }
-      })
-    )
+  return (
+    new Elysia()
+      .use(
+        cors({
+          origin: true,
+          methods: ['GET', 'POST', 'OPTIONS'],
+          allowedHeaders: ['content-type', 'authorization'],
+          credentials: true
+        })
+      ) // 开发环境允许任意 origin；生产部署需替换为具体允许域名。
+      .use(
+        openapi({
+          path: '/openapi-ui',
+          specPath: '/openapi',
+          provider: null,
+          documentation: {
+            info: { title: 'Meristem M-UI BFF API', version: 'v0' }
+          }
+        })
+      )
 
-    // 全局错误钩子：将 Elysia 框架级错误统一为 BFF 错误 envelope
-    .onError(({ code, error, set }): unknown => {
-      if (code === 'VALIDATION') {
-        set.status = 400
-        const message =
-          error instanceof Error ? error.message : 'Request body validation failed'
-        return { error: { code: 'command.invalid_body', message } }
-      }
-      if (code === 'NOT_FOUND') {
-        set.status = 404
-        return { error: { code: 'NOT_FOUND', message: 'Route not found' } }
-      }
-      return undefined
-    })
-    .get('/health', () => ({ ok: true as const, service: 'm-ui-bff' as const }))
-    .get('/ready', async () => {
-      const result = await routeDeps.cf('/api/v0/health', undefined)
-      return { ready: result.ok }
-    })
-    .use(createSduiScreenRoutes(routeDeps))
-    .use(createBffDataRoutes(routeDeps))
-    .use(createCommandWellRoutes(routeDeps))
+      // 全局错误钩子：将 Elysia 框架级错误统一为 BFF 错误 envelope
+      .onError(({ code, error, set }): unknown => {
+        if (code === 'VALIDATION') {
+          set.status = 400
+          const message = error instanceof Error ? error.message : 'Request body validation failed'
+          return { error: { code: 'command.invalid_body', message } }
+        }
+        if (code === 'NOT_FOUND') {
+          set.status = 404
+          return { error: { code: 'NOT_FOUND', message: 'Route not found' } }
+        }
+        return undefined
+      })
+      .get('/health', () => ({ ok: true as const, service: 'm-ui-bff' as const }))
+      .get('/ready', async () => {
+        const result = await routeDeps.cf('/api/v0/health', undefined)
+        return { ready: result.ok }
+      })
+      .use(createSduiScreenRoutes(routeDeps))
+      .use(createBffDataRoutes(routeDeps))
+      .use(createCommandWellRoutes(routeDeps))
+  )
 }
 
 export type MUiBffApp = ReturnType<typeof createMUiBffApp>

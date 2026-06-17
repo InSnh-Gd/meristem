@@ -54,7 +54,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       // RED: currently returns 400 command.unknown
       // After implementation: 200 with approval data + correlationId
       expect(res.status).toBe(200)
-      const body = await res.json() as Record<string, unknown>
+      const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('approval')
       expect(body).toHaveProperty('correlationId')
     })
@@ -73,7 +73,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       )
 
       expect(res.status).toBe(200)
-      const body = await res.json() as Record<string, unknown>
+      const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('approval')
       expect(body).toHaveProperty('correlationId')
     })
@@ -93,7 +93,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
 
       // BFF should check auth before forwarding to Core
       expect(res.status).toBe(401)
-      const body = await res.json() as { error: { code: string } }
+      const body = (await res.json()) as { error: { code: string } }
       expect(body.error.code).toBe('auth.missing_token')
     })
 
@@ -146,7 +146,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       )
 
       expect(res.status).toBe(200)
-      const body = await res.json() as Record<string, unknown>
+      const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('correlationId')
     })
 
@@ -164,7 +164,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       )
 
       expect(res.status).toBe(200)
-      const body = await res.json() as Record<string, unknown>
+      const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('correlationId')
     })
 
@@ -184,7 +184,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
 
       // Should fail body validation — currently returns command.unknown
       expect(res.status).toBe(400)
-      const body = await res.json() as { error: { code: string } }
+      const body = (await res.json()) as { error: { code: string } }
       expect(body.error.code).toMatch(/invalid_body|VALIDATION/)
       expect(res.status).not.toBe(200)
     })
@@ -207,7 +207,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
 
       // Should return permission error inline, not as toast
       // Currently returns 400 command.unknown (RED)
-      const body = await res.json() as { error?: { code: string } }
+      const body = (await res.json()) as { error?: { code: string } }
       // Error must be inline (in response body), not a separate toast mechanism
       expect(body).toHaveProperty('error')
     })
@@ -236,8 +236,10 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       )
 
       expect(res.status).toBe(200)
-      const body = await res.json() as Record<string, unknown>
-      expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(true)
+      const body = (await res.json()) as Record<string, unknown>
+      expect(
+        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+      ).toBe(true)
       expect(body.commandId).toBe('policy.approval.approve.preview')
       expect(body.displayOnly).toBe(true)
       // Chinese label must exist in command definition
@@ -270,7 +272,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
         )
 
         expect(res.status).toBe(400)
-        const body = await res.json() as { error: { code: string } }
+        const body = (await res.json()) as { error: { code: string } }
         expect(body.error.code).toBe('command.display_only')
         // Confirmation gate: zero mutation requests for preview commands
         expect(requests.length).toBe(0)

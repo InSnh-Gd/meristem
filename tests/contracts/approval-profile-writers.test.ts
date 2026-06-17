@@ -26,11 +26,21 @@ describe('in-memory approval/profile writer ports', () => {
   })
 
   it('covers profile conflict and unavailable branches', async () => {
-    const conflict = createNetworkProfileWriterPort({ conflictNetworkIds: new Set(['net-conflict']) })
+    const conflict = createNetworkProfileWriterPort({
+      conflictNetworkIds: new Set(['net-conflict'])
+    })
     const unavailable = createNetworkProfileWriterPort({ profileSetSucceeds: false })
 
-    const conflictResult = await conflict.setProfile('net-conflict', { profileVersion: 'm-net-cn@0.1.0', reason: 'x' }, context)
-    const unavailableResult = await unavailable.setProfile('net-1', { profileVersion: 'm-net-cn@0.1.0', reason: 'x' }, context)
+    const conflictResult = await conflict.setProfile(
+      'net-conflict',
+      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      context
+    )
+    const unavailableResult = await unavailable.setProfile(
+      'net-1',
+      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      context
+    )
 
     expect(conflictResult.ok).toBe(false)
     expect(unavailableResult.ok).toBe(false)

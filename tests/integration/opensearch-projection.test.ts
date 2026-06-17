@@ -236,11 +236,7 @@ describe('Projection engine', () => {
       ? Rest
       : never
     const immediateSetTimeout = Object.assign(
-      function (
-        handler: SetTimeoutHandler,
-        _timeout?: SetTimeoutDelay,
-        ...args: SetTimeoutExtraArgs
-      ) {
+      (handler: SetTimeoutHandler, _timeout?: SetTimeoutDelay, ...args: SetTimeoutExtraArgs) => {
         if (typeof handler === 'function') {
           handler(...args)
         } else {

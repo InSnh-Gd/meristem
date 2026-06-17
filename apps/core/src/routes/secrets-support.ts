@@ -154,7 +154,9 @@ export async function runSecretMutation<T>(
     resource: string
     auditPayload: Record<string, unknown>
     before?: (correlationId: string) => Promise<void>
-    run: (correlationId: string) => Promise<{ ok: true; value: T } | { ok: false; error: ServiceError }>
+    run: (
+      correlationId: string
+    ) => Promise<{ ok: true; value: T } | { ok: false; error: ServiceError }>
   }
 ): Promise<T> {
   const { auth, decision } = await requireSecretPermission(deps, {
