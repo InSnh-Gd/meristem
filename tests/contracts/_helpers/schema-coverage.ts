@@ -33,13 +33,17 @@ const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([
 // This scanner only extracts literal subjects from the call site; it does not resolve
 // computed variables, helper wrappers, or other dynamic subject construction.
 const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
+// Extracted workflow helpers may carry literal subjects in named options instead of direct publish args.
+const workflowSubjectOptionPattern = /requestedSubject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [
   'policy.approval.created.v0',
   'policy.approval.approved.v0',
   'policy.approval.rejected.v0',
-  'policy.approval.expired.v0'
+  'policy.approval.expired.v0',
+  'policy.approval.vote.approved.v0',
+  'policy.approval.vote.rejected.v0'
 ] as const
 
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
@@ -127,6 +131,10 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
           subjects.add(definedMatchGroup(match))
         }
 
+        for (const match of source.matchAll(workflowSubjectOptionPattern)) {
+          subjects.add(definedMatchGroup(match))
+        }
+
         if (relativePath.startsWith('services/m-extension/src/')) {
           for (const match of source.matchAll(extensionSubjectReferencePattern)) {
             const key = match[1] as keyof typeof Contracts.mExtensionEventSubjects
@@ -166,6 +174,27 @@ export const activePublisherSchemaContracts: EventSchemaContract[] = [
       action: 'core:read',
       resource: 'core',
       decisionId: 'pd-1'
+    }
+  },
+  {
+    subject: 'policy.approval.vote.approved.v0',
+    schema: Contracts.PolicyApprovalVoteEventPayloadSchema,
+    fixture: {
+      approvalId: 'approval-vote-approved',
+      actor: 'security-admin',
+      vote: 'approve',
+      reason: 'looks safe',
+      timestamp: '2026-06-04T10:30:00.000Z'
+    }
+  },
+  {
+    subject: 'policy.approval.vote.rejected.v0',
+    schema: Contracts.PolicyApprovalVoteEventPayloadSchema,
+    fixture: {
+      approvalId: 'approval-vote-rejected',
+      actor: 'admin',
+      vote: 'reject',
+      timestamp: '2026-06-04T10:45:00.000Z'
     }
   }
 ]

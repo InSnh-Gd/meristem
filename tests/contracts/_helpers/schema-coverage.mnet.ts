@@ -100,6 +100,17 @@ export const mnetEventContracts: EventContract[] = [
       reason: 'approval rejected',
       controlPlaneOnly: true
     }
+  },
+  {
+    subject: 'mnet.profile.defaults.updated.v0',
+    schema: Contracts.MNetProfileDefaultsUpdatedEventPayloadSchema,
+    fixture: {
+      defaultProfileVersion: 'm-net-cn@0.1.0',
+      actor: 'admin',
+      reason: 'switch all new networks to CN profile',
+      correlationId: 'corr-defaults-1',
+      controlPlaneOnly: true
+    }
   }
 ]
 

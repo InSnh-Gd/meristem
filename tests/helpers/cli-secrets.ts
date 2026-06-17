@@ -47,13 +47,59 @@ export async function statusMock() {
 /** 为 secret CLI 测试构造带嵌套方法的 mock client。 */
 export function secretClient(methods: SecretCliMethods): CliClient {
   const secret = {
-    list: methods.listSecrets,
-    get: methods.getSecret,
-    create: methods.createSecret,
-    rotate: methods.rotateSecret,
-    disable: methods.disableSecret
-  }
-  return { status: statusMock, secret } as unknown as CliClient
+    ...(methods.listSecrets
+      ? {
+          list: async () => {
+            const { secrets } = await methods.listSecrets!()
+            return secrets.map(s => ({
+              id: s.id,
+              name: s.name,
+              scope: s.scope,
+              status: s.status,
+              createdBy: s.createdBy,
+              createdAt: s.createdAt
+            }))
+          }
+        }
+      : {}),
+    ...(methods.getSecret
+      ? {
+          get: async (id: string) => {
+            const { secretRef } = await methods.getSecret!(id)
+            return { ...secretRef, updatedAt: secretRef.rotatedAt ?? secretRef.disabledAt ?? secretRef.createdAt }
+          }
+        }
+      : {}),
+    ...(methods.createSecret
+      ? {
+          create: async (input: { name: string; scope: string; value: string }) => {
+            const { secretRef } = await methods.createSecret!(input as {
+              name: string
+              scope: 'system' | 'service' | 'node'
+              value: string
+            })
+            return { ...secretRef }
+          }
+        }
+      : {}),
+    ...(methods.rotateSecret
+      ? {
+          rotate: async (secretId: string, input: { value: string; reason: string }) => {
+            const result = await methods.rotateSecret!(secretId, input)
+            return { ...result.secretRef, version: String(result.version), rotatedAt: result.secretRef.rotatedAt ?? result.secretRef.createdAt }
+          }
+        }
+      : {}),
+    ...(methods.disableSecret
+      ? {
+          disable: async (secretId: string, input: { reason: string }) => {
+            const { secretRef } = await methods.disableSecret!(secretId, input)
+            return { ...secretRef, disabledAt: secretRef.disabledAt ?? secretRef.createdAt }
+          }
+        }
+      : {})
+  } satisfies NonNullable<CliClient['secret']>
+  return { status: statusMock, secret }
 }
 
 /** 构造不带 secret 方法的最小 client。 */

@@ -143,6 +143,18 @@ export const PolicyApprovalEventPayloadSchema = Schema.Struct({
 })
 export type PolicyApprovalEventPayloadFromSchema = typeof PolicyApprovalEventPayloadSchema.Type
 
+// Approval vote-level event payloads capture individual votes as separate event facts,
+// distinct from approval lifecycle terminal events. These are used by read-model
+// projections and the approval profile UI without coupling to lifecycle transitions.
+export const PolicyApprovalVoteEventPayloadSchema = Schema.Struct({
+  approvalId: Schema.String,
+  actor: Schema.Literal(...actorIds),
+  vote: ApprovalVoteTypeSchema,
+  reason: Schema.optional(Schema.String),
+  timestamp: Schema.String
+})
+export type PolicyApprovalVoteEventPayloadFromSchema = typeof PolicyApprovalVoteEventPayloadSchema.Type
+
 export const PolicyDecisionCreatedPayloadSchema = Schema.Struct({
   decisionId: Schema.String,
   actor: Schema.Literal(...actorIds),

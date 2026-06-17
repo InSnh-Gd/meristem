@@ -180,8 +180,8 @@ describe('Projection engine', () => {
   beforeEach(() => {
     db = createMockDb()
     os = createMockOs()
-    // @ts-expect-error MockDb structurally satisfies projection engine deps
-    engine = createProjectionEngine(db as unknown as MockDb, os)
+    const projectionDb = db as unknown as Parameters<typeof createProjectionEngine>[0]
+    engine = createProjectionEngine(projectionDb, os)
   })
 
   it('creates a backfill job and transitions it to running then completed', async () => {
@@ -229,11 +229,28 @@ describe('Projection engine', () => {
   it('projectWithRetry enters DLQ after max retries', async () => {
     os.indexDocument = async () => false
     const originalSetTimeout = globalThis.setTimeout
-    // @ts-expect-error speed up timeouts
-    globalThis.setTimeout = (fn: () => void) => {
-      fn()
-      return 0
-    }
+    type SetTimeoutParameters = Parameters<typeof globalThis.setTimeout>
+    type SetTimeoutHandler = SetTimeoutParameters[0]
+    type SetTimeoutDelay = SetTimeoutParameters[1]
+    type SetTimeoutExtraArgs = SetTimeoutParameters extends [unknown, unknown?, ...infer Rest]
+      ? Rest
+      : never
+    const immediateSetTimeout = Object.assign(
+      function (
+        handler: SetTimeoutHandler,
+        _timeout?: SetTimeoutDelay,
+        ...args: SetTimeoutExtraArgs
+      ) {
+        if (typeof handler === 'function') {
+          handler(...args)
+        } else {
+          new Function(handler)()
+        }
+        return originalSetTimeout(() => undefined, 0)
+      },
+      { __promisify__: originalSetTimeout.__promisify__ }
+    ) as typeof globalThis.setTimeout
+    globalThis.setTimeout = immediateSetTimeout
     try {
       const ok = await engine.projectWithRetry('job-1', 'meristem-timeline-logs-v0', 'f1', {
         summary: 's'

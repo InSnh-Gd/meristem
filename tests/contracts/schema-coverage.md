@@ -29,6 +29,7 @@
 | `mnet.profile.disabled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.apply_failed.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.enable.canceled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
+| `mnet.profile.defaults.updated.v0` | `services/m-net/src/global-defaults-routes.ts` | `MNetProfileDefaultsUpdatedEventPayloadSchema` |
 | `task.requested.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |
 | `task.queued.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |
 | `task.dispatched.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |
@@ -44,6 +45,8 @@
 | `policy.approval.approved.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.rejected.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
 | `policy.approval.expired.v0` | `services/m-policy/src/approvals.ts` | `PolicyApprovalEventPayloadSchema` |
+| `policy.approval.vote.approved.v0` | `services/m-policy/src/approvals.ts` (dynamic) | `PolicyApprovalVoteEventPayloadSchema` |
+| `policy.approval.vote.rejected.v0` | `services/m-policy/src/approvals.ts` (dynamic) | `PolicyApprovalVoteEventPayloadSchema` |
 | `policy.decision.created.v0` | `services/m-policy/src/index.ts` | `PolicyDecisionCreatedPayloadSchema` |
 | `audit.entry.created.v0` | `services/m-log/src/index.ts`, `services/m-policy/src/index.ts` | `AuditEntryCreatedPayloadSchema` |
 | `extension.definition.registered.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |

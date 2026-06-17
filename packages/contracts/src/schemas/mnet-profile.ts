@@ -105,6 +105,17 @@ export const MNetProfileEventPayloadSchema = Schema.Struct({
 })
 export type MNetProfileEventPayloadFromSchema = typeof MNetProfileEventPayloadSchema.Type
 
+/** 全局默认 Profile 更新事件 payload（DFW-014） */
+export const MNetProfileDefaultsUpdatedEventPayloadSchema = Schema.Struct({
+  defaultProfileVersion: MNetProfileVersionSchema,
+  actor: Schema.Literal(...actorIds),
+  reason: Schema.String,
+  correlationId: Schema.String,
+  controlPlaneOnly: Schema.Literal(true)
+})
+export type MNetProfileDefaultsUpdatedEventPayloadFromSchema =
+  typeof MNetProfileDefaultsUpdatedEventPayloadSchema.Type
+
 export const MNetProfileListResponseSchema = Schema.Struct({
   profiles: Schema.Array(MNetRegionalProfileSchema)
 })

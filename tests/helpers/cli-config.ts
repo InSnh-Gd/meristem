@@ -22,6 +22,24 @@ export type ConfigPayloadFiles = {
   plainTest: string
 }
 
+type ConfigCliMethods = {
+  list?(): Promise<
+    Array<{
+      id: string
+      configVersion: string
+      domain: string
+      status: string
+      createdBy: string
+      createdAt: string
+    }>
+  >
+  get?(id: string): Promise<ConfigRecord>
+  draft?(input: { domain: string; payload: Record<string, unknown> }): Promise<ConfigRecord>
+  validate?(id: string): Promise<ConfigRecord>
+  publish?(id: string, input: { reason: string }): Promise<ConfigRecord>
+  rollback?(id: string, input: { toVersion: string; reason: string }): Promise<ConfigRecord>
+}
+
 export async function statusMock() {
   return {
     core: { id: 'meristem-core', version: '0.1.0', mode: 'normal' as const },
@@ -38,15 +56,60 @@ export async function statusMock() {
 }
 
 /** 为 config CLI 测试构造带嵌套方法的 mock client。 */
-export function configClient(configMethods: {
-  list?(): Promise<unknown>
-  get?(id: string): Promise<unknown>
-  draft?(input: { domain: string; payload: Record<string, unknown> }): Promise<unknown>
-  validate?(id: string): Promise<unknown>
-  publish?(id: string, input: { reason: string }): Promise<unknown>
-  rollback?(id: string, input: { toVersion: string; reason: string }): Promise<unknown>
-}): CliClient {
-  return { status: statusMock, config: configMethods } as unknown as CliClient
+export function configClient(configMethods: ConfigCliMethods): CliClient {
+  const config = {
+    ...(configMethods.list ? { list: configMethods.list } : {}),
+    ...(configMethods.get
+      ? {
+          get: async (id: string) => {
+            const config = await configMethods.get!(id)
+            return { ...config, payload: {}, updatedAt: config.publishedAt ?? config.createdAt }
+          }
+        }
+      : {}),
+    ...(configMethods.draft
+      ? {
+          draft: async (input: { domain: string; payload: unknown; targetScope?: string[] }) => {
+            const config = await configMethods.draft!(input as {
+              domain: string
+              payload: Record<string, unknown>
+            })
+            return { ...config }
+          }
+        }
+      : {}),
+    ...(configMethods.validate
+      ? {
+          validate: async (id: string) => {
+            const config = await configMethods.validate!(id)
+            return { ...config }
+          }
+        }
+      : {}),
+    ...(configMethods.publish
+      ? {
+          publish: async (id: string, input: { reason: string }) => {
+            const config = await configMethods.publish!(id, input)
+            return {
+              id: config.id,
+              configVersion: config.configVersion,
+              status: config.status,
+              publishedAt: config.publishedAt ?? config.createdAt,
+              publishedBy: config.publishedBy ?? config.createdBy
+            }
+          }
+        }
+      : {}),
+    ...(configMethods.rollback
+      ? {
+          rollback: async (id: string, input: { toVersion: string; reason: string }) => {
+            const config = await configMethods.rollback!(id, input)
+            return { ...config }
+          }
+        }
+      : {})
+  } satisfies NonNullable<CliClient['config']>
+  return { status: statusMock, config }
 }
 
 /** 构造不带 config 方法的最小 client。 */

@@ -68,13 +68,59 @@ async function statusMock() {
 /** Create a mock CliClient with identity methods nested under `identity` key. */
 function identityClient(methods: IdentityCliMethods): CliClient {
   const identity = {
-    listActors: methods.listActors,
-    getActor: methods.getActor,
-    issueToken: methods.issueIdentityToken,
-    inspectToken: methods.inspectIdentityToken,
-    revokeToken: methods.revokeIdentityToken
-  }
-  return { status: statusMock, identity } as unknown as CliClient
+    ...(methods.listActors
+      ? {
+          listActors: async () => {
+            const { actors } = await methods.listActors!()
+            return actors.map(actor => ({
+              id: actor.id,
+              displayName: actor.displayName,
+              status: actor.status
+            }))
+          }
+        }
+      : {}),
+    ...(methods.getActor
+      ? {
+          getActor: async (actorId: string) => {
+            const { actor } = await methods.getActor!(actorId)
+            return {
+              id: actor.id,
+              displayName: actor.displayName,
+              status: actor.status
+            }
+          }
+        }
+      : {}),
+    ...(methods.issueIdentityToken
+      ? {
+          issueToken: methods.issueIdentityToken
+        }
+      : {}),
+    ...(methods.inspectIdentityToken
+      ? {
+          inspectToken: async (jti: string) => {
+            const { token } = await methods.inspectIdentityToken!(jti)
+            return { ...token }
+          }
+        }
+      : {}),
+    ...(methods.revokeIdentityToken
+      ? {
+          revokeToken: async (jti: string, input: { reason: string }) => {
+            const { token } = await methods.revokeIdentityToken!(jti, input)
+            return {
+              jti: token.jti,
+              status: token.status,
+              revokedAt: token.revokedAt ?? token.issuedAt,
+              revokedBy: token.revokedBy ?? token.issuedBy,
+              ...(token.revokeReason ? { revokeReason: token.revokeReason } : {})
+            }
+          }
+        }
+      : {})
+  } satisfies NonNullable<CliClient['identity']>
+  return { status: statusMock, identity }
 }
 
 /** Create a minimal CliClient without identity methods. */

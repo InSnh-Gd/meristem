@@ -46,6 +46,9 @@ import type {
   MNetServiceError,
   MNetServiceResult
 } from '../../services/m-net/src/app.ts'
+import type { GlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
+import type { MigrationEngine } from '../../services/m-net/src/migration-engine.ts'
+import type { ProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
 import type { MNetApp as PublicMNetApp } from '../../services/m-net/src/public-types.ts'
 import type {
   createMTaskApp,
@@ -204,6 +207,9 @@ type ExpectedMNetAppDeps = {
       policyDecisionId?: string
       correlationId?: string
     }): Promise<void>
+    listNetworkStates(): Promise<
+      Array<{ networkId: string; profileVersion: string; status: string; updatedAt: string }>
+    >
   }
   networkUpdater?: {
     setProfileVersion(networkId: string, profileVersion: string): Promise<void>
@@ -273,6 +279,12 @@ type ExpectedMNetAppDeps = {
       payload?: unknown
     ): Promise<void>
   }
+  profileDisablePolicy?: ProfileDisablePolicyStore
+  policyHealthCheck?: {
+    checkHealth(): Promise<{ healthy: boolean }>
+  }
+  globalDefaultsStore?: GlobalDefaultsStore
+  migrationEngine?: MigrationEngine
 }
 
 type ExpectedEventBusAppDeps = {

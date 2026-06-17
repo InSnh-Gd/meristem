@@ -76,6 +76,50 @@ describe('Approval execution failure modes', () => {
     expect(suspendedOps.__testing.all()).toHaveLength(1)
   })
 
+  it('vote event publish failure does not turn a persisted approval vote into a route error', async () => {
+    const approval = createTestApproval({
+      requestedBy: 'operator',
+      requiredAction: 'manual_review',
+      quorumRequired: 1
+    })
+    const routes = createApprovalRoutes({
+      auth: {
+        async verify() {
+          return { ok: true as const, actor: 'security-admin' as ActorId }
+        }
+      },
+      approvals: createInMemoryApprovalStore([approval]),
+      log: {
+        async writeTimeline() {},
+        async writeFull() {},
+        async writeAudit() {}
+      },
+      events: {
+        async publish(subject) {
+          if (subject.startsWith('policy.approval.vote.')) {
+            throw new Error('NATS unavailable')
+          }
+        }
+      },
+      async authorize() {
+        return true
+      }
+    })
+
+    const response = await routes.handle(
+      new Request(`http://localhost/api/v0/policy/approvals/${approval.id}/approve`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'looks safe' })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { approval: { status: string }; votes: unknown[] }
+    expect(body.approval.status).toBe('approved')
+    expect(body.votes).toHaveLength(1)
+  })
+
   it('consumed idempotency key cannot be resumed twice', async () => {
     const deps = createInMemoryMTaskDeps({ actor: 'operator' })
     process.env.MERISTEM_INTERNAL_TOKEN =

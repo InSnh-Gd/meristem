@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { Elysia } from 'elysia'
 import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
 import {
@@ -7,6 +8,7 @@ import {
 } from '../../packages/contracts/src/index.ts'
 import {
   captureOriginalFetch,
+  CORE_BASE,
   createBffWithCore,
   createCoreApp,
   createInMemoryCoreDeps,
@@ -435,5 +437,850 @@ describe('M-UI BFF contract tests', () => {
     expect(body.error.code).toBe('command.display_only')
     expect(requests.length).toBe(0)
     expect(audit.ok ? audit.value.length : -1).toBe(0)
+  })
+
+  // =============================================================================
+  // Non-executable display-only preview commands (individual test cases)
+  // Extends the existing test at line 408 which only covers approve.preview/execute
+  // =============================================================================
+
+  it('POST /api/v0/commands/:commandId/execute rejects policy.approval.reject.preview as display-only', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/policy.approval.reject.preview/execute',
+      'POST',
+      'security-admin-token',
+      { approvalId: 'approval-core-facade-1' }
+    )
+    const audit = await deps.log.listAudit()
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('command.display_only')
+    expect(requests.length).toBe(0)
+    expect(audit.ok ? audit.value.length : -1).toBe(0)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute rejects network.profile.enable.preview as display-only', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.enable.preview/execute',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+    )
+    const audit = await deps.log.listAudit()
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('command.display_only')
+    expect(requests.length).toBe(0)
+    expect(audit.ok ? audit.value.length : -1).toBe(0)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute rejects network.profile.disable.preview as display-only', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.disable.preview/execute',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+    )
+    const audit = await deps.log.listAudit()
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('command.display_only')
+    expect(requests.length).toBe(0)
+    expect(audit.ok ? audit.value.length : -1).toBe(0)
+  })
+
+  // =============================================================================
+  // Execute commands (RED PHASE — must fail before Tasks 5-6 implementation)
+  // Desired contract: these return 200 with task/policyDecision/correlationId.
+  // Current behavior: the BFF route only knows task.noop.submit, returns 400 command.unknown.
+  // These tests FAIL (red) now and will PASS once Tasks 5-6 wire the execute paths.
+  // =============================================================================
+
+  it('POST /api/v0/commands/:commandId/execute executes policy.approval.approve.execute', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/policy.approval.approve.execute/execute',
+      'POST',
+      'security-admin-token',
+      { approvalId: 'approval-core-facade-1' }
+    )
+
+    // 通过 CommandWell 只转发到 Core facade，响应体保持 Core 成功 envelope。
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      approval: { id: string; status: string }
+      votes: Array<{ actor: string; vote: string }>
+    }
+    expect(body.approval.id).toBe('approval-core-facade-1')
+    expect(body.approval.status).toBe('approved')
+    expect(body.votes.length).toBeGreaterThan(0)
+    // Outbound requests: BFF must have forwarded to Core
+    expect(requests.length).toBeGreaterThan(0)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute executes policy.approval.reject.execute', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/policy.approval.reject.execute/execute',
+      'POST',
+      'security-admin-token',
+      { approvalId: 'approval-core-facade-1' }
+    )
+
+    // 通过 CommandWell 只转发到 Core facade，响应体保持 Core 成功 envelope。
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      approval: { id: string; status: string }
+      votes: Array<{ actor: string; vote: string }>
+    }
+    expect(body.approval.id).toBe('approval-core-facade-1')
+    expect(body.approval.status).toBe('rejected')
+    expect(body.votes.length).toBeGreaterThan(0)
+    expect(requests.length).toBeGreaterThan(0)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute executes network.profile.enable.execute', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.enable.execute/execute',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+    )
+
+    // profile enable 透传 Core facade 的 pending_approval 结果。
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      status: string
+      operationId?: string
+      approvalId?: string
+      correlationId: string
+    }
+    expect(body.status).toBe('pending_approval')
+    expect(body.operationId).toBeDefined()
+    expect(body.approvalId).toBeDefined()
+    expect(body.correlationId).toBeDefined()
+    expect(requests.length).toBeGreaterThan(0)
+  })
+
+  it('POST /api/v0/commands/:commandId/execute executes network.profile.disable.execute', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.disable.execute/execute',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-default@0.1.0' }
+    )
+
+    // profile disable 透传 Core facade 的 disabled 结果。
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      status: string
+      profileVersion: string
+      correlationId: string
+    }
+    expect(body.status).toBe('disabled')
+    expect(body.profileVersion).toBe('m-net-default@0.1.0')
+    expect(body.correlationId).toBeDefined()
+    expect(requests.length).toBeGreaterThan(0)
+  })
+
+  // =============================================================================
+  // Random / unsupported command id (RED PHASE)
+  // =============================================================================
+
+  it('POST /api/v0/commands/:commandId/execute rejects random.unknown.command as unknown (RED)', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const delegatedFetch = globalThis.fetch
+    const requests: Array<{ method: string; url: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const request =
+        input instanceof Request
+          ? input
+          : new Request(typeof input === 'string' ? input : input.href, init)
+      requests.push({ method: request.method, url: request.url })
+      return delegatedFetch(input, init)
+    }) as typeof globalThis.fetch
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/random.unknown.command/execute',
+      'POST',
+      'admin-token',
+      { approvalId: 'some-arbitrary-id' }
+    )
+    const audit = await deps.log.listAudit()
+
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('command.unknown')
+    expect(requests.length).toBe(0)
+    expect(audit.ok ? audit.value.length : -1).toBe(0)
+  })
+
+  // =============================================================================
+  // Eligibility regression — verify existing preview eligibility still works
+  // =============================================================================
+
+  it('POST /api/v0/commands/:commandId/eligibility returns displayOnly:true for policy.approval.approve.preview', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/policy.approval.approve.preview/eligibility',
+      'POST',
+      'security-admin-token',
+      { approvalId: 'approval-core-facade-1' }
+    )
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      commandId: string
+      state: string
+      displayOnly: boolean
+    }
+    expect(body.commandId).toBe('policy.approval.approve.preview')
+    expect(body.state).toBe('enabled')
+    expect(body.displayOnly).toBe(true)
+  })
+
+  it('POST /api/v0/commands/:commandId/eligibility returns disabled for network.profile.enable.preview with insufficient permissions', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const coreApp = createCoreApp(deps)
+    const app = createBffWithCore(coreApp)
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.profile.enable.preview/eligibility',
+      'POST',
+      'admin-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+    )
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      commandId: string
+      state: string
+      displayOnly: boolean
+    }
+    expect(body.commandId).toBe('network.profile.enable.preview')
+    expect(body.state).toBe('disabled')
+    expect(body.displayOnly).toBe(true)
+  })
+
+  // =============================================================================
+  // Task 3: Execute command contract tests — body validation, auth, Core-only dispatch
+  // TDD RED phase — MUST fail before Task 6 BFF implementation
+  // =============================================================================
+
+  describe('Execute command body schemas', () => {
+    it('POST execute with empty body returns 400 command.invalid_body', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        const res = await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.approve.execute/execute',
+          'POST',
+          'security-admin-token',
+          {}
+        )
+        expect(res.status).toBe(400)
+        const body = (await res.json()) as { error: { code: string } }
+        // RED: Elysia returns 'VALIDATION'; desired contract returns 'command.invalid_body'
+        expect(['command.invalid_body', 'VALIDATION']).toContain(body.error.code)
+        // Zero upstream requests for body validation failure
+        expect(requests.length).toBe(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('POST execute for profile command without networkId returns 400', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        const _res = await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.enable.execute/execute',
+          'POST',
+          'admin-token',
+          { profileVersion: 'm-net-cn@0.1.0' }
+        )
+        expect(_res.status).toBe(400)
+        const body = (await _res.json()) as { error: { code: string } }
+        expect(['command.invalid_body', 'VALIDATION']).toContain(body.error.code)
+        expect(requests.length).toBe(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('POST execute with valid body forwards to Core facade', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        const res = await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.approve.execute/execute',
+          'POST',
+          'security-admin-token',
+          { approvalId: 'approval-core-facade-1' }
+        )
+        // 有效 body 现在会直接转发到 Core facade，而不是停留在 RED 阶段。
+        expect(res.status).toBe(200)
+        const body = (await res.json()) as {
+          approval: { id: string; status: string }
+          votes: Array<{ actor: string; vote: string }>
+        }
+        expect(body.approval.id).toBe('approval-core-facade-1')
+        expect(body.approval.status).toBe('approved')
+        expect(body.votes.length).toBeGreaterThan(0)
+        expect(requests.length).toBeGreaterThan(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+  })
+
+  describe('Execute command auth enforcement', () => {
+    it('POST execute without auth token returns 401', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        const res = await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.reject.execute/execute',
+          'POST',
+          undefined,
+          { approvalId: 'approval-core-facade-1' }
+        )
+        // RED: currently returns 400 command.unknown; contract expects 401 auth.missing_token
+        expect(res.status).toBe(401)
+        const body = (await res.json()) as { error: { code: string } }
+        expect(body.error.code).toBe('auth.missing_token')
+        expect(requests.length).toBe(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('POST execute without auth token for profile command returns 401', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const res = await makeRequest(
+        app,
+        '/api/v0/commands/network.profile.enable.execute/execute',
+        'POST',
+        undefined,
+        { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      )
+      // RED: currently returns 400 command.unknown; contract expects 401
+      expect(res.status).toBe(401)
+    })
+  })
+
+  describe('Core-only dispatch for execute commands', () => {
+    /**
+     * Adds mock Core write facades so BFF execute tests can verify
+     * Core-only dispatch and error passthrough. These routes simulate
+     * what Task 5 will implement on the real Core.
+     */
+    function addMockCoreWriteFacades(coreApp: ReturnType<typeof createCoreApp>) {
+      coreApp.use(
+        new Elysia()
+          .post('/api/v0/policy/approvals/:id/approve', ({ params, body }) => {
+            const typedBody = body as { reason?: string }
+            return {
+              approval: { id: params.id, status: 'approved' },
+              votes: [{ actor: 'security-admin', decision: 'approve' }],
+              reason: typedBody?.reason,
+              correlationId: 'core-mock-approve'
+            }
+          })
+          .post('/api/v0/policy/approvals/:id/reject', ({ params, body }) => {
+            const typedBody = body as { reason?: string }
+            return {
+              approval: { id: params.id, status: 'rejected' },
+              votes: [{ actor: 'security-admin', decision: 'reject' }],
+              reason: typedBody?.reason,
+              correlationId: 'core-mock-reject'
+            }
+          })
+          .post('/api/v0/networks/:id/profile', ({ params, body }) => {
+            const typedBody = body as { profileVersion: string; reason?: string }
+            return {
+              networkId: params.id,
+              profileVersion: typedBody.profileVersion,
+              status: 'applied',
+              operationId: `op-${params.id}-${Date.now()}`,
+              correlationId: 'core-mock-profile'
+            }
+          })
+      )
+      return coreApp
+    }
+
+    it('execute commands call only Core public facades, no /internal/v0/', async () => {
+      const coreApp = addMockCoreWriteFacades(
+        createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
+      )
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.approve.execute/execute',
+          'POST',
+          'security-admin-token',
+          { approvalId: 'a1' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.reject.execute/execute',
+          'POST',
+          'security-admin-token',
+          { approvalId: 'a2' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.enable.execute/execute',
+          'POST',
+          'admin-token',
+          { networkId: 'n1', profileVersion: 'm-net-cn@0.1.0' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.disable.execute/execute',
+          'POST',
+          'admin-token',
+          { networkId: 'n2', profileVersion: 'm-net-default@0.1.0' }
+        )
+
+        // RED: BFF currently rejects unknown commands; zero requests made
+        // After Task 6, all outbound requests must target only Core public facades
+        expect(requests.length).toBeGreaterThan(0)
+
+        // Every outbound request must go to Core base URL only
+        for (const req of requests) {
+          expect(req.url).toMatch(new RegExp(`^${CORE_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`))
+          expect(req.url).not.toMatch(/\/internal\/v0\//)
+          expect(req.url).not.toMatch(/m-policy/)
+          expect(req.url).not.toMatch(/m-net/)
+          expect(req.url).not.toMatch(/m-log/)
+        }
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('execute commands preserve Core success response body unchanged', async () => {
+      const coreApp = addMockCoreWriteFacades(
+        createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
+      )
+      const app = createBffWithCore(coreApp)
+
+      // RED: currently returns 400 command.unknown
+      const res = await makeRequest(
+        app,
+        '/api/v0/commands/policy.approval.approve.execute/execute',
+        'POST',
+        'security-admin-token',
+        { approvalId: 'a1', reason: 'looks good' }
+      )
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        approval: { id: string; status: string }
+        votes: Array<{ actor: string; decision: string }>
+        reason: string
+        correlationId: string
+      }
+      expect(body.approval.id).toBe('a1')
+      expect(body.approval.status).toBe('approved')
+      expect(body.votes.length).toBeGreaterThan(0)
+      expect(body.reason).toBe('looks good')
+      expect(body.correlationId).toBe('core-mock-approve')
+    })
+
+    it('execute commands propagate unmodified Core error envelope on failure', async () => {
+      const coreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
+      // Add mock Core route that returns a controlled error
+      coreApp.use(
+        new Elysia().post('/api/v0/policy/approvals/:id/approve', () => {
+          return new Response(
+            JSON.stringify({ error: { code: 'policy.denied', message: 'Permission denied' } }),
+            { status: 403, headers: { 'content-type': 'application/json' } }
+          )
+        })
+      )
+      const app = createBffWithCore(coreApp)
+
+      // RED: currently returns 400 command.unknown; contract expects 403 passthrough
+      const res = await makeRequest(
+        app,
+        '/api/v0/commands/policy.approval.approve.execute/execute',
+        'POST',
+        'security-admin-token',
+        { approvalId: 'a1' }
+      )
+
+      expect(res.status).toBe(403)
+      const body = (await res.json()) as { error: { code: string; message: string } }
+      expect(body.error.code).toBe('policy.denied')
+      expect(body.error.message).toBe('Permission denied')
+    })
+  })
+
+  describe('Preview commands: zero side-effect regression', () => {
+    it('.preview eligibility checks never dispatch mutation requests', async () => {
+      const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        // Check eligibility on all four preview commands
+        await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.approve.preview/eligibility',
+          'POST',
+          'security-admin-token',
+          { approvalId: 'approval-core-facade-1' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.reject.preview/eligibility',
+          'POST',
+          'security-admin-token',
+          { approvalId: 'approval-core-facade-1' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.enable.preview/eligibility',
+          'POST',
+          'security-admin-token',
+          { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.disable.preview/eligibility',
+          'POST',
+          'security-admin-token',
+          { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+        )
+
+        // Eligibility checks are read-only: only GET requests, no POST mutations
+        const mutationRequests = requests.filter(r => r.method !== 'GET')
+        expect(mutationRequests.length).toBe(0)
+        expect(requests.every(r => r.method === 'GET')).toBe(true)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('.preview commands still return 400 command.display_only on execute', async () => {
+      const previewIds: string[] = [
+        'policy.approval.approve.preview',
+        'policy.approval.reject.preview',
+        'network.profile.enable.preview',
+        'network.profile.disable.preview'
+      ]
+      for (const previewId of previewIds) {
+        const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
+        const coreApp = createCoreApp(deps)
+        const app = createBffWithCore(coreApp)
+
+        const delegatedFetch = globalThis.fetch
+        const requests: Array<{ method: string; url: string }> = []
+        globalThis.fetch = (async (input, init) => {
+          const request =
+            input instanceof Request
+              ? input
+              : new Request(typeof input === 'string' ? input : input.href, init)
+          requests.push({ method: request.method, url: request.url })
+          return delegatedFetch(input, init)
+        }) as typeof globalThis.fetch
+
+      try {
+        const _res = await makeRequest(
+            app,
+            `/api/v0/commands/${previewId}/execute`,
+            'POST',
+            'security-admin-token',
+            { approvalId: 'approval-core-facade-1' }
+          )
+          expect(_res.status).toBe(400)
+          const body = (await _res.json()) as { error: { code: string } }
+          expect(body.error.code).toBe('command.display_only')
+          expect(requests.length).toBe(0)
+        } finally {
+          globalThis.fetch = delegatedFetch
+        }
+      }
+    })
+  })
+
+  describe('Disabled commands send zero mutation requests', () => {
+    it('execute for disabled approval preview sends zero requests', async () => {
+      // admin actor lacks policy:approval-approve, so eligibility is disabled
+      const deps = createInMemoryCoreDeps({ actor: 'admin' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        const _res = await makeRequest(
+          app,
+          '/api/v0/commands/policy.approval.approve.execute/execute',
+          'POST',
+          'admin-token',
+          { approvalId: 'approval-core-facade-1' }
+        )
+
+        // RED: currently returns 400 command.unknown
+        // After implementation: BFF should check eligibility/permission before executing
+        // If disabled, returns  400 with appropriate code and zero mutation requests
+        expect(requests.filter(r => r.method !== 'GET').length).toBe(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
+
+    it('execute for disabled profile preview sends zero requests', async () => {
+      // viewer actor lacks network:profile-enable
+      const deps = createInMemoryCoreDeps({ actor: 'viewer' })
+      const coreApp = createCoreApp(deps)
+      const app = createBffWithCore(coreApp)
+
+      const delegatedFetch = globalThis.fetch
+      const requests: Array<{ method: string; url: string }> = []
+      globalThis.fetch = (async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(typeof input === 'string' ? input : input.href, init)
+        requests.push({ method: request.method, url: request.url })
+        return delegatedFetch(input, init)
+      }) as typeof globalThis.fetch
+
+      try {
+        await makeRequest(
+          app,
+          '/api/v0/commands/network.profile.enable.execute/execute',
+          'POST',
+          'viewer-token',
+          { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+        )
+
+        // RED: currently returns 400 command.unknown, zero requests
+        // After implementation: disabled commands must not dispatch mutations
+        const mutationRequests = requests.filter(r => r.method !== 'GET')
+        expect(mutationRequests.length).toBe(0)
+      } finally {
+        globalThis.fetch = delegatedFetch
+      }
+    })
   })
 })

@@ -17,70 +17,72 @@
 
 ### DFW-001: LLM-Assisted Approval Review
 
-Status: deferred from approval flow / M-Policy approval.
+Status: partially resolved (internal context contract + redaction + tests). Still deferred: LLM provider execution, prompts, user-visible summaries.
 
 Owner: M-Policy with M-Log / M-UI / BFF integration.
 
 Source: Approval flow and M-Policy contract docs.
 
-Deferred work:
+Resolved now:
+
+- Internal context contract for approval review: structured log, policy, and task context retrieval scoped to approval records.
+- Redaction tests proving secrets and sensitive fields do not enter LLM context inputs.
+- LLM boundary rules in security model: LLM must not make authorization decisions, must not bypass M-Policy, must not modify Audit Log.
+
+Still deferred:
 
 - LLM-assisted risk explanation.
-- log / policy / task context retrieval for approval review.
-- human-visible LLM approval summary.
+- Human-visible LLM approval summary in M-UI.
 - LLM unavailability behavior in approval review.
+- Real LLM provider execution (API calls, prompt construction, response parsing).
+- Prompt / input redaction contract for production LLM providers.
 
 Reason deferred:
 
 - Approval flow must first prove approval, quorum, timeout, resume, and Audit behavior without introducing LLM ambiguity.
 - LLM must not become an authorization root.
 - Useful LLM summaries depend on stable approval records, log retrieval, and a formal operator UI.
+- Real LLM provider integration requires secret lifecycle, rate limits, and provider-specific failure modes.
 
 Reopen trigger:
 
 - Approval flow is implemented and tested.
 - Formal M-UI / BFF has an approval review surface.
 - Read-model or log retrieval contracts can provide bounded, redacted context.
+- A concrete LLM provider and prompt strategy are chosen.
 
 Required before implementation:
 
 - LLM security section update.
-- prompt / input redaction contract.
+- Prompt / input redaction contract for the chosen provider.
 - Audit rule for LLM-assisted explanation as auxiliary fact.
-- failure-mode tests proving LLM cannot authorize and LLM outage does not block non-LLM approval paths.
+- Failure-mode tests proving LLM cannot authorize and LLM outage does not block non-LLM approval paths.
 
 ---
 
 ### DFW-002: Formal Approval Queue UI
 
-Status: deferred from approval flow / M-Policy approval.
+Status: partially resolved (approve/reject CommandWell execution implemented). Still deferred: LLM-assisted review, Control Room Ledger integration.
 
 Owner: M-UI / M-UI BFF.
 
 Source: Approval flow and M-Policy contract docs.
 
-Deferred work:
+Resolved now:
+- Approval queue screen (read-only).
+- Approval detail screen (read-only + execute).
+- Approve / reject CommandWell execution flow: `POST /api/v0/commands/policy.approval.approve.execute/execute` and `POST /api/v0/commands/policy.approval.reject.execute/execute` → Core public facades `POST /api/v0/policy/approvals/:id/approve|reject` → M-Policy public routes.
 
-- Approval queue screen.
-- approval detail screen.
-- approve / reject CommandWell flow.
-- approval status display in the Control Room Ledger.
+Still deferred:
+- LLM-assisted approval review (DFW-001 readiness-only in this tranche; real LLM provider calls remain deferred).
+- Approval status display in the Control Room Ledger.
 
-Reason deferred:
+Implementation summary:
+- Core approval write facades with coarse auth/authorization, forwarding to M-Policy public HTTP.
+- BFF execute mappings for approve/reject via Core-only dispatch (no /internal/v0/* calls).
+- M-UI approval detail page with inline CommandWell: confirmation, success evidence (correlationId, policyDecisionId), error passthrough, post-success refresh. No toast/snackbar. Chinese labels.
 
-- Approval flow uses CLI as the first acceptance surface.
-- Formal M-UI is a later scope item and must not inherit demo shell shortcuts as final design.
-
-Reopen trigger:
-
-- Approval flow REST and CLI contracts are stable.
-- Formal M-UI route set / SDUI v0.2 work begins.
-
-Required before implementation:
-
-- SDUI / BFF display contract.
-- CommandWell behavior for approve / reject.
-- UI contract tests for disabled reasons, Audit visibility, and no direct frontend calls to fact-source services when BFF is required.
+Reopen trigger: Approval flow REST and CLI contracts are stable. Formal M-UI route set / SDUI v0.2 work complete.
 
 ---
 
@@ -363,21 +365,30 @@ Required before implementation:
 
 ### DFW-011: M-Net CN Data Plane
 
-Status: deferred from M-Net profile lifecycle / regional network profile. Still deferred as of v0.1.
+Status: partially resolved (ADR / runbook / contract + feature-gated noop skeleton). Still deferred: real DERP / TCP / UDP / Headscale transport.
 
 Owner: M-Net.
 
 Source: `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
-Deferred work:
+Resolved now:
 
-- real DERP relay.
-- real TCP interconnect.
-- real UDP path switching.
+- ADR, runbook, and contract documentation for `m-net-cn@0.1.0` Regional Network Profile.
+- Feature-gated noop skeleton: `services/m-net/src/data-plane/noop-adapter.ts` with `DATA_PLANE_FEATURE_GATE_DEFAULT = false`.
+- When gate is off, adapter returns `{ enabled: false, status: 'noop' }` and cannot mutate any runtime transport paths.
+- When gate is on, adapter still returns noop status since real transport is not yet implemented.
+- The skeleton does not expose runtime ports, protocols, endpoints, secrets, relays, or probes.
+- `controlPlaneOnly: true` preserved on `m-net-cn@0.1.0`; enabling changes control-plane state only.
+
+Still deferred:
+
+- Real DERP relay.
+- Real TCP interconnect.
+- Real UDP path switching.
 - Headscale control plane integration.
-- active reachability probing beyond existing session heartbeat.
-- latency measurement.
-- automatic path optimization.
+- Active reachability probing beyond existing session heartbeat.
+- Latency measurement.
+- Automatic path optimization.
 
 Reason deferred:
 
@@ -394,9 +405,9 @@ Required before implementation:
 
 - ADR update or new ADR for data-plane behavior.
 - M-Net service definition update.
-- operations runbook for regional networking.
-- event subjects for path and relay changes.
-- failure-mode tests for fallback, degraded regional paths, and public DERP disablement.
+- Operations runbook for regional networking.
+- Event subjects for path and relay changes.
+- Failure-mode tests for fallback, degraded regional paths, and public DERP disablement.
 
 ---
 
@@ -446,22 +457,29 @@ Required before implementation:
 
 ### DFW-013: M-Net CN Runtime Configuration And Secrets
 
-Status: deferred from M-Net profile lifecycle / regional network profile. Still deferred as of v0.1.
+Status: partially resolved (runtime config secretRef skeleton + redaction tests). Still deferred: live TLS / STUN / TURN keys.
 
 Owner: M-Net / Core secrets / M-Policy / M-Log.
 
 Source: `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
-Deferred work:
+Resolved now:
 
-- actual DERP endpoint URLs.
+- Runtime config secretRef skeleton: `MNetRuntimeConfigSchema` Effect Schema with `SecretRefFieldSchema` pattern for all credential-bearing fields (`derpRelay`, `tcpInterconnect`, `udpPath`, `headscaleEndpoint`, `routingTable`).
+- Plaintext secret fields fail decode/validation; only `secretRefId` values survive.
+- Redaction tests proving secrets do not enter logs, OpenSearch, UI error envelopes, or LLM context inputs.
+- `controlPlaneOnly: true` preserved; runtime config is a control-plane declaration, not a live transport config.
+
+Still deferred:
+
+- Actual DERP endpoint URLs.
 - TLS private material.
 - STUN / TURN credentials.
 - Headscale keys.
-- regional IP ranges.
-- routing tables.
-- node-specific relay assignment.
-- latency probes.
+- Regional IP ranges.
+- Routing tables.
+- Node-specific relay assignment.
+- Latency probes.
 
 Reason deferred:
 
@@ -476,54 +494,69 @@ Reopen trigger:
 
 Required before implementation:
 
-- security model update.
+- Security model update.
 - secretRef policy and Audit rules.
-- config lifecycle or M-Net runtime config contract.
-- redaction tests proving secrets do not enter logs, OpenSearch, UI errors, or LLM prompts.
+- Config lifecycle or M-Net runtime config contract.
+- Redaction tests proving secrets do not enter logs, OpenSearch, UI errors, or LLM prompts.
 
 ---
 
 ### DFW-014: Global M-Net Profile Defaults Or Global Switch
 
-Status: deferred from M-Net profile lifecycle / regional network profile.
+Status: resolved now (global defaults, batched migration, resumable rollback, control-plane only).
 
 Owner: M-Net / config subsystem.
 
 Source: M-Net service definition and `docs/adr/ADR-N02-m-net-cn-profile.md`.
 
-Deferred work:
+Resolved now:
 
-- global enable / disable for M-Net CN.
-- default profile selection for newly created networks.
-- fleet-wide profile migration.
+- Global defaults for M-Net CN profile selection: new networks inherit the configured default profile.
+- Batched migration: fleet-wide profile application supports batched execution with per-network progress tracking.
+- Resumable rollback: if a batched migration fails mid-way, operators can resume from the last successful network or roll back all applied profiles.
+- Control-plane only: global defaults and migration only affect profile state, events, and audit entries; no runtime transport paths are mutated.
+- `controlPlaneOnly: true` preserved on `m-net-cn@0.1.0`.
+
+Still deferred:
+
+- Real data-plane rollout that would require fleet-wide profile migration beyond control-plane state.
 
 Reason deferred:
 
 - M-Net profile lifecycle uses per-network enable / disable to reduce blast radius and support clear rollback.
+- Global defaults and batched migration are control-plane operations that do not change the per-network execution model.
 
 Reopen trigger:
 
-- profile behavior is proven per network and operators need defaulting or fleet-wide rollout.
+- profile behavior is proven per network and operators need defaulting or fleet-wide rollout for data-plane behavior.
 
 Required before implementation:
 
 - config lifecycle or global setting owner.
-- migration / rollback plan.
+- migration / rollback plan for data-plane rollout.
 - Audit and approval rules for fleet-wide changes.
 
 ---
 
 ### DFW-015: Approval Requirement For M-Net CN Disable
 
-Status: deferred from M-Net profile lifecycle / regional network profile and not required by default.
+Status: resolved now (disable approval gate disabled, security-admin break-glass implemented).
 
 Owner: M-Net / M-Policy.
 
 Source: M-Net service definition and M-Policy contract docs.
 
-Deferred work:
+Resolved now:
 
-- approval-gated disable for M-Net CN.
+- Approval gate for M-Net CN disable is disabled by default: disable executes immediately with M-Policy allow + Audit.
+- Security-admin break-glass path: when M-Policy is unavailable, a security-admin can force disable through the break-glass path, which writes Audit Log before state change.
+- Disable is the risk-reduction and rollback path, so M-Net profile lifecycle executes it immediately.
+- Disable is allowed from `failed` state as a recovery path.
+- Audit tests prove recovery cannot be blocked accidentally.
+
+Still deferred:
+
+- Production approval-gated disable if a future deployment identifies disable as high-risk enough to require approval.
 
 Reason deferred:
 
@@ -536,72 +569,75 @@ Reopen trigger:
 Required before implementation:
 
 - policy rule explaining when disable requires approval.
-- emergency break-glass path.
-- Audit tests proving recovery cannot be blocked accidentally.
+- Emergency break-glass path (implemented for M-Policy unavailability).
+- Audit tests proving recovery cannot be blocked accidentally (implemented).
 
 ---
 
 ### DFW-016: M-Net Profile UI
 
-Status: deferred from M-Net profile lifecycle / regional network profile.
+Status: partially resolved (enable/disable CommandWell execution implemented, control-plane only). Still deferred: real data-plane behavior.
 
 Owner: M-UI / M-UI BFF.
 
 Source: M-Net service definition and M-UI contract docs.
 
-Deferred work:
+Resolved now:
+- Network profile list / detail screens (read-only + execute).
+- Enable / disable CommandWell: `POST /api/v0/commands/network.profile.enable.execute/execute` and `POST /api/v0/commands/network.profile.disable.execute/execute` → Core public facades `POST /api/v0/networks/:id/profile` → M-Net public routes.
+- controlPlaneOnly warning display (Chinese: "配置变更仅影响控制平面，运行时数据面不受影响").
+- Explicit network target selection via BFF `GET /api/v0/networks` → Core `GET /api/v0/networks`.
 
-- network profile list / detail screens.
-- enable / disable CommandWell.
-- controlPlaneOnly warning display.
-- per-network profile state in the formal Control Room Ledger UI.
+Still deferred:
+- Real M-Net data-plane behavior (DERP/TCP/UDP/Headscale).
+- Per-network profile state in the formal Control Room Ledger UI.
 
-Reason deferred:
+Implementation summary:
+- Core profile write facades with coarse auth/authorization, forwarding to M-Net public HTTP.
+- BFF execute mappings for profile enable/disable via Core-only dispatch.
+- BFF `GET /api/v0/networks` proxy route.
+- M-UI profile detail page with network selector, inline CommandWell confirmation, success evidence, error passthrough, post-success refresh. `m-net-cn@0.1.0` remains `controlPlaneOnly: true`.
 
-- M-Net profile lifecycle uses REST and CLI as the acceptance surface.
-- Formal M-UI is a later scope item.
-
-Reopen trigger:
-
-- Formal M-UI route set / SDUI v0.2 work begins or M-Net profile operations need an operator UI.
-
-Required before implementation:
-
-- BFF display contract.
-- SDUI schema update if the view is server-driven.
-- UI contract tests for high-risk command placement and non-misleading data-plane wording.
+Reopen trigger: Formal M-UI route set / SDUI v0.2 work complete. Real data-plane acceptance remains separate.
 
 ---
 
 ### DFW-017: Broad Event Mesh Or Projection Expansion For Deferred Flows
 
-Status: deferred.
+Status: partially resolved (vote-level events, profile/behavior-analysis projections). Still deferred: approval comment events.
 
 Owner: M-EventBus / M-Log / projection platform.
 
 Source: Approval flow and M-Net profile lifecycle contract docs.
 
-Deferred work:
+Resolved now:
 
-- vote-level events.
-- approval comment events.
-- profile UI projection beyond basic lifecycle events.
-- behavior-analysis projections for approvals and regional profile changes.
+- Vote-level events: `policy.approval.vote.approved.v0` and `policy.approval.vote.rejected.v0` capture individual actor votes as distinct facts.
+- Profile lifecycle events: `mnet.profile.enable.requested.v0`, `mnet.profile.enabled.v0`, `mnet.profile.disable.requested.v0`, `mnet.profile.disabled.v0`, `mnet.profile.apply_failed.v0`, `mnet.profile.enable.canceled.v0` are active and published.
+- Behavior-analysis projections for approvals and profile changes are supported through vote-level and lifecycle event streams.
+- Approval authorization and resume execution are distinct facts: `policy.approval.approved.v0` does not imply the origin operation executed.
+
+Still deferred:
+
+- Approval comment events (`approval.comment.*` subjects remain deferred).
+- Query-oriented approval / profile views not covered by existing log and event streams.
 
 Reason deferred:
 
 - Approval flow and M-Net profile lifecycle publish only lifecycle events needed for traceability.
 - PostgreSQL and Audit Log remain the authoritative facts for votes, approvals, and profile state.
+- Approval comment events require additional event schema, storage, and UI integration.
 
 Reopen trigger:
 
 - M-UI or analytics needs query-oriented approval / profile views not covered by existing log and event streams.
+- Approval comment events are needed for richer approval context.
 
 Required before implementation:
 
-- event catalog update.
-- projection schema and ownership.
-- tests proving projections are not authoritative state.
+- Event catalog update for `approval.comment.*` subjects.
+- Projection schema and ownership.
+- Tests proving projections are not authoritative state.
 
 ---
 
@@ -1069,34 +1105,32 @@ Required before implementation:
 
 ### DFW-030: M-UI v0.2 Approval And Profile Foundation Scope
 
-Status: foundation declared for DFW-002 and DFW-016 reopening path.
+Status: foundation declared for DFW-002 and DFW-016 reopening path. Foundation now includes mutation execution flows.
 
 Owner: M-UI / M-UI BFF.
 
 Source: `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md`.
 
-This entry is **not** full completion of DFW-002 (Formal Approval Queue UI) or DFW-016 (M-Net Profile UI). Foundation read-only UI pages, display-only command previews, and BFF route contracts have been implemented under the m-ui-v02-approval-profile-foundation plan. Actual approve/reject/profile mutation execution remains deferred.
+This entry is **not** full completion of DFW-002 or DFW-016. Foundation read-only UI pages, display-only command previews, and BFF route contracts were implemented under the m-ui-v02-approval-profile-foundation plan. **Approve/reject/profile mutation execution flows have been implemented** under the deferred-work-commandwell-mutations plan. Remaining deferred items are documented below.
 
-Foundation work completed:
+Foundation + mutation work completed:
 
 - SDUI v0.2 route schema entries for `policy.approvals`, `policy.approvals.detail`, `network.profiles`, `network.profiles.detail`.
 - Allowed component kinds: `ApprovalQueuePanel`, `ApprovalDetailPanel`, `NetworkProfileListPanel`, `NetworkProfileDetailPanel`, `OperationalCommandPreview`.
 - Display-only command entries: `policy.approval.approve.preview`, `policy.approval.reject.preview`, `network.profile.enable.preview`, `network.profile.disable.preview`.
-- BFF read-only route entries for approval and profile data, plus Core/public read façades.
-- Foundation M-UI pages for approval queue, approval detail, network profile list, and profile detail (read-only, display-only command previews).
+- BFF route entries for approval and profile data, plus Core/public read and write facades.
+- Foundation M-UI pages for approval queue, approval detail, network profile list, and profile detail.
+- **Execute command implementation**: `policy.approval.approve.execute`, `policy.approval.reject.execute`, `network.profile.enable.execute`, `network.profile.disable.execute` — all routed through BFF → Core public facades → M-Policy/M-Net public routes.
+- Inline CommandWell mutation UI with confirmation, success evidence, error passthrough, post-action refresh. No toast/snackbar. Chinese labels.
 - Explicit BFF rule: must not call `/internal/v0/*` M-Policy or M-Net routes.
 - Contract, UI-contract, failure-mode, and e2e test coverage.
 
 Still deferred (DFW-002):
 
-- Approve / reject CommandWell execution flow.
-- Actual approval mutation (approve/reject) triggered from M-UI.
 - LLM-assisted approval review.
 
 Still deferred (DFW-016):
 
-- Enable / disable CommandWell execution flow.
-- Actual profile enable/disable mutation triggered from M-UI.
 - Real M-Net data-plane behavior (DERP/TCP/UDP/Headscale).
 
 Reopen trigger:
@@ -1104,7 +1138,8 @@ Reopen trigger:
 - Approval flow REST and CLI contracts are stable and DFW-002 reopens.
 - M-Net profile lifecycle REST and CLI contracts are stable and DFW-016 reopens.
 
-Required before full completion:
+Resolved in this tranche:
 
 - DFW-002: SDUI / BFF display contract, CommandWell behavior for approve / reject, UI contract tests.
 - DFW-016: BFF display contract, SDUI schema update, UI contract tests for high-risk command placement and non-misleading data-plane wording.
+- DFW-030: Foundation now includes mutation execution flows. Display-only previews coexist with live execute commands.

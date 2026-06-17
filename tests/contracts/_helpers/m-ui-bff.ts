@@ -1,3 +1,4 @@
+import { Elysia } from 'elysia'
 import { createCoreApp } from '../../../apps/core/src/app.ts'
 import type { CoreApp } from '../../../apps/core/src/public-types.ts'
 import { createInMemoryCoreDeps } from '../../../apps/core/src/testing.ts'
@@ -40,16 +41,19 @@ export function createBffWithCore(coreApp: CoreApp, taskApp?: MTaskApp): MUiBffA
   const app = createMUiBffApp(
     taskApp ? { coreBaseUrl: CORE_BASE, taskBaseUrl: TASK_BASE } : { coreBaseUrl: CORE_BASE }
   )
+  // 用新的代理 app 重新挂载测试服务，确保测试里追加的 mock route 能覆盖基础 facade。
+  const coreProxy = new Elysia().use(coreApp)
+  const taskProxy = taskApp ? new Elysia().use(taskApp) : null
 
   globalThis.fetch = (async (input, init?) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url.startsWith(CORE_BASE)) {
       const path = url.slice(CORE_BASE.length)
-      return coreApp.handle(new Request(`http://localhost${path}`, init))
+      return coreProxy.handle(new Request(`http://localhost${path}`, init))
     }
-    if (taskApp && url.startsWith(TASK_BASE)) {
+    if (taskProxy && url.startsWith(TASK_BASE)) {
       const path = url.slice(TASK_BASE.length)
-      return taskApp.handle(new Request(`http://localhost${path}`, init))
+      return taskProxy.handle(new Request(`http://localhost${path}`, init))
     }
     return originalFetch(input, init)
   }) as typeof globalThis.fetch
