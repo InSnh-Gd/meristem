@@ -8,6 +8,7 @@ import type {
 } from '../../../packages/contracts/src/index.ts'
 import { networkMemberships, networks, nodes } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
+import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { ProfileStore } from './profile-store.ts'
 import { asNodeKind, err, mapNetwork, membershipModeFor, ok } from './shared.ts'
 import type { MNetServiceResult } from './types.ts'
@@ -15,21 +16,31 @@ import type { MNetServiceResult } from './types.ts'
 type NetworkServiceDeps = {
   db: MNetDb
   profileStore: ProfileStore
+  globalDefaultsStore?: GlobalDefaultsStore
 }
 
 /**
  * 逻辑网络的创建、加入与成员查询保持在独立模块中，避免入口文件同时承载网络模型和 session 运行态。
  */
-export function createNetworkService({ db, profileStore }: NetworkServiceDeps) {
+export function createNetworkService({
+  db,
+  profileStore,
+  globalDefaultsStore
+}: NetworkServiceDeps) {
   async function createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>> {
     const existing = await db.select().from(networks).where(eq(networks.name, input.name)).limit(1)
     if (existing[0]) return err('network.conflict', 'network name already exists')
+
+    // 使用全局默认 profile，如果未配置则使用内置默认
+    const defaultProfileVersion = globalDefaultsStore
+      ? await globalDefaultsStore.getDefaultProfileVersion()
+      : 'm-net-default@0.1.0'
 
     const now = new Date()
     const network: typeof networks.$inferInsert = {
       id: crypto.randomUUID(),
       name: input.name,
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: defaultProfileVersion,
       status: 'active',
       createdAt: now,
       updatedAt: now

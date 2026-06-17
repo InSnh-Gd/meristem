@@ -328,6 +328,27 @@ type ConfigRolledBackPayload = ConfigLifecyclePayload & { rollbackVersion: strin
 | `task.operation.resume.failure.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationResumeFailurePayload` | at-least-once |
 | `task.operation.rejected.v0` | event | M-Task | M-Log, M-UI BFF | `TaskOperationRejectedPayload` | at-least-once |
 
+### Vote-Level Events (active)
+
+Vote-level events capture individual actor votes as distinct facts, independent of approval lifecycle terminal events. These events power read-model projections and the approval profile UI without coupling to lifecycle state-machine transitions.
+
+| Subject | Type | Publisher | Subscribers | Payload Schema | Delivery |
+|---------|------|-----------|-------------|----------------|----------|
+| `policy.approval.vote.approved.v0` | event | M-Policy | M-Log, M-UI BFF, projections | `PolicyApprovalVoteEventPayload` | at-least-once |
+| `policy.approval.vote.rejected.v0` | event | M-Policy | M-Log, M-UI BFF, projections | `PolicyApprovalVoteEventPayload` | at-least-once |
+
+> `approval.comment.*` subjects remain deferred and are **not active** in this wave.
+
+```ts
+type PolicyApprovalVoteEventPayload = {
+  approvalId: string;
+  actor: string;
+  vote: 'approve' | 'reject';
+  reason?: string;
+  timestamp: string;
+};
+```
+
 Approval authorization and resume execution are distinct facts. `policy.approval.approved.v0` does not imply the origin operation executed; `task.operation.resumed.v0` or `task.operation.resume.failure.v0` records the business execution result.
 
 ```ts

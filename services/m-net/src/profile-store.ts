@@ -19,6 +19,9 @@ export type ProfileStore = {
     state: { profileVersion: string; status: string }
   ): Promise<void>
 
+  /** 列出所有网络的当前 Profile 状态（用于批量迁移扫描） */
+  listNetworkStates(): Promise<NetworkProfileStateRecord[]>
+
   /** 记录一次状态迁移 */
   recordTransition(record: ProfileTransitionRecord): Promise<void>
 }
@@ -121,6 +124,10 @@ export function createInMemoryProfileStore(definitions?: MNetRegionalProfile[]):
         status: state.status,
         updatedAt: new Date().toISOString()
       })
+    },
+
+    async listNetworkStates() {
+      return [...networkStates.values()].map(s => ({ ...s }))
     },
 
     async recordTransition(record: ProfileTransitionRecord) {

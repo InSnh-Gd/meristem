@@ -27,6 +27,11 @@ What this service owns:
 - node reachability and runtime status updates
 - offline transition on heartbeat timeout or session loss
 - Regional Network Profile control-plane state and transitions
+- global profile defaults for newly created networks
+- batched fleet-wide profile migration with per-network progress tracking
+- resumable rollback: resume from last successful network or roll back all applied profiles
+- immediate profile disable with M-Policy allow + Audit (no approval gate by default)
+- security-admin break-glass disable when M-Policy is unavailable
 
 What this service must not own:
 
@@ -141,7 +146,9 @@ Current runtime boundary:
 ## 10. Policy Requirements
 
 - profile enable must use bounded M-Policy approval and resume through M-Net.
-- profile disable is an immediate risk-reduction path with M-Policy allow + Audit.
+- profile disable is an immediate risk-reduction path with M-Policy allow + Audit; no approval gate by default.
+- security-admin break-glass disable is allowed when M-Policy is unavailable; break-glass writes Audit before state change.
+- disable is allowed from `failed` state as a recovery path.
 - M-Net must not own authorization policy logic locally.
 - event, Audit, Timeline, and Full Log behavior must stay aligned with `docs/events/EVENT-CATALOG.md`, `docs/services/m-log.md`, and `docs/security/SECURITY-MODEL.md`.
 
@@ -164,6 +171,15 @@ Regional Network Profile ownership:
 - profile lifecycle events published through M-EventBus
 
 M-Net CN is the first Regional Network Profile. Its control-plane lifecycle is implemented; data-plane behavior remains deferred.
+
+Data-plane feature gate:
+
+- `services/m-net/src/data-plane/noop-adapter.ts` provides a feature-gated noop adapter boundary.
+- The feature gate defaults to OFF (`DATA_PLANE_FEATURE_GATE_DEFAULT = false`).
+- When the gate is off, the adapter returns `{ enabled: false, status: 'noop' }` and cannot mutate any runtime transport paths.
+- When the gate is on, the adapter still returns noop status, since real transport is not yet implemented.
+- The skeleton does not expose runtime ports, protocols, endpoints, secrets, relays, or probes.
+- Real DERP / TCP / UDP / Headscale data-plane implementation remains deferred.
 
 Profile definition `m-net-cn@0.1.0`:
 
@@ -193,6 +209,10 @@ Placeholder-only rules:
 - M-Net exposes the external profile REST API and OpenAPI.
 - M-CLI supports profile list / show / enable / disable through the service URL resolver.
 - M-Net CN enable requires bounded M-Policy approval and resumes through M-Net.
-- M-Net CN disable executes immediately with M-Policy allow + Audit.
+- M-Net CN disable executes immediately with M-Policy allow + Audit (no approval gate by default).
+- security-admin break-glass disable writes Audit before state change when M-Policy is unavailable.
+- global profile defaults apply to newly created networks.
+- batched fleet-wide profile migration supports per-network progress tracking.
+- resumable rollback supports resume from last successful network or roll back all applied profiles.
 - agent join/session events and runtime state changes match `docs/events/EVENT-CATALOG.md`.
 - contract, failure-mode, integration, CLI, and e2e gates pass or document infrastructure skip conditions.

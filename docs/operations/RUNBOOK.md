@@ -154,6 +154,19 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal fr
 
 ---
 
+## 5.1 M-Net Profile controlPlaneOnly Behavior
+
+`m-net-cn@0.1.0` profile carries `controlPlaneOnly: true`. This means:
+
+- enabling the CN profile changes control-plane state only (profile transitions, events, audit entries).
+- no runtime transport paths (DERP relay, TCP tunnel, UDP switching) are activated or mutated.
+- the data-plane feature gate (`services/m-net/src/data-plane/noop-adapter.ts`) defaults to OFF.
+- even with the gate on, no real transport is exposed (skeleton returns noop status).
+- operators should not expect network routing changes when enabling CN profile.
+- real data-plane rollout will require a separate ADR and feature gate update.
+
+---
+
 ## 6. Observability Baseline
 
 Each request or command should carry:

@@ -9,6 +9,9 @@ import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../../packages/contracts/src/types/mnet-profile.ts'
+import type { GlobalDefaultsStore } from './global-defaults-store.ts'
+import type { MigrationEngine } from './migration-engine.ts'
+import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { MNetServiceResult } from './types.ts'
 
 export type MNetAppDeps = {
@@ -49,6 +52,10 @@ export type MNetAppDeps = {
       policyDecisionId?: string
       correlationId?: string
     }): Promise<void>
+    /** 列出所有网络 Profile 状态（用于批量迁移扫描） */
+    listNetworkStates(): Promise<
+      Array<{ networkId: string; profileVersion: string; status: string; updatedAt: string }>
+    >
   }
   networkUpdater?: {
     setProfileVersion(networkId: string, profileVersion: string): Promise<void>
@@ -118,4 +125,12 @@ export type MNetAppDeps = {
       payload?: unknown
     ): Promise<void>
   }
+  profileDisablePolicy?: ProfileDisablePolicyStore
+  policyHealthCheck?: {
+    checkHealth(): Promise<{ healthy: boolean }>
+  }
+  /** 全局默认 Profile 与批量 switch 状态存储 */
+  globalDefaultsStore?: GlobalDefaultsStore
+  /** 批量 Profile 迁移引擎 */
+  migrationEngine?: MigrationEngine
 }

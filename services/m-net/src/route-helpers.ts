@@ -52,7 +52,7 @@ export async function verifyBearerAuth(
  */
 export function externalApiError(
   set: { status?: unknown },
-  code: 401 | 403 | 404 | 409 | 503,
+  code: 400 | 401 | 403 | 404 | 409 | 503,
   who: string,
   message: string
 ): never {

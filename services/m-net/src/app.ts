@@ -1,6 +1,7 @@
 import { swagger } from '@elysiajs/swagger'
 import { Elysia } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
+import { createGlobalDefaultsRoutes } from './global-defaults-routes.ts'
 import { createInternalRoutes } from './internal-routes.ts'
 import { createProfileAdminRoutes } from './profile-admin-routes.ts'
 import { createProfileRoutes } from './profile-routes.ts'
@@ -22,6 +23,7 @@ export function createMNetApp(deps: MNetAppDeps) {
     .use(createInternalRoutes(deps))
     .use(createProfileAdminRoutes(deps))
     .use(createProfileRoutes(deps))
+    .use(createGlobalDefaultsRoutes(deps))
 }
 
 export type MNetApp = ReturnType<typeof createMNetApp>

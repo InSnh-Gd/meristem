@@ -26,6 +26,8 @@ Accepted
 
 真实数据面行为 —— DERP relay、TCP tunnel、UDP path switching、Headscale control、主动探测、时延测量、endpoint URL 管理、TLS 私钥材料、STUN/TURN 凭据、route table、relay assignment —— 明确延后。
 
+数据面骨架（`services/m-net/src/data-plane/`）已作为 feature-gated noop adapter 边界存在，默认关闭。该骨架不暴露任何运行时传输端口或协议，不改变 `controlPlaneOnly: true` 语义。真实传输实现仍延后。
+
 ## Consequences
 
 - 区域行为意图通过 profile state、transition、event、Timeline 与 Audit Log 变得显式且可审计。

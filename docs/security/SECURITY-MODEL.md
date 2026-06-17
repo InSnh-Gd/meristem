@@ -358,6 +358,23 @@ SecretRef v0.1 rules:
 - domain services may apply config, but Core remains the generic control-plane entrypoint.
 - collaborative authoring and broad UI editing remain deferred until they reopen the same security controls.
 
+### 8.2 M-Net Runtime Config SecretRef Boundary
+
+M-Net runtime transport, interconnect, and routing configuration (DFW-013) uses `secretRef` exclusively for all credential-bearing fields:
+
+- `derpRelay` — DERP relay endpoint credentials.
+- `tcpInterconnect` — TCP interconnect credentials.
+- `udpPath` — UDP path / STUN / TURN credentials.
+- `headscaleEndpoint` — Headscale control endpoint credentials.
+- `routingTable` — Routing table credentials or peer auth keys.
+
+Every field uses the `SecretRefFieldSchema` (`{ secretRefId: string }`) pattern. Plaintext TLS certificates, STUN passwords, TURN shared secrets, Headscale preauth keys, and routing pre-shared keys are rejected at the schema level. The `MNetRuntimeConfigSchema` Effect Schema `Struct` strips unknown keys by default, so even an injection attempt that includes plaintext fields alongside valid `secretRef` entries produces only redacted output. `JSON.stringify()` of a decoded runtime config contains only `secretRefId` values.
+
+Redaction contract (DFW-013):
+- Plaintext secret fields fail decode/validation.
+- `secretRef` fields decode and redact correctly — only `secretRefId` survives.
+- Redaction covers log output, UI error envelopes, projection payloads, and approval LLM context inputs.
+
 ### 8.1 Node Agent Tokens
 
 `docs/services/node-agent.md` is the canonical node-agent runtime contract. Security-critical consequences are:
