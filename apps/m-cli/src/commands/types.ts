@@ -87,14 +87,14 @@ export type CliClient = {
     input?: DisableExtensionRequest
   ): Promise<ExtensionInstanceControlResponse>
   identity?: {
-    listActors(): Promise<Array<{ id: string; displayName: string; status: string }>>
-    getActor(id: string): Promise<{ id: string; displayName: string; status: string }>
-    issueToken(input: {
+    listActors?(): Promise<Array<{ id: string; displayName: string; status: string }>>
+    getActor?(id: string): Promise<{ id: string; displayName: string; status: string }>
+    issueToken?(input: {
       actor: string
       ttl: string
       purpose: string
     }): Promise<{ jti: string; token: string; expiresAt: string; actor: string }>
-    inspectToken(jti: string): Promise<{
+    inspectToken?(jti: string): Promise<{
       jti: string
       actor: string
       status: string
@@ -105,13 +105,13 @@ export type CliClient = {
       issuedBy: string
       purpose: string
     }>
-    revokeToken(
+    revokeToken?(
       jti: string,
       input: { reason: string }
     ): Promise<{ jti: string; status: string; revokedAt: string; revokedBy: string }>
   }
   secret?: {
-    list(): Promise<
+    list?(): Promise<
       Array<{
         id: string
         name: string
@@ -121,7 +121,7 @@ export type CliClient = {
         createdAt: string
       }>
     >
-    get(id: string): Promise<{
+    get?(id: string): Promise<{
       id: string
       name: string
       scope: string
@@ -131,23 +131,23 @@ export type CliClient = {
       updatedAt: string
       metadata: Record<string, string>
     }>
-    create(input: {
+    create?(input: {
       name: string
       scope: string
       value: string
       metadata?: Record<string, string>
     }): Promise<{ id: string; name: string; status: string; createdAt: string }>
-    rotate(
+    rotate?(
       id: string,
       input: { value: string; reason: string }
     ): Promise<{ id: string; version: string; status: string; rotatedAt: string }>
-    disable(
+    disable?(
       id: string,
       input: { reason: string }
     ): Promise<{ id: string; status: string; disabledAt: string }>
   }
   config?: {
-    list(): Promise<
+    list?(): Promise<
       Array<{
         id: string
         configVersion: string
@@ -157,7 +157,7 @@ export type CliClient = {
         createdAt: string
       }>
     >
-    get(id: string): Promise<{
+    get?(id: string): Promise<{
       id: string
       configVersion: string
       schemaVersion: string
@@ -173,13 +173,13 @@ export type CliClient = {
       rollbackVersion?: string
       updatedAt: string
     }>
-    draft(input: {
+    draft?(input: {
       domain: string
       payload: unknown
       targetScope?: string[]
     }): Promise<{ id: string; configVersion: string; status: string; createdAt: string }>
-    validate(id: string): Promise<{ id: string; status: string }>
-    publish(
+    validate?(id: string): Promise<{ id: string; status: string }>
+    publish?(
       id: string,
       input: { reason: string }
     ): Promise<{
@@ -189,7 +189,7 @@ export type CliClient = {
       publishedAt: string
       publishedBy: string
     }>
-    rollback(
+    rollback?(
       id: string,
       input: { toVersion: string; reason: string }
     ): Promise<{ id: string; status: string }>
