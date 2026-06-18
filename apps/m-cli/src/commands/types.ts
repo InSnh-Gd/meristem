@@ -54,6 +54,28 @@ export type CliClient = {
   getNetworkProfile?(profileVersion: string): Promise<unknown>
   enableNetworkProfile?(networkId: string, profileVersion: string, reason: string): Promise<unknown>
   disableNetworkProfile?(networkId: string, reason: string): Promise<unknown>
+  /** 获取全局迁移状态或指定操作状态 */
+  getMigrationStatus?(operationId?: string): Promise<unknown>
+  /** 规划迁移 dry-run */
+  planMigration?(
+    targetVersion: string,
+    batchSize: number | undefined,
+    reason: string
+  ): Promise<unknown>
+  /** 执行迁移 apply */
+  applyMigration?(operationId: string): Promise<unknown>
+  /** 恢复迁移 */
+  resumeMigration?(operationId: string): Promise<unknown>
+  /** 回滚迁移（必须提供 reason） */
+  rollbackMigration?(operationId: string, reason: string): Promise<unknown>
+  /** 查询数据面健康状态 */
+  getDataplaneHealth?(networkId: string): Promise<unknown>
+  /** 查询中继分配 */
+  getRelayAssignment?(networkId: string): Promise<unknown>
+  /** 检查网络映射摘要 */
+  getNetworkMap?(networkId: string): Promise<unknown>
+  /** break-glass 紧急禁用（必须提供 reason 和 confirm 标记） */
+  breakGlass?(networkId: string, reason: string): Promise<unknown>
   submitTask?(input: { nodeId: string; type: 'noop' }): Promise<SubmitTaskResponse>
   cancelTask?(taskId: string): Promise<TaskControlResponse>
   getTask?(taskId: string): Promise<TaskStatusResponse>

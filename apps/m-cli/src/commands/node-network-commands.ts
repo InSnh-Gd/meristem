@@ -117,5 +117,99 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
     throw new Error(NETWORK_PROFILE_USAGE)
   }
 
+  // ── M-Net 数据面与迁移命令（mnet 前缀） ────────────────────────────────
+  if (command === 'mnet') {
+    const action = args[1]
+
+    // migration 子命令组
+    if (action === 'migration') {
+      const migrationAction = args[2]
+
+      if (migrationAction === 'status') {
+        const operationFlagIndex = args.indexOf('--operation')
+        const operationId = operationFlagIndex >= 0 ? args[operationFlagIndex + 1] : undefined
+        const migrationStatus = requireMethod(client.getMigrationStatus, 'getMigrationStatus')
+        return success(await migrationStatus(operationId))
+      }
+
+      if (migrationAction === 'dry-run') {
+        const targetVersion = requireArg(args, '--target-version')
+        const reason = requireArg(args, '--reason')
+        const batchSizeFlagIndex = args.indexOf('--batch-size')
+        const batchSize = batchSizeFlagIndex >= 0 ? Number(args[batchSizeFlagIndex + 1]) : undefined
+        const planMigration = requireMethod(client.planMigration, 'planMigration')
+        return success(await planMigration(targetVersion, batchSize, reason))
+      }
+
+      if (migrationAction === 'apply') {
+        const operationId = requireArg(args, '--operation')
+        const applyMigration = requireMethod(client.applyMigration, 'applyMigration')
+        return success(await applyMigration(operationId))
+      }
+
+      if (migrationAction === 'resume') {
+        const operationId = requireArg(args, '--operation')
+        const resumeMigration = requireMethod(client.resumeMigration, 'resumeMigration')
+        return success(await resumeMigration(operationId))
+      }
+
+      if (migrationAction === 'rollback') {
+        const operationId = requireArg(args, '--operation')
+        const reason = requireArg(args, '--reason')
+        const rollbackMigration = requireMethod(client.rollbackMigration, 'rollbackMigration')
+        return success(await rollbackMigration(operationId, reason))
+      }
+
+      throw new Error(
+        'usage: meristem mnet migration status [--operation <id>] | dry-run --target-version <v> --reason <text> [--batch-size <n>] | apply --operation <id> | resume --operation <id> | rollback --operation <id> --reason <text>'
+      )
+    }
+
+    // health 子命令
+    if (action === 'health') {
+      const networkId = requireArg(args, '--network')
+      const getDataplaneHealth = requireMethod(client.getDataplaneHealth, 'getDataplaneHealth')
+      return success(await getDataplaneHealth(networkId))
+    }
+
+    // relay 子命令
+    if (action === 'relay') {
+      const networkId = requireArg(args, '--network')
+      const getRelayAssignment = requireMethod(client.getRelayAssignment, 'getRelayAssignment')
+      return success(await getRelayAssignment(networkId))
+    }
+
+    // map 子命令组
+    if (action === 'map') {
+      const mapAction = args[2]
+      if (mapAction === 'inspect') {
+        const networkId = requireArg(args, '--network')
+        const getNetworkMap = requireMethod(client.getNetworkMap, 'getNetworkMap')
+        return success(await getNetworkMap(networkId))
+      }
+      throw new Error('usage: meristem mnet map inspect --network <id>')
+    }
+
+    // break-glass 子命令
+    if (action === 'break-glass') {
+      const networkId = requireArg(args, '--network')
+      const reason = requireArg(args, '--reason')
+      const hasConfirm = args.includes('--confirm-break-glass')
+      if (!hasConfirm) {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: '--confirm-break-glass flag is required for break-glass operation\n'
+        }
+      }
+      const breakGlass = requireMethod(client.breakGlass, 'breakGlass')
+      return success(await breakGlass(networkId, reason))
+    }
+
+    throw new Error(
+      'usage: meristem mnet migration status [--operation <id>] | migration dry-run --target-version <v> --reason <text> | migration apply --operation <id> | migration resume --operation <id> | migration rollback --operation <id> --reason <text> | health --network <id> | relay --network <id> | map inspect --network <id> | break-glass --network <id> --reason <text> --confirm-break-glass'
+    )
+  }
+
   return undefined
 }
