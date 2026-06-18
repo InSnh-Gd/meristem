@@ -1,7 +1,5 @@
 import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
-import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
-import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
 import { executeBreakGlassDisable, requireBreakGlassDeps } from './profile-break-glass-workflow.ts'
 import {
   isProfileWorkflowFailure as isEnableDisableFailure,
@@ -9,6 +7,8 @@ import {
   requireProfileReadDeps,
   requireProfileWriteDeps
 } from './profile-enable-disable-workflows.ts'
+import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
+import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import {
   breakGlassDisableBodySchema,
   breakGlassDisableResponseSchema,
@@ -38,6 +38,7 @@ export function createProfileRoutes(
     | 'profileDisablePolicy'
     | 'policyHealthCheck'
     | 'networkUpdater'
+    | 'listMembers'
   >
 ) {
   return (

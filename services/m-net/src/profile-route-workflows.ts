@@ -6,19 +6,20 @@
  *
  * 本文件仅保留 re-export，保持 profile-routes.ts 的 import 路径不变。
  */
+
+export { executeBreakGlassDisable, requireBreakGlassDeps } from './profile-break-glass-workflow.ts'
 export {
+  isProfileWorkflowFailure,
   requestNetworkProfileChange,
   requireProfileReadDeps,
-  requireProfileWriteDeps,
-  isProfileWorkflowFailure
+  requireProfileWriteDeps
 } from './profile-enable-disable-workflows.ts'
-export { executeBreakGlassDisable, requireBreakGlassDeps } from './profile-break-glass-workflow.ts'
 export type {
-  ProfileWorkflowFailure,
-  RouteSet,
-  ProfileReadDeps,
-  ProfileWriteDeps,
+  BreakGlassBody,
   BreakGlassDeps,
+  ProfileReadDeps,
+  ProfileWorkflowFailure,
   ProfileWriteBody,
-  BreakGlassBody
+  ProfileWriteDeps,
+  RouteSet
 } from './profile-workflow-types.ts'

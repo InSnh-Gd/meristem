@@ -1,4 +1,12 @@
+import { eq } from 'drizzle-orm'
 import type { MNetRegionalProfile } from '../../../packages/contracts/src/types/mnet-profile.ts'
+import type { MeristemDb } from '../../../packages/db/src/client.ts'
+import {
+  mnetNetworkProfileStates,
+  mnetProfileDefinitions,
+  mnetProfileTransitions
+} from '../../../packages/db/src/schema.ts'
+import { decodeRegionalProfile } from './store-codecs.ts'
 
 /**
  * M-Net Profile 存储端口，仅定义接口，不依赖具体数据库实现。
@@ -51,6 +59,7 @@ export type ProfileTransitionRecord = {
  * 内置默认 Profile 种子定义。
  * m-net-default@0.1.0：controlPlaneOnly: false 的基线 Profile。
  * m-net-cn@0.1.0：controlPlaneOnly: true 的区域控制面 Profile。
+ * m-net-cn@0.2.0：WireGuard + wstunnel relay 的生产数据面 Profile。
  */
 const DEFAULT_PROFILES: MNetRegionalProfile[] = [
   {
@@ -61,7 +70,7 @@ const DEFAULT_PROFILES: MNetRegionalProfile[] = [
     status: 'available',
     rules: {},
     capabilities: {
-      realDerpRelay: false,
+      realWstunnelRelay: false,
       realTcpInterconnect: false,
       realUdpPathSwitching: false,
       controlPlaneOnly: false
@@ -79,17 +88,70 @@ const DEFAULT_PROFILES: MNetRegionalProfile[] = [
       }
     },
     capabilities: {
-      realDerpRelay: false,
+      realWstunnelRelay: false,
       realTcpInterconnect: false,
       realUdpPathSwitching: false,
       controlPlaneOnly: true
     }
+  },
+  {
+    profileVersion: 'm-net-cn@0.2.0',
+    region: 'cn',
+    displayName: 'M-Net CN (Production Data Plane)',
+    schemaVersion: 'mnet-profile@0.2.0',
+    status: 'available',
+    rules: {
+      mainlandNodeWithoutPublicAccess: {
+        interconnect: 'wstunnel_relay'
+      },
+      residency: 'cn-only'
+    },
+    capabilities: {
+      realWstunnelRelay: false,
+      realTcpInterconnect: false,
+      realUdpPathSwitching: false,
+      controlPlaneOnly: false,
+      realWireGuardTunnel: true,
+      realRelayFallback: true
+    },
+    runtimeConfig: {
+      headscaleEndpoint: { secretRefId: 'mnet-cn-headscale-endpoint' },
+      routingTable: { secretRefId: 'mnet-cn-routing-table' }
+    }
   }
 ]
 
+async function ensureProfileDefinitions(db: MeristemDb): Promise<void> {
+  const now = new Date()
+  for (const definition of DEFAULT_PROFILES) {
+    await db
+      .insert(mnetProfileDefinitions)
+      .values({
+        id: definition.profileVersion,
+        profileVersion: definition.profileVersion,
+        region: definition.region,
+        schemaVersion: definition.schemaVersion,
+        definition,
+        status: definition.status,
+        createdAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: mnetProfileDefinitions.id,
+        set: {
+          region: definition.region,
+          schemaVersion: definition.schemaVersion,
+          definition,
+          status: definition.status,
+          updatedAt: now
+        }
+      })
+  }
+}
+
 /**
  * 创建内存 Profile 存储适配器，用于单元测试和契约测试。
- * 默认 seed m-net-default@0.1.0 和 m-net-cn@0.1.0 两个 Profile。
+ * 默认 seed m-net-default@0.1.0、m-net-cn@0.1.0 和 m-net-cn@0.2.0 Profile。
  */
 export function createInMemoryProfileStore(definitions?: MNetRegionalProfile[]): ProfileStore {
   const profileDefinitions = new Map<string, MNetRegionalProfile>()
@@ -134,6 +196,93 @@ export function createInMemoryProfileStore(definitions?: MNetRegionalProfile[]):
       transitions.push({
         ...record,
         createdAt: new Date().toISOString()
+      })
+    }
+  }
+}
+
+/**
+ * 创建 PostgreSQL Profile 存储适配器，供生产接线复用权威写模型。
+ */
+export function createPgProfileStore(db: MeristemDb): ProfileStore {
+  return {
+    async getDefinitions() {
+      await ensureProfileDefinitions(db)
+      const rows = await db.select().from(mnetProfileDefinitions)
+      return rows
+        .map(row => decodeRegionalProfile(row.definition))
+        .filter((profile): profile is MNetRegionalProfile => profile !== null)
+    },
+
+    async getDefinition(profileVersion: string) {
+      await ensureProfileDefinitions(db)
+      const [row] = await db
+        .select()
+        .from(mnetProfileDefinitions)
+        .where(eq(mnetProfileDefinitions.profileVersion, profileVersion))
+        .limit(1)
+      if (!row) return null
+      return decodeRegionalProfile(row.definition)
+    },
+
+    async getNetworkState(networkId: string) {
+      const [row] = await db
+        .select()
+        .from(mnetNetworkProfileStates)
+        .where(eq(mnetNetworkProfileStates.networkId, networkId))
+        .limit(1)
+      if (!row) return null
+      return {
+        networkId: row.networkId,
+        profileVersion: row.profileVersion,
+        status: row.status,
+        updatedAt: row.updatedAt.toISOString()
+      }
+    },
+
+    async setNetworkState(networkId: string, state) {
+      const now = new Date()
+      await db
+        .insert(mnetNetworkProfileStates)
+        .values({
+          networkId,
+          profileVersion: state.profileVersion,
+          status: state.status,
+          updatedAt: now
+        })
+        .onConflictDoUpdate({
+          target: mnetNetworkProfileStates.networkId,
+          set: {
+            profileVersion: state.profileVersion,
+            status: state.status,
+            updatedAt: now
+          }
+        })
+    },
+
+    async listNetworkStates() {
+      const rows = await db.select().from(mnetNetworkProfileStates)
+      return rows.map(row => ({
+        networkId: row.networkId,
+        profileVersion: row.profileVersion,
+        status: row.status,
+        updatedAt: row.updatedAt.toISOString()
+      }))
+    },
+
+    async recordTransition(record) {
+      await db.insert(mnetProfileTransitions).values({
+        id: crypto.randomUUID(),
+        networkId: record.networkId,
+        fromProfileVersion: record.fromVersion,
+        toProfileVersion: record.toVersion,
+        fromStatus: record.fromStatus,
+        toStatus: record.toStatus,
+        actor: record.actor,
+        reason: record.reason ?? null,
+        policyDecisionId: record.policyDecisionId ?? null,
+        correlationId: record.correlationId ?? null,
+        createdAt: new Date()
       })
     }
   }

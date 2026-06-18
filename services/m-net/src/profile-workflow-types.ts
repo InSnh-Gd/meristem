@@ -1,8 +1,11 @@
 import type { MNetAppDeps } from './deps.ts'
 import type { ProfileState } from './profile-state-machine.ts'
 
-/** 中国区域 Profile 版本，enable 目标版本。 */
+/** 中国区域控制面 Profile 版本。 */
 export const CHINA_PROFILE_VERSION = 'm-net-cn@0.1.0'
+
+/** 中国区域生产数据面 Profile 版本。 */
+export const CHINA_DATA_PLANE_PROFILE_VERSION = 'm-net-cn@0.2.0'
 
 /** 默认 Profile 版本，disable 回退目标版本。 */
 export const DEFAULT_PROFILE_VERSION = 'm-net-default@0.1.0'
@@ -14,7 +17,10 @@ export const REQUEST_TTL_MS = 30 * 60 * 1000
 export type RouteSet = { status?: unknown }
 
 export type ProfileWriteBody = {
-  profileVersion: typeof CHINA_PROFILE_VERSION | typeof DEFAULT_PROFILE_VERSION
+  profileVersion:
+    | typeof CHINA_PROFILE_VERSION
+    | typeof CHINA_DATA_PLANE_PROFILE_VERSION
+    | typeof DEFAULT_PROFILE_VERSION
   reason: string
 }
 
@@ -41,6 +47,9 @@ export type ProfileWriteDeps = ProfileReadDeps & {
   log?: MNetAppDeps['log']
   profileDisablePolicy?: MNetAppDeps['profileDisablePolicy']
   networkUpdater?: MNetAppDeps['networkUpdater']
+  listMembers?: MNetAppDeps['listMembers']
+  migrationEngine?: MNetAppDeps['migrationEngine']
+  dataPlane?: MNetAppDeps['dataPlane']
 }
 
 export type BreakGlassDeps = {
@@ -51,6 +60,8 @@ export type BreakGlassDeps = {
   events?: MNetAppDeps['events']
   log?: MNetAppDeps['log']
   networkUpdater?: MNetAppDeps['networkUpdater']
+  listMembers?: MNetAppDeps['listMembers']
+  dataPlane?: MNetAppDeps['dataPlane']
 }
 
 export type StoredNetworkState = Awaited<ReturnType<ProfileStore['getNetworkState']>>

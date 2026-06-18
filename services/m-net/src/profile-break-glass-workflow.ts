@@ -1,13 +1,14 @@
 import type { MNetAppDeps } from './deps.ts'
+import { breakGlassFailClosed, getDataPlaneStores } from './mnet-dataplane-workflows.ts'
 import { canDisable } from './profile-state-machine.ts'
 import {
-  correlationId,
-  DEFAULT_PROFILE_VERSION,
   type BreakGlassBody,
   type BreakGlassDeps,
+  correlationId,
+  DEFAULT_PROFILE_VERSION,
   isProfileWorkflowFailure,
-  profileWorkflowFailure,
   type ProfileWorkflowFailure,
+  profileWorkflowFailure,
   toKnownState
 } from './profile-workflow-types.ts'
 
@@ -24,6 +25,8 @@ export function requireBreakGlassDeps(
     | 'events'
     | 'log'
     | 'networkUpdater'
+    | 'listMembers'
+    | 'dataPlane'
   >
 ): BreakGlassDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.policyAuthorize || !deps.profileDisablePolicy) {
@@ -40,7 +43,9 @@ export function requireBreakGlassDeps(
     ...(deps.policyHealthCheck ? { policyHealthCheck: deps.policyHealthCheck } : {}),
     ...(deps.events ? { events: deps.events } : {}),
     ...(deps.log ? { log: deps.log } : {}),
-    ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
+    ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {}),
+    ...(deps.listMembers ? { listMembers: deps.listMembers } : {}),
+    ...(deps.dataPlane ? { dataPlane: deps.dataPlane } : {})
   }
 }
 
@@ -183,6 +188,29 @@ export async function executeBreakGlassDisable(
     ...(policyDecisionId ? { policyDecisionId } : {})
   })
   await deps.networkUpdater?.setProfileVersion(input.networkId, DEFAULT_PROFILE_VERSION)
+  if (deps.listMembers) {
+    const dataPlane = getDataPlaneStores(deps.dataPlane)
+    if (!dataPlane) {
+      return profileWorkflowFailure(
+        503,
+        'feature.unavailable',
+        'data-plane stores are not available'
+      )
+    }
+    const failClosed = await breakGlassFailClosed(
+      {
+        profileStore: deps.profileStore,
+        policyAuthorize: deps.policyAuthorize,
+        listMembers: deps.listMembers,
+        dataPlane,
+        ...(deps.events ? { events: deps.events } : {}),
+        ...(deps.log ? { log: deps.log } : {}),
+        ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
+      },
+      { actor: input.actor, networkId: input.networkId, reason: breakGlassReason }
+    )
+    if (isProfileWorkflowFailure(failClosed)) return failClosed
+  }
   await deps.events?.publish(
     'mnet.profile.disable.requested.v0',
     'mnet.profile.disable.requested',
@@ -234,6 +262,6 @@ export async function executeBreakGlassDisable(
   }
 }
 
+export type { ProfileWorkflowFailure }
 /** 重新导出，保持 profile-routes.ts 的 import 路径不变。 */
 export { isProfileWorkflowFailure }
-export type { ProfileWorkflowFailure }
