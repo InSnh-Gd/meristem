@@ -1,8 +1,13 @@
 import { Elysia, t } from 'elysia'
-import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  Permission,
+  PolicyDecision
+} from '../../../packages/contracts/src/index.ts'
 import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
+import type { PolicySummaryPayload } from './summary.ts'
 
 export type PolicyAuthorizeInput = {
   actor: ActorId
@@ -16,6 +21,7 @@ export type PolicyAppDeps = {
   readiness(): Promise<{ ready: boolean }>
   authorize(input: PolicyAuthorizeInput): Promise<PolicyDecision>
   getDecision(id: string): Promise<PolicyDecision | null>
+  getSummary(): Promise<PolicySummaryPayload>
 }
 
 const internalErrorSchema = t.Object({
@@ -44,6 +50,54 @@ const policyDecisionSchema = t.Object({
   riskFactors: t.Optional(t.Array(t.String())),
   requiredAction: t.Optional(t.Union([t.Literal('manual_review'), t.Literal('multi_approval')])),
   createdAt: t.String()
+})
+
+const policySummarySchema = t.Object({
+  generatedAt: t.String(),
+  decisions: t.Object({
+    total: t.Number(),
+    allow: t.Number(),
+    deny: t.Number(),
+    requireManualReview: t.Number(),
+    requireMultiApproval: t.Number(),
+    latestCreatedAt: t.Optional(t.String())
+  }),
+  recentDecisions: t.Array(
+    t.Object({
+      id: t.String(),
+      actor: t.UnionEnum(actorIds),
+      action: t.UnionEnum(permissions),
+      resource: t.String(),
+      result: t.Union([
+        t.Literal('allow'),
+        t.Literal('deny'),
+        t.Literal('require_manual_review'),
+        t.Literal('require_multi_approval')
+      ]),
+      createdAt: t.String()
+    })
+  ),
+  approvals: t.Object({
+    total: t.Number(),
+    pending: t.Number(),
+    approved: t.Number(),
+    rejected: t.Number(),
+    expired: t.Number(),
+    canceled: t.Number(),
+    latestCreatedAt: t.Optional(t.String()),
+    nextExpiryAt: t.Optional(t.String())
+  }),
+  pendingApprovals: t.Array(
+    t.Object({
+      approvalId: t.String(),
+      policyDecisionId: t.String(),
+      requestedBy: t.UnionEnum(actorIds),
+      requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
+      status: t.Literal('pending'),
+      createdAt: t.String(),
+      expiresAt: t.String()
+    })
+  )
 })
 
 /**
@@ -108,6 +162,20 @@ export function createPolicyApp(deps: PolicyAppDeps) {
           200: policyDecisionSchema,
           401: internalErrorSchema,
           404: internalErrorSchema
+        }
+      }
+    )
+    .get(
+      '/internal/v0/summary',
+      async ({ headers, status }) => {
+        const auth = validateInternalRequest(headers)
+        if (!auth.ok) return status(401, { error: auth.error })
+        return withExtractedSpan('m-policy', 'm-policy.get-summary', headers, () => deps.getSummary())
+      },
+      {
+        response: {
+          200: policySummarySchema,
+          401: internalErrorSchema
         }
       }
     )

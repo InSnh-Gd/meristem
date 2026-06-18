@@ -1,3 +1,4 @@
+import * as Schema from 'effect/Schema'
 import type {
   ActorId,
   ApprovalActionResponse,
@@ -6,7 +7,6 @@ import type {
   ApprovalStatus,
   PolicyApproval
 } from '../../../packages/contracts/src/index.ts'
-import * as Schema from 'effect/Schema'
 import { PolicyApprovalVoteEventPayloadSchema } from '../../../packages/contracts/src/schemas/policy.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import { evaluateQuorum } from './approval-decisions.ts'
