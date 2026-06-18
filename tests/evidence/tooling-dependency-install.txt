@@ -1,0 +1,27 @@
+Task 1: Dependency/version probe and install decision
+Date: 2026-06-19
+
+Commands run:
+  bun install                          -> 80 packages installed, lockfile updated
+  bun install --frozen-lockfile        -> no changes (exit 0)
+  bun pm view @effect/platform-bun@0.90.0 peerDependencies
+    -> effect: ^3.21.2 (satisfied by current effect@3.21.2)
+    -> @effect/platform: ^0.96.1 (satisfied by installed @effect/platform@0.96.1)
+
+Dependencies added (exact pins):
+  date-fns@4.4.0
+  cac@7.0.0
+  pino@10.3.1
+  @effect/platform-bun@0.90.0
+  @effect/platform@0.96.1
+
+DevDependencies added (exact pins):
+  @total-typescript/shoehorn@0.1.2
+
+Gates passed:
+  bun run typecheck          -> exit 0
+  bun run format:check       -> exit 0
+  bun run test:agent-submit  -> 7 pass, 0 fail
+
+No source files changed beyond package.json and bun.lock.
+@effect/platform-bun is pilot/coexistence only, not a replacement for packages/internal-http.

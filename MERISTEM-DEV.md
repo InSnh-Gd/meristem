@@ -53,7 +53,11 @@
 | KV / Cache | NATS KV / MATS | 默认轻量 KV；Redis / KeyDB 仅作为补充后端 |
 | UI | SvelteKit + SDUI | M-UI 基础；与 Elysia 路由级深度集成 |
 | CLI | TypeScript CLI | Core 直接提供官方命令行入口，优先 Eden 契约 |
-| 可观测性 | OpenTelemetry | traces / metrics / logs 的采集与关联层 |
+| 可观测性 | OpenTelemetry + Pino | traces / metrics / logs 的采集与关联层；Pino 用于操作日志，不替代 M-Log 权威事实 |
+| 日期处理 | date-fns | 高价值日期操作（token 过期、审批截止、迁移时间戳） |
+| CLI 解析 | cac | M-CLI 命令解析，替代手写 arg loop |
+| 测试 mock | @total-typescript/shoehorn | 替代 `as unknown as` 双重断言 |
+| Effect/Bun 平台试点 | @effect/platform-bun | 试点/共存，不替代 packages/internal-http |
 | 副作用与内部契约建模 | Effect | 复杂副作用、生命周期、事件消费者、策略流程、日志 pipeline、投影、重试/超时/取消、多服务编排和跨服务内部契约默认优先使用；不强制 Effect-everywhere |
 | 扩展 | M-Extension | 原 M-Plugin 已废弃；扩展是补充机制，不是主功能承载层 |
 | 可选网关 | APISIX | 可选部署组件，不进入 Core 默认依赖 |
@@ -785,6 +789,17 @@ Meristem Core 计划使用 BSD-3 协议。
 - 第三方服务必须明确是否为必需依赖。
 - M-Extension 允许独立 license，但必须声明。
 - 引入新基础设施前必须说明是否进入默认依赖。
+
+当前已采纳的开发工具依赖（有界使用，不替代系统核心抽象）：
+
+| 依赖 | 版本 | 用途 | 边界 |
+|------|------|------|------|
+| `date-fns` | 4.4.0 | 高价值日期操作 | 不做全仓 `new Date()` 扫荡 |
+| `cac` | 7.0.0 | M-CLI 命令解析 | 保持 `createCliRunner` 契约不变 |
+| `pino` | 10.3.1 | 结构化操作日志 | 不替代 M-Log 权威事实发射 |
+| `@total-typescript/shoehorn` | 0.1.2 | 测试 mock 构造 | 仅用于 `as unknown as` 双重断言迁移 |
+| `@effect/platform-bun` | 0.90.0 | Effect/Bun 平台兼容性试点 | 不替代 `packages/internal-http` |
+| `@effect/platform` | 0.96.1 | `@effect/platform-bun` peer dep | 同上 |
 
 ---
 

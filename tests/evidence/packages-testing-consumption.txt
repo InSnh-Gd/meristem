@@ -1,0 +1,26 @@
+=== packages/testing tests ===
+---------------------------------------------|---------|---------|-------------------
+
+ 3 pass
+ 0 fail
+ 9 expect() calls
+Ran 3 tests across 1 file. [55.00ms]
+
+=== cli tests ===
+--------------------------------------------------------|---------|---------|-------------------
+
+ 17 pass
+ 0 fail
+ 56 expect() calls
+Ran 17 tests across 2 files. [56.00ms]
+
+=== test:agent-submit ===
+-----------------------------------------------------------|---------|---------|-------------------
+
+ 7 pass
+ 0 fail
+ 21 expect() calls
+Ran 7 tests across 2 files. [207.00ms]
+
+=== lint ===
+lint exit: 0

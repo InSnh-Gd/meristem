@@ -1,0 +1,29 @@
+Bounded date-fns adoption evidence
+
+Adoption sites:
+1. packages/auth/src/actor-tokens.ts
+   - Replaced manual expiry arithmetic `new Date(issuedAtDate.getTime() + parseExpiresInToMs(expiresIn))`
+   - Replaced manual JWT second conversion `Math.floor(date.getTime() / 1_000)`
+   - date-fns helpers: `addMilliseconds`, `getUnixTime`
+
+2. services/m-policy/src/approval-helpers.ts
+   - Replaced manual expiry comparison `new Date(approval.expiresAt) < now`
+   - Replaced manual one-hour test approval expiry arithmetic `new Date(Date.now() + 3600_000)`
+   - date-fns helpers: `parseISO`, `isBefore`, `addHours`
+
+3. services/m-log/src/projection/health.ts
+   - Replaced manual lag calculation `(Date.now() - new Date(cursor.timestamp).getTime()) / 1000`
+   - date-fns helpers: `parseISO`, `differenceInSeconds` with `roundingMethod: 'floor'`
+
+4. services/m-net/src/operation-locks.ts
+   - Replaced manual lock expiry arithmetic `new Date(new Date(requestedAt).getTime() + ttlMs)`
+   - Replaced manual expiry boundary comparison `new Date(lock.expiresAt).getTime() <= new Date(requestedAt).getTime()`
+   - date-fns helpers: `parseISO`, `addMilliseconds`, `isAfter`
+
+Focused coverage updates:
+- tests/packages/auth/auth.test.ts validates ISO claims remain aligned with numeric JWT timestamps.
+- tests/failure-modes/m-net-operation-locks.test.ts validates exact ttl-derived expiry and equality-boundary expiration.
+
+Bounded scope note:
+- No broad `new Date()` sweep was performed.
+- Simple `new Date().toISOString()` calls were left unchanged.

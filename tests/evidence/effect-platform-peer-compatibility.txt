@@ -1,0 +1,16 @@
+Task 1: Effect platform peer compatibility verification
+Date: 2026-06-19
+
+Command: bun pm view @effect/platform-bun@0.90.0 peerDependencies
+Output:
+  effect: ^3.21.2
+  @effect/rpc: ^0.75.1
+  @effect/sql: ^0.51.1
+  @effect/cluster: ^0.59.0
+  @effect/platform: ^0.96.1
+
+Current repo effect version: 3.21.2 (^3.21.2 satisfied)
+Installed @effect/platform: 0.96.1 (^0.96.1 satisfied)
+
+Note: @effect/rpc, @effect/sql, @effect/cluster are optional peer deps not required for the pilot.
+The pilot uses @effect/platform-bun for compatibility smoke only; no production call site is migrated.

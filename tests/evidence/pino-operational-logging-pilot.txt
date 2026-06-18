@@ -1,0 +1,63 @@
+Pino operational logging pilot — m-eventbus + m-log
+====================================================
+
+Date: 2026-06-19
+Scope: Replace console.log/warn/error with pino structured logging in m-eventbus
+and m-log. Operational logging only — M-Log authoritative Timeline/Full/Audit
+fact emission (DB writes via write-service + OpenSearch projection) is untouched.
+
+Factory
+-------
+File: packages/telemetry/src/logger.ts
+Export: createLogger(serviceName: string) => pino.Logger
+- Level via MERISTEM_LOG_LEVEL env var (default 'info').
+- Production (NODE_ENV=production): JSON lines to stdout.
+- Non-production: self-contained minimal pretty-printer (no pino-pretty dep).
+- Exposed via packages/telemetry package.json "./logger" subpath and re-exported
+  from packages/telemetry/src/index.ts barrel.
+
+Replaced console.* sites
+------------------------
+m-eventbus/src/index.ts:
+  - console.log("m-eventbus listening ...")  -> logger.info({url}, 'm-eventbus listening')
+m-eventbus/src/publisher.ts:
+  - console.error("[m-eventbus] dlq_publish_failed", {...})  -> logger.error({...}, 'dlq_publish_failed')
+m-log/src/index.ts:
+  - console.warn("m-log: OpenSearch unavailable ...")  -> logger.warn('opensearch unavailable ...')
+  - console.warn("m-log: projection engine unavailable ...")  -> logger.warn('projection engine unavailable ...')
+  - console.warn("m-log: ${dependency} readiness probe degraded ...")  -> logger.warn({dependency, error}, 'readiness probe degraded')
+  - console.log("m-log listening ...")  -> logger.info({url}, 'm-log listening')
+m-log/src/eventbus-operational-consumer.ts:
+  - console.warn("[m-log] eventbus_operational_consume_failed", {...})  -> logger.warn({...}, 'eventbus_operational_consume_failed')
+m-log/src/write-service.ts:
+  - console.warn("m-log: failed to index ... into OpenSearch - ...")  -> logger.warn({kind, entryId, error}, 'opensearch_index_failed')
+m-log/src/projection/health.ts:
+  - console.warn("m-log projection: failed to probe OpenSearch health - ...")  -> logger.warn({error}, 'opensearch_health_probe_failed')
+m-log/src/opensearch.ts:
+  - console.warn("m-log: OpenSearch ${operation} degraded - ...")  -> logger.warn({operation, error}, 'opensearch_degraded')
+
+NOT touched (M-Log authoritative fact emission)
+-----------------------------------------------
+- write-service.ts writeTimeline/writeFull/writeAudit DB insert paths
+- projection.ts backfill / DLQ replay / projection pipeline
+- log-query-routes.ts / log-write-routes.ts fact endpoints
+- event-publisher.ts event emission
+These are authoritative log facts, not operational console output.
+
+Smoke test
+----------
+File: tests/services/m-eventbus/logger.test.ts
+Result: 4 pass, 0 fail (13 expect() calls)
+  - imports pino and returns a usable logger instance
+  - emits structured output when logging
+  - respects MERISTEM_LOG_LEVEL env var
+  - produces JSON lines in production mode
+
+Verification
+------------
+- console.(log|warn|error) grep in services/m-eventbus/src: 0 matches
+- console.(log|warn|error) grep in services/m-log/src: 0 matches
+- pino@10.3.1 confirmed in root package.json dependencies (already installed)
+- No pino-pretty dependency added (self-contained pretty-printer)
+- No `as any` or `@ts-ignore` introduced
+- packages/internal-http not modified

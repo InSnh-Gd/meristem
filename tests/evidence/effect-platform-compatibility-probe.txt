@@ -1,0 +1,36 @@
+Task: @effect/platform-bun compatibility probe and isolated smoke test
+Date: 2026-06-19
+
+Artifacts:
+  Smoke test: tests/packages/effect-platform-bun-smoke.test.ts
+  ADR: docs/adr/ADR-TOOLING-effect-platform-bun-pilot.md
+
+Smoke test proof:
+  Command: bun test tests/packages/effect-platform-bun-smoke.test.ts
+  Result: 1 pass, 0 fail
+  Assertions:
+    - top-level import from @effect/platform-bun loads under Bun
+    - PlatformBun.BunRuntime is defined
+    - PlatformBun.BunRuntime.runMain is a function
+    - BunRuntime.runMain executes a trivial Effect and flips the local executed flag
+
+Repository gate results:
+  bun run lint            -> exit 0
+  bun run typecheck       -> exit 0
+  bun run typecheck:e2e   -> exit 0
+  bun run typecheck:m-ui  -> exit 0
+  bun run test:agent-submit -> 7 pass, 0 fail
+
+Scope guard confirmation:
+  - No production service call site migrated to @effect/platform-bun.
+  - packages/internal-http remains unchanged and remains the default internal HTTP abstraction.
+  - No raw fetch rewrite was introduced.
+  - No packages/internal-http source file was edited.
+
+Decision record summary:
+  - @effect/platform-bun is accepted as pilot/coexistence only.
+  - Any future production pilot must preserve internal auth and trace semantics.
+  - Any future production pilot must decode internal HTTP responses with shared schema validation rather than unchecked casts.
+
+Notes:
+  A small set of repository-wide lint-safe cleanup edits was required so bun run lint could reach exit 0 for the requested gate.

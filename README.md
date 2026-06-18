@@ -45,7 +45,8 @@ Meristem 是一个以 TypeScript 为核心、仅支持 Bun 运行时、并以 El
 - **事件总线**：NATS
 - **搜索 / 投影**：OpenSearch
 - **UI**：SvelteKit + SDUI
-- **可观测性**：OpenTelemetry
+- **可观测性**：OpenTelemetry + Pino（操作日志）
+- **开发工具**：date-fns（日期处理）、cac（CLI 解析）、@total-typescript/shoehorn（测试 mock）、@effect/platform-bun（Effect/Bun 平台试点）
 
 ## Monorepo 结构
 

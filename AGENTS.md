@@ -21,6 +21,10 @@
 - `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF workbench contract、CommandWell、审计/策略/日志可见性或过渡型工作台行为。
 - `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
 
+代码库探索与理解始终使用：
+
+- `.agents/skills/meristem-codegraph/SKILL.md` - 代替重复 grep/read 的 CodeGraph 使用规则：何时优先用 CodeGraph、可用工具映射、优先级顺序、以及不使用 CodeGraph 的场景。
+
 技术栈相关任务继续使用已有项目 skill：
 
 - `.agents/skills/elysiajs/SKILL.md` - ElysiaJS 路由、插件、schema、OpenAPI、Eden、测试。
@@ -73,7 +77,7 @@ This does not replace the boundary-specific gates from `docs/testing/TESTING.md`
     - `bun run depcruise:mermaid` — 生成 Mermaid 依赖图
     - `bun run depcruise:html` — 生成 HTML 交互式依赖图
 
-这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应优先使用 CodeGraph，而不是重复发起大量 grep/read 探索。
+这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应**优先使用 CodeGraph**，而不是重复发起大量 grep/read 探索。详细的 CodeGraph 优先级规则和触发场景见 `.agents/skills/meristem-codegraph/SKILL.md`。
 
 ### Issue tracker
 
