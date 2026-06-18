@@ -1,10 +1,8 @@
 import { Elysia } from 'elysia'
-import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import {
   APPROVAL_APPROVE_EXECUTE_COMMAND_ID,
   APPROVAL_REJECT_EXECUTE_COMMAND_ID,
-  EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
   GENERIC_NOOP_COMMAND_ID,
   PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID,
   PROFILE_DEFAULT_SET_EXECUTE_COMMAND_ID,
@@ -14,6 +12,10 @@ import {
   PROFILE_GLOBAL_SWITCH_APPLY_EXECUTE_COMMAND_ID,
   PROFILE_GLOBAL_SWITCH_PLAN_EXECUTE_COMMAND_ID
 } from '../types.ts'
+import {
+  handleMNetExecuteCommand,
+  requireExecuteSessionPermission
+} from './command-well-mnet-execute.ts'
 import {
   bffIdempotencyKey,
   forwardCoreExecute,
@@ -28,41 +30,13 @@ import {
   readNetworkProfileGlobalSwitchApplyBody,
   readNetworkProfileGlobalSwitchPlanBody
 } from './command-well-support.ts'
-import {
-  bearerTokenFromHeaders,
-  bffError,
-  decodeUpstreamData,
-  passthroughCoreError
-} from './route-helpers.ts'
+import { bearerTokenFromHeaders, bffError, passthroughCoreError } from './route-helpers.ts'
 import { commandIdParamsSchema, genericCommandExecuteBodySchema } from './route-schemas.ts'
-
-/** execute 路径先做最小会话权限预检，避免明显禁用态仍触发下游 mutation 请求。 */
-async function requireExecuteSessionPermission(
-  cf: MUiBffRouteDeps['cf'],
-  token: string,
-  commandId: keyof typeof EXECUTE_COMMAND_REQUIRED_PERMISSIONS
-) {
-  const sessionRes = await cf('/api/v0/session', token)
-  if (!sessionRes.ok) return passthroughCoreError(sessionRes)
-  const session = decodeUpstreamData(
-    SessionResponseSchema,
-    sessionRes.data,
-    'Core returned invalid session payload'
-  )
-  if (session instanceof Response) return session
-
-  const requiredPermission = EXECUTE_COMMAND_REQUIRED_PERMISSIONS[commandId]
-  if (!session.permissions.includes(requiredPermission)) {
-    return bffError(403, 'policy.denied', `缺少权限：${requiredPermission}`)
-  }
-
-  return session
-}
 
 /**
  * createCommandWellExecuteRoutes 保留通用 CommandWell 执行路由与所有命令分支。
  */
-export function createCommandWellExecuteRoutes({ cf, tf, cfRaw }: MUiBffRouteDeps) {
+export function createCommandWellExecuteRoutes({ cf, tf, cfRaw, mfRaw }: MUiBffRouteDeps) {
   return new Elysia().post(
     '/api/v0/commands/:commandId/execute',
     async ({ params, body, headers }) => {
@@ -88,6 +62,16 @@ export function createCommandWellExecuteRoutes({ cf, tf, cfRaw }: MUiBffRouteDep
         })
         if (!result.ok) return passthroughCoreError(result)
         return result.data
+      }
+
+      const mnetExecuteResponse = await handleMNetExecuteCommand({
+        commandId,
+        body,
+        token,
+        deps: { cf, mfRaw }
+      })
+      if (mnetExecuteResponse !== null) {
+        return mnetExecuteResponse
       }
 
       // 审批批准：转发到 Core POST /api/v0/policy/approvals/:id/approve

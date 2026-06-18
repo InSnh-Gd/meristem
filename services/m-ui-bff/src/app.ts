@@ -3,6 +3,7 @@ import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 import { createMUiBffRouteDeps, type MUiBffDeps } from './deps.ts'
 import { createBffDataRoutes } from './routes/bff-data-routes.ts'
+import { createBffMNetDataplaneMutationRoutes } from './routes/bff-mnet-dataplane-mutation-routes.ts'
 import { createCommandWellRoutes } from './routes/command-well-routes.ts'
 import { createSduiScreenRoutes } from './routes/sdui-screen-routes.ts'
 
@@ -57,6 +58,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       })
       .use(createSduiScreenRoutes(routeDeps))
       .use(createBffDataRoutes(routeDeps))
+      .use(createBffMNetDataplaneMutationRoutes(routeDeps))
       .use(createCommandWellRoutes(routeDeps))
   )
 }

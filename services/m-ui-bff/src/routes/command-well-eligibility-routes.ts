@@ -11,7 +11,22 @@ import {
   targetMissingCommandEligibility
 } from '../command-well/eligibility.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
-import { COMMAND_PREVIEW_DEFINITIONS, GENERIC_NOOP_COMMAND_ID } from '../types.ts'
+import {
+  COMMAND_PREVIEW_DEFINITIONS,
+  GENERIC_NOOP_COMMAND_ID,
+  MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
+  MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID,
+  MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID,
+  MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID,
+  MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID
+} from '../types.ts'
 import {
   deriveApprovalPreviewEligibility,
   deriveNetworkProfilePreviewEligibility,
@@ -23,6 +38,14 @@ import {
   readNetworkProfilePreviewBody,
   toMutableNode
 } from './command-well-support.ts'
+import {
+  disabledEligibility,
+  enabledEligibility,
+  isNetworkAdminActor,
+  isSecurityAdminActor,
+  readCredentialTargetBody,
+  readMigrationOperationBody
+} from './mnet-dataplane-support.ts'
 import {
   bearerTokenFromHeaders,
   bffError,
@@ -145,6 +168,125 @@ export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) 
         }
 
         if (!isDisplayOnlyCommandId(commandId)) {
+          if (
+            commandId === MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID ||
+            commandId === MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID ||
+            commandId === MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID ||
+            commandId === MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID ||
+            commandId === MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID ||
+            commandId === MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID ||
+            commandId === MNET_BREAK_GLASS_EXECUTE_COMMAND_ID
+          ) {
+            const token = bearerTokenFromHeaders(headers)
+            if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
+
+            const sessionRes = await cf('/api/v0/session', token)
+            if (!sessionRes.ok) return passthroughCoreError(sessionRes)
+            const session = decodeUpstreamData(
+              SessionResponseSchema,
+              sessionRes.data,
+              'Core returned invalid session payload'
+            )
+            if (session instanceof Response) return session
+
+            if (commandId === MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID) {
+              return session.permissions.includes('node:register')
+                ? enabledEligibility({
+                    id: commandId,
+                    label: '创建 Join Ticket',
+                    action: 'node:register',
+                    resource: 'network.join-ticket',
+                    requiredPermissions: ['node:register']
+                  })
+                : disabledEligibility(
+                    'missing_permission',
+                    '缺少权限：node:register',
+                    'node:register'
+                  )
+            }
+
+            if (
+              commandId === MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID ||
+              commandId === MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID ||
+              commandId === MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID
+            ) {
+              const target = readCredentialTargetBody(body)
+              if (!target) return invalidExecuteBody('networkId and nodeId are required')
+              return session.permissions.includes('node:issue-token')
+                ? enabledEligibility({
+                    id: commandId,
+                    label: '管理节点凭证',
+                    action: 'node:issue-token',
+                    resource: `network/${target.networkId}/node/${target.nodeId}`,
+                    requiredPermissions: ['node:issue-token']
+                  })
+                : disabledEligibility(
+                    'missing_permission',
+                    '缺少权限：node:issue-token',
+                    'node:issue-token'
+                  )
+            }
+
+            if (commandId === MNET_BREAK_GLASS_EXECUTE_COMMAND_ID) {
+              return isSecurityAdminActor(session.actor)
+                ? enabledEligibility({
+                    id: commandId,
+                    label: '执行 break-glass',
+                    action: 'network:profile-disable',
+                    resource: 'network.break-glass',
+                    requiredPermissions: ['network:profile-disable']
+                  })
+                : disabledEligibility('missing_permission', '缺少权限：security-admin')
+            }
+
+            if (
+              commandId === MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID ||
+              commandId === MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID ||
+              commandId === MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID ||
+              commandId === MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID
+            ) {
+              if (!isNetworkAdminActor(session.actor)) {
+                return disabledEligibility('missing_permission', '缺少权限：network-admin')
+              }
+              const operation =
+                commandId === MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID
+                  ? 'network.migration'
+                  : (readMigrationOperationBody(body)?.operationId ?? 'network.migration')
+              return enabledEligibility({
+                id: commandId,
+                label: '执行网络迁移',
+                action: 'network:profile-enable',
+                resource: operation,
+                requiredPermissions: ['network:profile-enable']
+              })
+            }
+
+            if (
+              commandId === MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID ||
+              commandId === MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID ||
+              commandId === MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID
+            ) {
+              const permission =
+                commandId === MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID
+                  ? 'network:profile-disable'
+                  : 'network:profile-enable'
+              return session.permissions.includes(permission)
+                ? enabledEligibility({
+                    id: commandId,
+                    label: '管理数据面 Profile',
+                    action: permission,
+                    resource: 'network.dataplane-profile',
+                    requiredPermissions: [permission]
+                  })
+                : disabledEligibility('missing_permission', `缺少权限：${permission}`, permission)
+            }
+          }
+
           return bffError(400, 'command.unknown', 'unknown command id')
         }
 

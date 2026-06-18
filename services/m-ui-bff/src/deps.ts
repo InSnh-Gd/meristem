@@ -1,6 +1,11 @@
+import { internalRequestHeaders, serviceUrl } from '../../../packages/internal-http/src/index.ts'
+
 export type MUiBffDeps = {
   coreBaseUrl: string
+  mnetBaseUrl?: string
   taskBaseUrl?: string
+  eventbusBaseUrl?: string
+  policyBaseUrl?: string
 }
 
 export type ServiceFetchResult = {
@@ -23,8 +28,12 @@ export type RawServiceFetch = (
 
 export type MUiBffRouteDeps = {
   cf: ServiceFetch
+  mf: ServiceFetch
   tf: ServiceFetch
+  ef: (path: string, init?: RequestInit) => Promise<ServiceFetchResult>
+  pf: (path: string, init?: RequestInit) => Promise<ServiceFetchResult>
   cfRaw: RawServiceFetch
+  mfRaw: RawServiceFetch
 }
 
 function upstreamHeaders(token?: string, init?: RequestInit) {
@@ -87,14 +96,44 @@ async function serviceFetch(
   }
 }
 
+async function internalServiceFetch(
+  baseUrl: string,
+  path: string,
+  init?: RequestInit
+): Promise<ServiceFetchResult> {
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: internalRequestHeaders(init?.headers)
+    })
+    const data = await response.json()
+    return { ok: response.ok, status: response.status, data }
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      data: { error: { code: 'bff.service_unreachable', message: 'Upstream service unreachable' } }
+    }
+  }
+}
+
 /**
  * createMUiBffRouteDeps 预先绑定 Core 与 M-Task 请求器，避免路由模块持有 baseUrl 细节。
  */
 export function createMUiBffRouteDeps(deps: MUiBffDeps): MUiBffRouteDeps {
+  const eventbusBaseUrl = deps.eventbusBaseUrl ?? serviceUrl('m-eventbus')
+  const policyBaseUrl = deps.policyBaseUrl ?? serviceUrl('m-policy')
+
   return {
     cf: (path, token, init) => serviceFetch(deps.coreBaseUrl, path, token, init),
+    mf: (path, token, init) =>
+      serviceFetch(deps.mnetBaseUrl ?? deps.coreBaseUrl, path, token, init),
     tf: (path, token, init) =>
       serviceFetch(deps.taskBaseUrl ?? deps.coreBaseUrl, path, token, init),
-    cfRaw: (path, token, init) => serviceFetchRaw(deps.coreBaseUrl, path, token, init)
+    ef: (path, init) => internalServiceFetch(eventbusBaseUrl, path, init),
+    pf: (path, init) => internalServiceFetch(policyBaseUrl, path, init),
+    cfRaw: (path, token, init) => serviceFetchRaw(deps.coreBaseUrl, path, token, init),
+    mfRaw: (path, token, init) =>
+      serviceFetchRaw(deps.mnetBaseUrl ?? deps.coreBaseUrl, path, token, init)
   }
 }

@@ -68,6 +68,56 @@ export type NetworkProfileBreakGlassDisableBody = {
   emergencyReason?: string
 }
 
+export type MNetJoinTicketCreateBody = {
+  kind: 'stem' | 'leaf'
+  name: string
+  capabilities?: string[]
+  expiresInSeconds?: number
+}
+
+export type MNetCredentialTargetBody = {
+  networkId: string
+  nodeId: string
+}
+
+export type MNetCredentialRevokeBody = MNetCredentialTargetBody & {
+  reason?: string
+}
+
+export type MNetProfileToggleBody = {
+  networkId: string
+  profileVersion: string
+  reason?: string
+}
+
+export type MNetBreakGlassBody = {
+  networkId: string
+  confirmation: string
+  emergencyReason?: string
+}
+
+export type MNetDefaultsSetBody = {
+  profileVersion: string
+  reason?: string
+  idempotencyKey?: string
+}
+
+export type MNetMigrationDryRunBody = {
+  targetProfileVersion: string
+  batchSize?: number
+  reason?: string
+  idempotencyKey?: string
+}
+
+export type MNetMigrationOperationBody = {
+  operationId: string
+}
+
+export type MNetMigrationRollbackBody = {
+  operationId: string
+  reason?: string
+}
+
 export type GenericCommandEligibilityBody =
   | {
       leafNodeId: string
@@ -79,6 +129,9 @@ export type GenericCommandEligibilityBody =
   | NetworkProfileGlobalSwitchApplyBody
   | NetworkProfileDisablePolicySetBody
   | NetworkProfileBreakGlassDisableBody
+  | { networkId: string }
+  | { scope?: string }
+  | MNetCredentialTargetBody
 
 export type CommandPreviewDefinition = Pick<
   OperationalCommandPreview,
@@ -161,6 +214,32 @@ export const PROFILE_DISABLE_POLICY_SET_EXECUTE_COMMAND_ID =
 /** Profile break-glass 禁用执行命令 ID */
 export const PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID =
   'network.profile.disable.break-glass.execute'
+/** M-Net join ticket 创建执行命令 ID */
+export const MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID = 'network.join-ticket.create.execute'
+/** M-Net 节点凭证签发执行命令 ID */
+export const MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID = 'network.node-credential.issue.execute'
+/** M-Net 节点凭证轮换执行命令 ID */
+export const MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID =
+  'network.node-credential.rotate.execute'
+/** M-Net 节点凭证吊销执行命令 ID */
+export const MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID =
+  'network.node-credential.revoke.execute'
+/** M-Net Profile 启用执行命令 ID */
+export const MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID = 'network.dataplane-profile.enable.execute'
+/** M-Net Profile 停用执行命令 ID */
+export const MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID = 'network.dataplane-profile.disable.execute'
+/** M-Net break-glass 执行命令 ID */
+export const MNET_BREAK_GLASS_EXECUTE_COMMAND_ID = 'network.break-glass.execute'
+/** M-Net 默认设置执行命令 ID */
+export const MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID = 'network.defaults.set.execute'
+/** M-Net 迁移规划执行命令 ID */
+export const MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID = 'network.migration.dry-run.execute'
+/** M-Net 迁移应用执行命令 ID */
+export const MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID = 'network.migration.apply.execute'
+/** M-Net 迁移恢复执行命令 ID */
+export const MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID = 'network.migration.resume.execute'
+/** M-Net 迁移回滚执行命令 ID */
+export const MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID = 'network.migration.rollback.execute'
 
 /** 所有可执行 CommandWell 命令 ID 列表 */
 export const EXECUTE_COMMAND_IDS = [
@@ -172,7 +251,19 @@ export const EXECUTE_COMMAND_IDS = [
   PROFILE_GLOBAL_SWITCH_PLAN_EXECUTE_COMMAND_ID,
   PROFILE_GLOBAL_SWITCH_APPLY_EXECUTE_COMMAND_ID,
   PROFILE_DISABLE_POLICY_SET_EXECUTE_COMMAND_ID,
-  PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID
+  PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID,
+  MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID,
+  MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID,
+  MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID,
+  MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID,
+  MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
+  MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
+  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID
 ] as const
 
 /** 可执行命令 ID 联合类型 */
@@ -188,7 +279,19 @@ export const EXECUTE_COMMAND_REQUIRED_PERMISSIONS: Record<ExecuteCommandId, Perm
   [PROFILE_GLOBAL_SWITCH_PLAN_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [PROFILE_GLOBAL_SWITCH_APPLY_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [PROFILE_DISABLE_POLICY_SET_EXECUTE_COMMAND_ID]: 'network:profile-disable',
-  [PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID]: 'network:profile-disable'
+  [PROFILE_BREAK_GLASS_DISABLE_EXECUTE_COMMAND_ID]: 'network:profile-disable',
+  [MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID]: 'node:register',
+  [MNET_NODE_CREDENTIAL_ISSUE_EXECUTE_COMMAND_ID]: 'node:issue-token',
+  [MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID]: 'node:issue-token',
+  [MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID]: 'node:issue-token',
+  [MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID]: 'network:profile-disable',
+  [MNET_BREAK_GLASS_EXECUTE_COMMAND_ID]: 'network:profile-disable',
+  [MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID]: 'network:profile-enable'
 }
 
 // ── Execute body types ─────────────────────────────────────────────────────

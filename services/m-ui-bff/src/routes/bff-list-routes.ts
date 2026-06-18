@@ -16,8 +16,8 @@ import {
   fetchDecodedUpstream,
   fetchDecodedUpstreamAllow404,
   passthroughCoreError,
-  requireObjectRecord,
   requireBearerToken,
+  requireObjectRecord,
   withStateSource
 } from './route-helpers.ts'
 

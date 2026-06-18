@@ -1,8 +1,8 @@
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
 import {
+  type ApprovalPreviewBody,
   COMMAND_PREVIEW_DEFINITIONS,
   DISPLAY_ONLY_COMMAND_IDS,
-  type ApprovalPreviewBody,
   type GenericCommandEligibilityBody,
   type NetworkProfileBreakGlassDisableBody,
   type NetworkProfileDefaultSetBody,

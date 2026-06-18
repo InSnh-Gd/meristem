@@ -141,6 +141,73 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
         { kind: 'ServiceRegistryTable', id: 'services-list' },
         { kind: 'KeyValueInspector', id: 'services-inspector' }
       ]
+    },
+    {
+      id: 'networks.index',
+      title: '数据面网络',
+      requiredPermissions: ['network:read'],
+      stateSources: ['authoritative', 'event'],
+      degradedState: { enabled: true, reason: '网络列表降级时显示空列表' },
+      components: [
+        { kind: 'NetworkListPanel', id: 'networks-list' },
+        { kind: 'CommandWellPanel', id: 'networks-command-well' }
+      ]
+    },
+    {
+      id: 'networks.detail',
+      title: '网络详情',
+      requiredPermissions: ['network:read'],
+      stateSources: ['authoritative', 'event', 'log'],
+      degradedState: { enabled: true, reason: '网络详情降级时显示追踪与基本信息' },
+      components: [
+        { kind: 'NetworkDetailPanel', id: 'network-detail-panel' },
+        { kind: 'TraceLink', id: 'network-trace-link' },
+        { kind: 'CommandWellPanel', id: 'network-detail-command-well' }
+      ]
+    },
+    {
+      id: 'nodes.credentials',
+      title: '节点凭证',
+      requiredPermissions: ['core:read'],
+      stateSources: ['authoritative', 'audit'],
+      degradedState: { enabled: true, reason: '节点凭证查询降级时只允许只读' },
+      components: [
+        { kind: 'NodeCredentialPanel', id: 'node-credential-panel' },
+        { kind: 'CommandWellPanel', id: 'node-credential-command-well' }
+      ]
+    },
+    {
+      id: 'mnet.dataplane.status',
+      title: '数据面状态',
+      requiredPermissions: ['network:read'],
+      stateSources: ['authoritative', 'event', 'audit'],
+      degradedState: { enabled: true, reason: '数据面状态探测降级时显示最后已知状态' },
+      components: [
+        { kind: 'DataplaneStatusPanel', id: 'dataplane-status-panel' },
+        { kind: 'TraceLink', id: 'dataplane-trace-link' }
+      ]
+    },
+    {
+      id: 'mnet.profile.migration',
+      title: 'Profile 迁移',
+      requiredPermissions: ['network:profile-enable'],
+      stateSources: ['authoritative', 'policy', 'audit'],
+      degradedState: { enabled: true, reason: '迁移过程查询降级时禁止执行新命令' },
+      components: [
+        { kind: 'CommandWellPanel', id: 'mnet-migration-command-well' },
+        { kind: 'TraceLink', id: 'mnet-migration-trace-link' }
+      ]
+    },
+    {
+      id: 'mnet.break-glass',
+      title: '紧急预案 (Break-glass)',
+      requiredPermissions: ['network:profile-disable'],
+      stateSources: ['authoritative', 'audit'],
+      degradedState: { enabled: true, reason: '核心服务降级时通过本地备用配置允许操作' },
+      components: [
+        { kind: 'CommandWellPanel', id: 'mnet-break-glass-command-well' },
+        { kind: 'TraceLink', id: 'mnet-break-glass-trace-link' }
+      ]
     }
   ]
 })

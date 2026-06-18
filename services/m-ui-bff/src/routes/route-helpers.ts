@@ -48,6 +48,20 @@ export function withStateSource<T extends object>(
   return { ...value, stateSource }
 }
 
+/**
+ * 为 OpenAPI detail 附加 Meristem 状态来源元数据，方便契约测试校验每条路由都声明来源。
+ */
+export function withStateSourceDetail(
+  summary: string,
+  stateSources: readonly StateSourceMetadata['sourceType'][]
+) {
+  return {
+    summary,
+    description: `stateSources: ${stateSources.join(', ')}`,
+    'x-meristem-state-sources': [...stateSources]
+  }
+}
+
 /** 上游返回成功时仍需按契约 schema 解码，避免 BFF 用断言吞掉漂移。 */
 export function decodeUpstreamData<A, I>(
   schema: Schema.Schema<A, I>,
@@ -78,8 +92,9 @@ export async function fetchDecodedUpstream<A, I>(input: {
   token: string
   schema: Schema.Schema<A, I>
   errorMessage: string
+  init?: RequestInit
 }): Promise<A | Response> {
-  const result = await input.fetcher(input.path, input.token)
+  const result = await input.fetcher(input.path, input.token, input.init)
   if (!result.ok) return passthroughCoreError(result)
   return decodeUpstreamData(input.schema, result.data, input.errorMessage)
 }
@@ -91,8 +106,9 @@ export async function fetchDecodedUpstreamAllow404<A, I>(input: {
   token: string
   schema: Schema.Schema<A, I>
   errorMessage: string
+  init?: RequestInit
 }): Promise<A | null | Response> {
-  const result = await input.fetcher(input.path, input.token)
+  const result = await input.fetcher(input.path, input.token, input.init)
   if (!result.ok) {
     if (result.status === 404) return null
     return passthroughCoreError(result)

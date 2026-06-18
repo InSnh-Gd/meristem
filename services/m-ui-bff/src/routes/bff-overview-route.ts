@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia'
 import {
   AuditLogListResponseSchema,
+  EventBusPublishMetricsSummarySchema,
   NodeListResponseSchema,
   ServiceListResponseSchema,
   SessionResponseSchema,
@@ -20,17 +21,18 @@ import { decodeUpstreamData, passthroughCoreError, requireBearerToken } from './
 /**
  * createBffOverviewRoute 负责 overview 聚合读模型；失败映射沿用上游 Core 响应。
  */
-export function createBffOverviewRoute({ cf }: MUiBffRouteDeps) {
+export function createBffOverviewRoute({ cf, ef }: MUiBffRouteDeps) {
   return new Elysia().get('/api/v0/overview', async ({ headers }) => {
     const token = requireBearerToken(headers)
     if (token instanceof Response) return token
 
-    const [sessionRes, statusRes, nodesRes, servicesRes, timelineRes] = await Promise.all([
+    const [sessionRes, statusRes, nodesRes, servicesRes, timelineRes, eventBusMetricsRes] = await Promise.all([
       cf('/api/v0/session', token),
       cf('/api/v0/status', token),
       cf('/api/v0/nodes', token),
       cf('/api/v0/services', token),
-      cf('/api/v0/logs/timeline', token)
+      cf('/api/v0/logs/timeline', token),
+      ef('/internal/v0/metrics/publish-summary')
     ])
 
     if (!sessionRes.ok) return passthroughCoreError(sessionRes)
@@ -78,6 +80,18 @@ export function createBffOverviewRoute({ cf }: MUiBffRouteDeps) {
       if (decodedTimeline instanceof Response) return decodedTimeline
       timeline = decodedTimeline.entries.map(toOverviewTimelineEntry)
     }
+    let eventBusMetrics = null as
+      | import('../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
+      | null
+    if (eventBusMetricsRes.ok) {
+      const decodedEventBusMetrics = decodeUpstreamData(
+        EventBusPublishMetricsSummarySchema,
+        eventBusMetricsRes.data,
+        'M-EventBus returned invalid publish metrics payload'
+      )
+      if (decodedEventBusMetrics instanceof Response) return decodedEventBusMetrics
+      eventBusMetrics = decodedEventBusMetrics
+    }
 
     const auditAccessible = session.permissions.includes('audit:read')
 
@@ -102,6 +116,7 @@ export function createBffOverviewRoute({ cf }: MUiBffRouteDeps) {
       nodes,
       services,
       timeline,
+      eventBusMetrics,
       auditAccessible,
       audit: auditEntries,
       stateSources: {
@@ -110,6 +125,7 @@ export function createBffOverviewRoute({ cf }: MUiBffRouteDeps) {
         dependencies: 'authoritative' as const,
         nodes: 'authoritative' as const,
         services: 'authoritative' as const,
+        eventBusMetrics: 'read-model' as const,
         timeline: 'log' as const,
         audit: 'audit' as const
       }
