@@ -18,6 +18,7 @@ export type {
   NetworkProfileMigrationResult,
   PlanSwitchResponse,
   ProfileDefaultsResponse,
+  ProfileSwitchStatusResponse,
   ProfileSwitchWriterPort,
   ResumeSwitchResponse,
   RollbackSwitchResponse,

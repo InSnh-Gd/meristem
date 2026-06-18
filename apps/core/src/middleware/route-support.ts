@@ -40,6 +40,7 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'm-policy.invalid_response':
     case 'mnet.invalid_response':
     case 'nodeagent.unavailable':
+    case 'nodeagent.invalid_response':
     case 'nodeagent.invalid_token':
       return 503
     default:

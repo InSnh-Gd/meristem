@@ -18,10 +18,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import * as Schema from 'effect/Schema'
 import {
-  ApprovalContextSchema,
+  ApprovalContextBuildMetaSchema,
   ApprovalContextErrorCodeSchema,
   ApprovalContextErrorSchema,
-  ApprovalContextBuildMetaSchema
+  ApprovalContextSchema
 } from '../../packages/contracts/src/index.ts'
 
 // ── No LLM Provider Leakage ──────────────────────────────────────────────

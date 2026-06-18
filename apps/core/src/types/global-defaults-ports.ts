@@ -22,6 +22,7 @@ export type SetProfileDefaultsResponse = {
   policyDecisionId: string
   auditId: string
   defaultProfileVersion: string
+  migrationOperationId?: string
 }
 
 /** 单条网络迁移结果 */
@@ -29,16 +30,32 @@ export type NetworkProfileMigrationResult = {
   networkId: string
   previousProfileVersion: string
   targetProfileVersion: string
-  status: 'applied' | 'skipped' | 'failed' | 'rolled_back'
+  status: 'applied' | 'skipped' | 'failed' | 'rolled_back' | 'pending'
   reason?: string
   auditId?: string
   correlationId?: string
+}
+
+export type ProfileSwitchStatusResponse = {
+  operationId: string
+  targetProfileVersion: string
+  reason: string
+  batchSize: number
+  candidateCount: number
+  batches: Array<{ batchId: number; networkIds: string[] }>
+  completedBatchIds: number[]
+  currentBatchId: number | null
+  results: NetworkProfileMigrationResult[]
+  globalSwitchState: 'idle' | 'planned' | 'applying' | 'applied' | 'rolled_back' | 'failed'
+  createdAt: string
+  updatedAt: string
 }
 
 /** POST /api/v0/networks/profile-switches/plan 响应 */
 export type PlanSwitchResponse = {
   operationId: string
   candidateCount: number
+  candidates?: string[]
   batches: Array<{ batchId: number; networkIds: string[] }>
   globalSwitchState: 'planned'
 }
@@ -91,10 +108,15 @@ export type GlobalDefaultsWriterPort = {
  * ProfileSwitchWriterPort 批量迁移规划、应用、恢复、回滚的写端口。
  */
 export type ProfileSwitchWriterPort = {
+  readPermission: Permission
   planPermission: Permission
   applyPermission: Permission
   resumePermission: Permission
   rollbackPermission: Permission
+  get(
+    operationId: string,
+    context: GlobalDefaultsContext
+  ): Promise<Result<ProfileSwitchStatusResponse, ServiceError>>
   plan(
     body: {
       targetProfileVersion: string

@@ -2,9 +2,9 @@ import { edenTreaty } from '@elysiajs/eden'
 import { Effect, Either } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
+  type PolicyDecision,
   PolicyDecisionResponseSchema,
-  PolicyDecisionSchema,
-  type PolicyDecision
+  PolicyDecisionSchema
 } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import type { PolicyApp } from '../../../../services/m-policy/src/public-types.ts'

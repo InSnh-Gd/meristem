@@ -131,6 +131,19 @@ export function recordGauge(
 }
 
 /**
+ * 记录累计计数。用于 publish 成功/失败/重试等单调递增指标。
+ */
+export function recordCounter(
+  name: string,
+  value: number,
+  attributes?: Record<string, string | number | boolean>
+): void {
+  if (!meter) return
+  const counter = meter.createCounter(name)
+  counter.add(value, attributes)
+}
+
+/**
  * 每个进程在入口处调用 initTelemetry，拿到本服务 tracer 后再开展业务调用。
  */
 export function initTelemetry(serviceName: string) {

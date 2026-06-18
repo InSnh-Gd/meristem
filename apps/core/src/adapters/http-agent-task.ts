@@ -8,6 +8,7 @@ import {
   serviceErrorFromHttpResponse,
   tryServiceCall
 } from '../effect-helpers.ts'
+import { decodeMNetNoopTaskResponse } from './mnet-response-decode.ts'
 
 /**
  * agent noop 下发改走 M-Net internal HTTP，由 M-Net 负责把 task.execute 投递给活动 session 并等待结果。
@@ -31,8 +32,9 @@ export function createHttpAgentTaskPort() {
                     'node agent unavailable'
                   )
                 )
-              : Effect.succeed(response.data.result)
-          )
+              : decodeMNetNoopTaskResponse(response.data)
+          ),
+          Effect.map(response => response.result)
         )
       )
     }

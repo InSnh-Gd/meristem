@@ -15,8 +15,8 @@ import {
 import {
   assertSecretIsMutable,
   redactSecretRecord,
-  requireSecretRecord,
   requireSecretPermission,
+  requireSecretRecord,
   runSecretMutation,
   unwrapSecretResult
 } from './secrets-support.ts'

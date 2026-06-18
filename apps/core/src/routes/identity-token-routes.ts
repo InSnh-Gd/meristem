@@ -12,9 +12,9 @@ import {
   tokenParamsSchema
 } from './identity-schemas.ts'
 import {
+  inspectIdentityToken,
   introspectIdentityTokenInternal,
   issueIdentityToken,
-  inspectIdentityToken,
   revokeIdentityToken
 } from './identity-support.ts'
 

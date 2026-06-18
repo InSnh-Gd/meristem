@@ -30,7 +30,7 @@ const defaultProfiles = [
     status: 'available' as const,
     rules: {},
     capabilities: {
-      realDerpRelay: false as const,
+      realWstunnelRelay: false as const,
       realTcpInterconnect: false as const,
       realUdpPathSwitching: false as const,
       controlPlaneOnly: false
@@ -44,7 +44,7 @@ const defaultProfiles = [
     status: 'available' as const,
     rules: { residency: 'cn-only' },
     capabilities: {
-      realDerpRelay: false as const,
+      realWstunnelRelay: false as const,
       realTcpInterconnect: false as const,
       realUdpPathSwitching: false as const,
       controlPlaneOnly: true

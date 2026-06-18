@@ -25,6 +25,10 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
         set.status = 503
         return defaultsUnavailable
       })
+      .get('/api/v0/networks/profile-switches/:operationId', ({ set }) => {
+        set.status = 503
+        return switchUnavailable
+      })
       .post('/api/v0/networks/profile-switches/plan', ({ set }) => {
         set.status = 503
         return switchUnavailable
@@ -126,7 +130,8 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
               operationId: t.String(),
               policyDecisionId: t.String(),
               auditId: t.String(),
-              defaultProfileVersion: t.String()
+              defaultProfileVersion: t.String(),
+              migrationOperationId: t.Optional(t.String())
             }),
             { 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 503: apiErrorSchema }
           ),
@@ -134,6 +139,61 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
         }
       )
       // ── 批量迁移规划 ──────────────────────────────────────────────────────
+      .get(
+        '/api/v0/networks/profile-switches/:operationId',
+        async ({ params, headers }) => {
+          return runWrite({
+            headers,
+            action: switchWriter.readPermission,
+            resource: `network:profile-switch:${params.operationId}`,
+            run: ctx => switchWriter.get(params.operationId, ctx)
+          })
+        },
+        {
+          params: t.Object({ operationId: t.String({ minLength: 1 }) }),
+          response: protectedResponse(
+            t.Object({
+              operationId: t.String(),
+              targetProfileVersion: t.String(),
+              reason: t.String(),
+              batchSize: t.Number(),
+              candidateCount: t.Number(),
+              batches: t.Array(t.Object({ batchId: t.Number(), networkIds: t.Array(t.String()) })),
+              completedBatchIds: t.Array(t.Number()),
+              currentBatchId: t.Nullable(t.Number()),
+              results: t.Array(
+                t.Object({
+                  networkId: t.String(),
+                  previousProfileVersion: t.String(),
+                  targetProfileVersion: t.String(),
+                  status: t.Union([
+                    t.Literal('applied'),
+                    t.Literal('skipped'),
+                    t.Literal('failed'),
+                    t.Literal('rolled_back'),
+                    t.Literal('pending')
+                  ]),
+                  reason: t.Optional(t.String()),
+                  auditId: t.Optional(t.String()),
+                  correlationId: t.Optional(t.String())
+                })
+              ),
+              globalSwitchState: t.Union([
+                t.Literal('idle'),
+                t.Literal('planned'),
+                t.Literal('applying'),
+                t.Literal('applied'),
+                t.Literal('rolled_back'),
+                t.Literal('failed')
+              ]),
+              createdAt: t.String(),
+              updatedAt: t.String()
+            }),
+            { 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema, 503: apiErrorSchema }
+          ),
+          detail: protectedRouteDetail('Read profile switch migration status through Core facade')
+        }
+      )
       .post(
         '/api/v0/networks/profile-switches/plan',
         async ({ body, headers }) => {
@@ -168,6 +228,7 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
             t.Object({
               operationId: t.String(),
               candidateCount: t.Number(),
+              candidates: t.Optional(t.Array(t.String())),
               batches: t.Array(
                 t.Object({
                   batchId: t.Number(),
@@ -207,7 +268,8 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
                     t.Literal('applied'),
                     t.Literal('skipped'),
                     t.Literal('failed'),
-                    t.Literal('rolled_back')
+                    t.Literal('rolled_back'),
+                    t.Literal('pending')
                   ]),
                   reason: t.Optional(t.String()),
                   auditId: t.Optional(t.String()),
@@ -271,7 +333,8 @@ export function globalDefaultsFacadeRoutes(deps: CoreDeps) {
                     t.Literal('applied'),
                     t.Literal('skipped'),
                     t.Literal('failed'),
-                    t.Literal('rolled_back')
+                    t.Literal('rolled_back'),
+                    t.Literal('pending')
                   ]),
                   reason: t.Optional(t.String()),
                   auditId: t.Optional(t.String()),

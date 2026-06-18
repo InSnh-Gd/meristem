@@ -31,7 +31,8 @@ export const internalApiPaths = {
   timelineLog: '/internal/v0/timeline',
   fullLog: '/internal/v0/full',
   auditLog: '/internal/v0/audit',
-  publishEvent: '/internal/v0/publish'
+  publishEvent: '/internal/v0/publish',
+  eventBusPublishMetrics: '/internal/v0/metrics/publish-summary'
 } as const
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]

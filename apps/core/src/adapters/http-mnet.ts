@@ -13,6 +13,12 @@ import {
   serviceErrorFromHttpResponse,
   tryServiceCall
 } from '../effect-helpers.ts'
+import {
+  decodeMNetCreateNetworkResponse as decodeCreateNetworkResponse,
+  decodeMNetJoinNetworkResponse as decodeJoinNetworkResponse,
+  decodeMNetNetworkListResponse as decodeNetworkListResponse,
+  decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse
+} from './mnet-response-decode.ts'
 
 /**
  * Core 到 M-Net 的同步网络调用改走 loopback HTTP + Eden，避免继续把业务边界压在 NATS RPC 上。
@@ -53,8 +59,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(response.data.network)
-          )
+              : decodeCreateNetworkResponse(response.data)
+          ),
+          Effect.map(response => ({ ...response.network }))
         )
       )
     },
@@ -73,8 +80,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(response.data.networks)
-          )
+              : decodeNetworkListResponse(response.data)
+          ),
+          Effect.map(response => response.networks.map(network => ({ ...network })))
         )
       )
     },
@@ -99,8 +107,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(response.data.member)
-          )
+              : decodeJoinNetworkResponse(response.data)
+          ),
+          Effect.map(response => ({ ...response.member }))
         )
       )
     },
@@ -125,8 +134,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(response.data.members)
-          )
+              : decodeNetworkMembersResponse(response.data)
+          ),
+          Effect.map(response => response.members.map(member => ({ ...member })))
         )
       )
     }
