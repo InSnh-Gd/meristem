@@ -3,8 +3,13 @@ import {
   fetchApprovalDetail as fetchBffApprovalDetail,
   fetchApprovalQueue as fetchBffApprovalQueue,
   fetchAudit as fetchBffAudit,
+  fetchDataplaneStatus as fetchBffDataplaneStatus,
+  fetchGlobalDefaults as fetchBffGlobalDefaults,
+  fetchNetworkJoinTickets as fetchBffJoinTickets,
+  fetchNetworkDetail as fetchBffNetworkDetail,
   fetchNetworkProfileDetail as fetchBffNetworkProfileDetail,
   fetchNetworkProfiles as fetchBffNetworkProfiles,
+  fetchNetworks as fetchBffNetworks,
   fetchNodes as fetchBffNodes,
   fetchPolicyDecisions as fetchBffPolicyDecisions,
   fetchRoutes as fetchBffRoutes,
@@ -21,6 +26,12 @@ import type {
   AuditData,
   AuditEntry,
   CommandState,
+  DataPlaneStatusResponseData,
+  GenericCommandParams,
+  GlobalDefaultsResponseData,
+  JoinTicketListResponseData,
+  NetworkDetailResponseData,
+  NetworkListResponseData,
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
   NodeListData,
@@ -46,6 +57,7 @@ class AppState {
   overview = $state<OverviewData | null>(null)
   selectedNodeId = $state<string | null>(null)
   commandState = $state<CommandState | null>(null)
+  commandParams = $state<Record<string, unknown> | null>(null)
   taskResult = $state<TaskResult | null>(null)
   commandConfirming = $state(false)
   policySummary = $state<PolicyDecisionSummary | null>(null)
@@ -67,6 +79,17 @@ class AppState {
   selectedProfile = $state<NetworkProfileDetailResponseData | null>(null)
   selectedProfileLoading = $state(false)
   selectedProfileError = $state<string | null>(null)
+  networks = $state<NetworkListResponseData | null>(null)
+  networksLoading = $state(false)
+  networksError = $state<string | null>(null)
+  selectedNetwork = $state<NetworkDetailResponseData | null>(null)
+  selectedNetworkLoading = $state(false)
+  selectedNetworkError = $state<string | null>(null)
+  joinTickets = $state<JoinTicketListResponseData | null>(null)
+  joinTicketsLoading = $state(false)
+  dataplaneStatus = $state<DataPlaneStatusResponseData | null>(null)
+  globalDefaults = $state<GlobalDefaultsResponseData | null>(null)
+  globalDefaultsLoading = $state(false)
 
   actor = $derived(this.overview?.session.actor ?? null)
   permissions = $derived(this.overview?.session.permissions ?? [])
@@ -189,6 +212,64 @@ class AppState {
     }
   }
 
+  async fetchNetworks() {
+    if (!this.token) return
+    this.networksLoading = true
+    this.networksError = null
+    try {
+      this.networks = await fetchBffNetworks(this.token)
+    } catch (e: unknown) {
+      this.networksError = formatBffError(e, '网络列表加载失败')
+    } finally {
+      this.networksLoading = false
+    }
+  }
+
+  async fetchNetworkDetail(networkId: string) {
+    if (!this.token) return
+    this.selectedNetworkLoading = true
+    this.selectedNetworkError = null
+    try {
+      this.selectedNetwork = await fetchBffNetworkDetail(this.token, networkId)
+    } catch (e: unknown) {
+      this.selectedNetwork = null
+      this.selectedNetworkError = formatBffError(e, '网络详情加载失败')
+    } finally {
+      this.selectedNetworkLoading = false
+    }
+  }
+
+  async fetchJoinTickets(networkId: string) {
+    if (!this.token) return
+    this.joinTicketsLoading = true
+    try {
+      this.joinTickets = await fetchBffJoinTickets(this.token, networkId)
+    } finally {
+      this.joinTicketsLoading = false
+    }
+  }
+
+  async fetchDataplaneStatus(networkId: string) {
+    if (!this.token) return
+    try {
+      this.dataplaneStatus = await fetchBffDataplaneStatus(this.token, networkId)
+    } catch {
+      // ignore
+    }
+  }
+
+  async fetchGlobalDefaults() {
+    if (!this.token) return
+    this.globalDefaultsLoading = true
+    try {
+      this.globalDefaults = await fetchBffGlobalDefaults(this.token)
+    } catch {
+      this.globalDefaults = null
+    } finally {
+      this.globalDefaultsLoading = false
+    }
+  }
+
   clearAudit() {
     this.audit = null
   }
@@ -206,22 +287,23 @@ class AppState {
     }
   }
 
-  async confirmNoop() {
-    if (!this.token || !this.selectedNodeId || this.commandState?.state !== 'enabled') return
+  async executeGenericCommand() {
+    if (!this.token || !this.commandState?.command || !this.commandParams) return
     this.commandConfirming = false
     this.loading = true
     this.error = null
     try {
-      this.taskResult = await executeCommand(this.token, 'task.noop.submit', {
-        leafNodeId: this.selectedNodeId
-      })
-      await this.refresh()
-      // 刷新后使用任务结果里的 policyDecisionId 拉取决策摘要
+      this.taskResult = await executeCommand(
+        this.token,
+        this.commandState.command.id,
+        this.commandParams as GenericCommandParams
+      )
+      // fetch policy summary if applicable
       if (this.taskResult?.policyDecisionId) {
         await this.fetchPolicySummary(this.taskResult.policyDecisionId)
       }
     } catch (e: unknown) {
-      this.error = formatBffError(e, '任务执行失败')
+      this.error = formatBffError(e, '操作执行失败')
     } finally {
       this.loading = false
     }

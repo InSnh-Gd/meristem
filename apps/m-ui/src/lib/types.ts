@@ -6,17 +6,19 @@ import type {
   ApprovalDetailResponse as ContractApprovalDetailResponse,
   CoreDependencies,
   CoreMode,
+  EventBusPublishMetricsSummaryFromSchema,
   MinimalPolicyDecisionSummary,
   MNetProfileRegion,
   MNetProfileVersion,
   MNetRegionalProfile,
   MNode,
-  NetworkSummary,
   NetworkProfileState,
+  NetworkSummary,
   OperationalCommandPreviewCommandId,
   Permission,
   PolicyApproval,
   PolicyDecision,
+  ServiceInspectorResponse,
   SduiV02Route,
   SduiV02RouteRegistry,
   ServiceSummary,
@@ -61,6 +63,8 @@ export type ServiceListData = {
   services: Array<WithStateSource<ServiceSummary>>
   stateSource: StateSourceMetadata
 }
+
+export type ServiceInspectorData = ServiceInspectorResponse
 
 export type ApprovalQueueResponseData = {
   approvals: Array<WithStateSource<PolicyApproval>>
@@ -176,6 +180,16 @@ export type GenericCommandParams =
       idempotencyKey?: string
     }
   | { networkId: string; emergencyReason?: string }
+  | { networkId: string; nodeId: string; reason?: string }
+  | {
+      networkId: string
+      kind: string
+      name: string
+      capabilities?: string[]
+      expiresInSeconds?: number
+    }
+  | { networkId: string; confirmation: string; emergencyReason?: string }
+  | { operationId: string; reason?: string }
 
 export type OverviewData = {
   session: { actor: ActorId; permissions: Permission[] }
@@ -184,6 +198,7 @@ export type OverviewData = {
   nodes: MNode[]
   services: ServiceSummary[]
   timeline: TimelineLog[]
+  eventBusMetrics: EventBusPublishMetricsSummaryFromSchema | null
   auditAccessible: boolean
   audit: AuditEntry[] | null
 }
@@ -226,4 +241,81 @@ export type AuditEntry = {
   action: string
   resource: string
   result: string
+}
+
+export type BffJoinTicketRecord = {
+  ticketId: string
+  ticket: string
+  expiresAt: string
+  joinUrl: string
+  policyDecisionId: string
+  correlationId: string
+  networkId: string
+  status: 'active'
+}
+
+export type JoinTicketListResponseData = {
+  tickets: BffJoinTicketRecord[]
+}
+
+export type BffDataPlaneNodeStatus = {
+  networkId: string
+  nodeId: string
+  tunnelStatus: string
+  relayAssignment: {
+    relayId: string
+    relayType: string
+    relayEndpoint: string
+  }
+  lastMapVersion: string
+  lastMapAt: string
+  partitionState: string
+  stateSource: StateSourceMetadata
+}
+
+export type DataPlaneStatusResponseData = {
+  networkId: string
+  nodes: BffDataPlaneNodeStatus[]
+  stateSource: StateSourceMetadata
+}
+
+export type BffNetworkMapSummary = {
+  networkId: string
+  mapVersion: string
+  memberCount: number
+  aclRuleCount: number
+  relayAssignment: {
+    relayType: string
+    relayEndpoint: string
+    nodeIds: string[]
+  }
+  expiresAt: string
+  signedBy: string
+  stateSource: StateSourceMetadata
+}
+
+export type NetworkDetailResponseData = {
+  network: WithStateSource<{
+    id: string
+    name: string
+    profileVersion: string
+    status: string
+    createdAt: string
+    memberCount?: number
+  }>
+  members: WithStateSource<{
+    networkId: string
+    nodeId: string
+    nodeKind: string
+    membershipMode: string
+    status: string
+    joinedAt: string
+  }>[]
+  profileState: {
+    profileVersion: string
+    stateSource: StateSourceMetadata
+  }
+  networkMapSummary: BffNetworkMapSummary
+  dataPlaneStatus: DataPlaneStatusResponseData
+  stateSource: StateSourceMetadata
 }

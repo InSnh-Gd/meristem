@@ -2,18 +2,23 @@ import type {
   ApprovalDetailResponseData,
   ApprovalQueueResponseData,
   AuditData,
+  BffNetworkMapSummary,
   CommandState,
+  DataPlaneStatusResponseData,
   GenericCommandParams,
   GlobalDefaultsResponseData,
+  JoinTicketListResponseData,
   MigrationStatusResponseData,
+  NetworkDetailResponseData,
+  NetworkListResponseData,
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
-  NetworkListResponseData,
   NodeListData,
   OverviewData,
   PolicyDecisionData,
   PolicyDecisionSummary,
   RouteRegistry,
+  ServiceInspectorData,
   ServiceListData,
   TaskResult,
   TimelineData
@@ -108,6 +113,10 @@ export function fetchServices(token: string) {
   return bffFetch<ServiceListData>('/api/v0/services', token)
 }
 
+export function fetchServiceDetail(token: string, serviceId: string) {
+  return bffFetch<ServiceInspectorData>(`/api/v0/services/${encodeURIComponent(serviceId)}`, token)
+}
+
 export function fetchCommandState(token: string, leafNodeId: string) {
   return fetchCommandEligibility(token, 'task.noop.submit', { leafNodeId })
 }
@@ -176,7 +185,7 @@ export function fetchNetworks(token: string) {
 }
 
 export function fetchGlobalDefaults(token: string) {
-  return bffFetch<GlobalDefaultsResponseData>('/api/v0/networks/profile-defaults', token)
+  return bffFetch<GlobalDefaultsResponseData>('/api/v0/networks/defaults', token)
 }
 
 export function fetchMigrationStatus(token: string, operationId: string) {
@@ -185,3 +194,33 @@ export function fetchMigrationStatus(token: string, operationId: string) {
     token
   )
 }
+
+export function fetchNetworkDetail(token: string, networkId: string) {
+  return bffFetch<NetworkDetailResponseData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}`,
+    token
+  )
+}
+
+export function fetchNetworkJoinTickets(token: string, networkId: string) {
+  return bffFetch<JoinTicketListResponseData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/join-tickets`,
+    token
+  )
+}
+
+export function fetchDataplaneStatus(token: string, networkId: string) {
+  return bffFetch<DataPlaneStatusResponseData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/dataplane/status`,
+    token
+  )
+}
+
+export function fetchNetworkMapSummary(token: string, networkId: string) {
+  return bffFetch<BffNetworkMapSummary>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/dataplane/network-map`,
+    token
+  )
+}
+
+// Change fetchGlobalDefaults to point to /api/v0/networks/defaults
