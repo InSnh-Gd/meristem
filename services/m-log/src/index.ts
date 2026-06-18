@@ -1,16 +1,5 @@
-import { edenTreaty } from '@elysiajs/eden'
-import { desc } from 'drizzle-orm'
-import type {
-  ActorId,
-  AuditLog,
-  FullLog,
-  TimelineLog
-} from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
-import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
-  createInternalFetcher,
   fetchReadyState,
   internalServicePorts,
   serveHttpApp,
@@ -18,23 +7,23 @@ import {
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import {
-  currentTraceId,
   initTelemetry,
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
-import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
 import { createLogApp } from './app.ts'
+import { startEventBusOperationalConsumer } from './eventbus-operational-consumer.ts'
+import { createLogEventPublisher } from './event-publisher.ts'
 import { createOpenSearchAdapter } from './opensearch.ts'
 import { createProjectionEngine } from './projection.ts'
+import { createLogQueryService } from './query-service.ts'
+import { createLogRuntimeState, readLogLevelFromEnv } from './runtime.ts'
+import { createLogWriteService } from './write-service.ts'
 
 initTelemetry('m-log')
 
 const { db, client } = createDb()
 const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
-// M-Log 通过内部 EventBus 发布审计事件，不直接绕过 envelope 校验写裸 NATS 消息。
-const eventBus = edenTreaty<EventBusApp>(serviceUrl('m-eventbus'), {
-  fetcher: createInternalFetcher()
-})
+const publisher = createLogEventPublisher()
 
 // OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
 const opensearchUrl = process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200'
@@ -59,28 +48,7 @@ if (!projectionAvailable) {
   console.warn('m-log: projection engine unavailable (OpenSearch not ready)')
 }
 
-type TimelineWriteRequest = Omit<TimelineLog, 'id' | 'timestamp'>
-type FullWriteRequest = Omit<FullLog, 'id' | 'timestamp'>
-type AuditWriteRequest = Omit<AuditLog, 'id' | 'timestamp'>
-type LogLevel = FullLog['level']
-
-const allowedLogLevels: readonly LogLevel[] = ['debug', 'info', 'warn', 'error']
-const runtimeState: { logLevel: LogLevel; lastReloadedAt?: string } = {
-  logLevel: readLogLevelFromEnv()
-}
-
-/**
- * 非阻塞投影失败只能降级告警，不能回滚 PostgreSQL 已写事实。
- */
-function warnProjectionFallback(
-  kind: 'timeline' | 'full' | 'audit',
-  entryId: string,
-  error: unknown
-): void {
-  console.warn(
-    `m-log: failed to index ${kind} log ${entryId} into OpenSearch - ${error instanceof Error ? error.message : String(error)}`
-  )
-}
+const runtimeState = createLogRuntimeState()
 
 /**
  * readiness 探针把依赖故障收敛为 false，但仍然要输出诊断信息给运维面。
@@ -92,119 +60,9 @@ function warnReadinessFallback(dependency: string, error: unknown): false {
   return false
 }
 
-/**
- * 环境变量里的日志级别必须收敛到固定集合，reload 才能保持可预测行为。
- */
-function readLogLevelFromEnv(): LogLevel {
-  const level = process.env.MERISTEM_LOG_LEVEL ?? 'info'
-  if (allowedLogLevels.includes(level as LogLevel)) return level as LogLevel
-  throw new Error(`invalid MERISTEM_LOG_LEVEL: ${level}`)
-}
-
-/**
- * 三类写入函数统一在这里创建 PostgreSQL 事实，并在写入成功后 best-effort 投影到 OpenSearch。
- * 投影使用 idempotency key（{index}:{factId}:1），保证重复写入安全。
- * OpenSearch 投影失败不阻塞 PostgreSQL 写，也不回滚已写事实。
- */
-async function writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog> {
-  const entry: TimelineLog = {
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    ...request
-  }
-  await db.insert(timelineLogs).values({
-    id: entry.id,
-    timestamp: new Date(entry.timestamp),
-    summary: entry.summary,
-    subject: entry.subject,
-    correlationId: entry.correlationId
-  })
-
-  // best-effort OpenSearch 投影，使用幂等 key
-  if (opensearchAvailable) {
-    void opensearch.indexTimelineLog(entry).catch(error => {
-      warnProjectionFallback('timeline', entry.id, error)
-    })
-  }
-
-  return entry
-}
-
-async function writeFull(request: FullWriteRequest): Promise<FullLog> {
-  const entry: FullLog = {
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    ...request
-  }
-  await db.insert(fullLogs).values({
-    id: entry.id,
-    timestamp: new Date(entry.timestamp),
-    level: entry.level,
-    source: entry.source,
-    message: entry.message,
-    correlationId: entry.correlationId,
-    traceId: entry.traceId,
-    payload: entry.payload
-  })
-
-  if (opensearchAvailable) {
-    void opensearch.indexFullLog(entry).catch(error => {
-      warnProjectionFallback('full', entry.id, error)
-    })
-  }
-
-  return entry
-}
-
-async function writeAudit(request: AuditWriteRequest): Promise<AuditLog> {
-  const entry: AuditLog = {
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    ...request
-  }
-  await db.insert(auditLogs).values({
-    id: entry.id,
-    timestamp: new Date(entry.timestamp),
-    actor: entry.actor,
-    action: entry.action,
-    resource: entry.resource,
-    decisionId: entry.decisionId,
-    result: entry.result,
-    correlationId: entry.correlationId,
-    traceId: entry.traceId,
-    payload: entry.payload
-  })
-
-  if (opensearchAvailable) {
-    void opensearch.indexAuditLog(entry).catch(error => {
-      warnProjectionFallback('audit', entry.id, error)
-    })
-  }
-
-  const traceId = entry.traceId ?? currentTraceId()
-  const event = createEventEnvelope({
-    type: 'audit.entry.created',
-    source: 'm-log',
-    payload: {
-      auditId: entry.id,
-      actor: entry.actor,
-      action: entry.action,
-      resource: entry.resource,
-      decisionId: entry.decisionId
-    },
-    ...(entry.correlationId ? { correlationId: entry.correlationId } : {}),
-    ...(traceId ? { traceId } : {})
-  })
-  const publish = await eventBus.internal.v0.publish.post({
-    subject: 'audit.entry.created.v0',
-    event
-  })
-  if (publish.error || !publish.data) {
-    throw new Error('failed to publish audit.entry.created.v0')
-  }
-
-  return entry
-}
+const writeService = createLogWriteService(db, opensearch, opensearchAvailable, publisher)
+const queryService = createLogQueryService(db)
+startEventBusOperationalConsumer(nc, writeService.writeFull)
 
 /**
  * reload 原型当前只重新读取进程内日志级别，不触碰数据库配置版本或其他服务状态。
@@ -236,68 +94,12 @@ const app = createLogApp({
       opensearch: opensearchAvailable ? ('ready' as const) : ('unavailable' as const)
     }
   },
-  writeTimeline,
-  writeFull,
-  writeAudit,
-  async listTimeline(limit) {
-    const rows = await db
-      .select()
-      .from(timelineLogs)
-      .orderBy(desc(timelineLogs.timestamp))
-      .limit(limit ?? 50)
-    return rows.map(row => {
-      const entry: TimelineLog = {
-        id: row.id,
-        timestamp: row.timestamp.toISOString(),
-        summary: row.summary
-      }
-      if (row.subject) entry.subject = row.subject
-      if (row.correlationId) entry.correlationId = row.correlationId
-      return entry
-    })
-  },
-  async listFull(limit) {
-    const rows = await db
-      .select()
-      .from(fullLogs)
-      .orderBy(desc(fullLogs.timestamp))
-      .limit(limit ?? 50)
-    return rows.map(row => {
-      const entry: FullLog = {
-        id: row.id,
-        timestamp: row.timestamp.toISOString(),
-        level: row.level as FullLog['level'],
-        source: row.source,
-        message: row.message
-      }
-      if (row.correlationId) entry.correlationId = row.correlationId
-      if (row.traceId) entry.traceId = row.traceId
-      if (row.payload) entry.payload = row.payload
-      return entry
-    })
-  },
-  async listAudit(limit) {
-    const rows = await db
-      .select()
-      .from(auditLogs)
-      .orderBy(desc(auditLogs.timestamp))
-      .limit(limit ?? 50)
-    return rows.map(row => {
-      const entry: AuditLog = {
-        id: row.id,
-        timestamp: row.timestamp.toISOString(),
-        actor: row.actor as ActorId | 'system',
-        action: row.action,
-        resource: row.resource,
-        result: row.result
-      }
-      if (row.decisionId) entry.decisionId = row.decisionId
-      if (row.correlationId) entry.correlationId = row.correlationId
-      if (row.traceId) entry.traceId = row.traceId
-      if (row.payload) entry.payload = row.payload
-      return entry
-    })
-  },
+  writeTimeline: writeService.writeTimeline,
+  writeFull: writeService.writeFull,
+  writeAudit: writeService.writeAudit,
+  listTimeline: queryService.listTimeline,
+  listFull: queryService.listFull,
+  listAudit: queryService.listAudit,
   reload,
   search: {
     async full(query) {
