@@ -1,6 +1,5 @@
 import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
-import { externalApiError } from './route-helpers.ts'
 import {
   isGlobalDefaultsFailure,
   requireDefaultsReadDeps,
@@ -10,6 +9,8 @@ import {
   requireMigrationDeps,
   requireSwitchOperationResult
 } from './global-defaults-support.ts'
+import { CHINA_DATA_PLANE_PROFILE_VERSION } from './mnet-dataplane-workflows.ts'
+import { externalApiError } from './route-helpers.ts'
 
 /**
  * 全局默认 Profile 与批量 switch 公开 REST API。
@@ -26,6 +27,16 @@ export function createGlobalDefaultsRoutes(
     | 'profileStore'
   >
 ) {
+  const applyPlannedMigration = async (operationId: string, actor: string) => {
+    while (true) {
+      const status = await deps.migrationEngine?.getStatus(operationId)
+      if (!status?.ok) return
+      if (status.value.completedBatchIds.length >= status.value.batches.length) return
+      const applied = await deps.migrationEngine?.apply(operationId, actor)
+      if (!applied || !applied.ok || applied.value.isComplete) return
+    }
+  }
+
   return (
     new Elysia({ prefix: '/api/v0' })
       // ── 全局默认 Profile 读写 ──────────────────────────────────────────
@@ -112,11 +123,26 @@ export function createGlobalDefaultsRoutes(
           // 设置全局默认
           await defaultsDeps.globalDefaultsStore.setDefaultProfileVersion(profileVersion)
 
+          let migrationOperationId: string | undefined
+          if (profileVersion === CHINA_DATA_PLANE_PROFILE_VERSION && deps.migrationEngine) {
+            const plan = await deps.migrationEngine.plan({
+              targetProfileVersion: profileVersion,
+              batchSize: 10,
+              reason,
+              idempotencyKey: `defaults:${idempotencyKey}:${profileVersion}`
+            })
+            if (plan.ok && plan.value.candidateCount > 0) {
+              migrationOperationId = plan.value.operationId
+              await applyPlannedMigration(plan.value.operationId, actor)
+            }
+          }
+
           const responseBody = {
             operationId: correlationId,
             policyDecisionId: policy.policyDecisionId,
             auditId,
-            defaultProfileVersion: profileVersion
+            defaultProfileVersion: profileVersion,
+            ...(migrationOperationId ? { migrationOperationId } : {})
           }
 
           // 记录幂等
@@ -152,7 +178,8 @@ export function createGlobalDefaultsRoutes(
               actor,
               reason,
               correlationId,
-              controlPlaneOnly: true
+              controlPlaneOnly: profileVersion !== CHINA_DATA_PLANE_PROFILE_VERSION,
+              ...(migrationOperationId ? { migrationOperationId } : {})
             },
             correlationId
           )
@@ -197,8 +224,11 @@ export function createGlobalDefaultsRoutes(
             return externalApiError(set, policy.status, policy.error.code, policy.error.message)
           }
 
+          // 迁移 dry-run 默认指向生产数据面 Profile，保留显式传参以兼容已有调用方与契约测试。
+          const targetProfileVersion = body.targetProfileVersion ?? CHINA_DATA_PLANE_PROFILE_VERSION
+
           const result = await migrationDeps.migrationEngine.plan({
-            targetProfileVersion: body.targetProfileVersion,
+            targetProfileVersion,
             batchSize: body.batchSize ?? 10,
             reason: body.reason,
             idempotencyKey: body.idempotencyKey
@@ -211,18 +241,52 @@ export function createGlobalDefaultsRoutes(
           return {
             operationId: result.value.operationId,
             candidateCount: result.value.candidateCount,
+            candidates: result.value.candidates,
             batches: result.value.batches,
             globalSwitchState: 'planned' as const
           }
         },
         {
           body: t.Object({
-            targetProfileVersion: t.String({ minLength: 1 }),
+            targetProfileVersion: t.Optional(t.String({ minLength: 1 })),
             batchSize: t.Optional(t.Number({ minimum: 1 })),
             reason: t.String({ minLength: 1 }),
             idempotencyKey: t.String({ minLength: 1 })
           })
         }
+      )
+
+      .get(
+        '/networks/profile-switches/:operationId',
+        async ({ params, headers, set }) => {
+          const actor = await requireGlobalDefaultsActor(headers, set)
+          if (isGlobalDefaultsFailure(actor)) {
+            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
+          }
+          const migrationDeps = requireMigrationDeps(deps, set)
+          if (isGlobalDefaultsFailure(migrationDeps)) {
+            return externalApiError(
+              set,
+              migrationDeps.status,
+              migrationDeps.error.code,
+              migrationDeps.error.message
+            )
+          }
+          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
+            actor,
+            action: 'network:profile-read',
+            resource: `network:profile-switch:${params.operationId}`,
+            deniedPrefix: 'read migration status',
+            set
+          })
+          if (isGlobalDefaultsFailure(policy)) {
+            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
+          }
+          const result = await migrationDeps.migrationEngine.getStatus(params.operationId)
+          if (!result.ok) return externalApiError(set, 404, 'switch.not_found', result.error)
+          return result.value
+        },
+        { params: t.Object({ operationId: t.String({ minLength: 1 }) }) }
       )
 
       // ── 批量 apply ────────────────────────────────────────────────────

@@ -4,8 +4,8 @@ import { createAgentRuntime } from './agent-runtime.ts'
 import { createMNetApp } from './app.ts'
 import { createMNetInfrastructure } from './clients.ts'
 import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
+import { createWiredMigrationEngine } from './migration-engine-factory.ts'
 import { createNetworkService } from './network-service.ts'
-import { createInMemoryProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import { createReadinessProbe } from './readiness.ts'
 
 /**
@@ -15,7 +15,8 @@ export async function startMNetService(): Promise<void> {
   const infrastructure = createMNetInfrastructure()
   const networkService = createNetworkService({
     db: infrastructure.db,
-    profileStore: infrastructure.profileStore
+    profileStore: infrastructure.profileStore,
+    globalDefaultsStore: infrastructure.globalDefaultsStore
   })
   const agentRuntime = createAgentRuntime({
     db: infrastructure.db,
@@ -24,15 +25,22 @@ export async function startMNetService(): Promise<void> {
     writeFull: infrastructure.writeFull,
     writeAudit: infrastructure.writeAudit
   })
-  const readiness = createReadinessProbe(infrastructure.client)
-  const disablePolicyStore = createInMemoryProfileDisablePolicyStore()
+  const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
+  const migrationEngine = createWiredMigrationEngine({
+    globalDefaultsStore: infrastructure.globalDefaultsStore,
+    profileStore: infrastructure.profileStore,
+    dataPlaneStores: infrastructure.dataPlaneStores,
+    log: infrastructure.profileLog,
+    listMembers: networkService.listMembers
+  })
 
-  // Policy health check: probes M-Policy /health endpoint
+  // 策略健康检查：探测 M-Policy /health 端点
+  interface GlobalWithInternalFetcher {
+    __mnet_internal_fetcher?: typeof fetch
+  }
   async function checkPolicyHealth(): Promise<{ healthy: boolean }> {
     try {
-      const fetcher =
-        (globalThis as unknown as { __mnet_internal_fetcher?: typeof fetch })
-          .__mnet_internal_fetcher ?? fetch
+      const fetcher = (globalThis as GlobalWithInternalFetcher).__mnet_internal_fetcher ?? fetch
       const response = await fetcher(
         `${process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:5101'}/health`
       )
@@ -50,13 +58,16 @@ export async function startMNetService(): Promise<void> {
     listMembers: networkService.listMembers,
     executeNoop: agentRuntime.executeNoop,
     profileStore: infrastructure.profileStore,
+    dataPlane: infrastructure.dataPlaneStores,
     suspendedOps: infrastructure.suspendedOps,
     approvals: infrastructure.approvalClient,
     events: infrastructure.profileEvents,
     log: infrastructure.profileLog,
     networkUpdater: networkService.networkUpdater,
     policyAuthorize: infrastructure.policyAuthorize,
-    profileDisablePolicy: disablePolicyStore,
+    profileDisablePolicy: infrastructure.profileDisablePolicy,
+    globalDefaultsStore: infrastructure.globalDefaultsStore,
+    migrationEngine,
     policyHealthCheck: { checkHealth: checkPolicyHealth }
   })
 

@@ -6,6 +6,13 @@ import { taskTimeoutMs } from './config.ts'
 import { err, ok, sendServerMessage } from './shared.ts'
 import type { MNetServiceError, MNetServiceResult } from './types.ts'
 
+function staleSessionError(): MNetServiceError {
+  return {
+    code: 'node.stale_session',
+    message: 'node session state is stale'
+  }
+}
+
 /**
  * pending task 的失败回收统一放在这里，避免断连、超时和停机三条路径产生不一致语义。
  */
@@ -29,7 +36,10 @@ export function rejectPendingTasksForNode(
 }
 
 export async function executeNoop(
-  context: Pick<AgentRuntimeContext, 'db' | 'activeSessions' | 'pendingTasks' | 'writeFull'>,
+  context: Pick<
+    AgentRuntimeContext,
+    'db' | 'activeSessions' | 'activeSessionIds' | 'pendingTasks' | 'writeFull'
+  >,
   input: {
     nodeId: string
     taskId: string
@@ -48,6 +58,26 @@ export async function executeNoop(
 
   const session = context.activeSessions.get(input.nodeId)
   if (!session) return err('node.unreachable', 'node is unreachable')
+  const activeSessionId = context.activeSessionIds.get(input.nodeId)
+  const currentSessionId =
+    typeof session.data.sessionId === 'string' ? session.data.sessionId : undefined
+  if (!activeSessionId || activeSessionId !== currentSessionId) {
+    const error = staleSessionError()
+    await context.writeFull(
+      'warn',
+      `stale session blocked noop task ${input.taskId}`,
+      input.correlationId,
+      undefined,
+      {
+        nodeId: input.nodeId,
+        taskId: input.taskId,
+        channel: 'session.task.execute',
+        activeSessionId,
+        currentSessionId
+      }
+    )
+    return err(error.code, error.message)
+  }
 
   return await new Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>>(resolve => {
     const timeout = setTimeout(() => {

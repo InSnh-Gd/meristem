@@ -1,7 +1,16 @@
+import { eq } from 'drizzle-orm'
 import type {
   NetworkSuspendedOperation,
   NetworkSuspendedOperationStatus
 } from '../../../packages/contracts/src/types/mnet-profile.ts'
+import type { MeristemDb } from '../../../packages/db/src/client.ts'
+import { mnetSuspendedOperations } from '../../../packages/db/src/schema.ts'
+import {
+  asActorId,
+  asProfileVersion,
+  asSuspendedAction,
+  buildSuspendedOperation
+} from './store-codecs.ts'
 
 /**
  * M-Net 挂起操作存储端口，仅定义接口，不依赖具体数据库实现。
@@ -44,15 +53,21 @@ export function createInMemorySuspendedOperationStore(): SuspendedOperationStore
 
   return {
     async create(input) {
+      const action = asSuspendedAction(input.action)
+      const requestedBy = asActorId(input.requestedBy)
+      const fromProfileVersion = asProfileVersion(input.fromProfileVersion)
+      const toProfileVersion = asProfileVersion(input.toProfileVersion)
+      if (!action || !requestedBy || !fromProfileVersion || !toProfileVersion) {
+        throw new Error('invalid suspended operation input')
+      }
       const op: NetworkSuspendedOperation = {
         id: crypto.randomUUID(),
         policyDecisionId: input.policyDecisionId,
-        action: input.action as NetworkSuspendedOperation['action'],
+        action,
         networkId: input.networkId,
-        fromProfileVersion:
-          input.fromProfileVersion as NetworkSuspendedOperation['fromProfileVersion'],
-        toProfileVersion: input.toProfileVersion as NetworkSuspendedOperation['toProfileVersion'],
-        requestedBy: input.requestedBy as NetworkSuspendedOperation['requestedBy'],
+        fromProfileVersion,
+        toProfileVersion,
+        requestedBy,
         reason: input.reason ?? '',
         correlationId: input.correlationId,
         idempotencyKey: input.idempotencyKey,
@@ -83,6 +98,112 @@ export function createInMemorySuspendedOperationStore(): SuspendedOperationStore
         op.terminalReason = terminalReason
       }
       return op
+    }
+  }
+}
+
+/**
+ * 创建 PostgreSQL 挂起操作存储，供审批恢复流程读取权威状态。
+ */
+export function createPgSuspendedOperationStore(db: MeristemDb): SuspendedOperationStore {
+  return {
+    async create(input) {
+      const action = asSuspendedAction(input.action)
+      const requestedBy = asActorId(input.requestedBy)
+      const fromProfileVersion = asProfileVersion(input.fromProfileVersion)
+      const toProfileVersion = asProfileVersion(input.toProfileVersion)
+      if (!action || !requestedBy || !fromProfileVersion || !toProfileVersion) {
+        throw new Error('invalid suspended operation input')
+      }
+      const id = crypto.randomUUID()
+      const createdAt = new Date()
+      await db.insert(mnetSuspendedOperations).values({
+        id,
+        policyDecisionId: input.policyDecisionId,
+        action,
+        networkId: input.networkId,
+        fromProfileVersion,
+        toProfileVersion,
+        requestedBy,
+        reason: input.reason ?? null,
+        correlationId: input.correlationId,
+        idempotencyKey: input.idempotencyKey,
+        status: 'suspended',
+        expiresAt: new Date(input.expiresAt),
+        createdAt,
+        resumedAt: null,
+        terminalReason: null
+      })
+      const created = await this.get(id)
+      if (!created) throw new Error('failed to persist suspended operation')
+      return created
+    },
+
+    async get(id) {
+      const [row] = await db
+        .select()
+        .from(mnetSuspendedOperations)
+        .where(eq(mnetSuspendedOperations.id, id))
+        .limit(1)
+      return row
+        ? buildSuspendedOperation({
+            id: row.id,
+            policyDecisionId: row.policyDecisionId,
+            action: row.action,
+            networkId: row.networkId,
+            fromProfileVersion: row.fromProfileVersion,
+            toProfileVersion: row.toProfileVersion,
+            requestedBy: row.requestedBy,
+            reason: row.reason,
+            correlationId: row.correlationId,
+            idempotencyKey: row.idempotencyKey,
+            status: row.status,
+            expiresAt: row.expiresAt,
+            createdAt: row.createdAt,
+            resumedAt: row.resumedAt,
+            terminalReason: row.terminalReason
+          })
+        : null
+    },
+
+    async getByPolicyDecisionId(policyDecisionId) {
+      const [row] = await db
+        .select()
+        .from(mnetSuspendedOperations)
+        .where(eq(mnetSuspendedOperations.policyDecisionId, policyDecisionId))
+        .limit(1)
+      return row
+        ? buildSuspendedOperation({
+            id: row.id,
+            policyDecisionId: row.policyDecisionId,
+            action: row.action,
+            networkId: row.networkId,
+            fromProfileVersion: row.fromProfileVersion,
+            toProfileVersion: row.toProfileVersion,
+            requestedBy: row.requestedBy,
+            reason: row.reason,
+            correlationId: row.correlationId,
+            idempotencyKey: row.idempotencyKey,
+            status: row.status,
+            expiresAt: row.expiresAt,
+            createdAt: row.createdAt,
+            resumedAt: row.resumedAt,
+            terminalReason: row.terminalReason
+          })
+        : null
+    },
+
+    async transition(id, status, terminalReason) {
+      const updates = {
+        status,
+        resumedAt: status === 'resumed' ? new Date() : null,
+        terminalReason: terminalReason ?? null
+      }
+      await db
+        .update(mnetSuspendedOperations)
+        .set(updates)
+        .where(eq(mnetSuspendedOperations.id, id))
+      return this.get(id)
     }
   }
 }

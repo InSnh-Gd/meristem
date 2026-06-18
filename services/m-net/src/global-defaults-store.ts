@@ -39,10 +39,25 @@ export type NetworkProfileMigrationResult = {
   networkId: string
   previousProfileVersion: string
   targetProfileVersion: string
-  status: 'applied' | 'skipped' | 'failed' | 'rolled_back'
+  status: 'applied' | 'skipped' | 'failed' | 'rolled_back' | 'pending'
   reason?: string
   auditId?: string
   correlationId?: string
+}
+
+export type SwitchOperationStatus = {
+  operationId: string
+  targetProfileVersion: string
+  reason: string
+  batchSize: number
+  candidateCount: number
+  batches: SwitchBatch[]
+  completedBatchIds: number[]
+  currentBatchId: number | null
+  results: NetworkProfileMigrationResult[]
+  globalSwitchState: GlobalSwitchState
+  createdAt: string
+  updatedAt: string
 }
 
 /** 全局默认值存储端口 */
@@ -73,18 +88,31 @@ export type GlobalDefaultsStore = {
   getSwitchOperationByIdempotencyKey(idempotencyKey: string): Promise<SwitchOperation | null>
 
   /** 根据 idempotencyKey 查找已执行的默认设置操作结果 */
-  getDefaultSetResultByIdempotencyKey(
-    idempotencyKey: string
-  ): Promise<{ operationId: string; policyDecisionId: string; auditId: string } | null>
+  getDefaultSetResultByIdempotencyKey(idempotencyKey: string): Promise<{
+    operationId: string
+    policyDecisionId: string
+    auditId: string
+    defaultProfileVersion?: string
+    migrationOperationId?: string
+  } | null>
 
   /** 记录默认设置操作的幂等结果 */
   recordDefaultSetResult(
     idempotencyKey: string,
-    result: { operationId: string; policyDecisionId: string; auditId: string }
+    result: {
+      operationId: string
+      policyDecisionId: string
+      auditId: string
+      defaultProfileVersion?: string
+      migrationOperationId?: string
+    }
   ): Promise<void>
 
   /** 根据 operationId 获取 switch 操作 */
   getSwitchOperation(operationId: string): Promise<SwitchOperation | null>
+
+  /** 读取单个 switch 操作的展示态。 */
+  getSwitchOperationStatus(operationId: string): Promise<SwitchOperationStatus | null>
 
   /** 开始处理下一个 batch */
   startBatch(operationId: string, batchId: number): Promise<SwitchOperation | null>
@@ -119,7 +147,13 @@ export function createInMemoryGlobalDefaultsStore(profileStore: ProfileStore): G
   /** 默认设置幂等记录：idempotencyKey → 结果 */
   const defaultSetResults = new Map<
     string,
-    { operationId: string; policyDecisionId: string; auditId: string }
+    {
+      operationId: string
+      policyDecisionId: string
+      auditId: string
+      defaultProfileVersion?: string
+      migrationOperationId?: string
+    }
   >()
 
   /** 迁移快照：operationId → (networkId → 迁移前的 profileVersion) */
@@ -189,15 +223,31 @@ export function createInMemoryGlobalDefaultsStore(profileStore: ProfileStore): G
       return defaultSetResults.get(idempotencyKey) ?? null
     },
 
-    async recordDefaultSetResult(
-      idempotencyKey: string,
-      result: { operationId: string; policyDecisionId: string; auditId: string }
-    ) {
+    async recordDefaultSetResult(idempotencyKey: string, result) {
       defaultSetResults.set(idempotencyKey, result)
     },
 
     async getSwitchOperation(operationId: string) {
       return operations.get(operationId) ?? null
+    },
+
+    async getSwitchOperationStatus(operationId: string) {
+      const op = operations.get(operationId)
+      if (!op) return null
+      return {
+        operationId: op.operationId,
+        targetProfileVersion: op.targetProfileVersion,
+        reason: op.reason,
+        batchSize: op.batchSize,
+        candidateCount: op.batches.flatMap(batch => batch.networkIds).length,
+        batches: op.batches.map(batch => ({ ...batch, networkIds: [...batch.networkIds] })),
+        completedBatchIds: [...op.completedBatchIds],
+        currentBatchId: op.currentBatchId,
+        results: op.results.map(result => ({ ...result })),
+        globalSwitchState: op.state,
+        createdAt: op.createdAt,
+        updatedAt: op.updatedAt
+      }
     },
 
     async startBatch(operationId: string, batchId: number) {

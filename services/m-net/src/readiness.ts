@@ -4,7 +4,10 @@ import type { MNetSqlClient } from './clients.ts'
 /**
  * ready 探针必须同时验证 PostgreSQL、M-EventBus 与 M-Log，避免 Core 只看到单点存活误判服务可用。
  */
-export function createReadinessProbe(client: MNetSqlClient) {
+export function createReadinessProbe(
+  client: MNetSqlClient,
+  checkStoreHealth?: () => Promise<boolean>
+) {
   const warnReadinessFallback = (dependency: string, error: unknown) => {
     console.warn(
       `m-net: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
@@ -18,10 +21,16 @@ export function createReadinessProbe(client: MNetSqlClient) {
         warnReadinessFallback('postgres', error)
         return false
       })
+    const storesReady = checkStoreHealth
+      ? await checkStoreHealth().catch(error => {
+          warnReadinessFallback('stores', error)
+          return false
+        })
+      : true
     const [eventBusReady, logReady] = await Promise.all([
       fetchReadyState(`${serviceUrl('m-eventbus')}/ready`),
       fetchReadyState(`${serviceUrl('m-log')}/ready`)
     ])
-    return { ready: postgresReady && eventBusReady && logReady }
+    return { ready: postgresReady && storesReady && eventBusReady && logReady }
   }
 }
