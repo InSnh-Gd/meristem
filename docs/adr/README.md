@@ -11,6 +11,7 @@
 | [ADR-F01](ADR-F01-foundational-technology-stack.md) | 基础技术栈 | Accepted | TypeScript / Elysia / REST+OpenAPI / Eden / Effect / SvelteKit / 负面清单 |
 | [ADR-F02](ADR-F02-architecture-organization.md) | 架构组织原则 | Accepted | 微服务 / Core 微内核 / M-Extension / 横切关注点 / M-Policy 起点 |
 | [ADR-F03](ADR-F03-infrastructure-backbone.md) | 基础设施主干 | Accepted | NATS / PostgreSQL / OpenSearch / NATS KV / OpenTelemetry / APISIX / M-Log 语义 |
+| [ADR-TOOLING](ADR-TOOLING-effect-platform-bun-pilot.md) | @effect/platform-bun coexistence pilot | Accepted | Bun compatibility probe / internal HTTP coexistence guardrails |
 | [ADR-N01](ADR-N01-m-net-default-network.md) | M-Net 默认网络 | Superseded by ADR-N03 | M-Net 默认组网策略 |
 | [ADR-N02](ADR-N02-m-net-cn-profile.md) | M-Net CN 区域网络 Profile | Accepted (data-plane scope superseded by ADR-N03) | 区域网络 Profile（当前接受范围：control-plane profile lifecycle） |
 | [ADR-N03](ADR-N03-m-net-production-data-plane.md) | M-Net Production Data-Plane | Accepted | M-Net 数据面范围授权和 Sidecar 代理定义 |
