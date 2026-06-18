@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '../../common/src/result.ts'
+export * from './subject-catalog.ts'
 
 export type MEventEnvelope = {
   id: string
