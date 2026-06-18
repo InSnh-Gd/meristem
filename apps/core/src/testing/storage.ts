@@ -1,3 +1,4 @@
+import { addSeconds } from 'date-fns'
 import { hashNodeToken, mintNodeToken } from '../../../../packages/auth/src/index.ts'
 import type { CreateNodeTicketRequest, MNode } from '../../../../packages/contracts/src/index.ts'
 import type { CoreStorage } from '../types.ts'
@@ -55,7 +56,7 @@ export function createStoragePort(
     ) {
       const ticketId = crypto.randomUUID()
       const ticket = `mjt_${crypto.randomUUID().replaceAll('-', '')}`
-      const expiresAt = new Date(Date.now() + (input.expiresInSeconds ?? 300) * 1000).toISOString()
+      const expiresAt = addSeconds(new Date(), input.expiresInSeconds ?? 300).toISOString()
       state.joinTickets.set(ticketId, { ...input, ticket, expiresAt })
       return { ticketId, ticket, expiresAt }
     },

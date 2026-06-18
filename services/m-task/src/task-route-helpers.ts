@@ -1,3 +1,4 @@
+import { addSeconds } from 'date-fns'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId,
@@ -152,7 +153,7 @@ export async function blockIfNeeded(
       sanitizedPayload: { action: input.action, resource: input.resource, risk: input.risk },
       correlationId: input.correlationId,
       idempotencyKey,
-      expiresAt: new Date(Date.now() + 3600_000).toISOString()
+      expiresAt: addSeconds(new Date(), 3600).toISOString()
     })
     if (deps.approvals && blockingDecision.requiredAction) {
       const approval = await deps.approvals.create({

@@ -281,6 +281,37 @@ describe('M-Net operation locks failure modes', () => {
     expect(result.lock.operationId).toBe('rotation-after-stale-001')
   })
 
+  it('derives lock expiry from requestedAt plus ttlMs and expires at equality boundary', () => {
+    const acquired = acquireOperationLock({
+      existingLock: null,
+      request: operationRequest({
+        requestedAt: '2026-06-18T10:01:00.500Z',
+        ttlMs: 1_500,
+        operationId: 'apply-boundary-001'
+      })
+    })
+
+    expect(acquired.kind).toBe('acquired')
+    if (acquired.kind !== 'acquired') return
+    expect(acquired.lock.expiresAt).toBe('2026-06-18T10:01:02.000Z')
+
+    const next = acquireOperationLock({
+      existingLock: acquired.lock,
+      request: operationRequest({
+        operationType: 'rotation',
+        operationId: 'rotation-boundary-001',
+        idempotencyKey: 'idem-rotation-boundary-001',
+        requestedAt: '2026-06-18T10:01:02.000Z',
+        reason: { code: 'credential.rotation', detail: 'boundary expiry' }
+      })
+    })
+
+    expect(next.kind).toBe('acquired')
+    if (next.kind !== 'acquired') return
+    expect(next.expiredLock?.operationId).toBe('apply-boundary-001')
+    expect(next.expiredLock?.status).toBe('expired')
+  })
+
   it('existing idempotency record can be returned without recreating an operation', () => {
     const existing = operationRecord({ operationId: 'apply-existing-001' })
     const result = registerIdempotentOperation(

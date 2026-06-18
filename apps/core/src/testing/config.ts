@@ -1,3 +1,4 @@
+import { addSeconds } from 'date-fns'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import { computeConfigHash, computeConfigVersion } from '../config-state-machine.ts'
 import type { ConfigPort } from '../types.ts'
@@ -208,7 +209,7 @@ export function createConfigPort(
             error: input.error ?? 'apply ack timed out',
             correlationId: input.correlationId,
             ackedAt: record.updatedAt,
-            expiresAt: new Date(Date.now() + 60_000).toISOString()
+            expiresAt: addSeconds(new Date(), 60).toISOString()
           })
         }
         return err({

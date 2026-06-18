@@ -1,3 +1,4 @@
+import { isBefore, parseISO } from 'date-fns'
 import type { ActorId } from '../../../../packages/contracts/src/index.ts'
 import {
   createBuiltinServices,
@@ -9,7 +10,7 @@ import {
 } from './shared.ts'
 
 function markExpiredToken(record: IdentityTokenRecord): IdentityTokenRecord {
-  if (record.status === 'active' && Date.parse(record.expiresAt) <= Date.now()) {
+  if (record.status === 'active' && isBefore(parseISO(record.expiresAt), new Date())) {
     record.status = 'expired'
     record.updatedAt = new Date().toISOString()
   }

@@ -1,3 +1,4 @@
+import { addMilliseconds, getUnixTime } from 'date-fns'
 import { jwtVerify, SignJWT } from 'jose'
 import type {
   ActorId,
@@ -83,8 +84,14 @@ function buildActorTokenPayload(payload: Record<string, unknown>): ActorTokenPay
   if (!isActorId(payload.issuedBy)) return null
   if (typeof payload.purpose !== 'string') return null
 
-  const issuedAt = extractIsoClaim(payload.issuedAt, typeof payload.iat === 'number' ? payload.iat : undefined)
-  const expiresAt = extractIsoClaim(payload.expiresAt, typeof payload.exp === 'number' ? payload.exp : undefined)
+  const issuedAt = extractIsoClaim(
+    payload.issuedAt,
+    typeof payload.iat === 'number' ? payload.iat : undefined
+  )
+  const expiresAt = extractIsoClaim(
+    payload.expiresAt,
+    typeof payload.exp === 'number' ? payload.exp : undefined
+  )
   if (issuedAt === null || expiresAt === null) return null
 
   return {
@@ -141,7 +148,7 @@ export async function mintActorToken(input: MintActorTokenInput): Promise<string
   const audience = input.audience ?? defaultAudience
   const expiresIn = input.expiresIn ?? '8h'
   const issuedAtDate = new Date()
-  const expiresAtDate = new Date(issuedAtDate.getTime() + parseExpiresInToMs(expiresIn))
+  const expiresAtDate = addMilliseconds(issuedAtDate, parseExpiresInToMs(expiresIn))
 
   return new SignJWT({
     issuedAt: issuedAtDate.toISOString(),
@@ -153,15 +160,18 @@ export async function mintActorToken(input: MintActorTokenInput): Promise<string
     .setIssuer(issuer)
     .setAudience(audience)
     .setSubject(input.actor)
-    .setIssuedAt(Math.floor(issuedAtDate.getTime() / 1_000))
-    .setExpirationTime(Math.floor(expiresAtDate.getTime() / 1_000))
+    .setIssuedAt(getUnixTime(issuedAtDate))
+    .setExpirationTime(getUnixTime(expiresAtDate))
     .setJti(input.jti)
     .sign(secretBytes(input.secret))
 }
 
 export type AuthResult = VerifiedActor | VerifiedActorToken | AuthError
 
-export async function verifyLocalToken(input: { token: string; secret: string }): Promise<AuthResult> {
+export async function verifyLocalToken(input: {
+  token: string
+  secret: string
+}): Promise<AuthResult> {
   try {
     const { payload } = await jwtVerify(input.token, secretBytes(input.secret), {
       audience: defaultAudience,
@@ -182,7 +192,10 @@ export async function verifyLocalToken(input: { token: string; secret: string })
   }
 }
 
-export async function verifyActorToken(token: string, secret: string): Promise<ActorTokenAuthResult> {
+export async function verifyActorToken(
+  token: string,
+  secret: string
+): Promise<ActorTokenAuthResult> {
   return verifyActorTokenAgainstAudiences(token, secret, [defaultAudience, serviceAudience])
 }
 

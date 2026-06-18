@@ -1,12 +1,15 @@
+import { differenceInSeconds, parseISO } from 'date-fns'
 import { eq, gte, type SQL, sql } from 'drizzle-orm'
 import type {
   ProjectionCursor,
   ProjectionHealth
 } from '../../../../packages/contracts/src/index.ts'
 import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
-import { recordGauge } from '../../../../packages/telemetry/src/index.ts'
+import { createLogger, recordGauge } from '../../../../packages/telemetry/src/index.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase, ProjectionOpenSearch } from './types.ts'
+
+const logger = createLogger('m-log')
 
 type CursorReader = {
   getCursor(index: string): Promise<ProjectionCursor | null>
@@ -26,8 +29,11 @@ export function createProjectionHealthService(
 
     const osAvailable = os.health
       ? await os.health().catch(error => {
-          console.warn(
-            `m-log projection: failed to probe OpenSearch health - ${error instanceof Error ? error.message : String(error)}`
+          logger.warn(
+            {
+              error: error instanceof Error ? error.message : String(error)
+            },
+            'opensearch_health_probe_failed'
           )
           return false
         })
@@ -63,7 +69,9 @@ export function createProjectionHealthService(
             )
           pendingCount = countResult[0]?.count ?? 0
 
-          lagSeconds = Math.floor((Date.now() - new Date(cursor.timestamp).getTime()) / 1000)
+          lagSeconds = differenceInSeconds(new Date(), parseISO(cursor.timestamp), {
+            roundingMethod: 'floor'
+          })
         }
       }
 

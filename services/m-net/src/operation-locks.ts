@@ -1,3 +1,5 @@
+import { addMilliseconds, isAfter, parseISO } from 'date-fns'
+
 export type NetworkOperationType = 'migration' | 'apply' | 'break_glass' | 'rotation'
 
 export type OperationLockStatus = 'active' | 'released' | 'interrupted' | 'expired'
@@ -153,11 +155,11 @@ function createFailure(
 }
 
 function expiresAt(requestedAt: string, ttlMs: number): string {
-  return new Date(new Date(requestedAt).getTime() + ttlMs).toISOString()
+  return addMilliseconds(parseISO(requestedAt), ttlMs).toISOString()
 }
 
 function isExpired(lock: NetworkOperationLock, requestedAt: string): boolean {
-  return new Date(lock.expiresAt).getTime() <= new Date(requestedAt).getTime()
+  return !isAfter(parseISO(lock.expiresAt), parseISO(requestedAt))
 }
 
 function createLock(request: OperationLockRequest, fencingToken: number): NetworkOperationLock {
@@ -225,7 +227,7 @@ export function acquireOperationLock(input: {
     }
   }
 
-  if (!existingLock || existingLock.status !== 'active') {
+  if (existingLock?.status !== 'active') {
     return {
       kind: 'acquired',
       lock: createLock(request, (existingLock?.fencingToken ?? 0) + 1),
@@ -278,7 +280,7 @@ export function preemptWithBreakGlass(
     }
   }
 
-  if (!currentLock || currentLock.status !== 'active') {
+  if (currentLock?.status !== 'active') {
     const breakGlassLock = createLock(request, (currentLock?.fencingToken ?? 0) + 1)
     return {
       kind: 'acquired',

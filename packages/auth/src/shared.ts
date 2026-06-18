@@ -1,3 +1,4 @@
+import { fromUnixTime } from 'date-fns'
 import type { ActorId, ActorTokenV02 } from '../../contracts/src/index.ts'
 
 export const issuer = 'meristem-local'
@@ -65,7 +66,7 @@ export function extractIsoClaim(value: unknown, fallbackSeconds?: number): strin
   }
 
   if (typeof fallbackSeconds === 'number' && Number.isFinite(fallbackSeconds)) {
-    return new Date(fallbackSeconds * 1_000).toISOString()
+    return fromUnixTime(fallbackSeconds).toISOString()
   }
 
   return null

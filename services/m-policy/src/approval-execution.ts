@@ -1,3 +1,4 @@
+import { isBefore, parseISO } from 'date-fns'
 import * as Schema from 'effect/Schema'
 import type {
   ActorId,
@@ -172,9 +173,9 @@ export async function expireApproval(
  */
 export async function expireDueApprovals(deps: ApprovalDeps): Promise<void> {
   const pending = await deps.approvals.listApprovals('pending')
-  const now = Date.now()
+  const now = new Date()
   for (const approval of pending) {
-    if (new Date(approval.expiresAt).getTime() < now) {
+    if (isBefore(parseISO(approval.expiresAt), now)) {
       try {
         await expireApproval(deps, approval)
       } catch (error: unknown) {

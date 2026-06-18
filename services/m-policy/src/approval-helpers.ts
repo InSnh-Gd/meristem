@@ -1,3 +1,4 @@
+import { addHours, isBefore, parseISO } from 'date-fns'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   ActorId,
@@ -44,7 +45,7 @@ export async function requirePermission(
  * 审批过期判定统一按 expiresAt 时间戳比较，避免不同 handler 重复实现。
  */
 export function isApprovalExpired(approval: PolicyApproval, now: Date = new Date()): boolean {
-  return new Date(approval.expiresAt) < now
+  return isBefore(parseISO(approval.expiresAt), now)
 }
 
 /**
@@ -130,7 +131,7 @@ export function createTestApproval(overrides: Partial<PolicyApproval> = {}): Pol
     requiredAction: 'manual_review',
     status: 'pending',
     quorumRequired: 1,
-    expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+    expiresAt: addHours(new Date(), 1).toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides

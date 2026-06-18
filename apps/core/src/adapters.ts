@@ -1,3 +1,4 @@
+import { isBefore, parseISO } from 'date-fns'
 import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
@@ -221,7 +222,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
         const token = await identityStore.getToken(jti)
         if (!token) return ok({ active: false, jti })
         const revocation = await identityStore.getRevocation(jti)
-        const expired = Date.parse(token.expiresAt) <= Date.now()
+        const expired = isBefore(parseISO(token.expiresAt), new Date())
         return ok({
           active: !revocation && !expired && token.status === 'active',
           actor: token.actorId,

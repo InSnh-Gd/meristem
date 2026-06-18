@@ -1,3 +1,4 @@
+import { addMilliseconds } from 'date-fns'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type { IdentityPort } from '../types.ts'
 import {
@@ -45,7 +46,7 @@ export function createIdentityPort(
       }
 
       const issuedAt = new Date().toISOString()
-      const expiresAt = new Date(Date.now() + ttlMs).toISOString()
+      const expiresAt = addMilliseconds(new Date(), ttlMs).toISOString()
       const jti = crypto.randomUUID()
       const token = encodeMockJwt({ jti, actor: input.actor })
       state.actorTokens.push({

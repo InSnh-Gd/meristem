@@ -1,3 +1,4 @@
+import { addMilliseconds } from 'date-fns'
 import type { MNetAppDeps } from './deps.ts'
 import type { ProfileState } from './profile-state-machine.ts'
 
@@ -97,7 +98,7 @@ export function toKnownState(state: StoredNetworkState): KnownNetworkState | nul
 
 /** 生成从当前时间起 30 分钟后的 ISO 时间戳。 */
 export function expiresAtFromNow(): string {
-  return new Date(Date.now() + REQUEST_TTL_MS).toISOString()
+  return addMilliseconds(new Date(), REQUEST_TTL_MS).toISOString()
 }
 
 /** 生成新的 correlationId。 */

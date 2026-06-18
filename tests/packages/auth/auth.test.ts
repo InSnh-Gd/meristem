@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { SignJWT } from 'jose'
+import { decodeJwt, SignJWT } from 'jose'
 import {
   extractBearerToken,
   hashNodeToken,
@@ -222,6 +222,24 @@ describe('mintActorToken', () => {
       const token = await mintTestActorToken({ expiresIn, jti: `jti-${expiresIn}` })
       expect(token.split('.')).toHaveLength(3)
     }
+  })
+
+  it('keeps ISO claims aligned with numeric JWT timestamps', async () => {
+    const token = await mintTestActorToken({ expiresIn: '1500ms', jti: 'aligned-claims-jti' })
+    const payload = decodeJwt(token)
+
+    expect(typeof payload.iat).toBe('number')
+    expect(typeof payload.exp).toBe('number')
+
+    const verified = await verifyActorToken(token, testSecret)
+    expect(verified.ok).toBe(true)
+
+    if (!verified.ok || typeof payload.iat !== 'number' || typeof payload.exp !== 'number') {
+      throw new Error('expected aligned JWT timestamp claims')
+    }
+
+    expect(payload.iat).toBe(Math.floor(new Date(verified.issuedAt).getTime() / 1_000))
+    expect(payload.exp).toBe(Math.floor(new Date(verified.expiresAt).getTime() / 1_000))
   })
 
   it('rejects unsupported expiresIn formats', async () => {
