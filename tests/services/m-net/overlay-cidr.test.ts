@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   DEFAULT_MNET_OVERLAY_CIDR,
   parseOverlayCidr
-} from '../../../services/m-net/src/data-plane/overlay-cidr.ts'
+} from '../../../services/m-net/src/overlay-cidr.ts'
 
 describe('parseOverlayCidr', () => {
   it('parses the documented default overlay range', () => {

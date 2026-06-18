@@ -5,7 +5,7 @@ import {
   getDataPlaneStores,
   requireDataPlaneDeps
 } from './mnet-dataplane-workflows.ts'
-import { canResume, type ProfileState } from './profile-state-machine.ts'
+import { type ProfileState } from './profile-state-machine.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
 
 type FeatureDeps = Pick<
@@ -109,6 +109,10 @@ async function publishResumeFailureArtifacts(
     failureReason: string
   }
 ) {
+  const auditAction =
+    suspendedOp.action === 'mnet.profile.disable'
+      ? 'mnet.profile.disable.failure'
+      : 'mnet.profile.enable.failure'
   await deps.suspendedOps.transition(suspendedOp.id, 'resume_failed', input.terminalReason)
   await deps.events?.publish(
     'mnet.profile.apply_failed.v0',
@@ -133,7 +137,7 @@ async function publishResumeFailureArtifacts(
   )
   await deps.log?.writeAudit(
     'system',
-    'mnet.profile.enable.failure',
+    auditAction,
     `network:${suspendedOp.networkId}`,
     'failure',
     suspendedOp.correlationId,
@@ -168,20 +172,29 @@ export async function resumeProfileAdminOperation(
   }
 
   const profileState = toProfileState(state.status)
-  if (!profileState || !canResume(profileState)) {
-    const stateReason = `state is ${state.status}, not enabling`
+  const isDisable = suspendedOp.action === 'mnet.profile.disable'
+  const expectedState: ProfileState = isDisable ? 'disabling' : 'enabling'
+  if (!profileState || profileState !== expectedState) {
+    const stateReason = `state is ${state.status}, not ${expectedState}`
     await publishResumeFailureArtifacts(deps, suspendedOp, {
       terminalReason: `invalid state for resume: ${state.status}`,
       failureReason: stateReason
     })
-    return failure(409, 'resume.invalid_state', 'network is not in enabling state')
+    return failure(409, 'resume.invalid_state', `network is not in ${expectedState} state`)
   }
 
-  await deps.profileStore.setNetworkState(suspendedOp.networkId, {
-    profileVersion: suspendedOp.fromProfileVersion,
-    status: 'enabling'
-  })
-  if (suspendedOp.toProfileVersion === CHINA_DATA_PLANE_PROFILE_VERSION && deps.listMembers) {
+  if (!isDisable) {
+    await deps.profileStore.setNetworkState(suspendedOp.networkId, {
+      profileVersion: suspendedOp.fromProfileVersion,
+      status: 'enabling'
+    })
+  }
+
+  if (
+    !isDisable &&
+    suspendedOp.toProfileVersion === CHINA_DATA_PLANE_PROFILE_VERSION &&
+    deps.listMembers
+  ) {
     const dataPlane = getDataPlaneStores(deps.dataPlane)
     if (!dataPlane) {
       return failure(503, 'feature.unavailable', 'data-plane stores are not available')
@@ -217,7 +230,7 @@ export async function resumeProfileAdminOperation(
   } else {
     await deps.profileStore.setNetworkState(suspendedOp.networkId, {
       profileVersion: suspendedOp.toProfileVersion,
-      status: 'enabled'
+      status: isDisable ? 'disabled' : 'enabled'
     })
     await deps.networkUpdater?.setProfileVersion(
       suspendedOp.networkId,
@@ -227,8 +240,8 @@ export async function resumeProfileAdminOperation(
       networkId: suspendedOp.networkId,
       fromVersion: suspendedOp.fromProfileVersion,
       toVersion: suspendedOp.toProfileVersion,
-      fromStatus: 'enabling',
-      toStatus: 'enabled',
+      fromStatus: expectedState,
+      toStatus: isDisable ? 'disabled' : 'enabled',
       actor: 'system',
       reason: 'approved resume',
       policyDecisionId: suspendedOp.policyDecisionId,
@@ -237,9 +250,21 @@ export async function resumeProfileAdminOperation(
   }
   await deps.suspendedOps.transition(suspendedOp.id, 'resumed')
 
+  const successSubject = isDisable ? 'mnet.profile.disabled' : 'mnet.profile.enabled'
+  const successVersionSubject = isDisable
+    ? 'mnet.profile.disabled.v0'
+    : 'mnet.profile.enabled.v0'
+  const successMessage = `${isDisable ? 'profile disabled' : 'profile enabled'} for network ${suspendedOp.networkId}`
+  const resumeAuditAction = isDisable
+    ? 'mnet.profile.disable.resume.attempt'
+    : 'mnet.profile.enable.resume.attempt'
+  const successAuditAction = isDisable
+    ? 'mnet.profile.disable.success'
+    : 'mnet.profile.enable.success'
+
   await deps.events?.publish(
-    'mnet.profile.enabled.v0',
-    'mnet.profile.enabled',
+    successVersionSubject,
+    successSubject,
     {
       networkId: suspendedOp.networkId,
       fromProfileVersion: suspendedOp.fromProfileVersion,
@@ -254,26 +279,26 @@ export async function resumeProfileAdminOperation(
     suspendedOp.correlationId
   )
   await deps.log?.writeTimeline(
-    `profile enabled for network ${suspendedOp.networkId}`,
-    'mnet.profile.enabled',
+    successMessage,
+    successSubject,
     suspendedOp.correlationId
   )
   await deps.log?.writeFull(
     'info',
-    `profile enabled for network ${suspendedOp.networkId}`,
+    successMessage,
     suspendedOp.correlationId,
     { profileVersion: suspendedOp.toProfileVersion, operationId: suspendedOp.id }
   )
   await deps.log?.writeAudit(
     'system',
-    'mnet.profile.enable.resume.attempt',
+    resumeAuditAction,
     `network:${suspendedOp.networkId}`,
     'success',
     suspendedOp.correlationId
   )
   await deps.log?.writeAudit(
     'system',
-    'mnet.profile.enable.success',
+    successAuditAction,
     `network:${suspendedOp.networkId}`,
     'success',
     suspendedOp.correlationId,

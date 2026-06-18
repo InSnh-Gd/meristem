@@ -10,10 +10,9 @@ describe('e2e: M-Extension CLI surface', () => {
       }
     })
 
-    const result = await cli.run(['unknown-command'])
+    const result = await cli.run(['extension', 'register'])
 
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain('extension list')
-    expect(result.stderr).toContain('extension register <manifest-file>')
+    expect(result.stderr).toContain('usage: meristem extension register <manifest-file>')
   })
 })

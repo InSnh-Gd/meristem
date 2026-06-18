@@ -228,7 +228,7 @@ await sql.begin(async tx => {
   await tx`
     insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
     values (
-      'mnet-profile-definition-default-v0-1-0',
+      'm-net-default@0.1.0',
       'm-net-default@0.1.0',
       'global',
       'mnet-profile@0.1.0',
@@ -252,8 +252,8 @@ await sql.begin(async tx => {
       ${now},
       ${now}
     )
-    on conflict (id) do update set
-      profile_version = excluded.profile_version,
+    on conflict (profile_version) do update set
+      id = excluded.id,
       region = excluded.region,
       schema_version = excluded.schema_version,
       definition = excluded.definition,
@@ -264,7 +264,7 @@ await sql.begin(async tx => {
   await tx`
     insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
     values (
-      'mnet-profile-definition-cn-v0-1-0',
+      'm-net-cn@0.1.0',
       'm-net-cn@0.1.0',
       'cn',
       'mnet-profile@0.1.0',
@@ -291,8 +291,8 @@ await sql.begin(async tx => {
       ${now},
       ${now}
     )
-    on conflict (id) do update set
-      profile_version = excluded.profile_version,
+    on conflict (profile_version) do update set
+      id = excluded.id,
       region = excluded.region,
       schema_version = excluded.schema_version,
       definition = excluded.definition,

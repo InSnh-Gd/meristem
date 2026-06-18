@@ -118,6 +118,7 @@ export function startProcess(
 /**
  * Stops a managed subprocess and returns its exit code once Bun reports termination.
  */
-export async function stopProcess(process: ManagedProcess): Promise<number> {
+export async function stopProcess(process: ManagedProcess | null | undefined): Promise<number> {
+  if (!process) return 0
   return await process.stop()
 }

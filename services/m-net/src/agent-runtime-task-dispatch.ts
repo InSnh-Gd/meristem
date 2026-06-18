@@ -48,13 +48,35 @@ export async function executeNoop(
 ): Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>> {
   const [nodeRow] = await context.db.select().from(nodes).where(eq(nodes.id, input.nodeId)).limit(1)
   if (!nodeRow) return err('node.not_found', 'node not found')
-  if (nodeRow.mode !== 'agent') return err('node.invalid_kind', 'target is not an agent node')
   if (
     nodeRow.reachability !== 'reachable' ||
     (nodeRow.status !== 'healthy' && nodeRow.status !== 'degraded')
   ) {
     return err('node.unreachable', 'node is unreachable')
   }
+
+  if (nodeRow.mode === 'simulated') {
+    await context.writeFull(
+      'info',
+      `completed simulated noop task ${input.taskId}`,
+      input.correlationId,
+      undefined,
+      {
+        nodeId: input.nodeId,
+        taskId: input.taskId,
+        channel: 'session.task.execute',
+        mode: 'simulated'
+      }
+    )
+    return ok({
+      nodeId: input.nodeId,
+      taskId: input.taskId,
+      result: 'completed',
+      completedAt: new Date().toISOString()
+    })
+  }
+
+  if (nodeRow.mode !== 'agent') return err('node.invalid_kind', 'target is not an agent node')
 
   const session = context.activeSessions.get(input.nodeId)
   if (!session) return err('node.unreachable', 'node is unreachable')

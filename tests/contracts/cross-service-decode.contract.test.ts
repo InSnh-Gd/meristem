@@ -41,15 +41,12 @@ describe('cross-service decode hardening', () => {
           profileVersion: 'm-net-default@0.1.0',
           status: 'active',
           createdAt: '2026-06-18T10:00:00.000Z'
-        },
-        policyDecisionId: 'decision-1',
-        correlationId: 'corr-1'
+        }
       })
     )
 
     expect(response.network.name).toBe('primary')
-    expect(response.policyDecisionId).toBe('decision-1')
-    expect(response.correlationId).toBe('corr-1')
+    expect(response.network.profileVersion).toBe('m-net-default@0.1.0')
   })
 
   it('rejects missing fields in M-Task to M-Net noop payload', async () => {

@@ -122,13 +122,20 @@ export type StatusResponseFromSchema = typeof StatusResponseSchema.Type
 export const NodeKindSchema = Schema.Literal('stem', 'leaf')
 export type NodeKindFromSchema = typeof NodeKindSchema.Type
 
-export const NodeModeSchema = Schema.Literal('agent', 'simulated')
+export const NodeModeSchema = Schema.Literal('agent', 'managed', 'simulated')
 export type NodeModeFromSchema = typeof NodeModeSchema.Type
 
-export const NodeReachabilitySchema = Schema.Literal('unknown', 'reachable', 'unreachable')
+export const NodeReachabilitySchema = Schema.Literal(
+  'unknown',
+  'public',
+  'private',
+  'reachable',
+  'unreachable'
+)
 export type NodeReachabilityFromSchema = typeof NodeReachabilitySchema.Type
 
 export const NodeStatusSchema = Schema.Literal(
+  'ready',
   'joining',
   'healthy',
   'degraded',

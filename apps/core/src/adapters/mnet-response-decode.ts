@@ -1,14 +1,14 @@
 import { Effect, Either } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
-  type CreateNetworkResponseFromSchema,
-  CreateNetworkResponseSchema,
-  type JoinNetworkResponseFromSchema,
-  JoinNetworkResponseSchema,
+  type NetworkMemberRecordResponseFromSchema,
+  NetworkMemberRecordResponseSchema,
   type NetworkListResponseFromSchema,
   NetworkListResponseSchema,
   type NetworkMembersResponseFromSchema,
   NetworkMembersResponseSchema,
+  type NetworkRecordResponseFromSchema,
+  NetworkRecordResponseSchema,
   type NodeAgentTaskExecuteEnvelopeResponseFromSchema,
   NodeAgentTaskExecuteEnvelopeResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
@@ -48,8 +48,8 @@ function decodeBoundaryPayload<T>(
  */
 export function decodeMNetCreateNetworkResponse(
   value: unknown
-): Effect.Effect<CreateNetworkResponseFromSchema, DecodeFailure> {
-  return decodeBoundaryPayload(CreateNetworkResponseSchema, value, invalidMNetResponseFailure)
+): Effect.Effect<NetworkRecordResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(NetworkRecordResponseSchema, value, invalidMNetResponseFailure)
 }
 
 /**
@@ -66,8 +66,8 @@ export function decodeMNetNetworkListResponse(
  */
 export function decodeMNetJoinNetworkResponse(
   value: unknown
-): Effect.Effect<JoinNetworkResponseFromSchema, DecodeFailure> {
-  return decodeBoundaryPayload(JoinNetworkResponseSchema, value, invalidMNetResponseFailure)
+): Effect.Effect<NetworkMemberRecordResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(NetworkMemberRecordResponseSchema, value, invalidMNetResponseFailure)
 }
 
 /**

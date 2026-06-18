@@ -4,15 +4,22 @@ export const nodeSchema = t.Object({
   id: t.String(),
   kind: t.Union([t.Literal('stem'), t.Literal('leaf')]),
   name: t.String(),
-  mode: t.Union([t.Literal('agent'), t.Literal('simulated')]),
+  mode: t.Union([t.Literal('agent'), t.Literal('managed'), t.Literal('simulated')]),
   status: t.Union([
+    t.Literal('ready'),
     t.Literal('joining'),
     t.Literal('healthy'),
     t.Literal('degraded'),
     t.Literal('offline'),
     t.Literal('revoked')
   ]),
-  reachability: t.Union([t.Literal('unknown'), t.Literal('reachable'), t.Literal('unreachable')]),
+  reachability: t.Union([
+    t.Literal('unknown'),
+    t.Literal('public'),
+    t.Literal('private'),
+    t.Literal('reachable'),
+    t.Literal('unreachable')
+  ]),
   lastSeenAt: t.Optional(t.String()),
   agentVersion: t.Optional(t.String()),
   capabilities: t.Array(t.String()),

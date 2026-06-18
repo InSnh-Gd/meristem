@@ -83,11 +83,21 @@ export async function startFullStack(): Promise<{
       devAll.stdout.includes('meristem-core listening on http://127.0.0.1:3000'),
     { label: 'core startup', timeoutMs: 20_000, intervalMs: 100 }
   )
-  await waitFor(() => devAll.stdout.includes('m-task listening on http://127.0.0.1:3105'), {
-    label: 'm-task startup',
-    timeoutMs: 20_000,
-    intervalMs: 100
-  })
+  await waitFor(
+    async () => {
+      try {
+        const res = await fetch(`${taskUrl}/health`)
+        return res.ok
+      } catch {
+        return false
+      }
+    },
+    {
+      label: 'm-task startup',
+      timeoutMs: 20_000,
+      intervalMs: 100
+    }
+  )
   await waitFor(
     () => devAll.stdout.includes('m-net join ingress listening on https://0.0.0.0:8443'),
     { label: 'm-net join ingress startup', timeoutMs: 20_000, intervalMs: 100 }
@@ -107,11 +117,15 @@ export async function startFullStack(): Promise<{
  * 停止完整服务栈，按 BFF -> Core 的顺序优雅关闭。
  */
 export async function stopFullStack(
-  devAll: ManagedProcess,
-  bffProcess: ManagedProcess
+  devAll: ManagedProcess | null | undefined,
+  bffProcess: ManagedProcess | null | undefined
 ): Promise<void> {
-  await stopProcess(bffProcess)
-  await stopProcess(devAll)
+  if (bffProcess) {
+    await stopProcess(bffProcess)
+  }
+  if (devAll) {
+    await stopProcess(devAll)
+  }
 }
 
 /**

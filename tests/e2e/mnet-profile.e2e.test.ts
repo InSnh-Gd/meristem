@@ -172,6 +172,26 @@ describe('e2e: m-net profile lifecycle', () => {
       })
       expect(disable.status).toBe(200)
 
+      const disableBody = disable.data as {
+        status: string
+        operationId: string
+        approvalId?: string
+      }
+      expect(disableBody.status).toBe('pending_approval')
+      expect(disableBody.operationId).toBeString()
+      expect(disableBody.approvalId).toBeString()
+      if (!disableBody.approvalId) throw new Error('missing approval for profile disable flow')
+
+      const approveDisable = await policyFetch(
+        `/api/v0/policy/approvals/${disableBody.approvalId}/approve`,
+        securityAdminToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason: 'e2e security-admin disable approval' })
+        }
+      )
+      expect(approveDisable.status).toBe(200)
+
       const finalState = await coreFetch('/api/v0/networks', operatorToken)
       expect(finalState.status).toBe(200)
       const networksAfterDisable = finalState.data as {

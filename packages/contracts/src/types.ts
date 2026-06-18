@@ -148,9 +148,9 @@ export type ServiceReloadResponse = {
 
 // 节点运行态同时表达部署模式、可达性和生命周期状态。
 export type NodeKind = 'stem' | 'leaf'
-export type NodeMode = 'agent' | 'simulated'
-export type NodeReachability = 'unknown' | 'reachable' | 'unreachable'
-export type NodeStatus = 'joining' | 'healthy' | 'degraded' | 'offline' | 'revoked'
+export type NodeMode = 'agent' | 'managed' | 'simulated'
+export type NodeReachability = 'unknown' | 'public' | 'private' | 'reachable' | 'unreachable'
+export type NodeStatus = 'ready' | 'joining' | 'healthy' | 'degraded' | 'offline' | 'revoked'
 export type NodeJoinTicketStatus = 'active' | 'redeemed' | 'expired' | 'revoked'
 
 export type RegisterNodeRequest = {

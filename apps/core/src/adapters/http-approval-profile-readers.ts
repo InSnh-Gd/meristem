@@ -119,18 +119,21 @@ function asApprovalDetail(value: unknown): ApprovalDetailResponse | null {
 
 function asProfileList(value: unknown): { profiles: MNetRegionalProfile[] } | null {
   const decoded = Schema.decodeUnknownEither(MNetProfileListResponseSchema)(value)
-  return Either.isRight(decoded)
-    ? {
-        profiles: decoded.right.profiles.map(profile => ({
-          profileVersion: profile.profileVersion,
-          region: profile.region,
-          displayName: profile.displayName,
-          schemaVersion: profile.schemaVersion,
-          status: profile.status,
-          rules: { ...profile.rules },
-          capabilities: { ...profile.capabilities }
-        }))
-      }
+      return Either.isRight(decoded)
+        ? {
+            profiles: decoded.right.profiles.map(profile => ({
+              profileVersion: profile.profileVersion,
+              region: profile.region,
+              displayName: profile.displayName,
+              schemaVersion: profile.schemaVersion,
+              status: profile.status,
+              rules: { ...profile.rules },
+              capabilities: { ...profile.capabilities },
+              ...(profile.runtimeConfig !== undefined
+                ? { runtimeConfig: { ...profile.runtimeConfig } }
+                : {})
+            }))
+        }
     : null
 }
 
@@ -144,7 +147,10 @@ function asProfileDetail(value: unknown): MNetRegionalProfile | null {
         schemaVersion: decoded.right.schemaVersion,
         status: decoded.right.status,
         rules: { ...decoded.right.rules },
-        capabilities: { ...decoded.right.capabilities }
+        capabilities: { ...decoded.right.capabilities },
+        ...(decoded.right.runtimeConfig !== undefined
+          ? { runtimeConfig: { ...decoded.right.runtimeConfig } }
+          : {})
       }
     : null
 }
