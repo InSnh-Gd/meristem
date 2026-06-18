@@ -21,3 +21,8 @@ doc-driven-ai/
 .agent-sources/
 .omo/
 .opencode
+
+# 代码图与架构分析工具
+.codegraph/
+.dependency-cruiser-known-violations.json
+*.dependency-cruiser-*.html
