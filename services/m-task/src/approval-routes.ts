@@ -1,5 +1,4 @@
 import { Elysia, t } from 'elysia'
-import type { MTaskDeps } from './deps.ts'
 import {
   ensureOperationNotExpired,
   ensureSuspendedForAction,
@@ -9,6 +8,7 @@ import {
   requireApprovalRouteContext,
   resumeSuspendedOperation
 } from './approval-support.ts'
+import type { MTaskDeps } from './deps.ts'
 import { apiErrorSchema, taskSchema } from './route-schemas.ts'
 
 /**

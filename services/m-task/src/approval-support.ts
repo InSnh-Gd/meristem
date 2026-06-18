@@ -1,7 +1,7 @@
 import type {
   MTask,
-  TaskSuspendedOperation,
-  TaskRiskSummary
+  TaskRiskSummary,
+  TaskSuspendedOperation
 } from '../../../packages/contracts/src/index.ts'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'

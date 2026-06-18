@@ -32,6 +32,8 @@ function requiredActionFor(
 
 export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTaskDeps & {
   __testing: {
+    auditEntries(): AuditLog[]
+    fullEntries(): FullLog[]
     publishedSubjects(): string[]
     auditActions(): string[]
     timelineSummaries(): string[]
@@ -145,6 +147,8 @@ export function createInMemoryMTaskDeps(options: InMemoryMTaskOptions = {}): MTa
       }
     },
     __testing: {
+      auditEntries: () => [...audit],
+      fullEntries: () => [...full],
       publishedSubjects: () => published.map(entry => entry.subject),
       auditActions: () => audit.map(entry => entry.action),
       timelineSummaries: () => timeline.map(entry => entry.summary),

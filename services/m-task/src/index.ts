@@ -9,6 +9,7 @@ import {
 } from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import { createMTaskApp } from './app.ts'
+import { createHttpMNetTaskDeliveryPort } from './mnet-delivery-port.ts'
 import { createDbMTaskStorage } from './storage-adapter.ts'
 import { createDbSuspendedOperationStore } from './suspended-operations.ts'
 import { createInMemoryMTaskDeps } from './testing.ts'
@@ -19,8 +20,21 @@ initTelemetry('m-task')
 // 后续 hardening slice 再替换为真实跨服务客户端。
 const { db, client } = createDb()
 const deps = createInMemoryMTaskDeps({ actor: 'operator' })
+
+/**
+ * 审批服务响应在进入 M-Task 之前先做最小结构校验，避免把非法 JSON 当成成功结果。
+ */
+function approvalCreateBody(value: unknown): { approval: { id: string } } | null {
+  if (typeof value !== 'object' || value === null) return null
+  const approval = Reflect.get(value, 'approval')
+  if (typeof approval !== 'object' || approval === null) return null
+  const id = Reflect.get(approval, 'id')
+  return typeof id === 'string' ? { approval: { id } } : null
+}
+
 const app = createMTaskApp({
   ...deps,
+  delivery: createHttpMNetTaskDeliveryPort(),
   storage: createDbMTaskStorage(db),
   suspendedOps: createDbSuspendedOperationStore(db),
   approvals: {
@@ -32,7 +46,9 @@ const app = createMTaskApp({
       })
       if (!response.ok)
         return err({ code: 'approval.create_failed', message: 'failed to create policy approval' })
-      const body = (await response.json()) as { approval: { id: string } }
+      const body = approvalCreateBody(await response.json())
+      if (!body)
+        return err({ code: 'approval.create_failed', message: 'invalid policy approval response' })
       return ok({ approvalId: body.approval.id })
     }
   },

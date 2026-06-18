@@ -107,9 +107,26 @@ export function createPublicTaskRoutes(deps: MTaskDeps) {
             await deps.log.writeFull({
               level: 'warn',
               source: 'm-task',
-              message: delivered.error.message,
+              message: `${delivered.error.code}: ${delivered.error.message}`,
               correlationId: auth.correlationId,
-              payload: { taskId: failed.id }
+              payload: {
+                taskId: failed.id,
+                nodeId: failed.nodeId,
+                deliveryFailure: delivered.error.code
+              }
+            })
+            await deps.log.writeAudit({
+              actor: auth.actor,
+              action: 'task.dispatch',
+              resource: `task:${failed.id}`,
+              decisionId: decision.decisionId,
+              result: 'failure',
+              correlationId: auth.correlationId,
+              payload: {
+                nodeId: failed.nodeId,
+                deliveryFailure: delivered.error.code,
+                risk
+              }
             })
             await publishTaskEvent(
               deps,
