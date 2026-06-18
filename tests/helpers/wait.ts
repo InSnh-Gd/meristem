@@ -4,6 +4,18 @@ type RetryOptions = {
   readonly intervalMs: number
 }
 
+type WaitForOutputOptions = RetryOptions & {
+  readonly text: string
+}
+
+type WaitForHttpOkOptions = RetryOptions & {
+  readonly url: string
+}
+
+type WaitForReadyJsonOptions = RetryOptions & {
+  readonly url: string
+}
+
 function sleep(ms: number): Promise<void> {
   return Bun.sleep(ms)
 }
@@ -51,5 +63,45 @@ export async function waitFor(
   await retryUntil(async () => {
     if (await predicate()) return true
     throw new Error('condition returned false')
+  }, options)
+}
+
+/**
+ * 等待测试托管进程输出特定文本，统一覆盖率模式下的输出轮询行为。
+ */
+export async function waitForOutput(
+  readOutput: () => string,
+  options: WaitForOutputOptions
+): Promise<void> {
+  await waitFor(() => readOutput().includes(options.text), options)
+}
+
+/**
+ * 等待 HTTP 探针返回 2xx，避免把服务就绪语义绑定到 stdout 文本。
+ */
+export async function waitForHttpOk(options: WaitForHttpOkOptions): Promise<void> {
+  await waitFor(async () => {
+    try {
+      const response = await fetch(options.url)
+      return response.ok
+    } catch {
+      return false
+    }
+  }, options)
+}
+
+/**
+ * 等待 ready 路由返回 `{ ready: true }`，用于跨服务依赖齐备后的启动判定。
+ */
+export async function waitForReadyJson(options: WaitForReadyJsonOptions): Promise<void> {
+  await waitFor(async () => {
+    try {
+      const response = await fetch(options.url)
+      if (!response.ok) return false
+      const body = await response.json().catch(() => null)
+      return Boolean(body && typeof body === 'object' && 'ready' in body && body.ready === true)
+    } catch {
+      return false
+    }
   }, options)
 }

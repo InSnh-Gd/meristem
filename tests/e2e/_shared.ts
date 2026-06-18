@@ -2,7 +2,7 @@ import { createSqlClient } from '../../packages/db/src/client.ts'
 import { connectToNats } from '../../packages/nats-rpc/src/index.ts'
 import { type ManagedProcess, startProcess, stopProcess } from '../helpers/process.ts'
 import { createJoinTlsEnv } from '../helpers/tls.ts'
-import { waitFor } from '../helpers/wait.ts'
+import { waitForHttpOk, waitForOutput, waitForReadyJson } from '../helpers/wait.ts'
 
 export const coreUrl = 'http://localhost:3000'
 export const bffUrl = 'http://localhost:3200'
@@ -77,35 +77,29 @@ export async function startFullStack(): Promise<{
   const securityAdminToken = await runTextCommand(['token:mint', '--actor', 'security-admin'])
 
   const devAll = startProcess(['bun', 'run', 'dev:all'], { env: baseEnv })
-  await waitFor(
-    () =>
-      devAll.stdout.includes('meristem-core listening on http://localhost:3000') ||
-      devAll.stdout.includes('meristem-core listening on http://127.0.0.1:3000'),
-    { label: 'core startup', timeoutMs: 20_000, intervalMs: 100 }
-  )
-  await waitFor(
-    async () => {
-      try {
-        const res = await fetch(`${taskUrl}/health`)
-        return res.ok
-      } catch {
-        return false
-      }
-    },
-    {
-      label: 'm-task startup',
-      timeoutMs: 20_000,
-      intervalMs: 100
-    }
-  )
-  await waitFor(
-    () => devAll.stdout.includes('m-net join ingress listening on https://0.0.0.0:8443'),
-    { label: 'm-net join ingress startup', timeoutMs: 20_000, intervalMs: 100 }
-  )
+  await waitForReadyJson({
+    url: `${coreUrl}/api/v0/ready`,
+    label: 'core readiness',
+    timeoutMs: 20_000,
+    intervalMs: 100
+  })
+  await waitForHttpOk({
+    url: `${taskUrl}/health`,
+    label: 'm-task startup',
+    timeoutMs: 20_000,
+    intervalMs: 100
+  })
+  await waitForOutput(() => devAll.stdout, {
+    text: 'm-net join ingress listening on https://0.0.0.0:8443',
+    label: 'm-net join ingress startup',
+    timeoutMs: 20_000,
+    intervalMs: 100
+  })
 
   const bffProcess = startProcess(['bun', 'run', 'dev:m-ui-bff'], { env: baseEnv })
-  await waitFor(() => bffProcess.stdout.includes('m-ui-bff listening on'), {
-    label: 'bff startup',
+  await waitForReadyJson({
+    url: `${bffUrl}/ready`,
+    label: 'bff readiness',
     timeoutMs: 10_000,
     intervalMs: 100
   })

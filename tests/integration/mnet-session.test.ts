@@ -10,7 +10,7 @@ import {
   stopProcess
 } from '../helpers/process.ts'
 import { createJoinTlsEnv } from '../helpers/tls.ts'
-import { waitFor } from '../helpers/wait.ts'
+import { waitFor, waitForOutput } from '../helpers/wait.ts'
 
 type ParsedSessionMessage = {
   readonly type: string
@@ -78,7 +78,8 @@ async function startMNetService(): Promise<ManagedProcess> {
 }
 
 async function waitForServiceReady(process: ManagedProcess, label: string): Promise<void> {
-  await waitFor(() => process.stdout.includes(label), {
+  await waitForOutput(() => process.stdout, {
+    text: label,
     label,
     timeoutMs: 5_000,
     intervalMs: 25
