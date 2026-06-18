@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
+import { createCliStatusMock } from '@meristem/testing'
 
 describe('meristem CLI', () => {
   it('uses the typed Core client for status', async () => {
@@ -7,18 +8,7 @@ describe('meristem CLI', () => {
     const cli = createCliRunner({
       async status() {
         calls.push('status')
-        return {
-          core: { id: 'meristem-core', version: '0.1.0', mode: 'normal' },
-          dependencies: {
-            postgres: 'ready',
-            nats: 'ready',
-            'm-policy': 'ready',
-            'm-log': 'ready',
-            'm-eventbus': 'ready',
-            'm-net': 'ready'
-          },
-          counts: { services: 1, nodes: 2, tasks: 3 }
-        }
+        return createCliStatusMock()
       }
     })
 
@@ -255,5 +245,39 @@ describe('meristem CLI', () => {
       'task:cancel:test-cli-job-id',
       'task:retry:test-cli-job-id'
     ])
+  })
+
+  it('shows help with --help flag including representative commands', async () => {
+    const cli = createCliRunner({
+      async status() {
+        throw new Error('should not be called')
+      }
+    })
+
+    const result = await cli.run(['--help'])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Usage:')
+    expect(result.stdout).toContain('status')
+    expect(result.stdout).toContain('node')
+    expect(result.stdout).toContain('mnet')
+    expect(result.stdout).toContain('policy approvals')
+    expect(result.stdout).toContain('identity')
+    expect(result.stdout).toContain('secret')
+    expect(result.stdout).toContain('config')
+  })
+
+  it('rejects unknown commands with non-zero exit and help suggestion', async () => {
+    const cli = createCliRunner({
+      async status() {
+        throw new Error('should not be called')
+      }
+    })
+
+    const result = await cli.run(['foobar'])
+
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('Unknown command: foobar')
+    expect(result.stderr).toContain('--help')
   })
 })

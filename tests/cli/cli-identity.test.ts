@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { type CliClient, createCliRunner } from '../../apps/m-cli/src/cli.ts'
+import { createCliStatusMock, createIdentityCliClient } from '@meristem/testing'
 
 // ---------------------------------------------------------------------------
 // CLI identity tests exercise a focused mocked client surface.
@@ -8,128 +9,9 @@ import { type CliClient, createCliRunner } from '../../apps/m-cli/src/cli.ts'
 // identity methods they need without modeling the full client implementation.
 // ---------------------------------------------------------------------------
 
-type IdentityActor = {
-  id: 'viewer' | 'operator' | 'admin' | 'security-admin'
-  displayName: string
-  status: 'active' | 'disabled'
-  createdAt: string
-  updatedAt: string
-}
-
-type ActorToken = {
-  jti: string
-  actor: IdentityActor['id']
-  issuer: 'meristem-local'
-  audience: 'meristem-core' | 'meristem-service'
-  issuedAt: string
-  expiresAt: string
-  issuedBy: IdentityActor['id']
-  purpose: string
-  status: 'active' | 'revoked' | 'expired'
-  revokedAt?: string
-  revokedBy?: IdentityActor['id']
-  revokeReason?: string
-}
-
-// Focused mock methods used by the identity CLI test helpers.
-type IdentityCliMethods = {
-  listActors?(): Promise<{ actors: IdentityActor[] }>
-  getActor?(actorId: string): Promise<{ actor: IdentityActor }>
-  issueIdentityToken?(input: { actor: string; ttl: string; purpose: string }): Promise<{
-    token: string
-    jti: string
-    actor: string
-    audience: string
-    issuedAt: string
-    expiresAt: string
-    issuedBy: string
-    purpose: string
-    status: string
-  }>
-  inspectIdentityToken?(jti: string): Promise<{ token: ActorToken }>
-  revokeIdentityToken?(jti: string, input: { reason: string }): Promise<{ token: ActorToken }>
-}
-
-async function statusMock() {
-  return {
-    core: { id: 'meristem-core', version: '0.1.0', mode: 'normal' as const },
-    dependencies: {
-      postgres: 'ready' as const,
-      nats: 'ready' as const,
-      'm-policy': 'ready' as const,
-      'm-log': 'ready' as const,
-      'm-eventbus': 'ready' as const,
-      'm-net': 'ready' as const
-    },
-    counts: { services: 1, nodes: 2, tasks: 3 }
-  }
-}
-
-/** Create a mock CliClient with identity methods nested under `identity` key. */
-function identityClient(methods: IdentityCliMethods): CliClient {
-  const listActors = methods.listActors
-  const getActor = methods.getActor
-  const inspectIdentityToken = methods.inspectIdentityToken
-  const revokeIdentityToken = methods.revokeIdentityToken
-  const identity = {
-    ...(listActors
-      ? {
-          listActors: async () => {
-            const { actors } = await listActors()
-            return actors.map(actor => ({
-              id: actor.id,
-              displayName: actor.displayName,
-              status: actor.status
-            }))
-          }
-        }
-      : {}),
-    ...(getActor
-      ? {
-          getActor: async (actorId: string) => {
-            const { actor } = await getActor(actorId)
-            return {
-              id: actor.id,
-              displayName: actor.displayName,
-              status: actor.status
-            }
-          }
-        }
-      : {}),
-    ...(methods.issueIdentityToken
-      ? {
-          issueToken: methods.issueIdentityToken
-        }
-      : {}),
-    ...(inspectIdentityToken
-      ? {
-          inspectToken: async (jti: string) => {
-            const { token } = await inspectIdentityToken(jti)
-            return { ...token }
-          }
-        }
-      : {}),
-    ...(revokeIdentityToken
-      ? {
-          revokeToken: async (jti: string, input: { reason: string }) => {
-            const { token } = await revokeIdentityToken(jti, input)
-            return {
-              jti: token.jti,
-              status: token.status,
-              revokedAt: token.revokedAt ?? token.issuedAt,
-              revokedBy: token.revokedBy ?? token.issuedBy,
-              ...(token.revokeReason ? { revokeReason: token.revokeReason } : {})
-            }
-          }
-        }
-      : {})
-  } satisfies NonNullable<CliClient['identity']>
-  return { status: statusMock, identity }
-}
-
 /** Create a minimal CliClient without identity methods. */
 function bareClient(): CliClient {
-  return { status: statusMock }
+  return { status: createCliStatusMock }
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +24,7 @@ describe('meristem CLI — identity', () => {
   it('lists actors through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         listActors: async () => {
           calls.push('identity:actor:list')
           return {
@@ -180,7 +62,7 @@ describe('meristem CLI — identity', () => {
   it('shows a single actor through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         getActor: async (actorId: string) => {
           calls.push(`identity:actor:show:${actorId}`)
           return {
@@ -218,7 +100,7 @@ describe('meristem CLI — identity', () => {
   it('issues an actor token through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         issueIdentityToken: async (input: { actor: string; ttl: string; purpose: string }) => {
           calls.push(`identity:token:issue:${input.actor}:${input.ttl}:${input.purpose}`)
           return {
@@ -277,7 +159,7 @@ describe('meristem CLI — identity', () => {
   it('inspects a token by jti through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         inspectIdentityToken: async (jti: string) => {
           calls.push(`identity:token:inspect:${jti}`)
           return {
@@ -320,7 +202,7 @@ describe('meristem CLI — identity', () => {
   it('revokes a token by jti through mocked identity client', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         revokeIdentityToken: async (jti: string, input: Record<string, string>) => {
           const reason = input?.reason ?? 'no-reason'
           calls.push(`identity:token:revoke:${jti}:${reason}`)
@@ -363,7 +245,7 @@ describe('meristem CLI — identity', () => {
   it('revokes a token without reason (optional)', async () => {
     const calls: string[] = []
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         revokeIdentityToken: async (jti: string, _input?: Record<string, string>) => {
           calls.push(`identity:token:revoke:${jti}`)
           return {
@@ -403,7 +285,7 @@ describe('meristem CLI — identity', () => {
 
   it('returns unique sentinel jti values for grep-ability', async () => {
     const cli = createCliRunner(
-      identityClient({
+      createIdentityCliClient({
         issueIdentityToken: async (input: { actor: string }) => {
           return {
             token: `mock-token-for-${input.actor}`,
