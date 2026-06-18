@@ -18,7 +18,7 @@
 
 - `.agents/skills/meristem-service-definition/SKILL.md` - 新增、修改或审查 Core、M-* 服务、node service、task service、extension service、BFF 或 service definition。
 - `.agents/skills/meristem-contract-versioning/SKILL.md` - 修改 REST、OpenAPI、Eden、事件、Effect Schema、服务定义、配置、策略、日志、Webhook、BFF、SDUI 或 M-Net Profile 契约。
-- `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF display contract、CommandWell、审计/策略/日志可见性或 M-UI 功能演示。
+- `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF workbench contract、CommandWell、审计/策略/日志可见性或过渡型工作台行为。
 - `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
 
 技术栈相关任务继续使用已有项目 skill：
@@ -57,6 +57,24 @@ bun run test:agent-submit
 
 This does not replace the boundary-specific gates from `docs/testing/TESTING.md`; it catches schema coverage map drift and M-Task cutover alignment before handoff.
 
+### Code intelligence tools
+
+本仓库使用以下本地代码图与架构分析工具辅助开发和 Agent 探索：
+
+- **CodeGraph** (`colbymchenry/codegraph`)：预索引的本地代码知识图，为 OpenCode 等 Agent 提供符号级调用链、影响半径和代码问答。索引位于 `.codegraph/`（已加入 `.gitignore`，不提交）。初始化一次后文件变更会自动同步。
+  - 常用命令：
+    - `codegraph explore "how does X work"`
+    - `codegraph impact <symbol>`
+    - `codegraph callers <symbol>`
+    - `bun run codegraph:status`
+- **dependency-cruiser**：依赖图可视化与架构规则检查。配置位于 `.dependency-cruiser.cjs`。
+  - 常用命令：
+    - `bun run depcruise` — 检查依赖规则
+    - `bun run depcruise:mermaid` — 生成 Mermaid 依赖图
+    - `bun run depcruise:html` — 生成 HTML 交互式依赖图
+
+这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应优先使用 CodeGraph，而不是重复发起大量 grep/read 探索。
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/meristem`. See `docs/agents/issue-tracker.md`.
@@ -64,6 +82,28 @@ Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/meristem`. See `docs/
 ### Triage labels
 
 Triage uses the default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### `.omo/` isolation constraint
+
+The `.omo/` directory is internal orchestration state (plans, drafts, evidence, notepad). It MUST NOT leak into source code, tests, or production docs:
+
+- **Tests**: evidence output paths must use `tests/evidence/` or temp directories, never `.omo/evidence/`.
+- **Docs** (RUNBOOK, TESTING, etc.): must not reference `.omo/` paths in commands, examples, or assertions.
+- **Delegation prompts**: extract task specs from `.omo/plans/` and inline them directly — never pass `.omo/` file paths to subagents.
+- **Route assertions**: contract tests must not assert that docs contain `.omo/` paths.
+
+Violations will be caught during review and must be fixed before submission.
+
+### Evidence naming and path standard
+
+Evidence files, test output paths, and documentation references MUST follow standardized naming. No hardcoded ad-hoc paths.
+
+- **Evidence directory**: `tests/evidence/` — the only location for test-produced evidence artifacts.
+- **File naming**: `<feature>-<scenario>.<ext>` — describe the feature and scenario, never the task number. Example: `mnet-harness-preflight.txt`, not `task-15-harness-preflight.txt`.
+- **Test code**: derive evidence paths from `import.meta.dir` relative joins or `mkdtemp`, never hardcode absolute paths or `.omo/` paths.
+- **Documentation**: reference commands only, not evidence output paths. Example: write `bun run mnet:harness:preflight`, not `bun run mnet:harness:preflight | tee .omo/evidence/task-15-...`.
+- **Contract test assertions**: must not assert that docs contain specific evidence file paths.
+- **Forbidden**: `task-N-*` prefixes, `.omo/` paths, hardcoded absolute paths, plan-internal identifiers in source code.
 
 ### Domain docs
 

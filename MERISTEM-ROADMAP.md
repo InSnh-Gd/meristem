@@ -12,7 +12,7 @@ v0.1 proves that Meristem can operate as a lightweight, auditable Meristem netwo
 
 The release is complete only when an operator can:
 
-1. start Core and inspect health through REST, Eden-backed CLI, and minimal UI-facing contracts;
+1. start Core and inspect health through REST, Eden-backed CLI, and transitional M-UI workbench contracts;
 2. register and observe Stem / Leaf node records with restricted Leaf semantics;
 3. submit a simple task through the canonical task boundary;
 4. publish events and correlate them with Timeline / Full / Audit log facts;
@@ -30,7 +30,7 @@ v0.1 is intentionally narrow:
 Core remains a microkernel.
 M-Policy implements RBAC and bounded approval primitives only.
 LLM remains auxiliary explanation space, not an authorization root.
-M-Net proves control-plane and logical-network behavior before real data-plane routing.
+M-Net proves control-plane and logical-network behavior before real data-plane routing (historical for `m-net-cn@0.1.x`; superseded by ADR-N03 for `m-net-cn@0.2.0` production data-plane).
 M-Extension is supplemental, not a primary capability host.
 PostgreSQL is the authoritative write model.
 OpenSearch is a read model / projection target, not authority.
@@ -57,7 +57,7 @@ Any change that expands Core responsibility, creates implicit service coupling, 
 | Policy | RBAC and bounded high-risk decisions fail closed and write Audit facts | `docs/services/m-policy.md`, `docs/security/SECURITY-MODEL.md`, `docs/adr/ADR-F02-architecture-organization.md` |
 | State | PostgreSQL write model, read model, cache, event state, draft state, and log facts are not conflated | `docs/data/STATE-MODEL.md`, `docs/data/POSTGRES-SCHEMA-MVP.md` |
 | Config and secrets | Config lifecycle and SecretRef responsibilities are explicit and auditable | `docs/config/CONFIG-LIFECYCLE.md`, `docs/adr/ADR-F02-architecture-organization.md` |
-| UI / BFF | M-UI and SDUI expose operational state through approved display contracts | `MERISTEM-DESIGN.md`, `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md` |
+| UI / BFF | M-UI, BFF, and SDUI organize operational state, command eligibility, and traceable workbench structure through approved transitional workbench contracts | `MERISTEM-DESIGN.md`, `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md` |
 | Operations | Bun-only local operation, optional deployment pack, ports, and degraded modes are documented | `docs/operations/RUNBOOK.md`, `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md` |
 | Tests | Typecheck, contracts, failure modes, integration, CLI, e2e, and Node.js-ban gates are selected by boundary | `docs/testing/TESTING.md` |
 
@@ -73,7 +73,7 @@ The old phase documents are retired. Use this implementation order when planning
 4. **Logs and policy** - Timeline / Full / Audit, RBAC, high-risk decisions, trace correlation.
 5. **Service lifecycle and M-Task** - service registry / reload and canonical task lifecycle ownership.
 6. **Read model and operations** - projection behavior, OpenSearch failure handling, optional deployment pack.
-7. **UI-facing closure** - SDUI/BFF display contracts, CommandWell restrictions, operator-visible audit and policy state.
+7. **M-UI workbench alignment** - SDUI/BFF transitional workbench contracts, CommandWell restrictions, operator-visible audit and policy state, and a front-end structure that can evolve into the formal operator workbench.
 8. **Acceptance closure** - drift search, smoke plan, failure-mode review, deferred-work audit.
 
 Each slice must update its owning service, contract, security, data, operation, and testing docs in the same change.

@@ -8,13 +8,13 @@ Meristem language for the Meristem network control system, focused on operator-f
 The M-UI metaphor for an operational surface that combines live system orientation with ledger-like traceability.
 _Avoid_: Dashboard, admin panel
 
-**M-UI Functional Demo Shell**:
-A temporary operator-facing surface used to prove Meristem control-room flows before the final M-UI design is rebuilt.
-_Avoid_: Final M-UI design, production UI system
+**M-UI Transitional Workbench**:
+The operator-facing transitional frontend that begins carrying real workbench structure, operation flow, information hierarchy, state-source visibility, and CommandWell boundaries while preserving room for later redesign.
+_Avoid_: Final M-UI design, disposable UI prototype, production-complete UI system
 
-**M-UI Functional Demo Acceptance Path**:
-The end-to-end proof that the temporary demo shell exercises a real control action and audit visibility, not only contract stubs.
-_Avoid_: Simulated-only UI completion, contract-test-only acceptance
+**M-UI Transitional Workbench Acceptance Path**:
+The end-to-end proof that the transitional workbench exercises a real control action, visible command eligibility, and audit visibility, not only contract stubs.
+_Avoid_: Simulated-only UI completion, contract-test-only acceptance, final visual-design signoff
 
 **M-UI BFF**:
 A permission-aware UI boundary that shapes operational display data without becoming the source of audit, policy, or operational facts.
@@ -46,7 +46,7 @@ _Avoid_: Modal confirmation, single-click execution
 
 **CommandWell Eligibility**:
 The visible executability state of a command derived from Core-visible facts and policy-facing permissions.
-_Avoid_: BFF-private authorization rule, demo-only shortcut
+_Avoid_: BFF-private authorization rule, UI-local shortcut
 
 **Effect Executable Contract**:
 A Meristem internal contract modeled with Effect Schema so type derivation, runtime validation, and contract tests share one source.
@@ -74,11 +74,11 @@ _Avoid_: Completed approval, allow with warning, automatic delayed execution
 
 ## Relationships
 
-- The **M-UI Functional Demo Shell** demonstrates a subset of the **Control Room Ledger** without becoming the final visual design.
-- The **M-UI Functional Demo Acceptance Path** is the completion proof for the **M-UI Functional Demo Shell**.
-- The **M-UI BFF** may serve the **M-UI Functional Demo Shell**, but Core, M-Policy, and M-Log remain the fact sources.
-- A **Disabled Command Explanation** belongs to a command shown by the **M-UI Functional Demo Shell** and does not create an audit fact by itself.
-- **Audit Access State** belongs to the **M-UI Functional Demo Shell** and shows access to audit facts without becoming the full audit surface.
+- The **M-UI Transitional Workbench** realizes the **Control Room Ledger** as a workbench structure without becoming the final visual design.
+- The **M-UI Transitional Workbench Acceptance Path** is the completion proof for the **M-UI Transitional Workbench**.
+- The **M-UI BFF** may serve the **M-UI Transitional Workbench**, but Core, M-Policy, and M-Log remain the fact sources.
+- A **Disabled Command Explanation** belongs to a command shown by the **M-UI Transitional Workbench** and does not create an audit fact by itself.
+- **Audit Access State** belongs to the **M-UI Transitional Workbench** and shows access to audit facts without becoming the full audit surface.
 - A **Minimal Policy Decision Summary** can be shown after a command result, but M-Policy and Core remain the decision fact sources.
 - **OpenSearch Read Model Projection** is derived from M-Log and authoritative PostgreSQL facts; it must not replace those facts.
 - The **Projection Platform Track** follows the first **OpenSearch Read Model Projection** and adds durable projector operations without changing the source of truth.
@@ -93,17 +93,17 @@ _Avoid_: Completed approval, allow with warning, automatic delayed execution
 
 ## Example Dialogue
 
-> **Dev:** "Should the M-UI Functional Demo Shell screen be treated as the final M-UI design?"
-> **Domain expert:** "No, it is an **M-UI Functional Demo Shell** that proves the **Control Room Ledger** flow before we redesign the frontend."
+> **Dev:** "Should the M-UI Transitional Workbench be treated as the final M-UI design?"
+> **Domain expert:** "No, it is a transitional workbench that starts carrying the **Control Room Ledger** structure while preserving room for later redesign."
 
 ## Flagged Ambiguities
 
-- "M-UI" can mean either the long-term product interface or the temporary demo shell; resolved: call the temporary version **M-UI Functional Demo Shell**.
-- "M-UI Functional Demo completion" can mean contract tests or a real control-room demo path; resolved: use **M-UI Functional Demo Acceptance Path** for the end-to-end proof.
+- "M-UI" can mean either the long-term product interface or the current transitional frontend; resolved: call the current version **M-UI Transitional Workbench**.
+- "M-UI workbench completion" can mean contract tests or a real control-room path; resolved: use **M-UI Transitional Workbench Acceptance Path** for the end-to-end proof.
 - "BFF" can imply an application-specific backend of record; resolved: **M-UI BFF** is only a permission-aware display and command boundary.
 - "permission failure" can mean either a blocked request or a disabled UI command; resolved: use **Disabled Command Explanation** only for a command that was not executed.
-- "Audit visibility" can mean a complete audit product or a visible permission state; resolved: use **Audit Access State** for the M-UI Functional Demo.
-- "policy decision display" can mean a full policy panel or a result breadcrumb; resolved: use **Minimal Policy Decision Summary** for the M-UI Functional Demo.
+- "Audit visibility" can mean a complete audit product or a visible permission state; resolved: use **Audit Access State** for the M-UI Transitional Workbench.
+- "policy decision display" can mean a full policy panel or a result breadcrumb; resolved: use **Minimal Policy Decision Summary** for the M-UI Transitional Workbench.
 - "OpenSearch logs" can imply the read model is the log store; resolved: use **OpenSearch Read Model Projection** for query copies.
 - "complex projection platform" can mean the first read-model slice or the later operating model; resolved: use **Projection Platform Track** for the latter.
 - "confirmation" can mean either a browser modal or a command-area step; resolved: use **CommandWell Confirmation** for Meristem control actions.

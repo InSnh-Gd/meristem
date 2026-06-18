@@ -365,7 +365,7 @@ Required before implementation:
 
 ### DFW-011: M-Net CN Data Plane
 
-Status: partially resolved (ADR / runbook / contract + feature-gated noop skeleton). Still deferred: real DERP / TCP / UDP / Headscale transport.
+Status: active target — superseded by ADR-N03, implementation in progress.
 
 Owner: M-Net.
 
@@ -457,7 +457,7 @@ Required before implementation:
 
 ### DFW-013: M-Net CN Runtime Configuration And Secrets
 
-Status: partially resolved (runtime config secretRef skeleton + redaction tests). Still deferred: live TLS / STUN / TURN keys.
+Status: active target — superseded by ADR-N03, implementation in progress.
 
 Owner: M-Net / Core secrets / M-Policy / M-Log.
 
@@ -576,7 +576,7 @@ Required before implementation:
 
 ### DFW-016: M-Net Profile UI
 
-Status: partially resolved (enable/disable CommandWell execution implemented, control-plane only). Still deferred: real data-plane behavior.
+Status: active target — superseded by ADR-N03, implementation in progress.
 
 Owner: M-UI / M-UI BFF.
 
