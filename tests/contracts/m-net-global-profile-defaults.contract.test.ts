@@ -1,5 +1,5 @@
-import * as Schema from 'effect/Schema'
 import { beforeEach, describe, expect, it } from 'bun:test'
+import * as Schema from 'effect/Schema'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import {
@@ -33,7 +33,8 @@ const SetProfileDefaultsResponseSchema = Schema.Struct({
   operationId: Schema.String,
   policyDecisionId: Schema.String,
   auditId: Schema.String,
-  defaultProfileVersion: Schema.String
+  defaultProfileVersion: Schema.String,
+  migrationOperationId: Schema.optional(Schema.String)
 })
 
 /** NetworkProfileMigrationResult 单条结果 */
@@ -41,7 +42,7 @@ const MigrationResultSchema = Schema.Struct({
   networkId: Schema.String,
   previousProfileVersion: Schema.String,
   targetProfileVersion: Schema.String,
-  status: Schema.Literal('applied', 'skipped', 'failed', 'rolled_back'),
+  status: Schema.Literal('applied', 'skipped', 'failed', 'rolled_back', 'pending'),
   reason: Schema.optional(Schema.String),
   auditId: Schema.optional(Schema.String),
   correlationId: Schema.optional(Schema.String)
@@ -51,6 +52,7 @@ const MigrationResultSchema = Schema.Struct({
 const PlanSwitchResponseSchema = Schema.Struct({
   operationId: Schema.String,
   candidateCount: Schema.Number,
+  candidates: Schema.optional(Schema.Array(Schema.String)),
   batches: Schema.Array(
     Schema.Struct({
       batchId: Schema.Number,
@@ -71,7 +73,7 @@ const ApplySwitchResponseSchema = Schema.Struct({
 /** POST /api/v0/networks/profile-switches/:id/resume 响应 */
 const ResumeSwitchResponseSchema = Schema.Struct({
   operationId: Schema.String,
-  nextBatchId: Schema.Number,
+  nextBatchId: Schema.NullOr(Schema.Number),
   globalSwitchState: Schema.Literal('applying', 'applied'),
   remainingBatches: Schema.Number
 })

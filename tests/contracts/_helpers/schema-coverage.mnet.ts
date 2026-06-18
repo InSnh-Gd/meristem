@@ -1,6 +1,59 @@
 import type { EventContract, ResponseContract } from './schema-coverage.ts'
 import { Contracts } from './schema-coverage.ts'
 
+const dataPlaneMembers = [
+  {
+    nodeId: 'node-1',
+    tunnelIp: '100.64.0.10',
+    publicKeyFingerprint: 'wg-fp-node-1'
+  }
+] as const
+
+const networkMapRelayAssignment = {
+  relayType: 'wstunnel',
+  relayEndpoint: 'wss://relay.cn.example/mnet',
+  nodeIds: ['node-1']
+} as const
+
+const nodeRelayAssignment = {
+  nodeId: 'node-1',
+  relayEndpoint: 'wss://relay.cn.example/mnet',
+  relayType: 'wstunnel'
+} as const
+
+const dataPlaneAclRules = [
+  {
+    ruleId: 'acl-1',
+    action: 'allow',
+    sourceNodeId: 'node-1',
+    targetNodeId: 'node-2',
+    protocol: 'any'
+  }
+] as const
+
+const productionRuntimeConfig = {
+  headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
+  routingTable: { secretRefId: 'secret-routing-cn' }
+} as const
+
+const productionCnProfile = {
+  profileVersion: 'm-net-cn@0.2.0',
+  region: 'cn',
+  displayName: 'M-Net CN (Production Data Plane)',
+  schemaVersion: 'mnet-profile@0.2.0',
+  status: 'available',
+  rules: { residency: 'cn-only', relay: 'wstunnel' },
+  capabilities: {
+    realWstunnelRelay: false,
+    realTcpInterconnect: false,
+    realUdpPathSwitching: false,
+    controlPlaneOnly: false,
+    realWireGuardTunnel: true,
+    realRelayFallback: true
+  },
+  runtimeConfig: productionRuntimeConfig
+} as const
+
 export const mnetEventContracts: EventContract[] = [
   {
     subject: 'mnet.network.created.v0',
@@ -111,6 +164,91 @@ export const mnetEventContracts: EventContract[] = [
       correlationId: 'corr-defaults-1',
       controlPlaneOnly: true
     }
+  },
+  {
+    subject: 'mnet.reachability.changed.v0',
+    schema: Contracts.MNetReachabilityChangedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      reachable: true,
+      latencyMs: 42,
+      checkedAt: '2026-06-04T10:00:00.000Z',
+      correlationId: 'corr-reachability-1'
+    }
+  },
+  {
+    subject: 'mnet.path.changed.v0',
+    schema: Contracts.MNetPathChangedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      pathType: 'relay',
+      previousPathType: 'direct',
+      relayEndpoint: 'wss://relay.cn.example/mnet',
+      correlationId: 'corr-path-1'
+    }
+  },
+  {
+    subject: 'mnet.wstunnel.fallback.changed.v0',
+    schema: Contracts.MNetWstunnelFallbackChangedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      fallbackActive: true,
+      reason: 'primary path degraded',
+      correlationId: 'corr-fallback-1'
+    }
+  },
+  {
+    subject: 'mnet.network_map.published.v0',
+    schema: Contracts.MNetNetworkMapPublishedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      mapVersion: 'map-20260604-1',
+      members: dataPlaneMembers,
+      relayAssignment: networkMapRelayAssignment,
+      aclRules: dataPlaneAclRules,
+      expiresAt: '2026-06-04T10:05:00.000Z',
+      signedBy: 'm-net-cn-control',
+      correlationId: 'corr-map-1'
+    }
+  },
+  {
+    subject: 'mnet.node_key.rotated.v0',
+    schema: Contracts.MNetNodeKeyRotatedEventPayloadSchema,
+    fixture: {
+      nodeId: 'node-1',
+      oldKeyFingerprint: 'wg-fp-old-node-1',
+      newKeyFingerprint: 'wg-fp-new-node-1',
+      rotationReason: 'scheduled rotation',
+      actor: 'security-admin',
+      correlationId: 'corr-key-1',
+      auditId: 'audit-key-1'
+    }
+  },
+  {
+    subject: 'mnet.relay.assigned.v0',
+    schema: Contracts.MNetRelayAssignedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      relayEndpoint: 'wss://relay.cn.example/mnet',
+      relayType: 'wstunnel',
+      correlationId: 'corr-relay-1'
+    }
+  },
+  {
+    subject: 'mnet.dataplane.tunnel.changed.v0',
+    schema: Contracts.MNetDataplaneTunnelChangedEventPayloadSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      tunnelStatus: 'up',
+      previousStatus: 'degraded',
+      reason: 'wireguard handshake restored',
+      correlationId: 'corr-tunnel-1'
+    }
   }
 ]
 
@@ -191,12 +329,13 @@ export const mnetResponseContracts: ResponseContract[] = [
           status: 'available',
           rules: { residency: 'cn-only' },
           capabilities: {
-            realDerpRelay: false,
+            realWstunnelRelay: false,
             realTcpInterconnect: false,
             realUdpPathSwitching: false,
             controlPlaneOnly: true
           }
-        }
+        },
+        productionCnProfile
       ]
     }
   },
@@ -211,7 +350,7 @@ export const mnetResponseContracts: ResponseContract[] = [
       status: 'available',
       rules: { residency: 'global' },
       capabilities: {
-        realDerpRelay: false,
+        realWstunnelRelay: false,
         realTcpInterconnect: false,
         realUdpPathSwitching: false,
         controlPlaneOnly: true
@@ -226,6 +365,59 @@ export const mnetResponseContracts: ResponseContract[] = [
       operationId: 'op-1',
       approvalId: 'approval-1',
       correlationId: 'corr-11'
+    }
+  },
+  {
+    route: 'POST /api/v0/networks/:id/profile',
+    schema: Contracts.SetNetworkProfileResponseSchema,
+    fixture: {
+      status: 'activated',
+      profileVersion: 'm-net-cn@0.2.0',
+      operationId: 'op-dataplane-1',
+      networkMap: { networkId: 'net-1', mapVersion: 'map-20260604-1' },
+      dataPlaneActivationStatus: 'active',
+      correlationId: 'corr-dataplane-1'
+    }
+  },
+  {
+    route: 'GET /api/v0/networks/:id/network-map',
+    schema: Contracts.NetworkMapResponseSchema,
+    fixture: {
+      networkId: 'net-1',
+      mapVersion: 'map-20260604-1',
+      members: dataPlaneMembers,
+      relayAssignment: networkMapRelayAssignment,
+      aclRules: dataPlaneAclRules,
+      expiresAt: '2026-06-04T10:05:00.000Z',
+      signedBy: 'm-net-cn-control'
+    }
+  },
+  {
+    route: 'POST /api/v0/networks/:id/nodes/:nodeId/key',
+    schema: Contracts.NodeKeyRegistrationResponseSchema,
+    fixture: {
+      nodeId: 'node-1',
+      keyFingerprint: 'wg-fp-node-1',
+      keyMetadata: {
+        algorithm: 'wireguard-x25519',
+        issuedAt: '2026-06-04T10:00:00.000Z',
+        rotationCounter: 1,
+        publicKeyFingerprint: 'wg-fp-node-1'
+      },
+      expiresAt: '2026-06-05T10:00:00.000Z'
+    }
+  },
+  {
+    route: 'GET /api/v0/networks/:id/dataplane/status',
+    schema: Contracts.DataPlaneStatusResponseSchema,
+    fixture: {
+      networkId: 'net-1',
+      nodeId: 'node-1',
+      tunnelStatus: 'up',
+      relayAssignment: nodeRelayAssignment,
+      lastMapVersion: 'map-20260604-1',
+      lastMapAt: '2026-06-04T10:00:00.000Z',
+      partitionState: 'connected'
     }
   },
   {

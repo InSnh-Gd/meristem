@@ -25,7 +25,7 @@ import {
 
 function makeValidRuntimeConfig(overrides?: Record<string, unknown>) {
   return {
-    derpRelay: { secretRefId: 'secret-derp-001' },
+    wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
     tcpInterconnect: { secretRefId: 'secret-tcp-001' },
     udpPath: { secretRefId: 'secret-udp-001' },
     headscaleEndpoint: { secretRefId: 'secret-headscale-001' },
@@ -87,7 +87,7 @@ describe('SecretRefFieldSchema decode', () => {
 describe('MNetRuntimeConfigSchema decode', () => {
   it('decodes valid runtime config with all secretRef fields', () => {
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(makeValidRuntimeConfig())
-    expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-001')
+    expect(decoded.wstunnelRelay?.secretRefId).toBe('secret-wstunnel-001')
     expect(decoded.tcpInterconnect?.secretRefId).toBe('secret-tcp-001')
     expect(decoded.udpPath?.secretRefId).toBe('secret-udp-001')
     expect(decoded.headscaleEndpoint?.secretRefId).toBe('secret-headscale-001')
@@ -96,18 +96,18 @@ describe('MNetRuntimeConfigSchema decode', () => {
 
   it('decodes empty runtime config (no optional fields)', () => {
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)({})
-    expect(decoded.derpRelay).toBeUndefined()
+    expect(decoded.wstunnelRelay).toBeUndefined()
     expect(decoded.tcpInterconnect).toBeUndefined()
     expect(decoded.udpPath).toBeUndefined()
     expect(decoded.headscaleEndpoint).toBeUndefined()
     expect(decoded.routingTable).toBeUndefined()
   })
 
-  it('decodes runtime config with only derpRelay set', () => {
+  it('decodes runtime config with only wstunnelRelay set', () => {
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)({
-      derpRelay: { secretRefId: 'secret-derp-only' }
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-only' }
     })
-    expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-only')
+    expect(decoded.wstunnelRelay?.secretRefId).toBe('secret-wstunnel-only')
     expect(decoded.tcpInterconnect).toBeUndefined()
     expect(decoded.udpPath).toBeUndefined()
     expect(decoded.headscaleEndpoint).toBeUndefined()
@@ -119,19 +119,19 @@ describe('MNetRuntimeConfigSchema decode', () => {
       routingTable: { secretRefId: 'secret-route-only' }
     })
     expect(decoded.routingTable?.secretRefId).toBe('secret-route-only')
-    expect(decoded.derpRelay).toBeUndefined()
+    expect(decoded.wstunnelRelay).toBeUndefined()
   })
 
   it('strips unknown plaintext fields from top-level runtime config', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tlsKey: '-----BEGIN PRIVATE KEY-----\nMII...',
       stunServer: 'stun://user:password@stun.example.com:3478',
       turnCredential: 'hmac-sha1-key-material',
       headscaleApiKey: 'abc123xyz'
     }
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(input)
-    expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-001')
+    expect(decoded.wstunnelRelay?.secretRefId).toBe('secret-wstunnel-001')
     expect(decoded).not.toHaveProperty('tlsKey')
     expect(decoded).not.toHaveProperty('stunServer')
     expect(decoded).not.toHaveProperty('turnCredential')
@@ -152,7 +152,7 @@ describe('MNetRuntimeConfigSchema rejects plaintext transport credentials', () =
     'turnSharedSecret',
     'headscaleApiKey',
     'headscalePreauthKey',
-    'derpKey',
+    'wstunnelKey',
     'routingKey',
     'wireguardPrivateKey',
     'wireguardPsk',
@@ -171,10 +171,10 @@ describe('MNetRuntimeConfigSchema rejects plaintext transport credentials', () =
     })
   }
 
-  it('rejects plaintext credentials nested inside derpRelay', () => {
+  it('rejects plaintext credentials nested inside wstunnelRelay', () => {
     const input = {
-      derpRelay: {
-        secretRefId: 'secret-derp-001',
+      wstunnelRelay: {
+        secretRefId: 'secret-wstunnel-001',
         tlsCert: '-----BEGIN CERTIFICATE-----\n...',
         stunPassword: 'nested-plaintext'
       },
@@ -184,9 +184,9 @@ describe('MNetRuntimeConfigSchema rejects plaintext transport credentials', () =
       routingTable: { secretRefId: 'secret-route-001' }
     }
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(input)
-    expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-001')
-    expect(decoded.derpRelay).not.toHaveProperty('tlsCert')
-    expect(decoded.derpRelay).not.toHaveProperty('stunPassword')
+    expect(decoded.wstunnelRelay?.secretRefId).toBe('secret-wstunnel-001')
+    expect(decoded.wstunnelRelay).not.toHaveProperty('tlsCert')
+    expect(decoded.wstunnelRelay).not.toHaveProperty('stunPassword')
   })
 
   it('rejects plaintext credentials nested inside headscaleEndpoint', () => {
@@ -226,7 +226,7 @@ describe('MNetRuntimeConfigSchema surface verification', () => {
   it('MNetRuntimeConfigSchema has exactly 5 optional secretRef-gated fields', () => {
     const keys = Object.keys(MNetRuntimeConfigSchema.fields)
     expect(keys).toEqual([
-      'derpRelay',
+      'wstunnelRelay',
       'tcpInterconnect',
       'udpPath',
       'headscaleEndpoint',

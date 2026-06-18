@@ -49,7 +49,7 @@ const memberFixture = {
 
 const taskResultFixture = {
   nodeId: 'leaf-1',
-  taskId: 'task-1',
+  taskId: 'demo-internal-task',
   result: 'completed',
   completedAt: '2026-06-18T00:02:00.000Z'
 } satisfies NodeAgentTaskExecuteResponse
@@ -175,7 +175,7 @@ describe('M-Net internal route contracts', () => {
     const response = await app.handle(
       jsonRequest('/internal/v0/tasks/noop', 'POST', {
         nodeId: 'leaf-1',
-        taskId: 'task-1',
+        taskId: 'demo-internal-task',
         correlationId: 'corr-1'
       })
     )
@@ -183,7 +183,7 @@ describe('M-Net internal route contracts', () => {
     expect(response.status).toBe(200)
     await expectJson(response, { result: taskResultFixture })
     expect(calls.executeNoop).toEqual([
-      { nodeId: 'leaf-1', taskId: 'task-1', correlationId: 'corr-1' }
+      { nodeId: 'leaf-1', taskId: 'demo-internal-task', correlationId: 'corr-1' }
     ])
   })
 
@@ -235,7 +235,7 @@ describe('M-Net internal route contracts', () => {
     const unavailable = await app.handle(
       jsonRequest('/internal/v0/tasks/noop', 'POST', {
         nodeId: 'leaf-1',
-        taskId: 'task-1',
+        taskId: 'demo-internal-task',
         correlationId: 'corr-1'
       })
     )

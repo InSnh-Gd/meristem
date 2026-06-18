@@ -16,7 +16,7 @@ describe('M-Net profile contract schemas', () => {
       status: 'available',
       rules: {},
       capabilities: {
-        realDerpRelay: false,
+        realWstunnelRelay: false,
         realTcpInterconnect: false,
         realUdpPathSwitching: false,
         controlPlaneOnly: true
@@ -33,7 +33,7 @@ describe('M-Net profile contract schemas', () => {
         mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' }
       },
       capabilities: {
-        realDerpRelay: false,
+        realWstunnelRelay: false,
         realTcpInterconnect: false,
         realUdpPathSwitching: false,
         controlPlaneOnly: true
@@ -49,6 +49,57 @@ describe('M-Net profile contract schemas', () => {
     const encodedCn = Schema.encodeSync(MNetRegionalProfileSchema)(decodedCn)
     expect(encodedDefault).toEqual(defaultProfile)
     expect(encodedCn).toEqual(cnProfile)
+  })
+
+  it('decodes and encodes MNetRegionalProfile for cn production data-plane profile', () => {
+    const cnProfile = {
+      profileVersion: 'm-net-cn@0.2.0',
+      region: 'cn',
+      displayName: 'M-Net CN (Production Data Plane)',
+      schemaVersion: 'mnet-profile@0.2.0',
+      status: 'available',
+      rules: { residency: 'cn-only', relay: 'wstunnel' },
+      capabilities: {
+        realWstunnelRelay: false,
+        realTcpInterconnect: false,
+        realUdpPathSwitching: false,
+        controlPlaneOnly: false,
+        realWireGuardTunnel: true,
+        realRelayFallback: true
+      },
+      runtimeConfig: {
+        headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
+        routingTable: { secretRefId: 'secret-routing-cn' }
+      }
+    } as const
+
+    const decoded = Schema.decodeUnknownSync(MNetRegionalProfileSchema)(cnProfile)
+    expect(decoded.profileVersion).toBe('m-net-cn@0.2.0')
+    expect(decoded.capabilities.controlPlaneOnly).toBe(false)
+
+    const encoded = Schema.encodeSync(MNetRegionalProfileSchema)(decoded)
+    expect(encoded).toEqual(cnProfile)
+  })
+
+  it('rejects cn production data-plane profile without runtime config', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(MNetRegionalProfileSchema)({
+        profileVersion: 'm-net-cn@0.2.0',
+        region: 'cn',
+        displayName: 'M-Net CN (Production Data Plane)',
+        schemaVersion: 'mnet-profile@0.2.0',
+        status: 'available',
+        rules: { residency: 'cn-only' },
+        capabilities: {
+          realWstunnelRelay: false,
+          realTcpInterconnect: false,
+          realUdpPathSwitching: false,
+          controlPlaneOnly: false,
+          realWireGuardTunnel: true,
+          realRelayFallback: true
+        }
+      })
+    ).toThrow()
   })
 
   it('decodes and encodes SetNetworkProfileRequest', () => {

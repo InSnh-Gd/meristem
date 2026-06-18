@@ -1,6 +1,10 @@
 import { expect } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import * as Contracts from '../../../packages/contracts/src/index.ts'
+import {
+  documentedEventBusSubjects,
+  eventBusOperationalSubjects
+} from '../../../packages/events/src/index.ts'
 
 export { Contracts, Schema }
 
@@ -44,6 +48,16 @@ const policyApprovalDynamicSubjects = [
   'policy.approval.expired.v0',
   'policy.approval.vote.approved.v0',
   'policy.approval.vote.rejected.v0'
+] as const
+
+export const contractActivatedDataPlaneSubjects = [
+  'mnet.reachability.changed.v0',
+  'mnet.path.changed.v0',
+  'mnet.wstunnel.fallback.changed.v0',
+  'mnet.network_map.published.v0',
+  'mnet.node_key.rotated.v0',
+  'mnet.relay.assigned.v0',
+  'mnet.dataplane.tunnel.changed.v0'
 ] as const
 
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
@@ -92,12 +106,16 @@ export function extractDeferredGapMapSubjects(markdown: string): string[] {
 
 export function extractCatalogSubjects(markdown: string): string[] {
   const start = markdown.indexOf('## 3. Initial Catalog')
-  const end = markdown.indexOf('MVP sync HTTP/Eden boundaries:')
-  const section = markdown.slice(start, end)
+  const end = markdown.indexOf('## 6. MVP sync HTTP/Eden boundaries')
+  const section = markdown.slice(start, end === -1 ? undefined : end)
   const subjects: string[] = []
   for (const match of section.matchAll(/\|\s*`([^`]+\.v\d+)`\s*\|/g))
     subjects.push(definedMatchGroup(match))
   return subjects
+}
+
+export function getDocumentedEventBusSubjects(): Set<string> {
+  return new Set(documentedEventBusSubjects)
 }
 
 let activePublisherSubjectsPromise: Promise<Set<string>> | undefined
@@ -146,10 +164,16 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
     }
 
     for (const subject of policyApprovalDynamicSubjects) subjects.add(subject)
+    for (const subject of eventBusOperationalSubjects) subjects.add(subject)
     return subjects
   })()
 
   return activePublisherSubjectsPromise
+}
+
+export async function getActiveCoverageSubjects(): Promise<Set<string>> {
+  const publisherSubjects = await getActivePublisherSubjects()
+  return new Set([...publisherSubjects, ...contractActivatedDataPlaneSubjects])
 }
 
 export const activePublisherSchemaContracts: EventSchemaContract[] = [
@@ -195,6 +219,29 @@ export const activePublisherSchemaContracts: EventSchemaContract[] = [
       actor: 'admin',
       vote: 'reject',
       timestamp: '2026-06-04T10:45:00.000Z'
+    }
+  },
+  {
+    subject: 'meventbus.publish.rejected.v0',
+    schema: Contracts.EventBusRejectedPayloadSchema,
+    fixture: {
+      failedSubject: 'unknown.subject.v0',
+      reason: 'subject_not_allowed',
+      errors: ['subject_not_allowed:unknown.subject.v0'],
+      originalEvent: { id: 'evt-1' }
+    }
+  },
+  {
+    subject: 'meventbus.publish.failed.v0',
+    schema: Contracts.EventBusPublishFailedPayloadSchema,
+    fixture: {
+      failedSubject: 'policy.decision.created.v0',
+      eventId: 'evt-1',
+      source: 'm-policy',
+      reason: 'publish_failed',
+      attempts: 3,
+      errorMessage: 'jetstream_unavailable',
+      originalEvent: { id: 'evt-1' }
     }
   }
 ]

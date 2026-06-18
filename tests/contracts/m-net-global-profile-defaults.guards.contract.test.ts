@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
+import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import {
   bearerHeaders,
   createInMemoryTestLog,
@@ -153,6 +153,9 @@ describe('M-Net global defaults route guards', () => {
             await import('../../services/m-net/src/global-defaults-store.ts')
           ).createInMemoryGlobalDefaultsStore(profileStore),
           profileStore,
+          dataPlane: (
+            await import('../../services/m-net/src/data-plane-store-memory.ts')
+          ).createInMemoryDataPlaneStores(),
           async writeAudit() {
             return 'audit-1'
           },

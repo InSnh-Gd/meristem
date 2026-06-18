@@ -24,7 +24,7 @@ describe('M-Net profile external routes', () => {
     process.env.MERISTEM_INTERNAL_TOKEN = internalToken
   })
 
-  it('GET /api/v0/network-profiles returns both profiles with valid JWT', async () => {
+  it('GET /api/v0/network-profiles returns registered profiles with valid JWT', async () => {
     const app = buildApp()
     const token = await mintTestToken('operator')
 
@@ -36,11 +36,11 @@ describe('M-Net profile external routes', () => {
 
     expect(response.status).toBe(200)
     const body = await decodeJson(response, MNetProfileListResponseSchema)
-    expect(body.profiles).toHaveLength(2)
+    expect(body.profiles).toHaveLength(3)
     const versions = body.profiles
       .map((p: (typeof body.profiles)[number]) => p.profileVersion)
       .sort()
-    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-default@0.1.0'])
+    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-cn@0.2.0', 'm-net-default@0.1.0'])
   })
 
   it('GET /api/v0/network-profiles returns 401 without bearer token', async () => {

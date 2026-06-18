@@ -16,12 +16,12 @@ describe('M-Net in-memory profile store', () => {
     store = createInMemoryProfileStore()
   })
 
-  it('getDefinitions returns default and CN profiles', async () => {
+  it('getDefinitions returns default, CN, and production CN profiles', async () => {
     const defs = await store.getDefinitions()
-    expect(defs).toHaveLength(2)
+    expect(defs).toHaveLength(3)
 
     const versions = defs.map(d => d.profileVersion).sort()
-    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-default@0.1.0'])
+    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-cn@0.2.0', 'm-net-default@0.1.0'])
 
     const cnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.1.0')
     expect(cnProfile).toBeDefined()
@@ -32,6 +32,16 @@ describe('M-Net in-memory profile store', () => {
     expect(defaultProfile).toBeDefined()
     expect(defaultProfile?.capabilities.controlPlaneOnly).toBe(false)
     expect(defaultProfile?.region).toBe('default')
+
+    const productionCnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.2.0')
+    expect(productionCnProfile).toBeDefined()
+    expect(productionCnProfile?.capabilities.controlPlaneOnly).toBe(false)
+    expect(productionCnProfile?.capabilities.realWireGuardTunnel).toBe(true)
+    expect(productionCnProfile?.capabilities.realRelayFallback).toBe(true)
+    expect(productionCnProfile?.capabilities.realWstunnelRelay).toBe(false)
+    expect(productionCnProfile?.capabilities.realTcpInterconnect).toBe(false)
+    expect(productionCnProfile?.capabilities.realUdpPathSwitching).toBe(false)
+    expect(productionCnProfile?.runtimeConfig).toBeDefined()
   })
 
   it('getDefinition returns CN profile by version', async () => {

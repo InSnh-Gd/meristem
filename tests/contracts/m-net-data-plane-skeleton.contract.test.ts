@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
-  MNetRegionalProfileSchema,
-  type MNetRegionalProfileFromSchema
+  type MNetRegionalProfileFromSchema,
+  MNetRegionalProfileSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   createDataPlaneAdapter,
@@ -22,7 +22,7 @@ describe('M-Net data-plane skeleton contract', () => {
     const store = createInMemoryProfileStore()
     const def = await store.getDefinition('m-net-cn@0.1.0')
     expect(def).not.toBeNull()
-    expect(def?.capabilities.realDerpRelay).toBe(false)
+    expect(def?.capabilities.realWstunnelRelay).toBe(false)
     expect(def?.capabilities.realTcpInterconnect).toBe(false)
     expect(def?.capabilities.realUdpPathSwitching).toBe(false)
   })
@@ -45,7 +45,7 @@ describe('M-Net data-plane skeleton contract', () => {
         mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' }
       },
       capabilities: {
-        realDerpRelay: false,
+        realWstunnelRelay: false,
         realTcpInterconnect: false,
         realUdpPathSwitching: false,
         controlPlaneOnly: true
