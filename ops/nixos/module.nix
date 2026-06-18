@@ -2,6 +2,7 @@
 
 let
   cfg = config.services.meristem;
+  relayCfg = cfg.relay;
 
   composeBase = import ./compose/base.nix {
     inherit lib pkgs;
@@ -19,6 +20,96 @@ let
     inherit lib pkgs;
     workspaceDir = cfg.workspaceDir;
   };
+
+  relayWstunnelVersion = "v10.5.5";
+  relayWstunnelReleaseVersion = lib.removePrefix "v" relayWstunnelVersion;
+  relayWstunnelArchiveName =
+    if pkgs.stdenv.hostPlatform.isAarch64 then
+      "wstunnel_${relayWstunnelReleaseVersion}_linux_arm64.tar.gz"
+    else
+      "wstunnel_${relayWstunnelReleaseVersion}_linux_amd64.tar.gz";
+  relayWstunnelArchiveHash =
+    if pkgs.stdenv.hostPlatform.isAarch64 then
+      "sha256-db85183da9732f26c110a08e3fffdfcfc4a44d544035d01eeefa708ed23874bb"
+    else
+      "sha256-b20ffa02e945ec0c0d6b153ba69a290593f0957ed2892aee8f987f715ccd95d6";
+  relayWstunnelBinarySource =
+    "https://github.com/erebe/wstunnel/releases/download/${relayWstunnelVersion}/${relayWstunnelArchiveName}";
+  relayWstunnelContainerSource = "ghcr.io/erebe/wstunnel:${relayWstunnelVersion}";
+  relayWstunnelPackage = pkgs.stdenvNoCC.mkDerivation {
+    pname = "wstunnel";
+    version = relayWstunnelReleaseVersion;
+    src = pkgs.fetchurl {
+      url = relayWstunnelBinarySource;
+      hash = relayWstunnelArchiveHash;
+    };
+    nativeBuildInputs = [ pkgs.gnutar pkgs.gzip ];
+    dontConfigure = true;
+    dontBuild = true;
+    installPhase = ''
+      runHook preInstall
+      mkdir -p "$out/bin"
+      tar -xzf "$src" -C "$out/bin" wstunnel
+      chmod 0555 "$out/bin/wstunnel"
+      runHook postInstall
+    '';
+  };
+  relayTlsDirectory = "${relayCfg.configDir}/tls";
+  relayTlsCertPath =
+    if relayCfg.mode == "acme" then
+      "${relayTlsDirectory}/fullchain.pem"
+    else
+      "/var/lib/meristem/certs/join-ingress-cert.pem";
+  relayTlsKeyPath =
+    if relayCfg.mode == "acme" then
+      "${relayTlsDirectory}/key.pem"
+    else
+      "/var/lib/meristem/certs/join-ingress-key.pem";
+  relayHealthUrl = "http://${relayCfg.healthBind}:${toString relayCfg.healthPort}/health";
+  relayPublicEndpoint = "wss://${relayCfg.publicHostname}:${toString relayCfg.publicPort}";
+  relayWrapper = pkgs.writeShellScript "meristem-wstunnel-relay-start" ''
+    set -euo pipefail
+
+    ${pkgs.busybox}/bin/httpd -f -p ${relayCfg.healthBind}:${toString relayCfg.healthPort} -h ${relayCfg.configDir}/health &
+    health_pid=$!
+
+    cleanup() {
+      kill "$health_pid" 2>/dev/null || true
+    }
+
+    trap cleanup EXIT INT TERM
+
+    ${pkgs.jq}/bin/jq -cn \
+      --arg event "relay.starting" \
+      --arg service "meristem-wstunnel-relay" \
+      --arg version "${relayCfg.versionPin}" \
+      --arg endpoint "${relayPublicEndpoint}" \
+      --arg healthUrl "${relayHealthUrl}" \
+      --arg mode "${relayCfg.mode}" \
+      --arg configDir "${relayCfg.configDir}" \
+      '{event:$event,service:$service,version:$version,endpoint:$endpoint,healthUrl:$healthUrl,mode:$mode,configDir:$configDir}'
+
+    ${relayWstunnelPackage}/bin/wstunnel server wss://${relayCfg.listenAddress}:${toString relayCfg.publicPort} \
+      --restrict-to ${relayCfg.restrictHost}:${toString relayCfg.wireGuardPort} \
+      --restrict-config ${relayCfg.configDir}/restrictions.yaml \
+      --restrict-http-upgrade-path-prefix ${relayCfg.pathPrefix} \
+      --tls-certificate ${relayTlsCertPath} \
+      --tls-private-key ${relayTlsKeyPath} \
+      --log-lvl ${relayCfg.logLevel} \
+      --no-color 2>&1 | while IFS= read -r line; do
+        ${pkgs.jq}/bin/jq -cn \
+          --arg service "meristem-wstunnel-relay" \
+          --arg source "wstunnel" \
+          --arg version "${relayCfg.versionPin}" \
+          --arg endpoint "${relayPublicEndpoint}" \
+          --arg healthUrl "${relayHealthUrl}" \
+          --arg mode "${relayCfg.mode}" \
+          --arg message "$line" \
+          '{service:$service,source:$source,version:$version,endpoint:$endpoint,healthUrl:$healthUrl,mode:$mode,message:$message}'
+      done
+
+    exit "''${PIPESTATUS[0]}"
+  '';
 
   infraDependencies = [
     "docker-meristem-postgres.service"
@@ -119,6 +210,99 @@ in
       description = "Whether to run the optional APISIX container through compose2nix-style Nix wiring.";
     };
 
+    relay = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether to run the pinned wstunnel relay sidecar on the control-plane host.";
+      };
+
+      mode = lib.mkOption {
+        type = lib.types.enum [ "acme" "local-dev" ];
+        default = "local-dev";
+        description = "Whether the relay should require an ACME-managed public hostname or use a loopback-friendly local-development fallback.";
+      };
+
+      publicHostname = lib.mkOption {
+        type = lib.types.str;
+        default = "localhost";
+        example = "relay.control-plane.example.com";
+        description = "Public hostname advertised by the fallback relay endpoint.";
+      };
+
+      publicPort = lib.mkOption {
+        type = lib.types.port;
+        default = 443;
+        description = "Public WSS port exposed by the fallback relay.";
+      };
+
+      listenAddress = lib.mkOption {
+        type = lib.types.str;
+        default = "[::]";
+        description = "Bind address passed to the wstunnel server.";
+      };
+
+      configDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/etc/meristem/wstunnel";
+        description = "Directory that stores relay restrictions, health assets, and ACME material.";
+      };
+
+      pathPrefix = lib.mkOption {
+        type = lib.types.str;
+        default = "meristem-fallback-relay";
+        description = "Upgrade-path prefix used to scope accepted relay traffic.";
+      };
+
+      restrictHost = lib.mkOption {
+        type = lib.types.str;
+        default = "localhost";
+        description = "Host target allowed by the relay restriction rule.";
+      };
+
+      wireGuardPort = lib.mkOption {
+        type = lib.types.port;
+        default = 51820;
+        description = "Local WireGuard UDP port exposed through the relay.";
+      };
+
+      healthBind = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = "Loopback bind used by the relay health endpoint.";
+      };
+
+      healthPort = lib.mkOption {
+        type = lib.types.port;
+        default = 19090;
+        description = "Loopback port used by the relay health endpoint.";
+      };
+
+      logLevel = lib.mkOption {
+        type = lib.types.str;
+        default = "INFO";
+        description = "wstunnel log level forwarded to the systemd journal.";
+      };
+
+      versionPin = lib.mkOption {
+        type = lib.types.str;
+        default = relayWstunnelVersion;
+        description = "Pinned upstream wstunnel release tag.";
+      };
+
+      binarySource = lib.mkOption {
+        type = lib.types.str;
+        default = relayWstunnelBinarySource;
+        description = "Pinned GitHub release archive used by the relay service.";
+      };
+
+      containerSource = lib.mkOption {
+        type = lib.types.str;
+        default = relayWstunnelContainerSource;
+        description = "Pinned official container image reference kept alongside the binary source.";
+      };
+    };
+
     bootstrap = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -162,6 +346,16 @@ in
             assertion = cfg.environmentFile != "";
             message = "services.meristem.environmentFile must point at a readable env file.";
           }
+          {
+            assertion =
+              (!relayCfg.enable)
+              || relayCfg.mode != "acme"
+              || (
+                !(builtins.elem relayCfg.publicHostname [ "localhost" "127.0.0.1" "::1" ])
+                && lib.hasInfix "." relayCfg.publicHostname
+              );
+            message = "services.meristem.relay.publicHostname must be a public ACME hostname when relay.mode = \"acme\".";
+          }
         ];
 
         users.groups.${cfg.group} = { };
@@ -171,6 +365,63 @@ in
           home = cfg.workspaceDir;
           createHome = false;
         };
+
+        networking.firewall.allowedTCPPorts = [ 8443 ] ++ lib.optionals relayCfg.enable [ relayCfg.publicPort ];
+
+        environment.etc = lib.optionalAttrs relayCfg.enable {
+          "meristem/wstunnel/restrictions.yaml".text = ''
+            restrictions:
+              - name: "meristem-wireguard-fallback"
+                description: "Only allow UDP-over-WSS relay traffic to the local WireGuard port."
+                match:
+                  - !PathPrefix "^${relayCfg.pathPrefix}$"
+                allow:
+                  - !Tunnel
+                    protocol:
+                      - Udp
+                    port:
+                      - ${toString relayCfg.wireGuardPort}
+                    host: ^${relayCfg.restrictHost}$
+                    cidr:
+                      - 127.0.0.1/32
+                      - ::1/128
+          '';
+          "meristem/wstunnel/health/health".text = "ok\n";
+          "meristem/wstunnel/relay-config.json".text = builtins.toJSON {
+            binarySource = relayCfg.binarySource;
+            command = [
+              "wstunnel"
+              "server"
+              "wss://${relayCfg.listenAddress}:${toString relayCfg.publicPort}"
+              "--restrict-to"
+              "${relayCfg.restrictHost}:${toString relayCfg.wireGuardPort}"
+              "--restrict-config"
+              "${relayCfg.configDir}/restrictions.yaml"
+              "--restrict-http-upgrade-path-prefix"
+              relayCfg.pathPrefix
+              "--tls-certificate"
+              relayTlsCertPath
+              "--tls-private-key"
+              relayTlsKeyPath
+              "--log-lvl"
+              relayCfg.logLevel
+              "--no-color"
+            ];
+            configDir = relayCfg.configDir;
+            containerSource = relayCfg.containerSource;
+            endpoint = relayPublicEndpoint;
+            healthUrl = relayHealthUrl;
+            logFields = [ "service" "source" "version" "endpoint" "healthUrl" "mode" "message" ];
+            mode = relayCfg.mode;
+            versionPin = relayCfg.versionPin;
+          };
+        };
+
+        systemd.tmpfiles.rules = lib.optionals relayCfg.enable [
+          "d ${relayCfg.configDir} 0750 root ${cfg.group} - -"
+          "d ${relayCfg.configDir}/health 0755 root root - -"
+          "d ${relayTlsDirectory} 0750 root ${cfg.group} - -"
+        ];
 
         systemd.services = lib.mkMerge [
           (lib.mkIf cfg.bootstrap.enable {
@@ -199,6 +450,43 @@ in
                   "${cfg.bunPackage}/bin/bun run db:seed"
                 ]
               );
+            };
+          })
+          (lib.mkIf relayCfg.enable {
+            meristem-wstunnel-relay = {
+              description = "Meristem pinned wstunnel relay sidecar";
+              wantedBy = [ "multi-user.target" ];
+              after = [ "network-online.target" ];
+              wants = [ "network-online.target" ];
+              environment = {
+                MERISTEM_RELAY_CONFIG_DIR = relayCfg.configDir;
+                MERISTEM_RELAY_ENDPOINT = relayPublicEndpoint;
+                MERISTEM_RELAY_HEALTHCHECK = relayHealthUrl;
+                MERISTEM_WSTUNNEL_BINARY_SOURCE = relayCfg.binarySource;
+                MERISTEM_WSTUNNEL_CONTAINER_SOURCE = relayCfg.containerSource;
+                MERISTEM_WSTUNNEL_VERSION = relayCfg.versionPin;
+              };
+              serviceConfig = {
+                Type = "simple";
+                User = cfg.user;
+                Group = cfg.group;
+                WorkingDirectory = cfg.workspaceDir;
+                ExecStartPre = [
+                  "${pkgs.coreutils}/bin/test -r ${relayCfg.configDir}/restrictions.yaml"
+                  "${pkgs.coreutils}/bin/test -r ${relayTlsCertPath}"
+                  "${pkgs.coreutils}/bin/test -r ${relayTlsKeyPath}"
+                ];
+                ExecStart = relayWrapper;
+                ExecStartPost = "${pkgs.curl}/bin/curl --fail --silent --show-error --max-time 3 ${relayHealthUrl}";
+                Restart = "on-failure";
+                RestartSec = 2;
+                NoNewPrivileges = true;
+                AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
+                CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
+                StandardOutput = "journal";
+                StandardError = "journal";
+                SyslogIdentifier = "meristem-wstunnel-relay";
+              };
             };
           })
           {
