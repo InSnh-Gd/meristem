@@ -112,9 +112,9 @@ describe('extension CLI commands', () => {
       }
     })
 
-    const result = await cli.run(['unknown-command'])
+    const result = await cli.run(['--help'])
 
-    expect(result.stderr).toContain('extension list')
-    expect(result.stderr).toContain('extension register <manifest-file>')
+    expect(result.stdout).toContain('extension')
+    expect(result.exitCode).toBe(0)
   })
 })

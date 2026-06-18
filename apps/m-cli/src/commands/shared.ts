@@ -1,3 +1,4 @@
+import cac from 'cac'
 import type { CliClient, CliRunResult } from './types.ts'
 
 export type CliCommandHandler = (
@@ -6,7 +7,58 @@ export type CliCommandHandler = (
 ) => Promise<CliRunResult | undefined>
 
 /**
+ * 用 cac 解析 args，返回 options 字典和 positional 列表。
+ * cac 期望 argv[0]=exe, argv[1]=script，所以补两个前导元素。
+ * cac 会把 kebab-case flag 转成 camelCase key（如 --value-stdin → valueStdin）。
+ */
+export function parseArgs(args: string[]): {
+  options: Record<string, string | boolean>
+  positionals: string[]
+} {
+  const cli = cac('meristem')
+  const result = cli.parse(['meristem', 'meristem', ...args], { run: false })
+  return {
+    options: result.options as Record<string, string | boolean>,
+    positionals: [...result.args]
+  }
+}
+
+/** 将 --flag-name 转成 cac 内部使用的 camelCase key（flagName）。 */
+function camelKey(flag: string): string {
+  return flag.replace(/^--/, '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+/**
+ * 从解析后的 options 中提取必填字符串参数。
+ */
+export function requireOption(options: Record<string, string | boolean>, flag: string): string {
+  const value = options[camelKey(flag)]
+  if (typeof value !== 'string' || !value) throw new Error(`missing ${flag}`)
+  return value
+}
+
+/**
+ * 从解析后的 options 中提取可选字符串参数。
+ */
+export function optionalOption(
+  options: Record<string, string | boolean>,
+  flag: string
+): string | undefined {
+  const value = options[camelKey(flag)]
+  return typeof value === 'string' ? value : undefined
+}
+
+/**
+ * 从解析后的 options 中检测布尔 flag 是否存在。
+ */
+export function hasFlag(options: Record<string, string | boolean>, flag: string): boolean {
+  const key = camelKey(flag)
+  return key in options && options[key] !== undefined
+}
+
+/**
  * CLI 参数缺失在入口层直接失败，避免命令处理继续往下传播半有效输入。
+ * @deprecated 使用 parseArgs + requireOption 替代。
  */
 export function requireArg(args: string[], flag: string): string {
   const index = args.indexOf(flag)
