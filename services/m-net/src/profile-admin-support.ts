@@ -5,7 +5,7 @@ import {
   getDataPlaneStores,
   requireDataPlaneDeps
 } from './mnet-dataplane-workflows.ts'
-import { type ProfileState } from './profile-state-machine.ts'
+import type { ProfileState } from './profile-state-machine.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
 
 type FeatureDeps = Pick<
@@ -251,9 +251,7 @@ export async function resumeProfileAdminOperation(
   await deps.suspendedOps.transition(suspendedOp.id, 'resumed')
 
   const successSubject = isDisable ? 'mnet.profile.disabled' : 'mnet.profile.enabled'
-  const successVersionSubject = isDisable
-    ? 'mnet.profile.disabled.v0'
-    : 'mnet.profile.enabled.v0'
+  const successVersionSubject = isDisable ? 'mnet.profile.disabled.v0' : 'mnet.profile.enabled.v0'
   const successMessage = `${isDisable ? 'profile disabled' : 'profile enabled'} for network ${suspendedOp.networkId}`
   const resumeAuditAction = isDisable
     ? 'mnet.profile.disable.resume.attempt'
@@ -278,17 +276,11 @@ export async function resumeProfileAdminOperation(
     },
     suspendedOp.correlationId
   )
-  await deps.log?.writeTimeline(
-    successMessage,
-    successSubject,
-    suspendedOp.correlationId
-  )
-  await deps.log?.writeFull(
-    'info',
-    successMessage,
-    suspendedOp.correlationId,
-    { profileVersion: suspendedOp.toProfileVersion, operationId: suspendedOp.id }
-  )
+  await deps.log?.writeTimeline(successMessage, successSubject, suspendedOp.correlationId)
+  await deps.log?.writeFull('info', successMessage, suspendedOp.correlationId, {
+    profileVersion: suspendedOp.toProfileVersion,
+    operationId: suspendedOp.id
+  })
   await deps.log?.writeAudit(
     'system',
     resumeAuditAction,

@@ -124,18 +124,18 @@ const DEFAULT_PROFILES: MNetRegionalProfile[] = [
 async function ensureProfileDefinitions(db: MeristemDb): Promise<void> {
   const now = new Date()
   for (const definition of DEFAULT_PROFILES) {
-      await db
-        .insert(mnetProfileDefinitions)
-        .values({
+    await db
+      .insert(mnetProfileDefinitions)
+      .values({
         id: definition.profileVersion,
         profileVersion: definition.profileVersion,
         region: definition.region,
         schemaVersion: definition.schemaVersion,
         definition,
         status: definition.status,
-          createdAt: now,
-          updatedAt: now
-        })
+        createdAt: now,
+        updatedAt: now
+      })
       .onConflictDoUpdate({
         target: mnetProfileDefinitions.profileVersion,
         set: {
