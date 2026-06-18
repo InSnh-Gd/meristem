@@ -49,12 +49,10 @@ type RouteFixture = {
 }
 
 function validKey(seed: string): string {
-  return (
-    seed
-      .replace(/[^A-Za-z0-9]/g, 'A')
-      .padEnd(43, 'B')
-      .slice(0, 43) + '='
-  )
+  return `${seed
+    .replace(/[^A-Za-z0-9]/g, 'A')
+    .padEnd(43, 'B')
+    .slice(0, 43)}=`
 }
 
 async function mintToken(actor: 'admin' | 'security-admin'): Promise<string> {

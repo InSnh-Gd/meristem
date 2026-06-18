@@ -212,7 +212,7 @@ describe('M-Net signed network map contract', () => {
   })
 
   it('lets node-agent enforcement consume rendered maps without dynamic M-Policy calls', () => {
-    let policyCallCount = 0
+    const policyCallCount = 0
     const map = renderNetworkMapForNode(
       baseInput([stem, leafA], bidirectional(stem.nodeId, leafA.nodeId)),
       leafA.nodeId

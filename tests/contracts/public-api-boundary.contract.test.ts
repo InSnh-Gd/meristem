@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -18,6 +18,11 @@ const repoRoot = join(import.meta.dir, '../..')
 interface ApisixRoute {
   id: string
   uris: string[]
+}
+
+function requiredRouteUris(route: ApisixRoute | undefined): string[] {
+  expect(route).toBeDefined()
+  return route?.uris ?? []
 }
 
 /**
@@ -189,8 +194,7 @@ describe('public API boundary contract', () => {
   describe('public route exposure', () => {
     it('exposes the join ingress endpoint /join/v0/*', () => {
       const joinRoute = apisixRoutes.find(r => r.id === 'm-net-join-ingress')
-      expect(joinRoute).toBeDefined()
-      expect(joinRoute!.uris).toContain('/join/v0/*')
+      expect(requiredRouteUris(joinRoute)).toContain('/join/v0/*')
     })
 
     it('exposes Core health, ready, and status endpoints', () => {
@@ -201,9 +205,9 @@ describe('public API boundary contract', () => {
 
     it('exposes node management endpoints /api/v0/nodes and /api/v0/nodes/*', () => {
       const nodesRoute = apisixRoutes.find(r => r.id === 'core-nodes')
-      expect(nodesRoute).toBeDefined()
-      expect(nodesRoute!.uris).toContain('/api/v0/nodes')
-      expect(nodesRoute!.uris).toContain('/api/v0/nodes/*')
+      const uris = requiredRouteUris(nodesRoute)
+      expect(uris).toContain('/api/v0/nodes')
+      expect(uris).toContain('/api/v0/nodes/*')
     })
 
     it('exposes node ticket creation endpoint /api/v0/node-tickets', () => {
@@ -212,30 +216,30 @@ describe('public API boundary contract', () => {
 
     it('exposes network management endpoints /api/v0/networks and /api/v0/networks/*', () => {
       const networksRoute = apisixRoutes.find(r => r.id === 'core-networks')
-      expect(networksRoute).toBeDefined()
-      expect(networksRoute!.uris).toContain('/api/v0/networks')
-      expect(networksRoute!.uris).toContain('/api/v0/networks/*')
+      const uris = requiredRouteUris(networksRoute)
+      expect(uris).toContain('/api/v0/networks')
+      expect(uris).toContain('/api/v0/networks/*')
     })
 
     it('exposes task endpoints /api/v0/tasks and /api/v0/tasks/*', () => {
       const tasksRoute = apisixRoutes.find(r => r.id === 'm-task-tasks')
-      expect(tasksRoute).toBeDefined()
-      expect(tasksRoute!.uris).toContain('/api/v0/tasks')
-      expect(tasksRoute!.uris).toContain('/api/v0/tasks/*')
+      const uris = requiredRouteUris(tasksRoute)
+      expect(uris).toContain('/api/v0/tasks')
+      expect(uris).toContain('/api/v0/tasks/*')
     })
 
     it('exposes policy approval endpoints', () => {
       const policyRoute = apisixRoutes.find(r => r.id === 'm-policy-approvals')
-      expect(policyRoute).toBeDefined()
-      expect(policyRoute!.uris).toContain('/api/v0/policy/approvals')
-      expect(policyRoute!.uris).toContain('/api/v0/policy/approvals/*')
+      const uris = requiredRouteUris(policyRoute)
+      expect(uris).toContain('/api/v0/policy/approvals')
+      expect(uris).toContain('/api/v0/policy/approvals/*')
     })
 
     it('exposes M-Net network profile endpoints', () => {
       const profilesRoute = apisixRoutes.find(r => r.id === 'm-net-network-profiles')
-      expect(profilesRoute).toBeDefined()
-      expect(profilesRoute!.uris).toContain('/api/v0/network-profiles')
-      expect(profilesRoute!.uris).toContain('/api/v0/network-profiles/*')
+      const uris = requiredRouteUris(profilesRoute)
+      expect(uris).toContain('/api/v0/network-profiles')
+      expect(uris).toContain('/api/v0/network-profiles/*')
     })
 
     it('exposes M-Net profile set endpoint', () => {
@@ -244,9 +248,9 @@ describe('public API boundary contract', () => {
 
     it('exposes extension endpoints', () => {
       const extRoute = apisixRoutes.find(r => r.id === 'm-extension-extensions')
-      expect(extRoute).toBeDefined()
-      expect(extRoute!.uris).toContain('/api/v0/extensions')
-      expect(extRoute!.uris).toContain('/api/v0/extensions/*')
+      const uris = requiredRouteUris(extRoute)
+      expect(uris).toContain('/api/v0/extensions')
+      expect(uris).toContain('/api/v0/extensions/*')
     })
   })
 
@@ -330,8 +334,8 @@ describe('public API boundary contract', () => {
           const internalPattern = wildcardPattern.replace(/\*/g, '.*')
           try {
             return (
-              new RegExp('^' + internalPattern + '$').test(apisixUri) ||
-              new RegExp('^' + apisixPattern + '$').test(internalPath)
+              new RegExp(`^${internalPattern}$`).test(apisixUri) ||
+              new RegExp(`^${apisixPattern}$`).test(internalPath)
             )
           } catch {
             return false

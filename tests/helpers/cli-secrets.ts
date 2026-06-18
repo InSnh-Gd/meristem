@@ -46,68 +46,68 @@ export async function statusMock() {
 
 /** 为 secret CLI 测试构造带嵌套方法的 mock client。 */
 export function secretClient(methods: SecretCliMethods): CliClient {
-  const secret = {
-    ...(methods.listSecrets
-      ? {
-          list: async () => {
-            const { secrets } = await methods.listSecrets!()
-            return secrets.map(s => ({
-              id: s.id,
-              name: s.name,
-              scope: s.scope,
-              status: s.status,
-              createdBy: s.createdBy,
-              createdAt: s.createdAt
-            }))
-          }
+  const secret = {} as NonNullable<CliClient['secret']>
+
+  if (methods.listSecrets) {
+    const listSecrets = methods.listSecrets
+    secret.list = async () => {
+      const { secrets } = await listSecrets()
+      return secrets.map(s => ({
+        id: s.id,
+        name: s.name,
+        scope: s.scope,
+        status: s.status,
+        createdBy: s.createdBy,
+        createdAt: s.createdAt
+      }))
+    }
+  }
+
+  if (methods.getSecret) {
+    const getSecret = methods.getSecret
+    secret.get = async (id: string) => {
+      const { secretRef } = await getSecret(id)
+      return {
+        ...secretRef,
+        updatedAt: secretRef.rotatedAt ?? secretRef.disabledAt ?? secretRef.createdAt
+      }
+    }
+  }
+
+  if (methods.createSecret) {
+    const createSecret = methods.createSecret
+    secret.create = async (input: { name: string; scope: string; value: string }) => {
+      const { secretRef } = await createSecret(
+        input as {
+          name: string
+          scope: 'system' | 'service' | 'node'
+          value: string
         }
-      : {}),
-    ...(methods.getSecret
-      ? {
-          get: async (id: string) => {
-            const { secretRef } = await methods.getSecret!(id)
-            return {
-              ...secretRef,
-              updatedAt: secretRef.rotatedAt ?? secretRef.disabledAt ?? secretRef.createdAt
-            }
-          }
-        }
-      : {}),
-    ...(methods.createSecret
-      ? {
-          create: async (input: { name: string; scope: string; value: string }) => {
-            const { secretRef } = await methods.createSecret!(
-              input as {
-                name: string
-                scope: 'system' | 'service' | 'node'
-                value: string
-              }
-            )
-            return { ...secretRef }
-          }
-        }
-      : {}),
-    ...(methods.rotateSecret
-      ? {
-          rotate: async (secretId: string, input: { value: string; reason: string }) => {
-            const result = await methods.rotateSecret!(secretId, input)
-            return {
-              ...result.secretRef,
-              version: String(result.version),
-              rotatedAt: result.secretRef.rotatedAt ?? result.secretRef.createdAt
-            }
-          }
-        }
-      : {}),
-    ...(methods.disableSecret
-      ? {
-          disable: async (secretId: string, input: { reason: string }) => {
-            const { secretRef } = await methods.disableSecret!(secretId, input)
-            return { ...secretRef, disabledAt: secretRef.disabledAt ?? secretRef.createdAt }
-          }
-        }
-      : {})
-  } satisfies NonNullable<CliClient['secret']>
+      )
+      return { ...secretRef }
+    }
+  }
+
+  if (methods.rotateSecret) {
+    const rotateSecret = methods.rotateSecret
+    secret.rotate = async (secretId: string, input: { value: string; reason: string }) => {
+      const result = await rotateSecret(secretId, input)
+      return {
+        ...result.secretRef,
+        version: String(result.version),
+        rotatedAt: result.secretRef.rotatedAt ?? result.secretRef.createdAt
+      }
+    }
+  }
+
+  if (methods.disableSecret) {
+    const disableSecret = methods.disableSecret
+    secret.disable = async (secretId: string, input: { reason: string }) => {
+      const { secretRef } = await disableSecret(secretId, input)
+      return { ...secretRef, disabledAt: secretRef.disabledAt ?? secretRef.createdAt }
+    }
+  }
+
   return { status: statusMock, secret }
 }
 

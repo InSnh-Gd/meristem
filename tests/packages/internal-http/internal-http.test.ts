@@ -30,7 +30,9 @@ describe('internal-http helpers', () => {
   it('validates the expected internal token for object and Headers inputs', () => {
     process.env.MERISTEM_INTERNAL_TOKEN = 'shared-token'
 
-    expect(validateInternalRequest({ [internalTokenHeaderName]: 'shared-token' })).toEqual({ ok: true })
+    expect(validateInternalRequest({ [internalTokenHeaderName]: 'shared-token' })).toEqual({
+      ok: true
+    })
     expect(
       validateInternalRequest(new Headers({ [internalTokenHeaderName]: 'wrong-token' }))
     ).toEqual({

@@ -56,10 +56,10 @@ describe('relay deployment contract', () => {
 
   it('includes the UDP-over-WSS relay command args for local WireGuard 51820', () => {
     expect(fixture.module).toContain(
-      'wstunnel server wss://${relayCfg.listenAddress}:${toString relayCfg.publicPort}'
+      String.raw`wstunnel server wss://\${relayCfg.listenAddress}:\${toString relayCfg.publicPort}`
     )
     expect(fixture.module).toContain(
-      '--restrict-to ${relayCfg.restrictHost}:${toString relayCfg.wireGuardPort}'
+      String.raw`--restrict-to \${relayCfg.restrictHost}:\${toString relayCfg.wireGuardPort}`
     )
     expect(fixture.module).toContain('protocol:')
     expect(fixture.module).toContain('- Udp')

@@ -57,60 +57,67 @@ export async function statusMock() {
 
 /** 为 config CLI 测试构造带嵌套方法的 mock client。 */
 export function configClient(configMethods: ConfigCliMethods): CliClient {
-  const config = {
-    ...(configMethods.list ? { list: configMethods.list } : {}),
-    ...(configMethods.get
-      ? {
-          get: async (id: string) => {
-            const config = await configMethods.get!(id)
-            return { ...config, payload: {}, updatedAt: config.publishedAt ?? config.createdAt }
-          }
+  const config = {} as NonNullable<CliClient['config']>
+
+  if (configMethods.list) {
+    config.list = configMethods.list
+  }
+
+  if (configMethods.get) {
+    const get = configMethods.get
+    config.get = async (id: string) => {
+      const configRecord = await get(id)
+      return {
+        ...configRecord,
+        payload: {},
+        updatedAt: configRecord.publishedAt ?? configRecord.createdAt
+      }
+    }
+  }
+
+  if (configMethods.draft) {
+    const draft = configMethods.draft
+    config.draft = async (input: { domain: string; payload: unknown; targetScope?: string[] }) => {
+      const configRecord = await draft(
+        input as {
+          domain: string
+          payload: Record<string, unknown>
         }
-      : {}),
-    ...(configMethods.draft
-      ? {
-          draft: async (input: { domain: string; payload: unknown; targetScope?: string[] }) => {
-            const config = await configMethods.draft!(
-              input as {
-                domain: string
-                payload: Record<string, unknown>
-              }
-            )
-            return { ...config }
-          }
-        }
-      : {}),
-    ...(configMethods.validate
-      ? {
-          validate: async (id: string) => {
-            const config = await configMethods.validate!(id)
-            return { ...config }
-          }
-        }
-      : {}),
-    ...(configMethods.publish
-      ? {
-          publish: async (id: string, input: { reason: string }) => {
-            const config = await configMethods.publish!(id, input)
-            return {
-              id: config.id,
-              configVersion: config.configVersion,
-              status: config.status,
-              publishedAt: config.publishedAt ?? config.createdAt,
-              publishedBy: config.publishedBy ?? config.createdBy
-            }
-          }
-        }
-      : {}),
-    ...(configMethods.rollback
-      ? {
-          rollback: async (id: string, input: { toVersion: string; reason: string }) => {
-            const config = await configMethods.rollback!(id, input)
-            return { ...config }
-          }
-        }
-      : {})
-  } satisfies NonNullable<CliClient['config']>
+      )
+      return { ...configRecord }
+    }
+  }
+
+  if (configMethods.validate) {
+    const validate = configMethods.validate
+    config.validate = async (id: string) => {
+      const configRecord = await validate(id)
+      return { ...configRecord }
+    }
+  }
+
+  if (configMethods.publish) {
+    const publish = configMethods.publish
+    config.publish = async (id: string, input: { reason: string }) => {
+      const configRecord = await publish(id, input)
+      return {
+        id: configRecord.id,
+        configVersion: configRecord.configVersion,
+        status: configRecord.status,
+        publishedAt: configRecord.publishedAt ?? configRecord.createdAt,
+        publishedBy: configRecord.publishedBy ?? configRecord.createdBy
+      }
+    }
+  }
+
+  if (configMethods.rollback) {
+    const rollback = configMethods.rollback
+    config.rollback = async (id: string, input: { toVersion: string; reason: string }) => {
+      const configRecord = await rollback(id, input)
+      return { ...configRecord }
+    }
+  }
+
   return { status: statusMock, config }
 }
 
