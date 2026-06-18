@@ -8,7 +8,7 @@ describe('createInMemorySuspendedOperationStore', () => {
       policyDecisionId: 'decision-1',
       action: 'task.retry',
       requestedBy: 'operator',
-      resource: 'task-1',
+      resource: 'suspend-op-resource-demo',
       sanitizedPayload: { retry: true },
       correlationId: 'corr-1',
       idempotencyKey: 'idem-1',
@@ -19,7 +19,7 @@ describe('createInMemorySuspendedOperationStore', () => {
     expect(operation.policyDecisionId).toBe('decision-1')
     expect(operation.action).toBe('task.retry')
     expect(operation.requestedBy).toBe('operator')
-    expect(operation.resource).toBe('task-1')
+    expect(operation.resource).toBe('suspend-op-resource-demo')
     expect(operation.sanitizedPayload).toEqual({ retry: true })
     expect(operation.correlationId).toBe('corr-1')
     expect(operation.idempotencyKey).toBe('idem-1')
@@ -35,7 +35,7 @@ describe('createInMemorySuspendedOperationStore', () => {
       policyDecisionId: 'decision-1',
       action: 'task.retry',
       requestedBy: 'operator',
-      resource: 'task-1',
+      resource: 'suspend-op-resource-demo',
       sanitizedPayload: null,
       correlationId: 'corr-1',
       idempotencyKey: 'idem-1',
@@ -45,7 +45,7 @@ describe('createInMemorySuspendedOperationStore', () => {
       policyDecisionId: 'decision-2',
       action: 'task.retry',
       requestedBy: 'operator',
-      resource: 'task-2',
+      resource: 'suspend-op-resource-alt',
       sanitizedPayload: null,
       correlationId: 'corr-2',
       idempotencyKey: 'idem-2',
@@ -68,7 +68,7 @@ describe('createInMemorySuspendedOperationStore', () => {
       policyDecisionId: 'decision-1',
       action: 'task.retry',
       requestedBy: 'operator',
-      resource: 'task-1',
+      resource: 'suspend-op-resource-demo',
       sanitizedPayload: null,
       correlationId: 'corr-1',
       idempotencyKey: 'idem-1',
@@ -90,7 +90,7 @@ describe('createInMemorySuspendedOperationStore', () => {
       policyDecisionId: 'decision-1',
       action: 'task.retry',
       requestedBy: 'operator',
-      resource: 'task-1',
+      resource: 'suspend-op-resource-demo',
       sanitizedPayload: null,
       correlationId: 'corr-1',
       idempotencyKey: 'idem-1',

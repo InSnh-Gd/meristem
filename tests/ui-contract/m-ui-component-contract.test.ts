@@ -1,4 +1,9 @@
 import { describe, expect, it } from 'bun:test'
+import * as Schema from 'effect/Schema'
+import {
+  SduiV02ComponentKindSchema,
+  SduiV02RouteRegistrySchema
+} from '../../packages/contracts/src/schemas/ui.ts'
 
 const COMPONENTS_ROOT = 'apps/m-ui/src/lib/components'
 
@@ -93,5 +98,32 @@ describe('M-UI component contract: forbidden UI patterns', () => {
         expect(source, `${filePath} should not contain ${token}`).not.toContain(token)
       }
     }
+  })
+
+  it('unknown component kinds fail closed and forbidden components are rejected by SDUI schema', () => {
+    // Check an unknown component
+    const decodeRoute = Schema.decodeUnknownEither(SduiV02RouteRegistrySchema)
+    const badRegistry = {
+      schemaVersion: 'sdui@0.2.0',
+      routes: [
+        {
+          id: 'test.route',
+          title: 'Test',
+          requiredPermissions: ['core:read'],
+          stateSources: ['authoritative'],
+          degradedState: { enabled: true, reason: 'test' },
+          components: [{ kind: 'UnknownPanel', id: 'unknown' }]
+        }
+      ]
+    }
+
+    const result = decodeRoute(badRegistry)
+    expect(result._tag).toBe('Left')
+
+    // Check forbidden components are rejected
+    FORBIDDEN_COMPONENT_NAMES.forEach(forbidden => {
+      const isForbiddenAccepted = Schema.decodeUnknownEither(SduiV02ComponentKindSchema)(forbidden)
+      expect(isForbiddenAccepted._tag).toBe('Left')
+    })
   })
 })

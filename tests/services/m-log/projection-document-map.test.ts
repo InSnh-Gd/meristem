@@ -9,13 +9,13 @@ describe('mapFactToDoc', () => {
       mapFactToDoc('meristem-timeline-logs-v0', {
         timestamp,
         summary: 'task completed',
-        subject: 'task-1',
+        subject: 'projection-map-resource',
         correlation_id: 'corr-1'
       })
     ).toEqual({
       timestamp: '2026-01-02T03:04:05.000Z',
       summary: 'task completed',
-      subject: 'task-1',
+      subject: 'projection-map-resource',
       correlationId: 'corr-1'
     })
   })
@@ -43,23 +43,23 @@ describe('mapFactToDoc', () => {
         timestamp: new Date('2026-03-04T05:06:07.000Z'),
         actor: 'operator',
         action: 'task.cancel',
-        resource: 'task-1',
+        resource: 'projection-map-resource',
         decision_id: 'decision-1',
         result: 'allowed',
         correlation_id: 'corr-2',
         trace_id: 'trace-2',
-        payload: { id: 'task-1' }
+        payload: { id: 'projection-map-resource' }
       })
     ).toEqual({
       timestamp: '2026-03-04T05:06:07.000Z',
       actor: 'operator',
       action: 'task.cancel',
-      resource: 'task-1',
+      resource: 'projection-map-resource',
       decisionId: 'decision-1',
       result: 'allowed',
       correlationId: 'corr-2',
       traceId: 'trace-2',
-      payload: { id: 'task-1' }
+      payload: { id: 'projection-map-resource' }
     })
   })
 

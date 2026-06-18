@@ -20,7 +20,13 @@ const requiredSduiV02RouteIds = [
   'policy.approvals.detail',
   'network.profiles',
   'network.profiles.detail',
-  'services.index'
+  'services.index',
+  'networks.index',
+  'networks.detail',
+  'nodes.credentials',
+  'mnet.dataplane.status',
+  'mnet.profile.migration',
+  'mnet.break-glass'
 ] as const
 
 const forbiddenComponentKinds = [
@@ -225,7 +231,7 @@ describe('SDUI v0.2 route schema', () => {
     // Bun 的 toEqual 重载在 strict 模式下不接受 readonly tuple；
     // 展开为普通字符串列表进行比较，语义不变且消除 TS2769。
     expect(routeIds).toEqual([...requiredSduiV02RouteIds])
-    expect(new Set(routeIds).size).toBe(11)
+    expect(new Set(routeIds).size).toBe(17)
   })
 
   it('every route declares state sources', () => {

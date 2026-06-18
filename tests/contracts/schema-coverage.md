@@ -2,7 +2,7 @@
 
 ## Scope rule
 
-- **Active emitted events** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`.
+- **Active emitted events** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`, or the M-Net production data-plane subject is contract-activated with an Effect Schema and fixture before publisher wiring.
 - **Active REST responses** = the route is mounted now and returns a concrete response shape in code.
 - **Future deferred to post-v0.1 coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
 - **Not active** = no real publisher and no active mounted path in the current codebase.
@@ -23,6 +23,13 @@
 | `node.status.changed.v0` | `apps/core/src/routes/nodes.ts` | `NodeStatusChangedPayloadSchema` |
 | `mnet.network.created.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
 | `mnet.membership.joined.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
+| `mnet.reachability.changed.v0` | `services/m-net/src/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
+| `mnet.path.changed.v0` | contract-activated data-plane subject | `MNetPathChangedEventPayloadSchema` |
+| `mnet.wstunnel.fallback.changed.v0` | contract-activated data-plane subject | `MNetWstunnelFallbackChangedEventPayloadSchema` |
+| `mnet.network_map.published.v0` | contract-activated data-plane subject | `MNetNetworkMapPublishedEventPayloadSchema` |
+| `mnet.node_key.rotated.v0` | contract-activated data-plane subject | `MNetNodeKeyRotatedEventPayloadSchema` |
+| `mnet.relay.assigned.v0` | contract-activated data-plane subject | `MNetRelayAssignedEventPayloadSchema` |
+| `mnet.dataplane.tunnel.changed.v0` | contract-activated data-plane subject | `MNetDataplaneTunnelChangedEventPayloadSchema` |
 | `mnet.profile.enable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.enabled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.disable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
@@ -49,6 +56,8 @@
 | `policy.approval.vote.rejected.v0` | `services/m-policy/src/approvals.ts` (dynamic) | `PolicyApprovalVoteEventPayloadSchema` |
 | `policy.decision.created.v0` | `services/m-policy/src/index.ts` | `PolicyDecisionCreatedPayloadSchema` |
 | `audit.entry.created.v0` | `services/m-log/src/index.ts`, `services/m-policy/src/index.ts` | `AuditEntryCreatedPayloadSchema` |
+| `meventbus.publish.rejected.v0` | `services/m-eventbus/src/publisher.ts` | `EventBusRejectedPayloadSchema` |
+| `meventbus.publish.failed.v0` | `services/m-eventbus/src/publisher.ts` | `EventBusPublishFailedPayloadSchema` |
 | `extension.definition.registered.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.definition.rejected.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.instance.enabled.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
@@ -68,7 +77,7 @@
 | Identity routes | `IdentityActorListResponseSchema`, `IdentityActorDetailResponseSchema`, `IssueActorTokenRouteResponseSchema`, `InspectActorTokenResponseSchema`, `RevokeActorTokenCompatResponseSchema`, `InternalTokenIntrospectionResponseSchema` |
 | SecretRef routes | `SecretListResponseSchema`, `SecretDetailResponseSchema`, `SecretCreateResponseSchema`, `SecretRotateResponseSchema`, `SecretDisableResponseSchema`, `SecretReferenceResponseSchema` |
 | Config routes | `ConfigListResponseSchema`, `ConfigDetailResponseSchema`, `ConfigDraftResponseSchema`, `ConfigValidateResponseSchema`, `ConfigPublishResponseSchema`, `ConfigRollbackResponseSchema`, `ConfigApplyAckResponseSchema` |
-| M-Net profile routes | `MNetProfileListResponseSchema`, `MNetRegionalProfileSchema`, `SetNetworkProfileResponseSchema`, `InternalNetworkProfileResumeResponseSchema`, `InternalNetworkProfileRejectResponseSchema` |
+| M-Net profile routes | `MNetProfileListResponseSchema`, `MNetRegionalProfileSchema`, `SetNetworkProfileResponseSchema`, `NetworkMapResponseSchema`, `NodeKeyRegistrationResponseSchema`, `DataPlaneStatusResponseSchema`, `InternalNetworkProfileResumeResponseSchema`, `InternalNetworkProfileRejectResponseSchema` |
 | M-Policy approval routes | `ApprovalCreateResponseSchema`, `ApprovalListResponseSchema`, `ApprovalDetailResponseSchema`, `ApprovalActionResponseSchema` |
 | M-Extension routes | `ExtensionListResponseSchema`, `ExtensionDetailResponseSchema`, `RegisterExtensionResponseSchema`, `ExtensionInstanceControlResponseSchema` |
 | M-Task routes | `TaskDefinitionsResponseSchema`, `TaskListResponseSchema`, `SubmitTaskResponseSchema`, `TaskStatusResponseSchema`, `TaskControlResponseSchema`, `TaskRetryNotImplementedResponseSchema`, `InternalTaskOperationResumeResponseSchema`, `InternalTaskOperationRejectResponseSchema`, `NodeAgentTaskExecuteEnvelopeResponseSchema` |
@@ -99,14 +108,11 @@ These documented event catalog entries currently have **no real publisher** in t
 - `secret.ref.created.v0`
 - `secret.ref.rotated.v0`
 - `secret.ref.disabled.v0`
-- `mnet.reachability.changed.v0`
 - `policy.approval.canceled.v0`
-- `mnet.path.changed.v0`
-- `mnet.derp.fallback.changed.v0`
 - `audit.lock.required.v0`
 
 ## Explicit exclusions from this wave
 
-- No fake publishers were added.
+- No fake source publishers were added; contract-activated data-plane subjects are tracked in the contract drift guard.
 - No inactive event catalog entries were implemented just to reach parity with docs.
 - No active emitted event or active mounted response was deferred to post-v0.1 coverage.

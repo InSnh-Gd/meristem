@@ -168,7 +168,7 @@ describe('meristem CLI', () => {
         calls.push(`task:submit:${input.nodeId}:${input.type}`)
         return {
           task: {
-            id: 'task-1',
+            id: 'test-cli-job-id',
             nodeId: input.nodeId,
             leafNodeId: input.nodeId,
             type: input.type,
@@ -242,16 +242,18 @@ describe('meristem CLI', () => {
     expect(
       (await cli.run(['task', 'submit', '--node', 'node-leaf-1', '--type', 'noop'])).exitCode
     ).toBe(0)
-    expect((await cli.run(['task', 'status', 'task-1'])).exitCode).toBe(0)
+    expect((await cli.run(['task', 'status', 'test-cli-job-id'])).exitCode).toBe(0)
     expect((await cli.run(['task', 'list'])).exitCode).toBe(0)
-    expect((await cli.run(['task', 'cancel', 'task-1'])).exitCode).toBe(0)
-    expect((await cli.run(['task', 'retry', 'task-1'])).stdout).toContain('not_implemented_yet')
+    expect((await cli.run(['task', 'cancel', 'test-cli-job-id'])).exitCode).toBe(0)
+    expect((await cli.run(['task', 'retry', 'test-cli-job-id'])).stdout).toContain(
+      'not_implemented_yet'
+    )
     expect(calls).toEqual([
       'task:submit:node-leaf-1:noop',
-      'task:status:task-1',
+      'task:status:test-cli-job-id',
       'task:list',
-      'task:cancel:task-1',
-      'task:retry:task-1'
+      'task:cancel:test-cli-job-id',
+      'task:retry:test-cli-job-id'
     ])
   })
 })

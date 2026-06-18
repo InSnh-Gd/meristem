@@ -9,6 +9,7 @@ import type {
   BackfillResult,
   CreateNetworkRequest,
   DLQRecord,
+  EventBusPublishMetricsSummaryFromSchema,
   FullLog,
   FullLogSearchQuery,
   LogSearchResult,
@@ -46,6 +47,7 @@ import type {
   MNetServiceError,
   MNetServiceResult
 } from '../../services/m-net/src/app.ts'
+import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
 import type { GlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
 import type { MigrationEngine } from '../../services/m-net/src/migration-engine.ts'
 import type { ProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
@@ -283,13 +285,22 @@ type ExpectedMNetAppDeps = {
   policyHealthCheck?: {
     checkHealth(): Promise<{ healthy: boolean }>
   }
+  /** 数据面存储（NATS KV/PostgreSQL 分区状态、操作锁、迁移记录） */
+  dataPlane?: DataPlaneStores
   globalDefaultsStore?: GlobalDefaultsStore
   migrationEngine?: MigrationEngine
 }
 
 type ExpectedEventBusAppDeps = {
   readiness(): Promise<{ ready: boolean }>
+  publishMetricsSummary(): EventBusPublishMetricsSummaryFromSchema
   publish(subject: string, event: MEventEnvelope): Promise<{ eventId: string }>
+  reportRejected(input: {
+    subject: string
+    event: unknown
+    reason: 'invalid_envelope' | 'subject_not_allowed' | 'subject_mismatch'
+    errors: string[]
+  }): Promise<void>
 }
 
 type TimelineWriteInput = Omit<TimelineLog, 'id' | 'timestamp'>

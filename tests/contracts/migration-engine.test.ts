@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import { createInMemoryGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
 import { createMigrationEngine } from '../../services/m-net/src/migration-engine.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
@@ -25,6 +26,7 @@ describe('migration engine branch coverage', () => {
     const engine = createMigrationEngine({
       globalDefaultsStore: store,
       profileStore,
+      dataPlane: createInMemoryDataPlaneStores(),
       async writeAudit() {
         return 'audit-1'
       },

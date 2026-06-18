@@ -24,7 +24,7 @@ export const mTaskEventContracts: EventContract[] = [
     subject: 'task.operation.suspended.v0',
     schema: Contracts.TaskOperationSuspendedPayloadSchema,
     fixture: {
-      decisionId: 'pd-task-1',
+      decisionId: 'pd-task-initial',
       action: 'task:submit',
       resource: 'node:node-1',
       actor: 'operator'
@@ -34,21 +34,25 @@ export const mTaskEventContracts: EventContract[] = [
     subject: 'task.operation.resumed.v0',
     schema: Contracts.TaskOperationResumedPayloadSchema,
     fixture: {
-      opId: 'op-task-1',
+      opId: 'op-task-demo-a',
       action: 'task.submit',
       resource: 'node:node-1',
-      taskId: 'task-99'
+      taskId: 'schema-coverage-not-found'
     }
   },
   {
     subject: 'task.operation.resume.failure.v0',
     schema: Contracts.TaskOperationResumeFailurePayloadSchema,
-    fixture: { opId: 'op-task-2', reason: 'target_task_not_found', taskStatus: 'failed' }
+    fixture: { opId: 'op-task-demo-b', reason: 'target_task_not_found', taskStatus: 'failed' }
   },
   {
     subject: 'task.operation.rejected.v0',
     schema: Contracts.TaskOperationRejectedPayloadSchema,
-    fixture: { opId: 'op-task-3', action: 'task.cancel', resource: 'task:task-1' }
+    fixture: {
+      opId: 'op-task-demo-c',
+      action: 'task.cancel',
+      resource: 'task:schema-coverage-task'
+    }
   }
 ]
 
@@ -64,7 +68,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
     fixture: {
       tasks: [
         {
-          id: 'task-1',
+          id: 'schema-coverage-task',
           nodeId: 'node-1',
           leafNodeId: 'node-1',
           type: 'noop',
@@ -80,7 +84,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
     schema: Contracts.SubmitTaskResponseSchema,
     fixture: {
       task: {
-        id: 'task-1',
+        id: 'schema-coverage-task',
         nodeId: 'node-1',
         leafNodeId: 'node-1',
         type: 'noop',
@@ -99,7 +103,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
     schema: Contracts.TaskStatusResponseSchema,
     fixture: {
       task: {
-        id: 'task-1',
+        id: 'schema-coverage-task',
         nodeId: 'node-1',
         leafNodeId: 'node-1',
         type: 'noop',
@@ -114,7 +118,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
     schema: Contracts.TaskControlResponseSchema,
     fixture: {
       task: {
-        id: 'task-1',
+        id: 'schema-coverage-task',
         nodeId: 'node-1',
         leafNodeId: 'node-1',
         type: 'noop',
@@ -152,7 +156,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
       resumed: true,
       suspendedOpId: 'op-task',
       task: {
-        id: 'task-1',
+        id: 'schema-coverage-task',
         nodeId: 'node-1',
         leafNodeId: 'node-1',
         type: 'noop',
@@ -173,7 +177,7 @@ export const mTaskResponseContracts: ResponseContract[] = [
     fixture: {
       result: {
         nodeId: 'node-1',
-        taskId: 'task-1',
+        taskId: 'schema-coverage-task',
         result: 'completed',
         completedAt: '2026-06-04T10:00:00.000Z'
       }

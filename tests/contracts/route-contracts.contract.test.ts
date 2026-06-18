@@ -12,11 +12,15 @@ import {
   ConfigRouteParamsSchema,
   ConfigValidateResponseSchema,
   configApiRoutes,
+  DataPlaneStatusResponseSchema,
   MNetProfileDetailResponseSchema,
   MNetProfileListResponseSchema,
   MNetProfileVersionParamsSchema,
   mNetProfileApiRoutes,
+  NetworkMapResponseSchema,
+  NetworkNodeRouteParamsSchema,
   NetworkProfileRouteParamsSchema,
+  NodeKeyRegistrationResponseSchema,
   SecretCreateRequestSchema,
   SecretCreateResponseSchema,
   SecretDetailResponseSchema,
@@ -206,6 +210,9 @@ describe('m-net profile route contracts', () => {
       collection: '/api/v0/network-profiles',
       detail: '/api/v0/network-profiles/:profileVersion',
       setNetworkProfile: '/api/v0/networks/:id/profile',
+      networkMap: '/api/v0/networks/:id/network-map',
+      registerNodeKey: '/api/v0/networks/:id/nodes/:nodeId/key',
+      dataPlaneStatus: '/api/v0/networks/:id/dataplane/status',
       resumeOperation: '/internal/v0/network-profile-operations/:id/resume',
       rejectOperation: '/internal/v0/network-profile-operations/:id/reject'
     })
@@ -214,6 +221,7 @@ describe('m-net profile route contracts', () => {
   it('round-trips m-net profile request and response shapes', () => {
     assertRoundTrip(MNetProfileVersionParamsSchema, { profileVersion: 'm-net-cn@0.1.0' })
     assertRoundTrip(NetworkProfileRouteParamsSchema, { id: 'network-1' })
+    assertRoundTrip(NetworkNodeRouteParamsSchema, { id: 'network-1', nodeId: 'node-1' })
     assertRoundTrip(MNetProfileListResponseSchema, {
       profiles: [
         {
@@ -224,10 +232,30 @@ describe('m-net profile route contracts', () => {
           status: 'available',
           rules: { residency: 'cn-only' },
           capabilities: {
-            realDerpRelay: false,
+            realWstunnelRelay: false,
             realTcpInterconnect: false,
             realUdpPathSwitching: false,
             controlPlaneOnly: true
+          }
+        },
+        {
+          profileVersion: 'm-net-cn@0.2.0',
+          region: 'cn',
+          displayName: 'M-Net CN (Production Data Plane)',
+          schemaVersion: 'mnet-profile@0.2.0',
+          status: 'available',
+          rules: { residency: 'cn-only', relay: 'wstunnel' },
+          capabilities: {
+            realWstunnelRelay: false,
+            realTcpInterconnect: false,
+            realUdpPathSwitching: false,
+            controlPlaneOnly: false,
+            realWireGuardTunnel: true,
+            realRelayFallback: true
+          },
+          runtimeConfig: {
+            headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
+            routingTable: { secretRefId: 'secret-routing-cn' }
           }
         }
       ]
@@ -240,7 +268,7 @@ describe('m-net profile route contracts', () => {
       status: 'available',
       rules: {},
       capabilities: {
-        realDerpRelay: false,
+        realWstunnelRelay: false,
         realTcpInterconnect: false,
         realUdpPathSwitching: false,
         controlPlaneOnly: false
@@ -260,6 +288,65 @@ describe('m-net profile route contracts', () => {
       status: 'disabled',
       profileVersion: 'm-net-default@0.1.0',
       correlationId: 'corr-2'
+    })
+    assertRoundTrip(SetNetworkProfileResponseSchema, {
+      status: 'activated',
+      profileVersion: 'm-net-cn@0.2.0',
+      operationId: 'op-dataplane-1',
+      networkMap: { networkId: 'network-1', mapVersion: 'map-1' },
+      dataPlaneActivationStatus: 'active',
+      correlationId: 'corr-3'
+    })
+    assertRoundTrip(NetworkMapResponseSchema, {
+      networkId: 'network-1',
+      mapVersion: 'map-1',
+      members: [
+        {
+          nodeId: 'node-1',
+          tunnelIp: '100.64.0.10',
+          publicKeyFingerprint: 'wg-fp-node-1'
+        }
+      ],
+      relayAssignment: {
+        relayType: 'wstunnel',
+        relayEndpoint: 'wss://relay.cn.example/mnet',
+        nodeIds: ['node-1']
+      },
+      aclRules: [
+        {
+          ruleId: 'acl-1',
+          action: 'allow',
+          sourceNodeId: 'node-1',
+          targetNodeId: 'node-2',
+          protocol: 'any'
+        }
+      ],
+      expiresAt: '2026-06-04T10:05:00.000Z',
+      signedBy: 'm-net-cn-control'
+    })
+    assertRoundTrip(NodeKeyRegistrationResponseSchema, {
+      nodeId: 'node-1',
+      keyFingerprint: 'wg-fp-node-1',
+      keyMetadata: {
+        algorithm: 'wireguard-x25519',
+        issuedAt: '2026-06-04T10:00:00.000Z',
+        rotationCounter: 1,
+        publicKeyFingerprint: 'wg-fp-node-1'
+      },
+      expiresAt: '2026-06-05T10:00:00.000Z'
+    })
+    assertRoundTrip(DataPlaneStatusResponseSchema, {
+      networkId: 'network-1',
+      nodeId: 'node-1',
+      tunnelStatus: 'up',
+      relayAssignment: {
+        nodeId: 'node-1',
+        relayEndpoint: 'wss://relay.cn.example/mnet',
+        relayType: 'wstunnel'
+      },
+      lastMapVersion: 'map-1',
+      lastMapAt: '2026-06-04T10:00:00.000Z',
+      partitionState: 'connected'
     })
   })
 

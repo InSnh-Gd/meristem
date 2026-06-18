@@ -67,11 +67,15 @@ async function statusMock() {
 
 /** Create a mock CliClient with identity methods nested under `identity` key. */
 function identityClient(methods: IdentityCliMethods): CliClient {
+  const listActors = methods.listActors
+  const getActor = methods.getActor
+  const inspectIdentityToken = methods.inspectIdentityToken
+  const revokeIdentityToken = methods.revokeIdentityToken
   const identity = {
-    ...(methods.listActors
+    ...(listActors
       ? {
           listActors: async () => {
-            const { actors } = await methods.listActors!()
+            const { actors } = await listActors()
             return actors.map(actor => ({
               id: actor.id,
               displayName: actor.displayName,
@@ -80,10 +84,10 @@ function identityClient(methods: IdentityCliMethods): CliClient {
           }
         }
       : {}),
-    ...(methods.getActor
+    ...(getActor
       ? {
           getActor: async (actorId: string) => {
-            const { actor } = await methods.getActor!(actorId)
+            const { actor } = await getActor(actorId)
             return {
               id: actor.id,
               displayName: actor.displayName,
@@ -97,18 +101,18 @@ function identityClient(methods: IdentityCliMethods): CliClient {
           issueToken: methods.issueIdentityToken
         }
       : {}),
-    ...(methods.inspectIdentityToken
+    ...(inspectIdentityToken
       ? {
           inspectToken: async (jti: string) => {
-            const { token } = await methods.inspectIdentityToken!(jti)
+            const { token } = await inspectIdentityToken(jti)
             return { ...token }
           }
         }
       : {}),
-    ...(methods.revokeIdentityToken
+    ...(revokeIdentityToken
       ? {
           revokeToken: async (jti: string, input: { reason: string }) => {
-            const { token } = await methods.revokeIdentityToken!(jti, input)
+            const { token } = await revokeIdentityToken(jti, input)
             return {
               jti: token.jti,
               status: token.status,

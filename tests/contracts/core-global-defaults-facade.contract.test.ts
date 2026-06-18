@@ -75,8 +75,23 @@ function createPorts(calls: Calls): {
   const planResponse: PlanSwitchResponse = {
     operationId: 'switch-op-1',
     candidateCount: 2,
+    candidates: ['net-1', 'net-2'],
     batches: [{ batchId: 1, networkIds: ['net-1', 'net-2'] }],
     globalSwitchState: 'planned'
+  }
+  const switchStatusResponse = {
+    operationId: 'switch-op-1',
+    targetProfileVersion: 'm-net-cn@0.2.0',
+    reason: 'auto migration',
+    batchSize: 10,
+    candidateCount: 2,
+    batches: [{ batchId: 1, networkIds: ['net-1', 'net-2'] }],
+    completedBatchIds: [],
+    currentBatchId: null,
+    results: [],
+    globalSwitchState: 'planned' as const,
+    createdAt: '2026-06-18T00:00:00.000Z',
+    updatedAt: '2026-06-18T00:00:00.000Z'
   }
   const applyResponse: ApplySwitchResponse = {
     operationId: 'switch-op-1',
@@ -129,10 +144,15 @@ function createPorts(calls: Calls): {
       }
     },
     switchWriter: {
+      readPermission: 'network:profile-read',
       planPermission: 'network:profile-enable',
       applyPermission: 'network:profile-enable',
       resumePermission: 'network:profile-enable',
       rollbackPermission: 'network:profile-enable',
+      async get(_operationId, context) {
+        calls.push({ op: 'get', context })
+        return ok(switchStatusResponse)
+      },
       async plan(_body, context) {
         calls.push({ op: 'plan', context })
         return ok(planResponse)
@@ -181,6 +201,11 @@ describe('Core global defaults facade contract', () => {
           idempotencyKey: 'idem-1'
         })
       ),
+      503,
+      'feature.unavailable'
+    )
+    await expectError(
+      await app.handle(get('/api/v0/networks/profile-switches/op-1', 'admin-token')),
       503,
       'feature.unavailable'
     )
@@ -248,6 +273,11 @@ describe('Core global defaults facade contract', () => {
     )
     expect(planRes.status).toBe(200)
 
+    const getSwitchRes = await app.handle(
+      get('/api/v0/networks/profile-switches/switch-op-1', 'admin-token', correlationId)
+    )
+    expect(getSwitchRes.status).toBe(200)
+
     const applyRes = await app.handle(
       post('/api/v0/networks/profile-switches/switch-op-1/apply', 'admin-token', {}, correlationId)
     )
@@ -272,6 +302,7 @@ describe('Core global defaults facade contract', () => {
       'getDefaults',
       'setDefaults',
       'plan',
+      'get',
       'apply',
       'resume',
       'rollback'
@@ -305,10 +336,14 @@ describe('Core global defaults facade contract', () => {
       }
     }
     deps.profileSwitchWriter = {
+      readPermission: 'network:profile-read',
       planPermission: 'network:profile-enable',
       applyPermission: 'network:profile-enable',
       resumePermission: 'network:profile-enable',
       rollbackPermission: 'network:profile-enable',
+      async get() {
+        return err({ code: 'network.not_found', message: 'missing' })
+      },
       async plan() {
         return err({ code: 'network.not_found', message: 'missing' })
       },

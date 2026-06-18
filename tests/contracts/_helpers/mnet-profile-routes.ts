@@ -3,6 +3,7 @@ import { mintLocalToken } from '../../../packages/auth/src/index.ts'
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import { internalTokenHeaderName } from '../../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../../services/m-net/src/app.ts'
+import { createInMemoryDataPlaneStores } from '../../../services/m-net/src/data-plane-store-memory.ts'
 import { createInMemoryGlobalDefaultsStore } from '../../../services/m-net/src/global-defaults-store.ts'
 import { createMigrationEngine } from '../../../services/m-net/src/migration-engine.ts'
 import type { ProfileStore } from '../../../services/m-net/src/profile-store.ts'
@@ -98,10 +99,25 @@ export function createTestApp(
       id: string
       reasons: string[]
     }>
-  }
+  },
+  listMembersOverride?: (input: { networkId: string }) => Promise<
+    | {
+        ok: true
+        value: Array<{
+          networkId: string
+          nodeId: string
+          nodeKind: 'stem' | 'leaf'
+          membershipMode: 'full'
+          status: 'joined'
+          joinedAt: string
+        }>
+      }
+    | { ok: false; error: { code: string; message: string } }
+  >
 ): MNetApp {
   const globalDefaultsStore = createInMemoryGlobalDefaultsStore(profileStore)
   const { log } = createInMemoryTestLog()
+  const dataPlane = createInMemoryDataPlaneStores()
 
   const defaultPolicy = policyAuthorizeOverrides ?? {
     async authorize(_actor, action, _resource) {
@@ -123,6 +139,8 @@ export function createTestApp(
   const migrationEngine = createMigrationEngine({
     globalDefaultsStore,
     profileStore,
+    dataPlane,
+    ...(listMembersOverride ? { listMembers: listMembersOverride } : {}),
     async writeAudit(input) {
       await log.writeAudit(
         input.actor,
@@ -136,6 +154,9 @@ export function createTestApp(
     },
     async writeFull(input) {
       await log.writeFull(input.level, input.message, input.correlationId, input.metadata)
+    },
+    async writeTimeline(input) {
+      await log.writeTimeline(input.summary, input.subject, input.correlationId)
     }
   })
 
@@ -152,7 +173,8 @@ export function createTestApp(
     async joinNetwork() {
       return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
     },
-    async listMembers() {
+    async listMembers(input) {
+      if (listMembersOverride) return listMembersOverride(input)
       return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
     },
     async executeNoop() {

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import type { Result } from '../../../packages/common/src/result.ts'
-import type { CoreDependencies, ServiceSummary } from '../../../packages/contracts/src/index.ts'
-import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import {
   createServiceLifecyclePort,
   dependencyStateFromReady
 } from '../../../apps/core/src/adapters/service-lifecycle.ts'
 import type { CoreStorage } from '../../../apps/core/src/types.ts'
+import type { Result } from '../../../packages/common/src/result.ts'
+import type { CoreDependencies, ServiceSummary } from '../../../packages/contracts/src/index.ts'
+import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]

@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { Elysia } from 'elysia'
 import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
+import { Elysia } from 'elysia'
 import {
   CommandWellEligibilitySchema,
   OperationalCommandPreviewSchema
 } from '../../packages/contracts/src/index.ts'
+import { createOverlayApp } from './_helpers/http-overlay.ts'
 import {
-  captureOriginalFetch,
   CORE_BASE,
+  captureOriginalFetch,
   createBffWithCore,
+  createBffWithServices,
   createCoreApp,
   createInMemoryCoreDeps,
   createInMemoryMTaskDeps,
@@ -786,7 +788,7 @@ describe('M-UI BFF contract tests', () => {
 
   // =============================================================================
   // Task 3: Execute command contract tests — body validation, auth, Core-only dispatch
-  // TDD RED phase — MUST fail before Task 6 BFF implementation
+  // TDD RED 步骤 — MUST fail before Task 6 BFF implementation
   // =============================================================================
 
   describe('Execute command body schemas', () => {
@@ -957,7 +959,8 @@ describe('M-UI BFF contract tests', () => {
      * what Task 5 will implement on the real Core.
      */
     function addMockCoreWriteFacades(coreApp: ReturnType<typeof createCoreApp>) {
-      coreApp.use(
+      return createOverlayApp(
+        coreApp,
         new Elysia()
           .post('/api/v0/policy/approvals/:id/approve', ({ params, body }) => {
             const typedBody = body as { reason?: string }
@@ -988,14 +991,13 @@ describe('M-UI BFF contract tests', () => {
             }
           })
       )
-      return coreApp
     }
 
     it('execute commands call only Core public facades, no /internal/v0/', async () => {
       const coreApp = addMockCoreWriteFacades(
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       const delegatedFetch = globalThis.fetch
       const requests: Array<{ method: string; url: string }> = []
@@ -1061,7 +1063,7 @@ describe('M-UI BFF contract tests', () => {
       const coreApp = addMockCoreWriteFacades(
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -1087,9 +1089,8 @@ describe('M-UI BFF contract tests', () => {
     })
 
     it('execute commands propagate unmodified Core error envelope on failure', async () => {
-      const coreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
-      // Add mock Core route that returns a controlled error
-      coreApp.use(
+      const coreApp = createOverlayApp(
+        createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
         new Elysia().post('/api/v0/policy/approvals/:id/approve', () => {
           return new Response(
             JSON.stringify({ error: { code: 'policy.denied', message: 'Permission denied' } }),
@@ -1097,7 +1098,7 @@ describe('M-UI BFF contract tests', () => {
           )
         })
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown; contract expects 403 passthrough
       const res = await makeRequest(
@@ -1119,7 +1120,8 @@ describe('M-UI BFF contract tests', () => {
     type CapturedRequest = { method: string; url: string; body: string }
 
     function addAdditionalExecuteMockFacades(coreApp: ReturnType<typeof createCoreApp>) {
-      coreApp.use(
+      return createOverlayApp(
+        coreApp,
         new Elysia()
           .put('/api/v0/networks/profile-defaults', ({ body }) => {
             const typedBody = body as {
@@ -1192,7 +1194,6 @@ describe('M-UI BFF contract tests', () => {
             }
           })
       )
-      return coreApp
     }
 
     function captureOutboundRequests() {
@@ -1323,7 +1324,7 @@ describe('M-UI BFF contract tests', () => {
         const coreApp = addAdditionalExecuteMockFacades(
           createCoreApp(createInMemoryCoreDeps({ actor }))
         )
-        const app = createBffWithCore(coreApp)
+        const app = createBffWithServices({ coreApp })
         const capture = captureOutboundRequests()
 
         try {

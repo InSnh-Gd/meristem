@@ -1,23 +1,23 @@
-import type { InMemoryOptions } from '../../../apps/core/src/testing/shared.ts'
-import { createInMemoryCoreDeps } from '../../../apps/core/src/testing.ts'
-import type { CoreDeps } from '../../../apps/core/src/types.ts'
-import type {
-  ApprovalWriterPort,
-  NetworkProfileWriterPort
-} from '../../../apps/core/src/types/approval-profile-writers.ts'
 import {
   createApprovalWriterPort,
   createNetworkProfileWriterPort,
   type WriterMockOptions
 } from '../../../apps/core/src/testing/approval-profile-writers.ts'
+import type { InMemoryOptions } from '../../../apps/core/src/testing/shared.ts'
+import { createInMemoryCoreDeps } from '../../../apps/core/src/testing.ts'
+import type {
+  ApprovalWriterPort,
+  NetworkProfileWriterPort
+} from '../../../apps/core/src/types/approval-profile-writers.ts'
+import type { CoreDeps } from '../../../apps/core/src/types.ts'
 
 // 从 Core types 重新导出，避免测试辅助文件重复定义
 export type {
-  WriterContext,
+  ApprovalWriterPort,
+  NetworkProfileWriterPort,
   ProfileWriteRequest,
   ProfileWriteResponse,
-  ApprovalWriterPort,
-  NetworkProfileWriterPort
+  WriterContext
 } from '../../../apps/core/src/types/approval-profile-writers.ts'
 
 /**

@@ -18,12 +18,12 @@ export type ManagedProcess = {
 function collectText(
   stream: ReadableStream<Uint8Array> | null | undefined,
   append: (chunk: string) => void
-): void {
-  if (!stream) return
+): Promise<void> {
+  if (!stream) return Promise.resolve()
 
   const decoder = new TextDecoder()
 
-  void (async () => {
+  return (async () => {
     const reader = stream.getReader()
     try {
       while (true) {
@@ -68,8 +68,9 @@ export function startProcess(
     stderr: 'pipe'
   })
 
-  collectText(subprocess.stdout, chunk => stdoutChunks.push(chunk))
-  collectText(subprocess.stderr, chunk => stderrChunks.push(chunk))
+  const stdoutDone = collectText(subprocess.stdout, chunk => stdoutChunks.push(chunk))
+  const stderrDone = collectText(subprocess.stderr, chunk => stderrChunks.push(chunk))
+  const exited = Promise.all([subprocess.exited, stdoutDone, stderrDone]).then(([code]) => code)
 
   let stopRequested = false
 
@@ -83,7 +84,7 @@ export function startProcess(
     get stderr() {
       return stderrChunks.join('')
     },
-    exited: subprocess.exited,
+    exited,
     async stop(stopOptions: StopOptions = {}): Promise<number> {
       if (!stopRequested) {
         stopRequested = true
@@ -109,7 +110,7 @@ export function startProcess(
           }
         }
       }
-      return await subprocess.exited
+      return await exited
     }
   }
 }

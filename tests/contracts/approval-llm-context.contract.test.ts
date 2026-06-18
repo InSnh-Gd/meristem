@@ -17,16 +17,16 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
-  ApprovalContextSchema,
   ApprovalContextApprovalEntrySchema,
-  ApprovalContextVoteEntrySchema,
-  ApprovalContextDecisionRefSchema,
-  ApprovalContextOperationRefSchema,
-  ApprovalContextLogRefSchema,
-  ApprovalContextSourceSchema,
   ApprovalContextBuildMetaSchema,
+  ApprovalContextDecisionRefSchema,
+  ApprovalContextErrorCodeSchema,
   ApprovalContextErrorSchema,
-  ApprovalContextErrorCodeSchema
+  ApprovalContextLogRefSchema,
+  ApprovalContextOperationRefSchema,
+  ApprovalContextSchema,
+  ApprovalContextSourceSchema,
+  ApprovalContextVoteEntrySchema
 } from '../../packages/contracts/src/index.ts'
 
 // ── Valid bounded context fixture ────────────────────────────────────────

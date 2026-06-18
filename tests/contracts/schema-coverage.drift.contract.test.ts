@@ -10,7 +10,9 @@ import {
   extractCatalogSubjects,
   extractCoverageMapActiveSubjects,
   extractCoverageMapDeferredSubjects,
+  getActiveCoverageSubjects,
   getActivePublisherSubjects,
+  getDocumentedEventBusSubjects,
   schemaCoverageMapUrl,
   sorted
 } from './_helpers/schema-coverage.ts'
@@ -33,13 +35,13 @@ const activeEventContractMap = new Map(
 )
 
 describe('active event payload schemas', () => {
-  it('maps every active publisher subject to a contract schema', async () => {
-    const activePublisherSubjects = await getActivePublisherSubjects()
-    const activeCatalogPublisherSubjects = sorted(
-      Array.from(activePublisherSubjects).filter(isCatalogTrackedSubject)
+  it('maps every active coverage subject to a contract schema', async () => {
+    const activeCoverageSubjects = await getActiveCoverageSubjects()
+    const activeCatalogCoverageSubjects = sorted(
+      Array.from(activeCoverageSubjects).filter(isCatalogTrackedSubject)
     )
 
-    expect(activeCatalogPublisherSubjects).toEqual(sorted(activeEventContractMap.keys()))
+    expect(activeCatalogCoverageSubjects).toEqual(sorted(activeEventContractMap.keys()))
   })
 
   it('detects publish.post object-form subjects from real policy publishers', async () => {
@@ -48,33 +50,41 @@ describe('active event payload schemas', () => {
     expect(activePublisherSubjects.has('policy.decision.created.v0')).toBe(true)
     expect(activePublisherSubjects.has('audit.entry.created.v0')).toBe(true)
   })
+
+  it('keeps the runtime EventBus allowlist aligned with the documented active subjects', async () => {
+    const eventCatalog = await Bun.file(eventCatalogUrl).text()
+    const documentedSubjects = extractCatalogSubjects(eventCatalog)
+    const runtimeSubjects = sorted(getDocumentedEventBusSubjects())
+
+    expect(runtimeSubjects).toEqual(sorted(documentedSubjects))
+  })
 })
 
 describe('schema coverage map drift guards', () => {
-  it('keeps the documented active-event table aligned with real publishers', async () => {
-    const [coverageMap, activePublisherSubjects] = await Promise.all([
+  it('keeps the documented active-event table aligned with active coverage subjects', async () => {
+    const [coverageMap, activeCoverageSubjects] = await Promise.all([
       Bun.file(schemaCoverageMapUrl).text(),
-      getActivePublisherSubjects()
+      getActiveCoverageSubjects()
     ])
 
-    const activeCatalogPublisherSubjects = sorted(
-      Array.from(activePublisherSubjects).filter(isCatalogTrackedSubject)
+    const activeCatalogCoverageSubjects = sorted(
+      Array.from(activeCoverageSubjects).filter(isCatalogTrackedSubject)
     )
 
     expect(sorted(extractCoverageMapActiveSubjects(coverageMap))).toEqual(
-      activeCatalogPublisherSubjects
+      activeCatalogCoverageSubjects
     )
   })
 
   it('marks every non-active catalog event as a post-v0.1 deferred contract', async () => {
-    const [coverageMap, eventCatalog, activePublisherSubjects] = await Promise.all([
+    const [coverageMap, eventCatalog, activeCoverageSubjects] = await Promise.all([
       Bun.file(schemaCoverageMapUrl).text(),
       Bun.file(eventCatalogUrl).text(),
-      getActivePublisherSubjects()
+      getActiveCoverageSubjects()
     ])
 
     const deferredSubjects = extractCatalogSubjects(eventCatalog).filter(
-      subject => !activePublisherSubjects.has(subject)
+      subject => !activeCoverageSubjects.has(subject)
     )
 
     expect(coverageMap).toContain('## Non-active / deferred to post-v0.1 coverage')

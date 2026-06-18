@@ -95,6 +95,28 @@ describe('Eden clients', () => {
           reasons: ['role match'],
           createdAt: new Date().toISOString()
         }
+      },
+      async getSummary() {
+        return {
+          generatedAt: new Date().toISOString(),
+          decisions: {
+            total: 1,
+            allow: 1,
+            deny: 0,
+            requireManualReview: 0,
+            requireMultiApproval: 0
+          },
+          recentDecisions: [],
+          approvals: {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            expired: 0,
+            canceled: 0
+          },
+          pendingApprovals: []
+        }
       }
     })
     const client = treaty<PolicyApp>('http://internal.test', { fetcher: localFetcher(app) })
@@ -294,9 +316,21 @@ describe('Eden clients', () => {
       async readiness() {
         return { ready: true, opensearch: 'unavailable' as const }
       },
+      publishMetricsSummary() {
+        return {
+          service: 'm-eventbus' as const,
+          generatedAt: '2026-06-18T00:00:00.000Z',
+          windowStartedAt: '2026-06-18T00:00:00.000Z',
+          totals: { success: 0, rejected: 0, failed: 0, retryAttempts: 0 },
+          subjects: []
+        }
+      },
       async publish(subject, event) {
         published.push(subject)
         return { eventId: event.id }
+      },
+      async reportRejected() {
+        return Promise.resolve()
       }
     })
     const client = treaty<EventBusApp>('http://internal.test', { fetcher: localFetcher(app) })
@@ -326,6 +360,28 @@ describe('Eden clients', () => {
       },
       async getDecision() {
         return null
+      },
+      async getSummary() {
+        return {
+          generatedAt: new Date().toISOString(),
+          decisions: {
+            total: 0,
+            allow: 0,
+            deny: 0,
+            requireManualReview: 0,
+            requireMultiApproval: 0
+          },
+          recentDecisions: [],
+          approvals: {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            expired: 0,
+            canceled: 0
+          },
+          pendingApprovals: []
+        }
       }
     })
     const client = treaty<PolicyApp>(app)

@@ -12,8 +12,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { globSync } from 'node:fs'
+import { globSync, readFileSync } from 'node:fs'
 
 const M_UI_SRC = 'apps/m-ui/src'
 const FORBIDDEN_PATTERNS = [

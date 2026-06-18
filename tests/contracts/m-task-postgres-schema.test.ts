@@ -3,7 +3,7 @@ import * as schema from '../../packages/db/src/schema.ts'
 
 describe('M-Task PostgreSQL schema contract', () => {
   it('defines M-Task-owned authoritative task tables', async () => {
-    const migration = await Bun.file('packages/db/src/migrate.ts').text()
+    const migration = await Bun.file('packages/db/src/migrate-foundation.ts').text()
     const serviceEntry = await Bun.file('services/m-task/src/index.ts').text()
     const adapter = await Bun.file('services/m-task/src/storage-adapter.ts').text()
     const seed = await Bun.file('packages/db/src/seed.ts').text()

@@ -36,7 +36,7 @@ describe('node-agent runtime pure functions', () => {
     const message: MNetSessionServerMessage = {
       type: 'task.execute',
       nodeId: 'node-1',
-      taskId: 'task-1',
+      taskId: 'demo-node-agent-task',
       taskType: 'noop',
       correlationId: 'correlation-1'
     }
