@@ -7,6 +7,7 @@ import {
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import {
+  createLogger,
   initTelemetry,
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
@@ -21,6 +22,8 @@ import { createLogWriteService } from './write-service.ts'
 
 initTelemetry('m-log')
 
+const logger = createLogger('m-log')
+
 const { db, client } = createDb()
 const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
 const publisher = createLogEventPublisher()
@@ -34,7 +37,7 @@ const opensearchAvailable: boolean = await opensearch.health().then(async ok => 
 })
 
 if (!opensearchAvailable) {
-  console.warn('m-log: OpenSearch unavailable, search endpoints will report degraded')
+  logger.warn('opensearch unavailable, search endpoints will report degraded')
 }
 
 // 投影引擎：依赖 db 和 opensearch 适配器。
@@ -45,7 +48,7 @@ const projectionEngine = createProjectionEngine(db, {
 })
 const projectionAvailable: boolean = opensearchAvailable
 if (!projectionAvailable) {
-  console.warn('m-log: projection engine unavailable (OpenSearch not ready)')
+  logger.warn('projection engine unavailable (OpenSearch not ready)')
 }
 
 const runtimeState = createLogRuntimeState()
@@ -54,8 +57,12 @@ const runtimeState = createLogRuntimeState()
  * readiness 探针把依赖故障收敛为 false，但仍然要输出诊断信息给运维面。
  */
 function warnReadinessFallback(dependency: string, error: unknown): false {
-  console.warn(
-    `m-log: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
+  logger.warn(
+    {
+      dependency,
+      error: error instanceof Error ? error.message : String(error)
+    },
+    'readiness probe degraded'
   )
   return false
 }
@@ -139,4 +146,4 @@ process.on('SIGINT', () => {
     .then(() => process.exit(0))
 })
 
-console.log(`m-log listening on http://127.0.0.1:${internalServicePorts['m-log']}`)
+logger.info({ url: `http://127.0.0.1:${internalServicePorts['m-log']}` }, 'm-log listening')

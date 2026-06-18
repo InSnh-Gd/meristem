@@ -1,5 +1,10 @@
 import { desc } from 'drizzle-orm'
-import type { ActorId, AuditLog, FullLog, TimelineLog } from '../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  AuditLog,
+  FullLog,
+  TimelineLog
+} from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
 

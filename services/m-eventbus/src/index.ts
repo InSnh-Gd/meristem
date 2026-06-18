@@ -1,11 +1,17 @@
 import { internalServicePorts, serveHttpApp } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
-import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
+import {
+  createLogger,
+  initTelemetry,
+  shutdownTelemetry
+} from '../../../packages/telemetry/src/index.ts'
 import { createEventBusApp } from './app.ts'
 import { readEventBusPublisherRuntimeConfig } from './config.ts'
 import { createEventBusPublisher } from './publisher.ts'
 
 initTelemetry('m-eventbus')
+
+const logger = createLogger('m-eventbus')
 
 // M-EventBus 进程自己持有 NATS 连接，对内暴露校验后的 HTTP 发布入口。
 const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
@@ -28,4 +34,7 @@ process.on('SIGINT', () => {
     .then(() => process.exit(0))
 })
 
-console.log(`m-eventbus listening on http://127.0.0.1:${internalServicePorts['m-eventbus']}`)
+logger.info(
+  { url: `http://127.0.0.1:${internalServicePorts['m-eventbus']}` },
+  'm-eventbus listening'
+)

@@ -11,6 +11,9 @@ import type {
   TimelineLog,
   TimelineSearchQuery
 } from '../../../packages/contracts/src/index.ts'
+import { createLogger } from '../../../packages/telemetry/src/index.ts'
+
+const logger = createLogger('m-log')
 
 // 当前活跃索引版本
 const SCHEMA_VERSION = 1
@@ -60,8 +63,12 @@ type SearchResponse<T> = {
  */
 export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
   const warnOpenSearchFallback = (operation: string, error: unknown) => {
-    console.warn(
-      `m-log: OpenSearch ${operation} degraded - ${error instanceof Error ? error.message : String(error)}`
+    logger.warn(
+      {
+        operation,
+        error: error instanceof Error ? error.message : String(error)
+      },
+      'opensearch_degraded'
     )
   }
 

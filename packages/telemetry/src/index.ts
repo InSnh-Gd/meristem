@@ -23,6 +23,8 @@ import {
 } from '@opentelemetry/sdk-trace-base'
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
 
+export { createLogger, type Logger } from './logger.ts'
+
 let initialized = false
 let provider: BasicTracerProvider | null = null
 let meter: Meter | null = null

@@ -1,5 +1,10 @@
 import type { NatsConnection } from '@nats-io/nats-core'
-import { type JetStreamClient, type JetStreamManager, jetstream, jetstreamManager } from '@nats-io/jetstream'
+import {
+  type JetStreamClient,
+  type JetStreamManager,
+  jetstream,
+  jetstreamManager
+} from '@nats-io/jetstream'
 import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   allowedEventBusSubjectSet,
@@ -14,7 +19,10 @@ import type {
   EventBusPublishOutcomeFromSchema,
   EventBusRejectedPayloadFromSchema
 } from '../../../packages/contracts/src/index.ts'
-import { recordCounter } from '../../../packages/telemetry/src/index.ts'
+import { createLogger, recordCounter } from '../../../packages/telemetry/src/index.ts'
+
+const logger = createLogger('m-eventbus')
+
 const DEFAULT_EVENTS_STREAM = 'MERISTEM_EVENTS'
 const DEFAULT_DLQ_STREAM = 'MERISTEM_EVENTBUS_DLQ'
 const DEFAULT_PUBLISH_RETRIES = 2
@@ -29,7 +37,10 @@ export type EventBusRejectReason = 'invalid_envelope' | 'subject_not_allowed' | 
 export class EventBusPublishError extends Error {
   readonly code: 'subject_not_allowed' | 'subject_mismatch' | 'publish_failed'
 
-  constructor(code: 'subject_not_allowed' | 'subject_mismatch' | 'publish_failed', message: string) {
+  constructor(
+    code: 'subject_not_allowed' | 'subject_mismatch' | 'publish_failed',
+    message: string
+  ) {
     super(message)
     this.code = code
   }
@@ -137,7 +148,12 @@ async function ensureStream(
   }
 }
 
-function createDlqEnvelope(kind: DlqEventKind, payload: unknown, correlationId?: string, traceId?: string) {
+function createDlqEnvelope(
+  kind: DlqEventKind,
+  payload: unknown,
+  correlationId?: string,
+  traceId?: string
+) {
   return createEventEnvelope({
     type: kind,
     source: 'm-eventbus',
@@ -196,7 +212,10 @@ function readEventIdentity(event: unknown): EventIdentity {
   const correlationId = readOptionalStringField(event, 'correlationId')
   const traceId = readOptionalStringField(event, 'traceId')
   const causationId = readOptionalStringField(event, 'causationId')
-  const payload = typeof event === 'object' && event !== null ? (event as { payload?: unknown }).payload : undefined
+  const payload =
+    typeof event === 'object' && event !== null
+      ? (event as { payload?: unknown }).payload
+      : undefined
   const actor = readOptionalStringField(payload, 'actor')
   return {
     ...(eventId ? { eventId } : {}),
@@ -294,7 +313,8 @@ export async function createEventBusPublisher(
   options: EventBusPublisherOptions
 ): Promise<EventBusPublisher> {
   const streamNames = {
-    events: options.eventsStreamName ?? process.env.MERISTEM_EVENTBUS_STREAM ?? DEFAULT_EVENTS_STREAM,
+    events:
+      options.eventsStreamName ?? process.env.MERISTEM_EVENTBUS_STREAM ?? DEFAULT_EVENTS_STREAM,
     dlq: options.dlqStreamName ?? process.env.MERISTEM_EVENTBUS_DLQ_STREAM ?? DEFAULT_DLQ_STREAM
   } satisfies StreamNames
   const retries = options.publishRetries ?? DEFAULT_PUBLISH_RETRIES
@@ -353,11 +373,14 @@ export async function createEventBusPublisher(
     try {
       await publishToJetStream(subject, event)
     } catch (error) {
-      console.error('[m-eventbus] dlq_publish_failed', {
-        subject,
-        eventId: event.id,
-        error: error instanceof Error ? error.message : String(error)
-      })
+      logger.error(
+        {
+          subject,
+          eventId: event.id,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        'dlq_publish_failed'
+      )
     }
   }
 
@@ -435,7 +458,10 @@ export async function createEventBusPublisher(
       }
 
       if (event.subject !== undefined && event.subject !== subject) {
-        throw new EventBusPublishError('subject_mismatch', `subject_mismatch:${subject}:${event.subject}`)
+        throw new EventBusPublishError(
+          'subject_mismatch',
+          `subject_mismatch:${subject}:${event.subject}`
+        )
       }
 
       try {

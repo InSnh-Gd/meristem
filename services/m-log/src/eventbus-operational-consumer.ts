@@ -10,13 +10,19 @@ import {
   type MEventEnvelope,
   validateEventEnvelope
 } from '../../../packages/events/src/index.ts'
+import { createLogger } from '../../../packages/telemetry/src/index.ts'
+
+const logger = createLogger('m-log')
 
 type WriteFullPort = (input: Omit<FullLog, 'id' | 'timestamp'>) => Promise<FullLog>
 
 const decodeRejectedPayload = Schema.decodeUnknownSync(EventBusRejectedPayloadSchema)
 const decodeFailedPayload = Schema.decodeUnknownSync(EventBusPublishFailedPayloadSchema)
 
-function describeCaller(input: { callerService?: string | undefined; actor?: string | undefined }): string {
+function describeCaller(input: {
+  callerService?: string | undefined
+  actor?: string | undefined
+}): string {
   if (input.callerService && input.actor) return ` from ${input.callerService} by ${input.actor}`
   if (input.callerService) return ` from ${input.callerService}`
   if (input.actor) return ` by ${input.actor}`
@@ -83,10 +89,13 @@ async function consumeEventBusOperationalSubject(
     try {
       await handleEventBusOperationalEnvelope(subject, message.json<MEventEnvelope>(), writeFull)
     } catch (error) {
-      console.warn('[m-log] eventbus_operational_consume_failed', {
-        subject,
-        error: error instanceof Error ? error.message : String(error)
-      })
+      logger.warn(
+        {
+          subject,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        'eventbus_operational_consume_failed'
+      )
     }
   }
 }

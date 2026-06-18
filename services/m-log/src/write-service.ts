@@ -1,8 +1,11 @@
 import type { AuditLog, FullLog, TimelineLog } from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
+import { createLogger } from '../../../packages/telemetry/src/index.ts'
 import type { createLogEventPublisher } from './event-publisher.ts'
 import type { createOpenSearchAdapter } from './opensearch.ts'
+
+const logger = createLogger('m-log')
 
 type TimelineWriteRequest = Omit<TimelineLog, 'id' | 'timestamp'>
 type FullWriteRequest = Omit<FullLog, 'id' | 'timestamp'>
@@ -13,8 +16,9 @@ export function warnProjectionFallback(
   entryId: string,
   error: unknown
 ): void {
-  console.warn(
-    `m-log: failed to index ${kind} log ${entryId} into OpenSearch - ${error instanceof Error ? error.message : String(error)}`
+  logger.warn(
+    { kind, entryId, error: error instanceof Error ? error.message : String(error) },
+    'opensearch_index_failed'
   )
 }
 
