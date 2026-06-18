@@ -33,8 +33,8 @@ export type SecretRefFieldFromSchema = typeof SecretRefFieldSchema.Type
  * Headscale preauth key, or opaque routing credential.
  */
 export const MNetRuntimeConfigSchema = Schema.Struct({
-  /** DERP relay endpoint credentials (secretRef only) */
-  derpRelay: Schema.optional(SecretRefFieldSchema),
+  /** wstunnel relay endpoint credentials (secretRef only) */
+  wstunnelRelay: Schema.optional(SecretRefFieldSchema),
 
   /** TCP interconnect credentials (secretRef only) */
   tcpInterconnect: Schema.optional(SecretRefFieldSchema),

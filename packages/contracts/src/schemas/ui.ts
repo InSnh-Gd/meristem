@@ -1,4 +1,6 @@
 import * as Schema from 'effect/Schema'
+import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
+import { ServiceSummarySchema } from './core.ts'
 import { ActorIdSchema } from './identity.ts'
 import {
   MNetProfileRegionSchema,
@@ -8,10 +10,12 @@ import {
 import {
   ApprovalOriginServiceSchema,
   ApprovalStatusSchema,
+  PolicyInternalSummarySchema,
   ApprovalVoteTypeSchema,
   PermissionSchema,
   RequiredActionSchema
 } from './policy.ts'
+import { ProjectionHealthResponseSchema } from './projection.ts'
 
 export const DisabledCommandExplanationSchema = Schema.Struct({
   code: Schema.Literal(
@@ -22,15 +26,6 @@ export const DisabledCommandExplanationSchema = Schema.Struct({
   ),
   message: Schema.String,
   missingPermission: Schema.optional(PermissionSchema)
-})
-
-export const MinimalPolicyDecisionSummarySchema = Schema.Struct({
-  id: Schema.NonEmptyString,
-  actor: ActorIdSchema,
-  action: PermissionSchema,
-  resource: Schema.NonEmptyString,
-  result: Schema.Literal('allow', 'deny', 'require_manual_review', 'require_multi_approval'),
-  createdAt: Schema.NonEmptyString
 })
 
 export const CommandWellCommandSchema = Schema.Struct({
@@ -66,6 +61,31 @@ export const SduiV02StateSourceSchema = Schema.Literal(
   'audit',
   'policy'
 )
+
+export const StateSourceMetadataSchema = Schema.Struct({
+  sourceType: SduiV02StateSourceSchema,
+  sourceId: Schema.String,
+  correlationId: Schema.optional(Schema.String),
+  traceId: Schema.optional(Schema.String)
+})
+
+export const ServiceInspectorResponseSchema = Schema.Struct({
+  service: Schema.Struct({
+    id: ServiceSummarySchema.fields.id,
+    version: ServiceSummarySchema.fields.version,
+    domain: ServiceSummarySchema.fields.domain,
+    kind: ServiceSummarySchema.fields.kind,
+    lifecycle: ServiceSummarySchema.fields.lifecycle,
+    runtime: ServiceSummarySchema.fields.runtime,
+    stateSource: StateSourceMetadataSchema
+  }),
+  eventBusMetrics: Schema.NullOr(EventBusPublishMetricsSummarySchema),
+  eventBusMetricsStateSource: Schema.NullOr(StateSourceMetadataSchema),
+  logProjectionHealth: Schema.NullOr(ProjectionHealthResponseSchema),
+  logProjectionHealthStateSource: Schema.NullOr(StateSourceMetadataSchema),
+  policySummary: Schema.NullOr(PolicyInternalSummarySchema),
+  policySummaryStateSource: Schema.NullOr(StateSourceMetadataSchema)
+})
 
 export const ApprovalQueueItemSchema = Schema.Struct({
   approvalId: Schema.String,
@@ -154,7 +174,11 @@ export const SduiV02ComponentKindSchema = Schema.Literal(
   'ApprovalDetailPanel',
   'NetworkProfileListPanel',
   'NetworkProfileDetailPanel',
-  'OperationalCommandPreview'
+  'OperationalCommandPreview',
+  'NetworkListPanel',
+  'NetworkDetailPanel',
+  'NodeCredentialPanel',
+  'DataplaneStatusPanel'
 )
 
 /** 路由内单个组件引用，必须包含 kind 与 id */
@@ -191,9 +215,10 @@ export type OperationalCommandPreviewAction = typeof OperationalCommandPreviewAc
 export type OperationalCommandPreviewState = typeof OperationalCommandPreviewStateSchema.Type
 export type OperationalCommandPreview = typeof OperationalCommandPreviewSchema.Type
 export type DisabledCommandExplanation = typeof DisabledCommandExplanationSchema.Type
-export type MinimalPolicyDecisionSummary = typeof MinimalPolicyDecisionSummarySchema.Type
 export type CommandWellEligibility = typeof CommandWellEligibilitySchema.Type
 export type SduiV02ComponentKind = typeof SduiV02ComponentKindSchema.Type
 export type SduiV02StateSource = typeof SduiV02StateSourceSchema.Type
+export type StateSourceMetadata = typeof StateSourceMetadataSchema.Type
 export type SduiV02Route = typeof SduiV02RouteSchema.Type
 export type SduiV02RouteRegistry = typeof SduiV02RouteRegistrySchema.Type
+export type ServiceInspectorResponse = typeof ServiceInspectorResponseSchema.Type

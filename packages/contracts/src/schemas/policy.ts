@@ -165,3 +165,57 @@ export const PolicyDecisionCreatedPayloadSchema = Schema.Struct({
   reasons: Schema.Array(Schema.String)
 })
 export type PolicyDecisionCreatedPayloadFromSchema = typeof PolicyDecisionCreatedPayloadSchema.Type
+
+export const PolicyDecisionSummarySchema = Schema.Struct({
+  total: Schema.Number,
+  allow: Schema.Number,
+  deny: Schema.Number,
+  requireManualReview: Schema.Number,
+  requireMultiApproval: Schema.Number,
+  latestCreatedAt: Schema.optional(Schema.String)
+})
+export type PolicyDecisionSummaryFromSchema = typeof PolicyDecisionSummarySchema.Type
+
+export const MinimalPolicyDecisionSummarySchema = Schema.Struct({
+  id: Schema.String,
+  actor: Schema.Literal(...actorIds),
+  action: PermissionSchema,
+  resource: Schema.String,
+  result: PolicyDecisionResultSchema,
+  createdAt: Schema.String
+})
+export type MinimalPolicyDecisionSummary = typeof MinimalPolicyDecisionSummarySchema.Type
+export type MinimalPolicyDecisionSummaryFromSchema = typeof MinimalPolicyDecisionSummarySchema.Type
+
+export const PolicyApprovalSummarySchema = Schema.Struct({
+  total: Schema.Number,
+  pending: Schema.Number,
+  approved: Schema.Number,
+  rejected: Schema.Number,
+  expired: Schema.Number,
+  canceled: Schema.Number,
+  latestCreatedAt: Schema.optional(Schema.String),
+  nextExpiryAt: Schema.optional(Schema.String)
+})
+export type PolicyApprovalSummaryFromSchema = typeof PolicyApprovalSummarySchema.Type
+
+export const PolicyPendingApprovalSummarySchema = Schema.Struct({
+  approvalId: Schema.String,
+  policyDecisionId: Schema.String,
+  requestedBy: Schema.Literal(...actorIds),
+  requiredAction: RequiredActionSchema,
+  status: ApprovalStatusSchema,
+  createdAt: Schema.String,
+  expiresAt: Schema.String
+})
+export type PolicyPendingApprovalSummaryFromSchema = typeof PolicyPendingApprovalSummarySchema.Type
+
+export const PolicyInternalSummarySchema = Schema.Struct({
+  generatedAt: Schema.String,
+  decisions: PolicyDecisionSummarySchema,
+  recentDecisions: Schema.Array(MinimalPolicyDecisionSummarySchema),
+  approvals: PolicyApprovalSummarySchema,
+  pendingApprovals: Schema.Array(PolicyPendingApprovalSummarySchema)
+})
+export type PolicyInternalSummary = typeof PolicyInternalSummarySchema.Type
+export type PolicyInternalSummaryFromSchema = typeof PolicyInternalSummarySchema.Type

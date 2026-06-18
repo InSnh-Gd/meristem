@@ -1,89 +1,66 @@
-import type { ActorId } from '../literals.ts'
+import type {
+  DataPlaneStatusResponseSchema,
+  InternalNetworkProfileRejectResponseSchema,
+  InternalNetworkProfileResumeResponseSchema,
+  MNetAclRuleSchema,
+  MNetDataPlaneActivationStatusSchema,
+  MNetDataplaneTunnelChangedEventPayloadSchema,
+  MNetNetworkMapMemberSchema,
+  MNetNetworkMapPublishedEventPayloadSchema,
+  MNetNetworkMapReferenceSchema,
+  MNetNetworkMapRelayAssignmentSchema,
+  MNetNodeKeyRotatedEventPayloadSchema,
+  MNetPartitionStateSchema,
+  MNetPathChangedEventPayloadSchema,
+  MNetPathTypeSchema,
+  MNetProfileDefaultsUpdatedEventPayloadSchema,
+  MNetProfileEventPayloadSchema,
+  MNetProfileEventSubjectSchema,
+  MNetProfileListResponseSchema,
+  MNetProfileRegionSchema,
+  MNetProfileSchemaVersionSchema,
+  MNetProfileVersionSchema,
+  MNetReachabilityChangedEventPayloadSchema,
+  MNetRegionalProfileCapabilitiesSchema,
+  MNetRegionalProfileSchema,
+  MNetRelayAssignedEventPayloadSchema,
+  MNetRelayAssignmentSchema,
+  MNetRelayTypeSchema,
+  MNetTunnelStatusSchema,
+  MNetWstunnelFallbackChangedEventPayloadSchema,
+  NetworkMapResponseSchema,
+  NetworkProfileStateSchema,
+  NetworkProfileSummarySchema,
+  NetworkSuspendedOperationSchema,
+  NetworkSuspendedOperationStatusSchema,
+  NodeKeyMetadataSchema,
+  NodeKeyRegistrationResponseSchema,
+  SetNetworkProfileDataPlaneActivatedResponseSchema,
+  SetNetworkProfileDisabledResponseSchema,
+  SetNetworkProfilePendingApprovalResponseSchema,
+  SetNetworkProfileRequestSchema,
+  SetNetworkProfileResponseSchema
+} from '../schemas/mnet-profile.ts'
 
-export type MNetProfileVersion = 'm-net-cn@0.1.0' | 'm-net-default@0.1.0'
+export type MNetProfileVersion = typeof MNetProfileVersionSchema.Type
+export type MNetProfileRegion = typeof MNetProfileRegionSchema.Type
+export type MNetProfileSchemaVersion = typeof MNetProfileSchemaVersionSchema.Type
+export type MNetRegionalProfileCapabilities = typeof MNetRegionalProfileCapabilitiesSchema.Type
+export type MNetRegionalProfile = typeof MNetRegionalProfileSchema.Type
 
-export type MNetProfileRegion = 'cn' | 'default'
+export type SetNetworkProfileRequest = typeof SetNetworkProfileRequestSchema.Type
 
-export type MNetRegionalProfile = {
-  profileVersion: MNetProfileVersion
-  region: MNetProfileRegion
-  displayName: string
-  schemaVersion: 'mnet-profile@0.1.0'
-  status: 'available' | 'deprecated'
-  rules: Record<string, unknown>
-  capabilities: {
-    realDerpRelay: false
-    realTcpInterconnect: false
-    realUdpPathSwitching: false
-    controlPlaneOnly: boolean
-  }
-}
+export type NetworkProfileState = typeof NetworkProfileStateSchema.Type
+export type NetworkProfileSummary = typeof NetworkProfileSummarySchema.Type
 
-export type SetNetworkProfileRequest = {
-  profileVersion: MNetProfileVersion
-  reason: string
-}
+export type NetworkSuspendedOperationStatus = typeof NetworkSuspendedOperationStatusSchema.Type
+type MutableSchemaType<T> = { -readonly [K in keyof T]: T[K] }
+export type NetworkSuspendedOperation = MutableSchemaType<
+  typeof NetworkSuspendedOperationSchema.Type
+>
 
-export type NetworkProfileState = 'disabled' | 'enabling' | 'enabled' | 'disabling' | 'failed'
-
-export type NetworkProfileSummary = {
-  networkId: string
-  profileVersion: MNetProfileVersion
-  status: NetworkProfileState
-  enabledBy?: ActorId
-  policyDecisionId?: string
-  correlationId?: string
-  appliedAt?: string
-  disabledAt?: string
-  lastError?: string
-  updatedAt: string
-}
-
-export type NetworkSuspendedOperationStatus =
-  | 'suspended'
-  | 'resumed'
-  | 'rejected'
-  | 'expired'
-  | 'resume_failed'
-
-export type NetworkSuspendedOperation = {
-  id: string
-  policyDecisionId: string
-  action: 'mnet.profile.enable'
-  networkId: string
-  fromProfileVersion: MNetProfileVersion
-  toProfileVersion: MNetProfileVersion
-  requestedBy: ActorId
-  reason: string
-  correlationId: string
-  idempotencyKey: string
-  status: NetworkSuspendedOperationStatus
-  expiresAt: string
-  createdAt: string
-  resumedAt?: string
-  terminalReason?: string
-}
-
-export type MNetProfileEventSubject =
-  | 'mnet.profile.enable.requested.v0'
-  | 'mnet.profile.enabled.v0'
-  | 'mnet.profile.disable.requested.v0'
-  | 'mnet.profile.disabled.v0'
-  | 'mnet.profile.apply_failed.v0'
-  | 'mnet.profile.enable.canceled.v0'
-
-export type MNetProfileEventPayload = {
-  networkId: string
-  fromProfileVersion: MNetProfileVersion
-  toProfileVersion: MNetProfileVersion
-  actor: ActorId
-  policyDecisionId: string
-  approvalId?: string
-  operationId?: string
-  correlationId: string
-  reason: string
-  controlPlaneOnly: true
-}
+export type MNetProfileEventSubject = typeof MNetProfileEventSubjectSchema.Type
+export type MNetProfileEventPayload = typeof MNetProfileEventPayloadSchema.Type
 
 export type MNetProfileEnableRequestedEventPayload = MNetProfileEventPayload
 export type MNetProfileEnabledEventPayload = MNetProfileEventPayload
@@ -91,3 +68,44 @@ export type MNetProfileDisableRequestedEventPayload = MNetProfileEventPayload
 export type MNetProfileDisabledEventPayload = MNetProfileEventPayload
 export type MNetProfileApplyFailedEventPayload = MNetProfileEventPayload
 export type MNetProfileEnableCanceledEventPayload = MNetProfileEventPayload
+export type MNetProfileDefaultsUpdatedEventPayload =
+  typeof MNetProfileDefaultsUpdatedEventPayloadSchema.Type
+
+export type MNetRelayType = typeof MNetRelayTypeSchema.Type
+export type MNetTunnelStatus = typeof MNetTunnelStatusSchema.Type
+export type MNetPathType = typeof MNetPathTypeSchema.Type
+export type MNetNetworkMapMember = typeof MNetNetworkMapMemberSchema.Type
+export type MNetNetworkMapRelayAssignment = typeof MNetNetworkMapRelayAssignmentSchema.Type
+export type MNetRelayAssignment = typeof MNetRelayAssignmentSchema.Type
+export type MNetAclRule = typeof MNetAclRuleSchema.Type
+export type MNetNetworkMapReference = typeof MNetNetworkMapReferenceSchema.Type
+export type MNetReachabilityChangedEventPayload =
+  typeof MNetReachabilityChangedEventPayloadSchema.Type
+export type MNetPathChangedEventPayload = typeof MNetPathChangedEventPayloadSchema.Type
+export type MNetWstunnelFallbackChangedEventPayload =
+  typeof MNetWstunnelFallbackChangedEventPayloadSchema.Type
+export type MNetNetworkMapPublishedEventPayload =
+  typeof MNetNetworkMapPublishedEventPayloadSchema.Type
+export type MNetNodeKeyRotatedEventPayload = typeof MNetNodeKeyRotatedEventPayloadSchema.Type
+export type MNetRelayAssignedEventPayload = typeof MNetRelayAssignedEventPayloadSchema.Type
+export type MNetDataplaneTunnelChangedEventPayload =
+  typeof MNetDataplaneTunnelChangedEventPayloadSchema.Type
+
+export type MNetProfileListResponse = typeof MNetProfileListResponseSchema.Type
+export type SetNetworkProfilePendingApprovalResponse =
+  typeof SetNetworkProfilePendingApprovalResponseSchema.Type
+export type SetNetworkProfileDisabledResponse = typeof SetNetworkProfileDisabledResponseSchema.Type
+export type MNetDataPlaneActivationStatus = typeof MNetDataPlaneActivationStatusSchema.Type
+export type SetNetworkProfileDataPlaneActivatedResponse =
+  typeof SetNetworkProfileDataPlaneActivatedResponseSchema.Type
+export type SetNetworkProfileResponse = typeof SetNetworkProfileResponseSchema.Type
+
+export type NetworkMapResponse = typeof NetworkMapResponseSchema.Type
+export type NodeKeyMetadata = typeof NodeKeyMetadataSchema.Type
+export type NodeKeyRegistrationResponse = typeof NodeKeyRegistrationResponseSchema.Type
+export type MNetPartitionState = typeof MNetPartitionStateSchema.Type
+export type DataPlaneStatusResponse = typeof DataPlaneStatusResponseSchema.Type
+export type InternalNetworkProfileResumeResponse =
+  typeof InternalNetworkProfileResumeResponseSchema.Type
+export type InternalNetworkProfileRejectResponse =
+  typeof InternalNetworkProfileRejectResponseSchema.Type
