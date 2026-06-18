@@ -11,7 +11,7 @@ describe('createEventEnvelope', () => {
       correlationId: 'correlation-1',
       traceId: 'trace-1',
       causationId: 'cause-1',
-      subject: 'task-1'
+      subject: 'event-test-subject'
     })
 
     expect(envelope.id).toMatch(
@@ -25,7 +25,7 @@ describe('createEventEnvelope', () => {
     expect(envelope.correlationId).toBe('correlation-1')
     expect(envelope.traceId).toBe('trace-1')
     expect(envelope.causationId).toBe('cause-1')
-    expect(envelope.subject).toBe('task-1')
+    expect(envelope.subject).toBe('event-test-subject')
   })
 
   it('omits optional fields when they are not provided', () => {

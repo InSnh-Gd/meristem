@@ -53,10 +53,10 @@ describe('decidePermission', () => {
       actor: 'operator',
       action: 'task:submit',
       permissions: ['task:submit'],
-      resource: 'task-1'
+      resource: 'policy-test-resource'
     })
 
-    expect(decision.resource).toBe('task-1')
+    expect(decision.resource).toBe('policy-test-resource')
   })
 })
 

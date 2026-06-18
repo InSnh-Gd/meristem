@@ -3,8 +3,8 @@ import { SignJWT } from 'jose'
 import {
   extractBearerToken,
   hashNodeToken,
-  isActorId,
   introspectToken,
+  isActorId,
   mintActorToken,
   mintLocalToken,
   mintNodeToken,

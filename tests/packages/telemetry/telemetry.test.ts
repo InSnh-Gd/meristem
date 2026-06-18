@@ -3,6 +3,7 @@ import {
   currentTraceId,
   initTelemetry,
   injectTraceHeaders,
+  recordCounter,
   recordGauge,
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
@@ -62,6 +63,10 @@ describe('packages/telemetry initialized API', () => {
 
   it('recordGauge does not throw when called', () => {
     expect(() => recordGauge('test.gauge', 1, { service: serviceName })).not.toThrow()
+  })
+
+  it('recordCounter does not throw when called', () => {
+    expect(() => recordCounter('test.counter', 1, { service: serviceName })).not.toThrow()
   })
 
   it('shutdownTelemetry does not throw', async () => {
