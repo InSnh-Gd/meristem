@@ -5,7 +5,7 @@
  * gate is off (the default). This preserves `controlPlaneOnly: true` for
  * `m-net-cn@0.1.0` and prevents any runtime transport path mutation.
  *
- * Real DERP / TCP / UDP / Headscale data-plane implementation remains deferred.
+ * Real wstunnel relay / TCP / UDP / Headscale data-plane implementation remains deferred.
  * See ADR-N02 and docs/services/m-net.md for the current scope.
  */
 
