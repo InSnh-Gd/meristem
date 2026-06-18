@@ -1,3 +1,4 @@
+import { fromPartial } from '@total-typescript/shoehorn'
 import {
   createApprovalWriterPort,
   createNetworkProfileWriterPort,
@@ -107,5 +108,5 @@ export function createCoreDepsWithWriters(
   const base = createInMemoryCoreDeps(opts) as Record<string, unknown>
   base.approvalWriter = createTrackedApprovalWriter(calls, mockWriterOpts)
   base.networkProfileWriter = createTrackedNetworkProfileWriter(calls, mockWriterOpts)
-  return { deps: base as unknown as CoreDeps, calls }
+  return { deps: fromPartial<CoreDeps>(base), calls }
 }

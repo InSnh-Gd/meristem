@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { createSessionAuthPort } from '../../../apps/core/src/adapters/auth.ts'
 import { mintLocalToken } from '../../../packages/auth/src/index.ts'
+import { fromAny, fromPartial } from '@total-typescript/shoehorn'
 import { ok } from '../../../packages/common/src/result.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 
@@ -39,14 +40,15 @@ function createFakeDb(options: {
 
   // 测试通过结构化假对象触达生产 auth adapter 的真实分支逻辑，
   // 不依赖真实 PostgreSQL 连接。
-  return {
-    select: ((selection: unknown) =>
+  return fromPartial<MeristemDb>({
+    select: fromAny<MeristemDb['select']>((selection: unknown) =>
       selection &&
       typeof selection === 'object' &&
       'permissionId' in (selection as Record<string, unknown>)
         ? permissionChain
-        : verifyChain) as unknown as MeristemDb['select']
-  } as unknown as MeristemDb
+        : verifyChain
+    )
+  })
 }
 
 describe('createSessionAuthPort', () => {

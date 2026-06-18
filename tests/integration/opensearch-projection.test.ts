@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { Effect, Exit } from 'effect'
+import { fromPartial } from '@total-typescript/shoehorn'
 import type { BackfillParams } from '../../packages/contracts/src/index.ts'
 import {
   auditLogs,
@@ -180,7 +181,7 @@ describe('Projection engine', () => {
   beforeEach(() => {
     db = createMockDb()
     os = createMockOs()
-    const projectionDb = db as unknown as Parameters<typeof createProjectionEngine>[0]
+    const projectionDb = fromPartial<Parameters<typeof createProjectionEngine>[0]>(db)
     engine = createProjectionEngine(projectionDb, os)
   })
 
