@@ -1,0 +1,10 @@
+{
+  "name": "@meristem/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./schema": "./src/schema.ts"
+  }
+}
