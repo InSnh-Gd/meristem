@@ -5,6 +5,26 @@ import { extensionDefinitions, extensionInstances, extensionTransitions } from '
 import { actors, actorTokenRevocations, actorTokens } from './identity.ts'
 import { auditLogs } from './log.ts'
 import {
+  mnetGlobalDefaults,
+  mnetProfileDefaultSetResults,
+  mnetProfileDisablePolicies,
+  mnetProfileSwitchBatches,
+  mnetProfileSwitchBatchMembers,
+  mnetProfileSwitchOperations,
+  mnetProfileSwitchResults,
+  mnetProfileSwitchSnapshots
+} from './mnet-control.ts'
+import {
+  mnetDataPlaneOperationLocks,
+  mnetNetworkMapRenders,
+  mnetNodePublicKeys,
+  mnetPartitionStates,
+  mnetProfileMigrations,
+  mnetRelayAssignments,
+  mnetSidecarDesiredConfigs,
+  mnetTunnelAddressAllocations
+} from './mnet-dataplane.ts'
+import {
   mnetNetworkProfileStates,
   mnetProfileTransitions,
   mnetSuspendedOperations,
@@ -15,7 +35,11 @@ import { secretRefs, secretRefTransitions, secretRefVersions } from './secrets.t
 import { taskRequests } from './task.ts'
 
 export const nodesRelations = relations(nodes, ({ many }) => ({
-  tasks: many(tasks)
+  tasks: many(tasks),
+  publicKeys: many(mnetNodePublicKeys),
+  tunnelAllocations: many(mnetTunnelAddressAllocations),
+  relayAssignments: many(mnetRelayAssignments),
+  sidecarDesiredConfigs: many(mnetSidecarDesiredConfigs)
 }))
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
@@ -40,7 +64,8 @@ export const actorTokenRevocationsRelations = relations(actorTokenRevocations, (
 
 export const policyDecisionsRelations = relations(policyDecisions, ({ many }) => ({
   secretRefTransitions: many(secretRefTransitions),
-  configTransitions: many(configTransitions)
+  configTransitions: many(configTransitions),
+  mnetProfileDefaultSetResults: many(mnetProfileDefaultSetResults)
 }))
 
 export const secretRefsRelations = relations(secretRefs, ({ many }) => ({
@@ -102,7 +127,16 @@ export const taskRequestsRelations = relations(taskRequests, ({ one }) => ({
 export const networksRelations = relations(networks, ({ many }) => ({
   profileStates: many(mnetNetworkProfileStates),
   profileTransitions: many(mnetProfileTransitions),
-  suspendedOperations: many(mnetSuspendedOperations)
+  suspendedOperations: many(mnetSuspendedOperations),
+  profileMigrations: many(mnetProfileMigrations),
+  networkMapRenders: many(mnetNetworkMapRenders),
+  tunnelAllocations: many(mnetTunnelAddressAllocations),
+  relayAssignments: many(mnetRelayAssignments),
+  dataPlaneOperationLocks: many(mnetDataPlaneOperationLocks),
+  partitionStates: many(mnetPartitionStates),
+  switchBatchMembers: many(mnetProfileSwitchBatchMembers),
+  switchResults: many(mnetProfileSwitchResults),
+  switchSnapshots: many(mnetProfileSwitchSnapshots)
 }))
 
 export const mnetNetworkProfileStatesRelations = relations(mnetNetworkProfileStates, ({ one }) => ({
@@ -134,6 +168,153 @@ export const mnetSuspendedOperationsRelations = relations(mnetSuspendedOperation
     references: [policyDecisions.id]
   })
 }))
+
+export const mnetGlobalDefaultsRelations = relations(mnetGlobalDefaults, () => ({}))
+
+export const mnetProfileSwitchOperationsRelations = relations(
+  mnetProfileSwitchOperations,
+  ({ many }) => ({
+    batches: many(mnetProfileSwitchBatches),
+    batchMembers: many(mnetProfileSwitchBatchMembers),
+    results: many(mnetProfileSwitchResults),
+    snapshots: many(mnetProfileSwitchSnapshots)
+  })
+)
+
+export const mnetProfileSwitchBatchesRelations = relations(
+  mnetProfileSwitchBatches,
+  ({ one, many }) => ({
+    operation: one(mnetProfileSwitchOperations, {
+      fields: [mnetProfileSwitchBatches.operationId],
+      references: [mnetProfileSwitchOperations.operationId]
+    }),
+    members: many(mnetProfileSwitchBatchMembers)
+  })
+)
+
+export const mnetProfileSwitchBatchMembersRelations = relations(
+  mnetProfileSwitchBatchMembers,
+  ({ one }) => ({
+    operation: one(mnetProfileSwitchOperations, {
+      fields: [mnetProfileSwitchBatchMembers.operationId],
+      references: [mnetProfileSwitchOperations.operationId]
+    }),
+    network: one(networks, {
+      fields: [mnetProfileSwitchBatchMembers.networkId],
+      references: [networks.id]
+    })
+  })
+)
+
+export const mnetProfileSwitchResultsRelations = relations(mnetProfileSwitchResults, ({ one }) => ({
+  operation: one(mnetProfileSwitchOperations, {
+    fields: [mnetProfileSwitchResults.operationId],
+    references: [mnetProfileSwitchOperations.operationId]
+  }),
+  network: one(networks, {
+    fields: [mnetProfileSwitchResults.networkId],
+    references: [networks.id]
+  })
+}))
+
+export const mnetProfileSwitchSnapshotsRelations = relations(
+  mnetProfileSwitchSnapshots,
+  ({ one }) => ({
+    operation: one(mnetProfileSwitchOperations, {
+      fields: [mnetProfileSwitchSnapshots.operationId],
+      references: [mnetProfileSwitchOperations.operationId]
+    }),
+    network: one(networks, {
+      fields: [mnetProfileSwitchSnapshots.networkId],
+      references: [networks.id]
+    })
+  })
+)
+
+export const mnetProfileDefaultSetResultsRelations = relations(
+  mnetProfileDefaultSetResults,
+  ({ one }) => ({
+    policyDecision: one(policyDecisions, {
+      fields: [mnetProfileDefaultSetResults.policyDecisionId],
+      references: [policyDecisions.id]
+    })
+  })
+)
+
+export const mnetProfileDisablePoliciesRelations = relations(mnetProfileDisablePolicies, () => ({}))
+
+export const mnetProfileMigrationsRelations = relations(mnetProfileMigrations, ({ one }) => ({
+  network: one(networks, {
+    fields: [mnetProfileMigrations.networkId],
+    references: [networks.id]
+  })
+}))
+
+export const mnetNetworkMapRendersRelations = relations(mnetNetworkMapRenders, ({ one }) => ({
+  network: one(networks, {
+    fields: [mnetNetworkMapRenders.networkId],
+    references: [networks.id]
+  })
+}))
+
+export const mnetNodePublicKeysRelations = relations(mnetNodePublicKeys, ({ one }) => ({
+  node: one(nodes, {
+    fields: [mnetNodePublicKeys.nodeId],
+    references: [nodes.id]
+  })
+}))
+
+export const mnetPartitionStatesRelations = relations(mnetPartitionStates, ({ one }) => ({
+  network: one(networks, {
+    fields: [mnetPartitionStates.networkId],
+    references: [networks.id]
+  })
+}))
+
+export const mnetTunnelAddressAllocationsRelations = relations(
+  mnetTunnelAddressAllocations,
+  ({ one }) => ({
+    network: one(networks, {
+      fields: [mnetTunnelAddressAllocations.networkId],
+      references: [networks.id]
+    }),
+    node: one(nodes, {
+      fields: [mnetTunnelAddressAllocations.nodeId],
+      references: [nodes.id]
+    })
+  })
+)
+
+export const mnetRelayAssignmentsRelations = relations(mnetRelayAssignments, ({ one }) => ({
+  network: one(networks, {
+    fields: [mnetRelayAssignments.networkId],
+    references: [networks.id]
+  }),
+  relayNode: one(nodes, {
+    fields: [mnetRelayAssignments.relayId],
+    references: [nodes.id]
+  })
+}))
+
+export const mnetDataPlaneOperationLocksRelations = relations(
+  mnetDataPlaneOperationLocks,
+  ({ one }) => ({
+    network: one(networks, {
+      fields: [mnetDataPlaneOperationLocks.networkId],
+      references: [networks.id]
+    })
+  })
+)
+
+export const mnetSidecarDesiredConfigsRelations = relations(
+  mnetSidecarDesiredConfigs,
+  ({ one }) => ({
+    node: one(nodes, {
+      fields: [mnetSidecarDesiredConfigs.nodeId],
+      references: [nodes.id]
+    })
+  })
+)
 
 export const extensionInstancesRelations = relations(extensionInstances, ({ one }) => ({
   extension: one(extensionDefinitions, {

@@ -242,7 +242,7 @@ await sql.begin(async tx => {
           defaultInterconnect: { mode: 'placeholder' }
         },
         capabilities: {
-          realDerpRelay: false,
+          realWstunnelRelay: false,
           realTcpInterconnect: false,
           realUdpPathSwitching: false,
           controlPlaneOnly: false
@@ -277,11 +277,11 @@ await sql.begin(async tx => {
         rules: {
           mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' },
           asianStemToCore: { interconnect: 'tcp_required' },
-          asianStemDerp: { allowed: true, mode: 'placeholder' },
-          publicDerpFallback: { configurable: true, defaultEnabled: false }
+          asianStemWstunnel: { allowed: true, mode: 'placeholder' },
+          publicWstunnelFallback: { configurable: true, defaultEnabled: false }
         },
         capabilities: {
-          realDerpRelay: false,
+          realWstunnelRelay: false,
           realTcpInterconnect: false,
           realUdpPathSwitching: false,
           controlPlaneOnly: true
