@@ -53,3 +53,12 @@ jobs:
 
       - name: Run ${{ matrix.gate }}
         run: bun run "${{ matrix.gate }}"
+
+      - name: Upload evidence artifacts
+        if: always() && matrix.gate == 'test'
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ github.sha }}
+          path: tests/evidence/
+          if-no-files-found: warn
+          retention-days: 30
