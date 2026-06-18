@@ -38,7 +38,7 @@ describe('M-Net data-plane feature gate failure modes', () => {
     const def = await store.getDefinition('m-net-cn@0.1.0')
     expect(def).not.toBeNull()
     expect(def?.capabilities.controlPlaneOnly).toBe(true)
-    expect(def?.capabilities.realDerpRelay).toBe(false)
+    expect(def?.capabilities.realWstunnelRelay).toBe(false)
     expect(def?.capabilities.realTcpInterconnect).toBe(false)
     expect(def?.capabilities.realUdpPathSwitching).toBe(false)
   })
@@ -50,7 +50,7 @@ describe('M-Net data-plane feature gate failure modes', () => {
       expect(adapter).not.toHaveProperty('endpoints')
       expect(adapter).not.toHaveProperty('ports')
       expect(adapter).not.toHaveProperty('transport')
-      expect(adapter).not.toHaveProperty('derpRelay')
+      expect(adapter).not.toHaveProperty('wstunnelRelay')
       expect(adapter).not.toHaveProperty('tcpInterconnect')
       expect(adapter).not.toHaveProperty('udpPathSwitching')
     }

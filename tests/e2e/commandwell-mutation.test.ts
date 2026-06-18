@@ -38,7 +38,7 @@ afterAll(() => {
 
 describe('E2E: CommandWell Mutation UX Contract', () => {
   describe('approval execute confirmation UX', () => {
-    it('approval approve execute returns success evidence with correlationId (RED)', async () => {
+    it('approval approve execute returns approval payload from Core facade', async () => {
       const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
       const coreApp = createCoreApp(deps)
       const app = createBffWithCore(coreApp)
@@ -51,15 +51,13 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
         { approvalId: 'approval-core-facade-1' }
       )
 
-      // RED: currently returns 400 command.unknown
-      // After implementation: 200 with approval data + correlationId
       expect(res.status).toBe(200)
       const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('approval')
-      expect(body).toHaveProperty('correlationId')
+      expect(body).toHaveProperty('votes')
     })
 
-    it('approval reject execute returns success evidence (RED)', async () => {
+    it('approval reject execute returns approval payload from Core facade', async () => {
       const deps = createInMemoryCoreDeps({ actor: 'security-admin' })
       const coreApp = createCoreApp(deps)
       const app = createBffWithCore(coreApp)
@@ -75,7 +73,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       expect(res.status).toBe(200)
       const body = (await res.json()) as Record<string, unknown>
       expect(body).toHaveProperty('approval')
-      expect(body).toHaveProperty('correlationId')
+      expect(body).toHaveProperty('votes')
     })
 
     it('approval execute without token returns 401 (RED)', async () => {

@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
+import { createOverlayApp } from '../contracts/_helpers/http-overlay.ts'
 import {
-  captureOriginalFetch,
   CORE_BASE,
+  captureOriginalFetch,
   createBffWithCore,
+  createBffWithServices,
   createCoreApp,
   createInMemoryCoreDeps,
   makeRequest,
@@ -148,7 +150,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
   // =============================================================================
   // Task 3: Execute command failure-mode tests — Core error passthrough, auth mismatch,
   // degraded paths, and /internal/v0/ boundary enforcement
-  // TDD RED phase — MUST fail before Task 6 BFF implementation
+  // TDD RED 步骤 — MUST fail before Task 6 BFF implementation
   // =============================================================================
 
   /**
@@ -170,7 +172,8 @@ describe('M-UI BFF approval/profile failure modes', () => {
     }
   ) {
     const a = opts ?? {}
-    coreApp.use(
+    return createOverlayApp(
+      coreApp,
       new Elysia()
         .post('/api/v0/policy/approvals/:id/approve', ({ params, body }) => {
           const status = a.approveStatus ?? 200
@@ -235,7 +238,6 @@ describe('M-UI BFF approval/profile failure modes', () => {
           }
         })
     )
-    return coreApp
   }
 
   describe('Core error passthrough for execute commands', () => {
@@ -244,7 +246,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
         { approveStatus: 403, approveCode: 'policy.denied', approveMessage: 'Permission denied' }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown; contract expects 403 passthrough
       const res = await makeRequest(
@@ -266,7 +268,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
         { rejectStatus: 403, rejectCode: 'policy.denied', rejectMessage: 'Permission denied' }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -291,7 +293,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
           approveMessage: 'Approval not found'
         }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -317,7 +319,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
           profileMessage: 'Profile state invalid for disable'
         }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -343,7 +345,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
           approveMessage: 'Upstream service unavailable'
         }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -369,7 +371,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
           profileMessage: 'M-Net service unavailable'
         }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -394,7 +396,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
         { approveStatus: 403, approveCode: 'policy.denied', approveMessage: 'Permission denied' }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       const delegatedFetch = globalThis.fetch
       const requests: Array<{ method: string; url: string }> = []
@@ -443,7 +445,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
         createCoreApp(createInMemoryCoreDeps({ actor: 'operator' })),
         { approveStatus: 403, approveCode: 'policy.denied', approveMessage: 'Permission denied' }
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       // RED: currently returns 400 command.unknown
       const res = await makeRequest(
@@ -465,7 +467,7 @@ describe('M-UI BFF approval/profile failure modes', () => {
       const coreApp = addMockCoreWriteFacades(
         createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
       )
-      const app = createBffWithCore(coreApp)
+      const app = createBffWithServices({ coreApp })
 
       const delegatedFetch = globalThis.fetch
       const requests: Array<{ method: string; url: string }> = []
@@ -579,52 +581,28 @@ describe('M-UI BFF approval/profile failure modes', () => {
       ]
 
       for (const tc of testCases) {
-        // Build a Core app with the specific error for this test case
-        const coreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' }))
-        const mockRoute = new Elysia().post(
-          `/api/v0/networks/:id/profile`,
-          () =>
-            new Response(
-              JSON.stringify({
-                error: { code: tc.expectedCode, message: 'Controlled error' }
-              }),
-              { status: tc.expectedStatus, headers: { 'content-type': 'application/json' } }
-            )
+        const coreApp = addMockCoreWriteFacades(
+          createCoreApp(createInMemoryCoreDeps({ actor: 'security-admin' })),
+          tc.commandId === 'policy.approval.approve.execute'
+            ? {
+                approveStatus: tc.expectedStatus,
+                approveCode: tc.expectedCode,
+                approveMessage: 'Controlled error'
+              }
+            : tc.commandId === 'policy.approval.reject.execute'
+              ? {
+                  rejectStatus: tc.expectedStatus,
+                  rejectCode: tc.expectedCode,
+                  rejectMessage: 'Controlled error'
+                }
+              : {
+                  profileStatus: tc.expectedStatus,
+                  profileCode: tc.expectedCode,
+                  profileMessage: 'Controlled error'
+                }
         )
-        if (tc.commandId.startsWith('policy.approval')) {
-          // For approval commands, add approval mock routes
-          if (tc.commandId.includes('approve')) {
-            coreApp.use(
-              new Elysia().post(
-                '/api/v0/policy/approvals/:id/approve',
-                () =>
-                  new Response(
-                    JSON.stringify({
-                      error: { code: tc.expectedCode, message: 'Controlled error' }
-                    }),
-                    { status: tc.expectedStatus, headers: { 'content-type': 'application/json' } }
-                  )
-              )
-            )
-          } else {
-            coreApp.use(
-              new Elysia().post(
-                '/api/v0/policy/approvals/:id/reject',
-                () =>
-                  new Response(
-                    JSON.stringify({
-                      error: { code: tc.expectedCode, message: 'Controlled error' }
-                    }),
-                    { status: tc.expectedStatus, headers: { 'content-type': 'application/json' } }
-                  )
-              )
-            )
-          }
-        } else {
-          coreApp.use(mockRoute)
-        }
 
-        const app = createBffWithCore(coreApp)
+        const app = createBffWithServices({ coreApp })
 
         // RED: currently returns 400 command.unknown
         const res = await makeRequest(

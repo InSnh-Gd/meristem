@@ -17,11 +17,11 @@
 
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
+import { ApprovalContextSchema } from '../../packages/contracts/src/schemas/approval-llm-context.ts'
 import {
   MNetRuntimeConfigSchema,
   SecretRefFieldSchema
 } from '../../packages/contracts/src/schemas/runtime-config.ts'
-import { ApprovalContextSchema } from '../../packages/contracts/src/schemas/approval-llm-context.ts'
 
 // ── Sentinel helpers ────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ function assertNoSentinelLeak(...outputs: string[]): void {
 describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () => {
   it('secretRefId survives; all plaintext fields are stripped from decoded output', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tcpInterconnect: { secretRefId: 'secret-tcp-001' },
       udpPath: { secretRefId: 'secret-udp-001' },
       headscaleEndpoint: { secretRefId: 'secret-headscale-001' },
@@ -79,7 +79,7 @@ describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () =
       routingKey: SENTINEL_ROUTING_KEY
     }
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(input)
-    expect(decoded.derpRelay?.secretRefId).toBe('secret-derp-001')
+    expect(decoded.wstunnelRelay?.secretRefId).toBe('secret-wstunnel-001')
     expect(decoded).not.toHaveProperty('tlsCertificate')
     expect(decoded).not.toHaveProperty('stunPassword')
     expect(decoded).not.toHaveProperty('turnSharedSecret')
@@ -89,8 +89,8 @@ describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () =
 
   it('nested plaintext inside secretRef fields is stripped', () => {
     const input = {
-      derpRelay: {
-        secretRefId: 'secret-derp-001',
+      wstunnelRelay: {
+        secretRefId: 'secret-wstunnel-001',
         tlsKeyPEM: SENTINEL_TLS_CERT,
         stunPassword: SENTINEL_STUN_PWD
       },
@@ -115,8 +115,8 @@ describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () =
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)(input)
 
     // Each secretRef field must have ONLY secretRefId
-    expect(decoded.derpRelay).toBeDefined()
-    expect(Object.keys(decoded.derpRelay as Record<string, unknown>)).toEqual(['secretRefId'])
+    expect(decoded.wstunnelRelay).toBeDefined()
+    expect(Object.keys(decoded.wstunnelRelay as Record<string, unknown>)).toEqual(['secretRefId'])
     expect(decoded.tcpInterconnect).toBeDefined()
     expect(Object.keys(decoded.tcpInterconnect as Record<string, unknown>)).toEqual(['secretRefId'])
     expect(decoded.udpPath).toBeDefined()
@@ -135,7 +135,7 @@ describe('DFW-013 schema-level redaction — plaintext stripped by Struct', () =
 describe('DFW-013 JSON.stringify redaction — serialized output is clean', () => {
   it('JSON.stringify of decoded runtime config contains only secretRefId', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tcpInterconnect: { secretRefId: 'secret-tcp-001' },
       udpPath: { secretRefId: 'secret-udp-001' },
       headscaleEndpoint: { secretRefId: 'secret-headscale-001' },
@@ -152,7 +152,7 @@ describe('DFW-013 JSON.stringify redaction — serialized output is clean', () =
     assertNoSentinelLeak(serialized)
 
     // Verify the serialized output contains the expected secretRefId values
-    expect(serialized).toContain('"secretRefId":"secret-derp-001"')
+    expect(serialized).toContain('"secretRefId":"secret-wstunnel-001"')
     expect(serialized).toContain('"secretRefId":"secret-tcp-001"')
     expect(serialized).toContain('"secretRefId":"secret-udp-001"')
     expect(serialized).toContain('"secretRefId":"secret-headscale-001"')
@@ -196,7 +196,7 @@ describe('DFW-013 log output redaction — simulated log projections', () => {
 
   it('log projection of runtime config contains no sentinel plaintext', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tcpInterconnect: { secretRefId: 'secret-tcp-001' },
       tlsCertificate: SENTINEL_TLS_CERT,
       stunPassword: SENTINEL_STUN_PWD,
@@ -232,7 +232,7 @@ describe('DFW-013 UI error envelope redaction', () => {
 
   it('UI error envelope must not contain sentinel plaintext', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tlsCertificate: SENTINEL_TLS_CERT,
       stunPassword: SENTINEL_STUN_PWD,
       turnSharedSecret: SENTINEL_TURN_SECRET
@@ -279,7 +279,7 @@ describe('DFW-013 projection payload redaction', () => {
 
   it('projection payload must not contain sentinel plaintext', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       udpPath: { secretRefId: 'secret-udp-001' },
       tlsCertificate: SENTINEL_TLS_CERT,
       stunPassword: SENTINEL_STUN_PWD,
@@ -293,11 +293,11 @@ describe('DFW-013 projection payload redaction', () => {
 
   it('projection payload only contains secretRefId values', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tcpInterconnect: { secretRefId: 'secret-tcp-001' }
     }
     const projection = simulateProjectionPayload(input)
-    expect(projection).toContain('"secretRefId":"secret-derp-001"')
+    expect(projection).toContain('"secretRefId":"secret-wstunnel-001"')
     expect(projection).toContain('"secretRefId":"secret-tcp-001"')
     // Must NOT contain any plaintext credential field names
     expect(projection).not.toMatch(/"tls|"stun|"turn|"apiKey|"psk|"routingKey/)
@@ -366,7 +366,7 @@ describe('DFW-013 LLM context boundary redaction', () => {
     // Simulate an attacker injecting runtime config plaintext into LLM context
     const contextWithSecrets = makeValidApprovalContext({
       runtimeConfig: {
-        derpRelay: { secretRefId: 'secret-derp-001' },
+        wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
         tlsCertificate: SENTINEL_TLS_CERT,
         stunPassword: SENTINEL_STUN_PWD,
         turnSharedSecret: SENTINEL_TURN_SECRET,
@@ -414,7 +414,7 @@ describe('DFW-013 LLM context boundary redaction', () => {
           reason: 'approved',
           createdAt: '2026-06-15T12:00:00.000Z',
           routingKey: SENTINEL_ROUTING_KEY,
-          derpCredential: SENTINEL_TLS_CERT
+          wstunnelCredential: SENTINEL_TLS_CERT
         }
       ]
     })
@@ -491,7 +491,7 @@ describe('DFW-013 redaction boundary — secretRefId is the only surviving field
   it('all five config fields are exclusively secretRef-gated', () => {
     // Ensure all fields resolve to the SecretRefField shape
     const decoded = Schema.decodeUnknownSync(MNetRuntimeConfigSchema)({
-      derpRelay: { secretRefId: 's1' },
+      wstunnelRelay: { secretRefId: 's1' },
       tcpInterconnect: { secretRefId: 's2' },
       udpPath: { secretRefId: 's3' },
       headscaleEndpoint: { secretRefId: 's4' },
@@ -499,7 +499,7 @@ describe('DFW-013 redaction boundary — secretRefId is the only surviving field
     })
     // Every present value must have exactly one key: secretRefId
     for (const entry of [
-      decoded.derpRelay,
+      decoded.wstunnelRelay,
       decoded.tcpInterconnect,
       decoded.udpPath,
       decoded.headscaleEndpoint,
@@ -516,7 +516,7 @@ describe('DFW-013 redaction boundary — secretRefId is the only surviving field
 describe('DFW-013 zero-match canonical redaction assertion', () => {
   it('ALL sentinels produce ZERO matches across ALL simulated outputs', () => {
     const input = {
-      derpRelay: { secretRefId: 'secret-derp-001' },
+      wstunnelRelay: { secretRefId: 'secret-wstunnel-001' },
       tcpInterconnect: { secretRefId: 'secret-tcp-001' },
       udpPath: { secretRefId: 'secret-udp-001' },
       headscaleEndpoint: { secretRefId: 'secret-headscale-001' },
