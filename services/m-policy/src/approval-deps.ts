@@ -98,7 +98,9 @@ export function createPolicyApprovalDeps(
   }
 }
 
-export function createPolicyReadiness(client: ReturnType<typeof import('../../../packages/db/src/client.ts').createDb>['client']) {
+export function createPolicyReadiness(
+  client: ReturnType<typeof import('../../../packages/db/src/client.ts').createDb>['client']
+) {
   return async function readiness(): Promise<{ ready: boolean }> {
     const postgresReady = await client`select 1`
       .then(() => true)

@@ -81,11 +81,23 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
           )
         }
 
-        let eventBusMetrics = null as import('../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema | null
-        let eventBusMetricsStateSource = null as { sourceType: 'read-model'; sourceId: string } | null
-        let logProjectionHealth = null as import('../../../../packages/contracts/src/index.ts').ProjectionHealthResponseFromSchema | null
-        let logProjectionHealthStateSource = null as { sourceType: 'read-model'; sourceId: string } | null
-        let policySummary = null as import('../../../../packages/contracts/src/index.ts').PolicyInternalSummary | null
+        let eventBusMetrics = null as
+          | import('../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
+          | null
+        let eventBusMetricsStateSource = null as {
+          sourceType: 'read-model'
+          sourceId: string
+        } | null
+        let logProjectionHealth = null as
+          | import('../../../../packages/contracts/src/index.ts').ProjectionHealthResponseFromSchema
+          | null
+        let logProjectionHealthStateSource = null as {
+          sourceType: 'read-model'
+          sourceId: string
+        } | null
+        let policySummary = null as
+          | import('../../../../packages/contracts/src/index.ts').PolicyInternalSummary
+          | null
         let policySummaryStateSource = null as { sourceType: 'policy'; sourceId: string } | null
         if (params.id === 'm-eventbus') {
           const eventBusMetricsRes = await ef('/internal/v0/metrics/publish-summary')
@@ -137,18 +149,19 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
           }
         }
 
-        const response: import('../../../../packages/contracts/src/index.ts').ServiceInspectorResponse = {
-          service: withStateSource(matched, {
-            sourceType: 'authoritative',
-            sourceId: `core:/api/v0/services/${params.id}`
-          }),
-          eventBusMetrics,
-          eventBusMetricsStateSource,
-          logProjectionHealth,
-          logProjectionHealthStateSource,
-          policySummary,
-          policySummaryStateSource
-        }
+        const response: import('../../../../packages/contracts/src/index.ts').ServiceInspectorResponse =
+          {
+            service: withStateSource(matched, {
+              sourceType: 'authoritative',
+              sourceId: `core:/api/v0/services/${params.id}`
+            }),
+            eventBusMetrics,
+            eventBusMetricsStateSource,
+            logProjectionHealth,
+            logProjectionHealthStateSource,
+            policySummary,
+            policySummaryStateSource
+          }
 
         return response
       },

@@ -1,5 +1,10 @@
 import { eq } from 'drizzle-orm'
-import type { ActorId, ApprovalStatus, PolicyApproval, PolicyApprovalVote } from '../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  ApprovalStatus,
+  PolicyApproval,
+  PolicyApprovalVote
+} from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import { policyApprovals, policyApprovalVotes } from '../../../packages/db/src/schema.ts'
 import type { ApprovalStore } from './approval-schemas.ts'
@@ -57,7 +62,11 @@ export function createPgApprovalStore(db: MeristemDb): ApprovalStore {
       }))
     },
     async getApproval(id) {
-      const [row] = await db.select().from(policyApprovals).where(eq(policyApprovals.id, id)).limit(1)
+      const [row] = await db
+        .select()
+        .from(policyApprovals)
+        .where(eq(policyApprovals.id, id))
+        .limit(1)
       if (!row) return null
       return {
         id: row.id,

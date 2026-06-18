@@ -26,14 +26,15 @@ export function createBffOverviewRoute({ cf, ef }: MUiBffRouteDeps) {
     const token = requireBearerToken(headers)
     if (token instanceof Response) return token
 
-    const [sessionRes, statusRes, nodesRes, servicesRes, timelineRes, eventBusMetricsRes] = await Promise.all([
-      cf('/api/v0/session', token),
-      cf('/api/v0/status', token),
-      cf('/api/v0/nodes', token),
-      cf('/api/v0/services', token),
-      cf('/api/v0/logs/timeline', token),
-      ef('/internal/v0/metrics/publish-summary')
-    ])
+    const [sessionRes, statusRes, nodesRes, servicesRes, timelineRes, eventBusMetricsRes] =
+      await Promise.all([
+        cf('/api/v0/session', token),
+        cf('/api/v0/status', token),
+        cf('/api/v0/nodes', token),
+        cf('/api/v0/services', token),
+        cf('/api/v0/logs/timeline', token),
+        ef('/internal/v0/metrics/publish-summary')
+      ])
 
     if (!sessionRes.ok) return passthroughCoreError(sessionRes)
     if (!statusRes.ok) return passthroughCoreError(statusRes)

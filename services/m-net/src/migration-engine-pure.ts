@@ -21,8 +21,6 @@ import type { ProfileStore } from './profile-store.ts'
 import {
   type NetworkSnapshot,
   isCandidate,
-  toBatches,
-  flattenCandidates,
   migrationResult,
   readReason
 } from './migration-engine-helpers.ts'
@@ -183,6 +181,7 @@ export async function applyNetwork(
   }
 ): Promise<NetworkProfileMigrationResult> {
   const correlationId = crypto.randomUUID()
+  const timestamp = new Date().toISOString()
   const state = await deps.profileStore.getNetworkState(input.networkId)
   if (!state) {
     return migrationResult(
@@ -222,7 +221,7 @@ export async function applyNetwork(
     deps,
     input.networkId,
     input.operation.operationId,
-    correlationId
+    timestamp
   )
   if (!operationLock.ok) {
     return migrationResult(
@@ -242,7 +241,7 @@ export async function applyNetwork(
     input.operation.operationId
   )
   if (currentMigration?.status === 'applied' || currentMigration?.status === 'pending') {
-    await releaseLock(deps, operationLock.value, correlationId)
+    await releaseLock(deps, operationLock.value, timestamp)
     const currentReason =
       currentMigration.status === 'pending' ? readReason(currentMigration.auditMetadata) : undefined
     return migrationResult(
@@ -276,10 +275,10 @@ export async function applyNetwork(
       toVersion: input.operation.targetProfileVersion,
       operationId: input.operation.operationId,
       status: 'failed',
-      timestamp: correlationId,
+      timestamp,
       auditMetadata: { error: migrated.error }
     })
-    await releaseLock(deps, operationLock.value, correlationId)
+    await releaseLock(deps, operationLock.value, timestamp)
     return migrationResult(
       input.networkId,
       state.profileVersion,
@@ -298,10 +297,10 @@ export async function applyNetwork(
       toVersion: input.operation.targetProfileVersion,
       operationId: input.operation.operationId,
       status: 'failed',
-      timestamp: correlationId,
+      timestamp,
       auditMetadata: { reasons: migrated.reasons }
     })
-    await releaseLock(deps, operationLock.value, correlationId)
+    await releaseLock(deps, operationLock.value, timestamp)
     return migrationResult(
       input.networkId,
       state.profileVersion,
@@ -375,14 +374,14 @@ export async function applyNetwork(
     toVersion: input.operation.targetProfileVersion,
     operationId: input.operation.operationId,
     status: resultStatus,
-    timestamp: correlationId,
+    timestamp,
     auditMetadata: {
       auditId,
       plannedEffects: migrated.plannedEffects,
       ...(offline.kind === 'pending' ? { reason: offline.message } : {})
     }
   })
-  await releaseLock(deps, operationLock.value, correlationId)
+  await releaseLock(deps, operationLock.value, timestamp)
   return migrationResult(
     input.networkId,
     state.profileVersion,
@@ -409,6 +408,7 @@ async function applyControlPlaneProfileSwitch(
   state: NetworkSnapshot,
   correlationId: string
 ): Promise<NetworkProfileMigrationResult> {
+  const timestamp = new Date().toISOString()
   try {
     await deps.profileStore.setNetworkState(input.networkId, {
       profileVersion: input.operation.targetProfileVersion,
@@ -453,7 +453,7 @@ async function applyControlPlaneProfileSwitch(
       toVersion: input.operation.targetProfileVersion,
       operationId: input.operation.operationId,
       status: 'applied',
-      timestamp: correlationId,
+      timestamp,
       auditMetadata: { auditId, mode: 'control-plane-switch' }
     })
     return migrationResult(

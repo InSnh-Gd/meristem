@@ -1,7 +1,11 @@
 import { desc, eq } from 'drizzle-orm'
 import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { policyDecisions, rolePermissions as rolePermissionTable, userRoles } from '../../../packages/db/src/schema.ts'
+import {
+  policyDecisions,
+  rolePermissions as rolePermissionTable,
+  userRoles
+} from '../../../packages/db/src/schema.ts'
 import { decidePermission } from '../../../packages/policy/src/index.ts'
 import type { PolicyEventPublisher } from './event-publisher.ts'
 
@@ -60,7 +64,11 @@ export function createPolicyDecisionStore(db: MeristemDb, publisher: PolicyEvent
       return decision
     },
     async getDecision(id: string): Promise<PolicyDecision | null> {
-      const rows = await db.select().from(policyDecisions).where(eq(policyDecisions.id, id)).limit(1)
+      const rows = await db
+        .select()
+        .from(policyDecisions)
+        .where(eq(policyDecisions.id, id))
+        .limit(1)
       const row = rows[0]
       return row
         ? {
@@ -86,7 +94,11 @@ export function createPolicyDecisionStore(db: MeristemDb, publisher: PolicyEvent
         createdAt: row.createdAt.toISOString()
       }))
     },
-    async hasPermission(actor: ActorId, permission: Permission, resource: string): Promise<boolean> {
+    async hasPermission(
+      actor: ActorId,
+      permission: Permission,
+      resource: string
+    ): Promise<boolean> {
       const decision = decidePermission({
         actor,
         action: permission,

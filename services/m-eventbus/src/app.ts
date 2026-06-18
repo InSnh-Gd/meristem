@@ -44,19 +44,19 @@ const internalErrorSchema = t.Object({
 export function createEventBusApp(deps: EventBusAppDeps) {
   return new Elysia()
     .get('/health', () => ({ ok: true as const, service: 'm-eventbus' as const }))
-      .get('/ready', async ({ headers, status }) => {
-        const auth = validateInternalRequest(headers)
-        if (!auth.ok) return status(401, { error: auth.error })
-        return withExtractedSpan('m-eventbus', 'm-eventbus.ready', headers, () => deps.readiness())
-      })
-      .get('/internal/v0/metrics/publish-summary', async ({ headers, status }) => {
-        const auth = validateInternalRequest(headers)
-        if (!auth.ok) return status(401, { error: auth.error })
-        return withExtractedSpan('m-eventbus', 'm-eventbus.publish-metrics', headers, () =>
-          Promise.resolve(deps.publishMetricsSummary())
-        )
-      })
-      .post(
+    .get('/ready', async ({ headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      return withExtractedSpan('m-eventbus', 'm-eventbus.ready', headers, () => deps.readiness())
+    })
+    .get('/internal/v0/metrics/publish-summary', async ({ headers, status }) => {
+      const auth = validateInternalRequest(headers)
+      if (!auth.ok) return status(401, { error: auth.error })
+      return withExtractedSpan('m-eventbus', 'm-eventbus.publish-metrics', headers, () =>
+        Promise.resolve(deps.publishMetricsSummary())
+      )
+    })
+    .post(
       '/internal/v0/publish',
       async ({ body, headers, status }) => {
         const auth = validateInternalRequest(headers)

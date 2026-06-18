@@ -188,15 +188,8 @@ export async function executeBreakGlassDisable(
     ...(policyDecisionId ? { policyDecisionId } : {})
   })
   await deps.networkUpdater?.setProfileVersion(input.networkId, DEFAULT_PROFILE_VERSION)
-  if (deps.listMembers) {
-    const dataPlane = getDataPlaneStores(deps.dataPlane)
-    if (!dataPlane) {
-      return profileWorkflowFailure(
-        503,
-        'feature.unavailable',
-        'data-plane stores are not available'
-      )
-    }
+  const dataPlane = getDataPlaneStores(deps.dataPlane)
+  if (deps.listMembers && dataPlane) {
     const failClosed = await breakGlassFailClosed(
       {
         profileStore: deps.profileStore,

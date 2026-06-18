@@ -238,6 +238,8 @@ export const activePublisherSchemaContracts: EventSchemaContract[] = [
       failedSubject: 'policy.decision.created.v0',
       eventId: 'evt-1',
       source: 'm-policy',
+      callerService: 'm-policy',
+      eventType: 'policy.decision.created',
       reason: 'publish_failed',
       attempts: 3,
       errorMessage: 'jetstream_unavailable',

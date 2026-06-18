@@ -1,5 +1,3 @@
-import type { PlanMigrationResult } from './migration-engine-pure.ts'
-
 export type { PlanMigrationResult } from './migration-engine-pure.ts'
 
 import {
@@ -17,8 +15,6 @@ export { TARGET_CN_PROFILE_VERSION } from './migration-engine-pure.ts'
 
 import type { NetworkProfileMigrationResult, SwitchBatch } from './global-defaults-store.ts'
 import type { NetworkSnapshot } from './migration-engine-helpers.ts'
-
-const DEFAULT_PROFILE_VERSION = 'm-net-default@0.1.0'
 
 export type MigrationEngine = ReturnType<typeof createMigrationEngine>
 

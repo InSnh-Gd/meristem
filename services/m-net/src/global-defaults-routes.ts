@@ -33,7 +33,7 @@ export function createGlobalDefaultsRoutes(
       if (!status?.ok) return
       if (status.value.completedBatchIds.length >= status.value.batches.length) return
       const applied = await deps.migrationEngine?.apply(operationId, actor)
-      if (!applied || !applied.ok || applied.value.isComplete) return
+      if (!applied?.ok || applied.value.isComplete) return
     }
   }
 

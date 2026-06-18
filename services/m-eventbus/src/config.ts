@@ -28,7 +28,10 @@ export function readEventBusPublisherRuntimeConfig(): EventBusPublisherRuntimeCo
   return {
     eventsStreamName: process.env.MERISTEM_EVENTBUS_STREAM ?? DEFAULT_EVENTS_STREAM,
     dlqStreamName: process.env.MERISTEM_EVENTBUS_DLQ_STREAM ?? DEFAULT_DLQ_STREAM,
-    publishRetries: readPositiveInteger('MERISTEM_EVENTBUS_PUBLISH_RETRIES', DEFAULT_PUBLISH_RETRIES),
+    publishRetries: readPositiveInteger(
+      'MERISTEM_EVENTBUS_PUBLISH_RETRIES',
+      DEFAULT_PUBLISH_RETRIES
+    ),
     publishTimeoutMs: readPositiveInteger(
       'MERISTEM_EVENTBUS_PUBLISH_TIMEOUT_MS',
       DEFAULT_PUBLISH_TIMEOUT_MS

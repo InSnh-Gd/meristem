@@ -4,10 +4,7 @@ import type {
   ProfileWorkflowFailure,
   ProfileWriteDeps
 } from './profile-workflow-types.ts'
-import {
-  CHINA_PROFILE_VERSION,
-  profileWorkflowFailure
-} from './profile-workflow-types.ts'
+import { CHINA_PROFILE_VERSION, profileWorkflowFailure } from './profile-workflow-types.ts'
 
 /**
  * enable 中国数据面 Profile 前的迁移处理：

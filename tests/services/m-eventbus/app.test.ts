@@ -177,7 +177,10 @@ describe('m-eventbus app', () => {
         subjects: []
       }),
       publish: async () => {
-        throw new EventBusPublishError('subject_not_allowed', 'subject_not_allowed:unknown.subject.v0')
+        throw new EventBusPublishError(
+          'subject_not_allowed',
+          'subject_not_allowed:unknown.subject.v0'
+        )
       },
       reportRejected: async input => {
         rejectedReason = input.reason

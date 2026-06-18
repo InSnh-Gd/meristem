@@ -1,14 +1,11 @@
 import type { NetworkProfileMigrationResult } from './global-defaults-store.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
-import type { ProfileStore } from './profile-store.ts'
-import type { GlobalDefaultsStore } from './global-defaults-store.ts'
-import { rollbackMNetProfile, type MigrationProfileCandidate } from './profile-migration.ts'
+import { rollbackMNetProfile } from './profile-migration.ts'
 import {
   getStoredMigration,
   storeMigration,
   type MigrationEngineDeps
 } from './migration-engine-pure.ts'
-import { migrationResult, type NetworkSnapshot } from './migration-engine-helpers.ts'
+import { migrationResult } from './migration-engine-helpers.ts'
 
 export async function rollbackNetwork(
   deps: MigrationEngineDeps,
@@ -22,6 +19,7 @@ export async function rollbackNetwork(
   }
 ): Promise<NetworkProfileMigrationResult> {
   const correlationId = crypto.randomUUID()
+  const timestamp = new Date().toISOString()
   const state = await deps.profileStore.getNetworkState(input.networkId)
   const previousProfileVersion = input.snapshot.get(input.networkId) ?? LEGACY_CN_PROFILE_VERSION
   const currentProfile = state ? await deps.profileStore.getDefinition(state.profileVersion) : null
@@ -125,7 +123,7 @@ export async function rollbackNetwork(
     toVersion: previousProfileVersion,
     operationId: input.operationId,
     status: 'rolled_back',
-    timestamp: correlationId,
+    timestamp,
     auditMetadata: { auditId, reason: input.reason ?? 'batch migration rollback' }
   })
   return migrationResult(

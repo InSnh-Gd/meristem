@@ -1,9 +1,5 @@
 import { Elysia, t } from 'elysia'
-import type {
-  ActorId,
-  Permission,
-  PolicyDecision
-} from '../../../packages/contracts/src/index.ts'
+import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
 import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
@@ -170,7 +166,9 @@ export function createPolicyApp(deps: PolicyAppDeps) {
       async ({ headers, status }) => {
         const auth = validateInternalRequest(headers)
         if (!auth.ok) return status(401, { error: auth.error })
-        return withExtractedSpan('m-policy', 'm-policy.get-summary', headers, () => deps.getSummary())
+        return withExtractedSpan('m-policy', 'm-policy.get-summary', headers, () =>
+          deps.getSummary()
+        )
       },
       {
         response: {

@@ -8,8 +8,7 @@ export const EventBusRejectedReasonSchema = Schema.Literal(
 export type EventBusRejectedReasonFromSchema = typeof EventBusRejectedReasonSchema.Type
 
 export const EventBusPublishFailureReasonSchema = Schema.Literal('publish_failed')
-export type EventBusPublishFailureReasonFromSchema =
-  typeof EventBusPublishFailureReasonSchema.Type
+export type EventBusPublishFailureReasonFromSchema = typeof EventBusPublishFailureReasonSchema.Type
 
 export const EventBusPublishOutcomeSchema = Schema.Literal('success', 'rejected', 'failed')
 export type EventBusPublishOutcomeFromSchema = typeof EventBusPublishOutcomeSchema.Type
@@ -48,8 +47,7 @@ export const EventBusPublishFailedPayloadSchema = Schema.Struct({
   errorMessage: Schema.String,
   originalEvent: Schema.Unknown
 })
-export type EventBusPublishFailedPayloadFromSchema =
-  typeof EventBusPublishFailedPayloadSchema.Type
+export type EventBusPublishFailedPayloadFromSchema = typeof EventBusPublishFailedPayloadSchema.Type
 
 export const EventBusPublishTotalsSchema = Schema.Struct({
   success: Schema.Number,
@@ -83,8 +81,7 @@ export const EventBusLastRejectedSnapshotSchema = Schema.Struct({
   traceId: Schema.optional(Schema.String),
   causationId: Schema.optional(Schema.String)
 })
-export type EventBusLastRejectedSnapshotFromSchema =
-  typeof EventBusLastRejectedSnapshotSchema.Type
+export type EventBusLastRejectedSnapshotFromSchema = typeof EventBusLastRejectedSnapshotSchema.Type
 
 export const EventBusLastFailedSnapshotSchema = Schema.Struct({
   at: Schema.String,
