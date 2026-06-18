@@ -2,6 +2,9 @@
   import type { CommandState, OverviewData } from '../types.ts'
 
   type Props = {
+    emptyStateText?: string
+    targetLabel?: string
+    targetName?: string
     commandState: CommandState | null
     selectedNode: OverviewData['nodes'][number] | null
     confirming: boolean
@@ -10,15 +13,15 @@
     onConfirm: () => void
   }
 
-  let { commandState, selectedNode, confirming, onRequestConfirm, onCancel, onConfirm }: Props = $props()
+  let { commandState, selectedNode, confirming, emptyStateText = '请选择目标以执行命令', targetLabel = '目标', targetName, onRequestConfirm, onCancel, onConfirm }: Props = $props()
 </script>
 
 <div class="command-well">
   {#if !commandState}
-    <div class="command-empty">选择 Leaf 节点以执行命令</div>
+    <div class="command-empty">{emptyStateText}</div>
   {:else if commandState.state === 'disabled'}
     <div class="command-disabled">
-      <span class="command-label">运行 noop 任务</span>
+      <span class="command-label">{commandState.command?.label ?? '命令'}</span>
       <span class="command-reason" data-testid="command-disabled-reason">{commandState.disabledReason}</span>
     </div>
   {:else if confirming}
@@ -26,9 +29,9 @@
       <div class="confirm-info">
         <span class="confirm-label">确认执行</span>
         <div class="confirm-details">
-          <div>目标: {selectedNode?.name}</div>
-          <div>类型: noop</div>
-          <div>权限: task:submit</div>
+          <div>{targetLabel}: {targetName ?? selectedNode?.name ?? '未知'}</div>
+          <div>类型: {commandState?.command?.action ?? 'unknown'}</div>
+          <div>权限: {commandState?.command?.requiredPermissions?.join(', ') ?? 'unknown'}</div>
           <div>策略: 需要</div>
           <div>审计: 需要</div>
         </div>
@@ -39,7 +42,7 @@
       </div>
     </div>
   {:else}
-    <button class="btn-command" data-testid="command-btn" onclick={onRequestConfirm}>运行 noop 任务</button>
+    <button class="btn-command" data-testid="command-btn" onclick={onRequestConfirm}>{commandState?.command?.label ?? '执行命令'}</button>
   {/if}
 </div>
 

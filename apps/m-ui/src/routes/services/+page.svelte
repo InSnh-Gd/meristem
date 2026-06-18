@@ -1,12 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { fetchServiceDetail, formatBffError } from '$lib/bff'
   import { appState } from '$lib/stores.svelte.ts'
   import KeyValueInspector from '$lib/components/KeyValueInspector.svelte'
   import RouteHeader from '$lib/components/RouteHeader.svelte'
   import ServiceRegistryTable from '$lib/components/ServiceRegistryTable.svelte'
+  import type { ServiceInspectorData } from '$lib/types'
 
   const stateSources = ['authoritative']
   let selectedServiceId = $state<string | null>(null)
+  let selectedServiceDetail = $state<ServiceInspectorData | null>(null)
+  let selectedServiceDetailLoading = $state(false)
+  let selectedServiceDetailError = $state<string | null>(null)
 
   const serviceList = $derived(appState.services?.services ?? [])
   const selectedService = $derived.by(() => {
@@ -14,8 +19,33 @@
     return serviceList.find((service) => service.id === selectedServiceId) ?? null
   })
 
+  async function loadSelectedServiceDetail(serviceId: string) {
+    if (!appState.token) return
+    selectedServiceDetailLoading = true
+    selectedServiceDetailError = null
+    try {
+      selectedServiceDetail = await fetchServiceDetail(appState.token, serviceId)
+    } catch (error: unknown) {
+      selectedServiceDetail = null
+      selectedServiceDetailError = formatBffError(error, '服务详情加载失败')
+    } finally {
+      selectedServiceDetailLoading = false
+    }
+  }
+
   onMount(() => {
     void appState.fetchServices()
+  })
+
+  $effect(() => {
+    const serviceId = selectedService?.id
+    if (!serviceId || !appState.token) {
+      selectedServiceDetail = null
+      selectedServiceDetailError = null
+      selectedServiceDetailLoading = false
+      return
+    }
+    void loadSelectedServiceDetail(serviceId)
   })
 </script>
 
@@ -52,7 +82,90 @@
     </section>
 
     <aside class="inspector-panel" aria-label="服务检查器">
-      <KeyValueInspector item={selectedService} />
+      {#if selectedServiceDetailLoading}
+        <p class="inspector-status">正在加载服务详情…</p>
+      {:else if selectedServiceDetailError}
+        <p class="inspector-status error">{selectedServiceDetailError}</p>
+      {:else if selectedServiceDetail}
+        <section class="inspector-section" aria-labelledby="service-detail-title">
+          <div class="panel-header compact">
+            <h2 id="service-detail-title">服务详情</h2>
+            <span class="service-runtime">
+              {selectedServiceDetail.service.runtime?.mode === 'degraded' ? '降级' : '正常'}
+            </span>
+          </div>
+
+          <dl class="summary-grid">
+            <div>
+              <dt>ID</dt>
+              <dd class="mono">{selectedServiceDetail.service.id}</dd>
+            </div>
+            <div>
+              <dt>版本</dt>
+              <dd>{selectedServiceDetail.service.version}</dd>
+            </div>
+            <div>
+              <dt>域</dt>
+              <dd>{selectedServiceDetail.service.domain}</dd>
+            </div>
+            <div>
+              <dt>类型</dt>
+              <dd>{selectedServiceDetail.service.kind}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {#if selectedServiceDetail.eventBusMetrics}
+          <section class="inspector-section" aria-labelledby="eventbus-metrics-title">
+            <div class="panel-header compact">
+              <h2 id="eventbus-metrics-title">EventBus 发布健康</h2>
+              <span class="state-source-badge">read-model</span>
+            </div>
+
+            <div class="metrics-grid">
+              <div>
+                <span>成功</span>
+                <strong>{selectedServiceDetail.eventBusMetrics.totals.success}</strong>
+              </div>
+              <div>
+                <span>拒绝</span>
+                <strong>{selectedServiceDetail.eventBusMetrics.totals.rejected}</strong>
+              </div>
+              <div>
+                <span>失败</span>
+                <strong>{selectedServiceDetail.eventBusMetrics.totals.failed}</strong>
+              </div>
+              <div>
+                <span>重试</span>
+                <strong>{selectedServiceDetail.eventBusMetrics.totals.retryAttempts}</strong>
+              </div>
+            </div>
+
+            {#if selectedServiceDetail.eventBusMetrics.lastFailed}
+              <p class="event-summary error">
+                最近失败：
+                <span class="mono">{selectedServiceDetail.eventBusMetrics.lastFailed.failedSubject}</span>
+                · {selectedServiceDetail.eventBusMetrics.lastFailed.errorMessage}
+              </p>
+            {/if}
+
+            {#if selectedServiceDetail.eventBusMetrics.lastRejected}
+              <p class="event-summary warn">
+                最近拒绝：
+                <span class="mono">{selectedServiceDetail.eventBusMetrics.lastRejected.failedSubject}</span>
+                · {selectedServiceDetail.eventBusMetrics.lastRejected.reason}
+              </p>
+            {/if}
+          </section>
+        {/if}
+
+        <section class="inspector-section" aria-labelledby="service-raw-title">
+          <h2 id="service-raw-title">原始详情</h2>
+          <KeyValueInspector item={selectedServiceDetail} />
+        </section>
+      {:else}
+        <p class="inspector-status">暂无服务详情</p>
+      {/if}
     </aside>
   </div>
 </section>
@@ -84,11 +197,21 @@
     gap: var(--space-3);
   }
 
+  .inspector-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
   .panel-header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-3);
+  }
+
+  .panel-header.compact {
+    align-items: center;
   }
 
   h2 {
@@ -135,8 +258,83 @@
     font-family: var(--font-mono);
   }
 
+  .inspector-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .summary-grid,
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .summary-grid div,
+  .metrics-grid div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--line-soft);
+    background: var(--surface-panel);
+  }
+
+  dt,
+  .metrics-grid span {
+    color: var(--text-300);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd,
+  .metrics-grid strong {
+    margin: 0;
+    color: var(--text-100);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+  }
+
+  .service-runtime,
+  .state-source-badge {
+    color: var(--text-200);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+  }
+
+  .event-summary {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-200);
+  }
+
+  .event-summary.error {
+    color: var(--signal-block);
+  }
+
+  .event-summary.warn {
+    color: var(--signal-warn);
+  }
+
+  .inspector-status {
+    margin: 0;
+    color: var(--text-200);
+    font-size: var(--text-sm);
+  }
+
+  .inspector-status.error {
+    color: var(--signal-block);
+  }
+
   @media (max-width: 960px) {
     .services-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .summary-grid,
+    .metrics-grid {
       grid-template-columns: 1fr;
     }
   }

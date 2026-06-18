@@ -9,7 +9,8 @@
   import ServiceRegistryTable from '$lib/components/ServiceRegistryTable.svelte'
   import TimelineStream from '$lib/components/TimelineStream.svelte'
 
-  const stateSources = ['authoritative', 'event', 'log', 'audit']
+  const stateSources = ['authoritative', 'event', 'log', 'audit', 'read-model']
+  const eventBusMetrics = $derived(appState.overview?.eventBusMetrics ?? null)
 
   const degradedState = $derived.by(() => {
     const overview = appState.overview
@@ -56,6 +57,96 @@
           <ServiceRegistryTable services={appState.overview.services} />
         </section>
 
+        <section class="panel" aria-labelledby="eventbus-title">
+          <div class="panel-heading">
+            <h2 id="eventbus-title">EventBus 发布健康</h2>
+            <span class="eyebrow">read-model</span>
+          </div>
+
+          {#if eventBusMetrics}
+            <div class="metrics-grid" aria-label="EventBus 发布指标总览">
+              <article class="metric-card">
+                <span class="metric-label">成功</span>
+                <strong>{eventBusMetrics.totals.success}</strong>
+              </article>
+              <article class="metric-card warn">
+                <span class="metric-label">拒绝</span>
+                <strong>{eventBusMetrics.totals.rejected}</strong>
+              </article>
+              <article class="metric-card danger">
+                <span class="metric-label">失败</span>
+                <strong>{eventBusMetrics.totals.failed}</strong>
+              </article>
+              <article class="metric-card info">
+                <span class="metric-label">重试</span>
+                <strong>{eventBusMetrics.totals.retryAttempts}</strong>
+              </article>
+            </div>
+
+            {#if eventBusMetrics.lastFailed || eventBusMetrics.lastRejected}
+              <div class="operational-strip">
+                {#if eventBusMetrics.lastFailed}
+                  <div>
+                    <span class="operational-label">最近失败</span>
+                    <p>
+                      <span class="mono">{eventBusMetrics.lastFailed.failedSubject}</span>
+                      {#if eventBusMetrics.lastFailed.callerService}
+                        <span> · {eventBusMetrics.lastFailed.callerService}</span>
+                      {/if}
+                      {#if eventBusMetrics.lastFailed.actor}
+                        <span> · {eventBusMetrics.lastFailed.actor}</span>
+                      {/if}
+                      <span> · {eventBusMetrics.lastFailed.attempts} 次尝试</span>
+                    </p>
+                  </div>
+                {/if}
+
+                {#if eventBusMetrics.lastRejected}
+                  <div>
+                    <span class="operational-label">最近拒绝</span>
+                    <p>
+                      <span class="mono">{eventBusMetrics.lastRejected.failedSubject}</span>
+                      <span> · {eventBusMetrics.lastRejected.reason}</span>
+                      {#if eventBusMetrics.lastRejected.callerService}
+                        <span> · {eventBusMetrics.lastRejected.callerService}</span>
+                      {/if}
+                    </p>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+
+            {#if eventBusMetrics.subjects.length > 0}
+              <div class="subject-table-wrap">
+                <table class="subject-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Subject</th>
+                      <th scope="col">成功</th>
+                      <th scope="col">拒绝</th>
+                      <th scope="col">失败</th>
+                      <th scope="col">重试</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each eventBusMetrics.subjects.slice(0, 6) as subjectMetric}
+                      <tr>
+                        <td class="mono">{subjectMetric.subject}</td>
+                        <td>{subjectMetric.success}</td>
+                        <td>{subjectMetric.rejected}</td>
+                        <td>{subjectMetric.failed}</td>
+                        <td>{subjectMetric.retryAttempts}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          {:else}
+            <p class="empty-copy">当前未返回 EventBus 指标快照。</p>
+          {/if}
+        </section>
+
         <section class="panel" aria-labelledby="timeline-title">
           <h2 id="timeline-title">时间线</h2>
           <TimelineStream entries={appState.overview.timeline} />
@@ -80,7 +171,11 @@
     confirming={appState.commandConfirming}
     onRequestConfirm={() => appState.commandConfirming = true}
     onCancel={() => appState.commandConfirming = false}
-    onConfirm={() => appState.confirmNoop()}
+    onConfirm={async () => {
+      appState.commandParams = { leafNodeId: appState.selectedNodeId }
+      await appState.executeGenericCommand()
+      void appState.refresh()
+    }}
   />
 </div>
 
@@ -119,6 +214,13 @@
     min-width: 0;
   }
 
+  .panel-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
   .inspector-panel {
     min-width: 0;
     overflow-y: auto;
@@ -131,9 +233,86 @@
     line-height: var(--lh-tight);
   }
 
+  .eyebrow,
+  .metric-label,
+  .operational-label,
+  .empty-copy {
+    color: var(--text-300);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border: 1px solid var(--line-soft);
+    padding: var(--space-3);
+    background: var(--surface-1);
+  }
+
+  .metric-card strong {
+    color: var(--text-100);
+    font-size: var(--text-2xl);
+    line-height: 1;
+  }
+
+  .metric-card.warn {
+    border-color: var(--signal-warn);
+  }
+
+  .metric-card.danger {
+    border-color: var(--signal-block);
+  }
+
+  .metric-card.info {
+    border-color: var(--signal-info);
+  }
+
+  .operational-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .operational-strip p {
+    color: var(--text-100);
+    font-size: var(--text-sm);
+    line-height: var(--lh-relaxed);
+  }
+
+  .subject-table-wrap {
+    overflow-x: auto;
+  }
+
+  .subject-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .subject-table th,
+  .subject-table td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--line-soft);
+    text-align: left;
+    color: var(--text-100);
+  }
+
   .empty-panel {
     color: var(--text-100);
     font-size: var(--text-sm);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
   }
 
   .command-region {
@@ -151,11 +330,21 @@
     .control-room-layout {
       grid-template-columns: 1fr;
     }
+
+    .metrics-grid,
+    .operational-strip {
+      grid-template-columns: 1fr 1fr;
+    }
   }
 
   @media (max-width: 760px) {
     .command-region {
       left: 0;
+    }
+
+    .metrics-grid,
+    .operational-strip {
+      grid-template-columns: 1fr;
     }
   }
 </style>

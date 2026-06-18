@@ -35,8 +35,8 @@
       <dd>{profile.capabilities.controlPlaneOnly ? '是' : '否'}</dd>
     </div>
     <div>
-      <dt>DERP 中继</dt>
-      <dd>{profile.capabilities.realDerpRelay ? '是' : '否'}</dd>
+      <dt>Wstunnel 中继</dt>
+      <dd>{profile.capabilities.realWstunnelRelay ? '是' : '否'}</dd>
     </div>
     <div>
       <dt>TCP 互联</dt>

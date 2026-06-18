@@ -14,7 +14,13 @@
     'timeline.index': '/timeline',
     'audit.index': '/audit',
     'policy.decisions': '/policy/decisions',
-    'services.index': '/services'
+    'policy.approvals': '/policy/approvals',
+    'network.profiles': '/network/profiles',
+    'services.index': '/services',
+    'networks.index': '/networks',
+    'mnet.dataplane.status': '/mnet/dataplane-status',
+    'mnet.profile.migration': '/mnet/profile-migration',
+    'mnet.break-glass': '/mnet/break-glass'
   }
 
   const navItems = $derived((appState.routes?.routes ?? []).map((route) => ({
