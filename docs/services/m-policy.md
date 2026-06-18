@@ -14,15 +14,13 @@
 
 ## 2. Responsibility
 
-M-Policy owns permissions, policy evaluation, risk classification, approval decisions, and protected-operation authorization results.
+M-Policy owns protected-operation authorization decisions, approval queue state, and approval lifecycle callbacks for the current MVP boundary.
 
 What this service owns:
 
-- RBAC allow / deny evaluation
-- user, role, permission, resource, action, node-scope, and service-scope primitives
-- protected REST and CLI permission checks
+- persisted authorization decision facts for protected REST and CLI checks
 - Audit integration for permission changes and denials
-- internal loopback HTTP + Eden authorization API for Core
+- internal loopback HTTP authorization API for Core
 - `policy.decision.created.v0` publication through M-EventBus
 - approval queue state, votes, quorum evaluation, expiration, and lifecycle events
 - external approval REST API for operators and internal approval creation API for M-Task
@@ -43,23 +41,17 @@ What this service does not yet own in the current baseline:
 | Eden | `@meristem/contracts/mpolicy` | `0.1.0` | typed internal client surface |
 | Events | `policy.decision.created.v0`, `policy.approval.*.v0` | `v0` | see `docs/events/EVENT-CATALOG.md` |
 
-Decision results include:
+Current implemented decision results include:
 
 ```ts
 type MPolicyDecisionResult =
   | 'allow'
   | 'deny'
-  | 'require_mfa'
-  | 'require_single_approval'
   | 'require_multi_approval'
-  | 'require_llm_summary'
   | 'require_manual_review'
-  | 'require_delay'
-  | 'require_limited_scope'
-  | 'require_readonly_mode'
-  | 'require_core_node_only'
-  | 'require_audit_lock'
 ```
+
+Additional richer policy outcomes remain deferred and must not be assumed by callers until both contract and implementation land together.
 
 ---
 
@@ -79,8 +71,7 @@ type MPolicyDecisionResult =
 | Dependency | Type | Failure Behavior |
 |------------|------|------------------|
 | PostgreSQL | datastore | approval and decision persistence fail closed |
-| M-Log | service | high-risk decision paths fail closed when required Audit writes are unavailable |
-| M-EventBus | service | event publication failure degrades explicitly after state handling |
+| M-EventBus | service | decision/audit/timeline publication failure degrades explicitly after state handling |
 
 ---
 
@@ -137,8 +128,7 @@ type MPolicyDecisionResult =
 
 ## 11. Done Criteria
 
-- admin and normal-user roles are distinguishable.
-- protected APIs require permission.
+- protected APIs require a persisted policy decision.
 - CLI commands can call policy checks through Core.
 - permission denials write Full Log and Audit when required.
 - policy tests cover allow, deny, missing role, missing resource, and fail-closed behavior.

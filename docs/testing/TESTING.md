@@ -43,24 +43,31 @@ bun run test:agent-submit
 
 This gate runs the contract drift checks most likely to fail after documentation, event catalog, or M-Task cutover edits. It complements, but does not replace, the boundary-specific gates below.
 
-Target commands once scripts exist:
+Final gate command matrix:
 
 ```bash
+bun run format:check
 bun run lint
 bun run typecheck
+bun run typecheck:e2e
+bun run typecheck:m-ui
 bun run test
+bun run test:agent-submit
 bun run test:contracts
-bun run test:cli
 bun run test:failure-modes
 bun run test:integration
-# OpenSearch tests
+bun run test:cli
+bun run test:ui-contract
+bun run test:perf
+bun run test:e2e
+```
+
+OpenSearch-specific supplementary gates (not part of the standard matrix):
+
+```bash
 bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
-bun run test:e2e
-bun run test:perf
-bun run workspace-hygiene
-bun run skill-hygiene
 ```
 
 Optional deployment pack static checks:
@@ -108,6 +115,8 @@ Do not add UI-only browser tests to the e2e suite unless the capability is expli
 
 When removing or replacing old e2e tests, update this section to describe the new canonical suite.
 
+E2E tests that require three-host capability (Core + Stem + Leaf) skip gracefully when the full topology is not available in the test environment. The skip is explicit via `bun:test` `test.skipIf` or a top-level guard, not a silent pass.
+
 ---
 
 ## 4. Contract Tests
@@ -138,7 +147,7 @@ MVP-specific contract tests:
 - node registration default mode and node credential issuance match the node registration contract.
 - heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
-- M-UI functional-demo contract tests prove the current M-UI BFF route registry, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
+- M-UI transitional workbench contract tests prove the current M-UI BFF route registry, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
 - M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
 - Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
 - SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
@@ -203,6 +212,33 @@ MVP failure-mode tests:
 - operator can read profiles but cannot enable / disable.
 - disable in default state returns `409 profile.not_enabled`.
 
+### 5.1 M-Net Data-Plane Exact Gates
+
+Task-level data-plane security work is not complete until all of the following failure-mode gates exist and pass together:
+
+- `tests/failure-modes/mnet-dataplane-security-hardening.test.ts` covers typed outcomes for public-key duplicates, clock skew rejection, expired/revoked ticket rejection, credential rotation race, stale map fail-closed behavior, partition handling, event-bus unavailable mapping, relay unavailable fallback/fail-closed behavior, address exhaustion, offline leaf migration pending state, and ACME directory failure behavior.
+- `tests/failure-modes/mnet-dataplane-redaction-scan.test.ts` scans every new event/log/UI fixture for forbidden private material, including `privateKey`, `wireguardPrivateKey`, PEM markers, runtime tokens, ACME secret fields, and sidecar secret fields.
+- `tests/failure-modes/m-net-runtime-redaction.test.ts` remains the runtime redaction gate for existing M-Net payload surfaces.
+- `tests/failure-modes/node-agent-sidecar.test.ts` remains the sidecar crash / degraded-state gate.
+- `tests/failure-modes/mnet-dataplane-orchestration.test.ts` remains the audit-unavailable, policy-denial, and break-glass precedence gate.
+- `tests/failure-modes/m-net-disable-approval.test.ts` remains the profile disable fail-closed and audit-chain gate.
+- `tests/failure-modes/m-net-operation-locks.test.ts` remains the concurrency / operation-lock gate for overlapping profile mutations.
+
+Required command gate:
+
+```bash
+bun run test:failure-modes
+```
+
+Required evidence capture for data-plane security hardening:
+
+```bash
+bun test tests/failure-modes/mnet-dataplane-redaction-scan.test.ts
+bun test tests/failure-modes/mnet-dataplane-security-hardening.test.ts --test-name-pattern "expired and revoked join tickets"
+```
+
+The commands above are mandatory because the private-material scanner and expired-ticket rejection path require durable proof.
+
 ---
 
 ## 6. UI Contract Tests
@@ -215,12 +251,22 @@ Must cover:
 - critical state is not color-only
 - Audit / Policy / Log / Node state components display traceable source
 
-UI contract tests are not backend-only MVP blockers, but they are required to keep the current v0.1 functional-demo boundary and SDUI contracts coherent.
+UI contract tests are not backend-only MVP blockers, but they are required to keep the current transitional workbench boundary and SDUI contracts coherent.
 
-M-UI functional-demo BFF contract additions:
+M-UI transitional workbench BFF contract additions:
 - M-UI BFF must expose minimal OpenAPI for UI-facing endpoints.
 - M-UI must call M-UI BFF only, not Core REST directly.
 - BFF must not cache Core data or permission context across requests.
+
+M-UI ownership gates:
+
+- M-UI owns route surfaces, Svelte components, layout decisions, interaction structure, and the `layout / modules / ui` split.
+- M-* services expose facts, capabilities, events, policy state, audit state, and domain state; they must not supply M-UI pages, Svelte components, layouts, or runtime frontend modules.
+- M-UI BFF remains a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but it must not own UI structure, final business facts, final authorization, or final policy decisions.
+- SDUI remains a route/component contract registry. UI contract tests must not treat it as a runtime page renderer or composition engine unless a future ADR and contract migration explicitly introduce that architecture.
+- M-Extension and plugin UI contribution remain deferred architecture; tests for current scope must not require plugin-provided routes, components, or layouts.
+- M-UI must continue to call M-UI BFF only; BFF must use Core public facades for Core/M-* facts and capabilities.
+- Frontend modularity must happen inside M-UI-owned `layout / modules / ui`, with domain modules consuming BFF-shaped data rather than service/plugin-supplied runtime UI.
 
 ---
 
@@ -301,6 +347,7 @@ Performance tests live under `tests/perf/` and measure micro-benchmark throughpu
 | CPU micro-benchmarks | `baseline-cpu.perf.test.ts` | json-stringify-parse, uint8array-copy, text-encode-decode, file-io throughput |
 | HTTP handler logic | `core-http.perf.test.ts` | schema validation, JSON serialization, route parameter parsing, literal validation throughput |
 | M-Net profile operations | `mnet-profile.perf.test.ts` | profile state machine, guard predicates, store operations, suspended operations throughput |
+| M-Net network map rendering | `mnet-network-map.perf.test.ts` | single-map and per-node render latency, O(N²) guard |
 | Database operations | `db-operations.perf.test.ts` | schema loading, seed data generation, SQL template construction throughput |
 | P95 latency | `latency-p95.perf.test.ts` | single-operation p50/p95/p99 latency for state machine, events, policy, config hash, and secret redaction |
 | CPU flame graph | `flamegraph-cpu.perf.test.ts` | sampling-based hot-path profiles with flamegraph-compatible folded output |

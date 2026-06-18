@@ -38,12 +38,12 @@ What this service must not own:
 - Core-owned authorization decisions
 - M-Task-owned canonical task lifecycle state
 - public NATS semantics for the agent boundary
-- real DERP / UDP / TCP data-plane rollout in the current baseline
+- packet forwarding, DERP protocol implementation, TCP/UDP relay execution, or WireGuard protocol implementation. (M-Net orchestrates data-plane metadata: network maps, ACL renders, relay assignment, key metadata, tunnel addresses).
 
-Current deferred networking behavior:
+Current networking behavior scope:
 
-- DERP / UDP / TCP transport implementation
-- Headscale control plane integration
+- `m-net-cn@0.1.x` remains control-plane-only.
+- `m-net-cn@0.2.0` carries production data-plane capabilities using node-agent managed WireGuard + wstunnel sidecars (superseding previous deferrals via ADR-N03).
 - active reachability probing beyond control-plane heartbeat
 - path selection
 - regional profile data-plane rollout
@@ -158,30 +158,29 @@ Current runtime boundary:
 
 Default network design:
 
-- Core runs Headscale DERP Server.
-- UDP is preferred by default.
-- Tailscale public DERP can be used as a fallback.
-- public DERP fallback must remain configurable and disableable.
+- Packet path is owned by node-agent + WireGuard + pinned external wstunnel relay sidecars over WSS/443 with ACME TLS.
+- The first supported topology is 1 control-plane+relay host + 2 Leaf hosts.
+- Default overlay CIDR is `100.96.0.0/12`.
+- Single active data-plane network per node for `m-net-cn@0.2.0`.
+- Signed network-map TTL fail-closed: node-agent tears down tunnels after `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` (default 15m) without a fresh signed map.
+- No DNS, TURN, multi-region relay pool, or mobile roaming in the first production slice.
+- No Kubernetes/service mesh requirement.
 
 Regional Network Profile ownership:
 
-- profile definition registration (`m-net-default@0.1.0`, `m-net-cn@0.1.0`)
+- profile definition registration (`m-net-default@0.1.0`, `m-net-cn@0.1.x`, `m-net-cn@0.2.0`)
 - per-network applied profile state, transitions, and suspended enable operations
 - external network-profile REST API and OpenAPI
 - profile lifecycle events published through M-EventBus
 
-M-Net CN is the first Regional Network Profile. Its control-plane lifecycle is implemented; data-plane behavior remains deferred.
+M-Net CN is the first Regional Network Profile. `m-net-cn@0.1.x` control-plane lifecycle is implemented. `m-net-cn@0.2.0` introduces production data-plane orchestration (ADR-N03).
 
-Data-plane feature gate:
+Data-plane orchestration adapter:
 
-- `services/m-net/src/data-plane/noop-adapter.ts` provides a feature-gated noop adapter boundary.
-- The feature gate defaults to OFF (`DATA_PLANE_FEATURE_GATE_DEFAULT = false`).
-- When the gate is off, the adapter returns `{ enabled: false, status: 'noop' }` and cannot mutate any runtime transport paths.
-- When the gate is on, the adapter still returns noop status, since real transport is not yet implemented.
-- The skeleton does not expose runtime ports, protocols, endpoints, secrets, relays, or probes.
-- Real DERP / TCP / UDP / Headscale data-plane implementation remains deferred.
+- `m-net-cn@0.1.x` profiles use a noop adapter (`services/m-net/src/data-plane/noop-adapter.ts`) since they are `controlPlaneOnly: true`.
+- `m-net-cn@0.2.0` profiles use the production WireGuard+wstunnel data-plane adapter to orchestrate sidecars.
 
-Profile definition `m-net-cn@0.1.0`:
+Profile definition `m-net-cn@0.1.x`:
 
 - region: `cn`
 - `controlPlaneOnly: true`; no real endpoints, secrets, relay assignments, routes, or probes
@@ -205,7 +204,7 @@ Placeholder-only rules:
 - Leaf joins remain restricted and require a Stem member.
 - logical network create/join writes Audit and Timeline entries.
 - M-Net owns profile definitions, per-network profile state, transitions, and suspended profile-enable operations.
-- `m-net-cn@0.1.0` stays control-plane-only and contains no real endpoint, secret, route, or probe data.
+- `m-net-cn@0.1.x` stays control-plane-only and contains no real endpoint, secret, route, or probe data.
 - M-Net exposes the external profile REST API and OpenAPI.
 - M-CLI supports profile list / show / enable / disable through the service URL resolver.
 - M-Net CN enable requires bounded M-Policy approval and resumes through M-Net.

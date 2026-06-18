@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by `ADR-N03` (`ADR-N03-m-net-production-data-plane.md`)
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (data-plane scope superseded by ADR-N03)
 
 ## Context
 

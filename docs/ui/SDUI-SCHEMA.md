@@ -1,6 +1,8 @@
 # SDUI Schema Contract
 
 > M-UI is based on SvelteKit + SDUI. SDUI is allowed only if it reinforces Meristem's operational boundaries.
+>
+> In the Transitional Workbench stage, SDUI is a route/component contract registry, not a runtime page composition engine. M-UI owns route surfaces, Svelte components, and interaction structure; M-* services own facts and capabilities; M-UI BFF adapts those facts into UI-facing data. Services, M-Extension, and plugins do not supply pages or components at runtime.
 
 ---
 
@@ -58,7 +60,11 @@ type MUiComponentKind =
   | "ApprovalDetailPanel"
   | "NetworkProfileListPanel"
   | "NetworkProfileDetailPanel"
-  | "OperationalCommandPreview";
+  | "OperationalCommandPreview"
+  | "NetworkListPanel"
+  | "NetworkDetailPanel"
+  | "NodeCredentialPanel"
+  | "DataplaneStatusPanel";
 ```
 
 Forbidden kinds:
@@ -122,9 +128,9 @@ Rules:
 
 ---
 
-## 5. M-UI Functional Demo Surface
+## 5. M-UI Transitional Workbench Surface
 
-The current v0.1 M-UI surface is a **functional-demo shell** built on the SDUI v0.2 boundary. It proves the control-room flow and its supporting drill-down routes, but it is not the final frontend design.
+M-UI is Meristem's transitional frontend for the future formal operator workbench. It starts carrying real workbench structure, operation flow, information hierarchy, state-source visibility, and CommandWell boundaries while preserving room for later redesign and restructuring.
 
 Required route shape:
 
@@ -139,7 +145,7 @@ commandWell: Run noop task
 Required command:
 
 ```ts
-type FunctionalDemoNoopCommand = MUiCommand & {
+type TransitionalWorkbenchNoopCommand = MUiCommand & {
   id: "task.noop.run";
   action: "task:submit";
   risk: "medium";
@@ -149,9 +155,9 @@ type FunctionalDemoNoopCommand = MUiCommand & {
 };
 ```
 
-Functional demo rules:
+Transitional workbench rules:
 
-- Visible UI text is Chinese for the functional demo; machine fields, permission names, event names, error codes, and component kinds remain English.
+- Visible UI text is Chinese for the transitional workbench; machine fields, permission names, event names, error codes, and component kinds remain English.
 - The `Run noop task` command is rendered to operators as `运行 noop 任务`.
 - It is enabled only for a selected reachable Leaf with `task:submit`.
 - Missing permission uses a visible Chinese explanation that preserves the permission name, such as `缺少权限：task:submit`.
@@ -163,10 +169,10 @@ Functional demo rules:
 - Success refreshes Timeline and the selected Leaf node.
 - Failure displays the Core error envelope inline in CommandWell.
 - Audit regions remain visible but access-denied for actors without `audit:read`.
-- Minimal policy summaries may show actor, action, resource, result, and createdAt; the functional demo does not require a full `PolicyDecisionPanel`.
+- Minimal policy summaries may show actor, action, resource, result, and createdAt; routes may use a bounded summary when a full `PolicyDecisionPanel` would expose unnecessary policy internals.
 - Toasts, snackbars, modals, and hidden destructive controls remain forbidden.
-- Mobile must remain usable through a single-column or vertically scrollable layout, but final mobile interaction design is out of scope.
-- The functional demo uses manual refresh and command-after refresh only; realtime UI transports are out of scope.
+- Mobile must remain usable through a single-column or vertically scrollable layout while the workbench structure remains open to later redesign.
+- The transitional workbench uses manual refresh and command-after refresh only until a realtime UI transport is explicitly added to the contract.
 
 ---
 
@@ -174,15 +180,15 @@ Functional demo rules:
 
 - Route schema validates before rendering.
 - Unknown component kind fails closed.
-- Missing permission hides or disables command with reason; the functional demo must prefer a visible disabled command explanation.
+- Missing permission hides or disables command with reason; the transitional workbench must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
 - Component token usage follows `MERISTEM-DESIGN.md`.
 
 ---
 
-## 7. Functional Demo Route Registry
+## 7. Transitional Workbench Route Registry
 
-The functional demo currently exposes a 7-route SDUI v0.2 registry, with `control-room.overview` as the primary operator entry route.
+The transitional workbench exposes an SDUI v0.2 registry, with `control-room.overview` as the primary operator entry route and supporting drill-down routes for operational work.
 
 ```ts
 const controlRoomRoute: MUiRouteSchema = {
@@ -203,15 +209,15 @@ const controlRoomRoute: MUiRouteSchema = {
 };
 ```
 
-**Functional demo-specific expectations**:
+**Transitional workbench-specific expectations**:
 
 - `AuditLedger`: Rendered inline in the primary surface when the actor has `audit:read`.
-- `PolicyDecisionPanel`: Not implemented in the functional demo; only a minimal summary is shown inline after command execution.
+- `PolicyDecisionPanel`: Routes may show a minimal summary inline after command execution when full decision detail would expose unnecessary policy internals.
 - `CommandWellPanel` executes `noop` on the overview route and also hosts approval/profile mutation flows on the approval-detail and profile-detail routes.
 - Approval detail and profile detail keep confirmation, inline result evidence, and visible disabled reasons inside the CommandWell surface.
 - Global profile default / switch / break-glass controls may appear as disabled control-plane-only UI and must not imply live data-plane mutation.
 
-**Functional demo state sources**:
+**Transitional workbench state sources**:
 
 - Node list, service registry, session: authoritative (PostgreSQL via Core)
 - Timeline entries: log projection (via Core)
@@ -223,7 +229,7 @@ const controlRoomRoute: MUiRouteSchema = {
 
 ## 8. Current SDUI v0.2 Route Set
 
-The current SDUI v0.2 route set contains 7 routes, each with state source declarations and degraded state support. The functional-demo shell is the current delivery surface for this route registry.
+The current SDUI v0.2 route set contains workbench routes with state source declarations and degraded state support. This route registry is the current transitional delivery surface for the future formal M-UI workbench.
 
 ### 8.1 Route Registry
 
@@ -247,10 +253,16 @@ type SduiV02RouteRegistry = {
 | audit.index | AuditLedger, TraceLink, RawEnvelopeView | audit |
 | policy.decisions | PolicyDecisionPanel, DecisionQueueSummary | policy, audit |
 | services.index | ServiceRegistryTable, KeyValueInspector | authoritative |
+| networks.index | NetworkListPanel, CommandWellPanel | authoritative, event |
+| networks.detail | NetworkDetailPanel, TraceLink, CommandWellPanel | authoritative, event, log |
+| nodes.credentials | NodeCredentialPanel, CommandWellPanel | authoritative, audit |
+| mnet.dataplane.status | DataplaneStatusPanel, TraceLink | authoritative, event, audit |
+| mnet.profile.migration | CommandWellPanel, TraceLink | authoritative, policy, audit |
+| mnet.break-glass | CommandWellPanel, TraceLink | authoritative, audit |
 
 ### 8.3 Shared Components
 
-`StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`, `ApprovalQueuePanel`, `ApprovalDetailPanel`, `NetworkProfileListPanel`, `NetworkProfileDetailPanel`, `OperationalCommandPreview`.
+`StateSourceBadge`, `RouteHeader`, `FilterBar`, `TraceLink`, `RawEnvelopeView`, `InlineOperationalAlert`, `AuditLedger`, `PolicyDecisionPanel`, `DecisionQueueSummary`, `ApprovalQueuePanel`, `ApprovalDetailPanel`, `NetworkProfileListPanel`, `NetworkProfileDetailPanel`, `OperationalCommandPreview`, `NetworkListPanel`, `NetworkDetailPanel`, `NodeCredentialPanel`, `DataplaneStatusPanel`.
 
 ### 8.4 Degraded State
 
@@ -264,7 +276,7 @@ Each route may declare `degradedState: { enabled: boolean; reason: string }`. Wh
 
 ### 8.6 Formal v0.2 Approval And Profile Routes
 
-The following routes extend the SDUI v0.2 surface for the implemented approval/profile control-room workflows. The route registry, UI screens, and BFF/Core data flows are active for approval mutation and per-network profile mutation. Real data-plane rollout remains deferred.
+The following routes extend the SDUI v0.2 surface for the implemented approval/profile control-room workflows. The route registry, UI screens, and BFF/Core data flows are active for approval mutation and per-network profile mutation. M-Net production data-plane behavior is active for `m-net-cn@0.2.0` (ADR-N03).
 
 #### 8.6.1 Route Registry Entries
 
@@ -454,3 +466,26 @@ The warning is displayed on:
 - Network profile detail view when `controlPlaneOnly: true`
 
 This warning is required because `m-net-cn@0.1.0` carries `controlPlaneOnly: true`. Operators must not expect runtime transport changes when enabling or disabling the CN profile.
+
+### 8.7 M-Net Dataplane Routes
+
+The following routes manage data-plane visibility, node credentials, and high-risk network operations.
+
+#### 8.7.1 Route Summary
+
+| Route ID | Title | Required Permissions | State Sources |
+|---|---|---|---|
+| networks.index | 数据面网络 | network:read | authoritative, event |
+| networks.detail | 网络详情 | network:read | authoritative, event, log |
+| nodes.credentials | 节点凭证 | core:read | authoritative, audit |
+| mnet.dataplane.status | 数据面状态 | network:read | authoritative, event, audit |
+| mnet.profile.migration | Profile 迁移 | network:profile-enable | authoritative, policy, audit |
+| mnet.break-glass | 紧急预案 (Break-glass) | network:profile-disable | authoritative, audit |
+
+#### 8.7.2 High-Risk Command UI Rules
+
+- `mnet.break-glass` and `mnet.profile.migration` operations are **CommandWell-only**. They do not have inline action buttons.
+- All destructive actions (e.g., breaking glass, rolling back migration, revoking credentials) must present a confirmation step in the CommandWell.
+- Confirmation copy must be in Chinese.
+- Disabled controls must show a Chinese reason (e.g., "缺少权限" or "状态不允许").
+- High-risk operations must pass through M-Policy and write Audit logs.

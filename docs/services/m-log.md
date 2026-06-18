@@ -43,6 +43,7 @@ What this service must not own:
 | REST / internal HTTP | `/internal/v0/timeline`, `/internal/v0/full`, `/internal/v0/audit`, `/internal/v0/search/*` | `v0` | loopback write/query surface |
 | Eden | `@meristem/contracts/mlog` | `0.1.0` | typed internal client surface |
 | Events | `audit.entry.created.v0` | `v0` | published after successful Audit writes |
+| Events (consumed) | `meventbus.publish.rejected.v0`, `meventbus.publish.failed.v0` | `v0` | consumed into Full Log for transport-failure observability |
 
 ---
 
@@ -62,7 +63,7 @@ M-Log does not expose its own external operator-facing permission surface. Core 
 |------------|------|------------------|
 | PostgreSQL | datastore | authoritative log-fact writes fail closed when required |
 | OpenSearch | read model | search and analysis degrade without affecting authoritative facts |
-| M-EventBus | service | post-Audit publication degrades explicitly |
+| M-EventBus | service | post-Audit publication degrades explicitly; EventBus operational subjects are observed best-effort into Full Log |
 
 ---
 
@@ -102,6 +103,8 @@ M-Log does not expose its own external operator-facing permission surface. Core 
 | Timeline | key human-readable operational events | `summary`, `subject`, `correlationId` |
 | Full | raw contextual logs and degradation details | `source`, `level`, `message`, `traceId`, `correlationId` |
 | Audit | privileged and high-risk facts | `actor`, `action`, `resource`, `decision` |
+
+EventBus operational subjects are stored as Full Log entries rather than Audit Log facts, because they describe transport/runtime degradation rather than privileged business decisions. When available, the stored payload and message preserve `callerService`, `actor`, `eventType`, and correlation fields so transport failures can be traced back to the originating publisher and compared against the workbench's EventBus metrics summary.
 
 Audit Log is not a category inside Full Log; it is a separate high-trust fact stream.
 

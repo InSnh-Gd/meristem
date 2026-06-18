@@ -21,16 +21,20 @@ What this service owns:
 - **Serving network list via `GET /api/v0/networks` as proxy to Core public facade**
 - **Forwarding global M-Net profile default, migration, disable-policy, and break-glass controls to Core public facades**
 - Returning a trimmed Minimal Policy Decision Summary from Core policy decision records
-- Publishing the current SDUI v0.2 route registry for the v0.1 functional-demo surface
+- Publishing the current SDUI v0.2 route registry for the transitional M-UI workbench surface
 - Returning display-shaped node, timeline, audit, policy decision, and service lists with state-source annotations
 - Exposing generic CommandWell endpoints for BFF-known command IDs only
 - Exposing its own minimal OpenAPI document for the M-UI frontend
+
+The BFF is a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but M-UI owns route surfaces, Svelte components, and interaction structure. M-* services own facts and capabilities; services, M-Extension, and plugins do not supply M-UI pages or components through the BFF.
 
 What this service must not own:
 
 - Authorization decisions — only derives display state from Core data
 - Audit facts — never calls M-Log Audit endpoints
 - Policy facts — never calls M-Policy directly and never expands beyond Core-provided decision data
+- UI route surfaces, Svelte components, layout decisions, or runtime page composition
+- Service- or plugin-provided frontend modules
 - Direct calls to M-Policy, M-Log, or M-Net internal HTTP
 - Calls to `/internal/v0/*` routes on M-Policy, M-Net, or any other internal service
 - Token issuance, storage, or caching
@@ -140,7 +144,7 @@ The BFF does not enforce permissions. It derives disabled command state from the
 
 | Capability | Supported | Notes |
 |------------|-----------|-------|
-| reloadable | no | v0.1 functional-demo BFF |
+| reloadable | no | transitional workbench BFF |
 | rollbackable | no | |
 | degradable | yes | Returns ready=false when Core is down |
 
@@ -169,7 +173,7 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 ## 11. Done Criteria
 
 - Service definition is versioned.
-- Current SDUI v0.2 route registry and supporting BFF endpoints are documented for the v0.1 functional-demo surface.
+- Current SDUI v0.2 route registry and supporting BFF endpoints are documented for the transitional M-UI workbench surface.
 - OpenAPI document generated at `/openapi`.
 - BFF does not call M-Log, M-Policy, or M-Net internal HTTP.
 - BFF does not construct Audit facts.

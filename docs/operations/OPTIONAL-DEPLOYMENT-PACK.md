@@ -159,3 +159,15 @@ rg -n "/internal/v0|/api/v0/\*" ops/apisix/apisix.yaml
 ```
 
 `/internal/v0` must appear only in prohibited-route comments. `/api/v0/*` must not appear as an active route.
+
+---
+
+## 10. Multi-Host Harness Note
+
+The first topology harness is intentionally narrower than a full split deployment:
+
+- control-plane and relay stay co-located on the local control host.
+- two Leaf hosts are isolated with Docker bridge containers so local automation can still prove non-loopback host boundaries.
+- if `wg`, `CAP_NET_ADMIN`, `/sys/module/wireguard`, `wstunnel`, Docker, or the cached `oven/bun:1` image are missing, `bun run mnet:harness:preflight` returns a typed failure and `bun run mnet:harness:start` aborts before partial deployment.
+
+Use `docs/operations/RUNBOOK.md` for the exact harness commands and evidence capture flow.

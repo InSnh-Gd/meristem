@@ -83,7 +83,11 @@ Rules:
 | `task.retry.rejected.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRetryRejectedPayload` | at-least-once |
 | `mnet.reachability.changed.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetReachabilityChangedPayload` | at-least-once |
 | `mnet.path.changed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetPathChangedPayload` | at-least-once |
-| `mnet.derp.fallback.changed.v0` | event | M-Net | Core, M-Log, M-Policy | `MNetDerpFallbackChangedPayload` | at-least-once |
+| `mnet.wstunnel.fallback.changed.v0` | event | M-Net | Core, M-Log, M-Policy | `MNetWstunnelFallbackChangedPayload` | at-least-once |
+| `mnet.network_map.published.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetNetworkMapPublishedPayload` | at-least-once |
+| `mnet.node_key.rotated.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetNodeKeyRotatedPayload` | at-least-once |
+| `mnet.relay.assigned.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetRelayAssignedPayload` | at-least-once |
+| `mnet.dataplane.tunnel.changed.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetDataplaneTunnelChangedPayload` | at-least-once |
 | `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
 | `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |
@@ -105,6 +109,16 @@ Rules:
 | `config.rolled_back.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigRolledBackPayload` | at-least-once |
 | `audit.lock.required.v0` | event | M-Policy / M-Log | Core, M-UI BFF | `AuditLockRequiredPayload` | at-least-once |
 | `audit.entry.created.v0` | event | M-Log | Core, M-UI BFF | `AuditEntryCreatedPayload` | at-least-once |
+| `meventbus.publish.rejected.v0` | event | M-EventBus | M-Log | `EventBusRejectedPayload` | at-least-once |
+| `meventbus.publish.failed.v0` | event | M-EventBus | M-Log | `EventBusPublishFailedPayload` | at-least-once |
+
+EventBus operational subjects preserve publish attribution when available:
+
+- `callerService` mirrors the original publisher `source` explicitly for operational consumers.
+- `actor` is copied from the original event payload only when the payload exposes a stable actor field.
+- `eventType`, `correlationId`, `traceId`, and `causationId` remain available so M-Log can join transport failures back to the originating workflow.
+
+EventBus publish counters are exported separately from NATS subjects through the loopback metrics route `GET /internal/v0/metrics/publish-summary`; the control-room overview consumes that read model rather than inferring counts from Full Log replay.
 
 ---
 
@@ -196,6 +210,90 @@ type MNetMembershipJoinedPayload = {
   membershipMode: "full" | "restricted";
 };
 
+type MNetNetworkMapMember = {
+  nodeId: string;
+  tunnelIp: string;
+  publicKeyFingerprint: string;
+};
+
+type MNetNetworkMapRelayAssignment = {
+  relayType: "wstunnel" | "direct";
+  relayEndpoint: string;
+  nodeIds: string[];
+};
+
+type MNetAclRule = {
+  ruleId: string;
+  action: "allow" | "deny";
+  sourceNodeId: string;
+  targetNodeId: string;
+  protocol: "any" | "tcp" | "udp" | "icmp";
+};
+
+type MNetReachabilityChangedPayload = {
+  networkId: string;
+  nodeId: string;
+  reachable: boolean;
+  latencyMs?: number;
+  checkedAt: string;
+  correlationId: string;
+};
+
+type MNetPathChangedPayload = {
+  networkId: string;
+  nodeId: string;
+  pathType: "direct" | "relay" | "none";
+  previousPathType: "direct" | "relay" | "none";
+  relayEndpoint?: string;
+  correlationId: string;
+};
+
+type MNetDerpFallbackChangedPayload = {
+  networkId: string;
+  nodeId: string;
+  fallbackActive: boolean;
+  reason: string;
+  correlationId: string;
+};
+
+type MNetNetworkMapPublishedPayload = {
+  networkId: string;
+  mapVersion: string;
+  members: MNetNetworkMapMember[];
+  relayAssignment: MNetNetworkMapRelayAssignment;
+  aclRules: MNetAclRule[];
+  expiresAt: string;
+  signedBy: string;
+  correlationId: string;
+};
+
+type MNetNodeKeyRotatedPayload = {
+  nodeId: string;
+  oldKeyFingerprint: string;
+  newKeyFingerprint: string;
+  rotationReason: string;
+  actor: string;
+  correlationId: string;
+  auditId: string;
+};
+
+type MNetRelayAssignedPayload = {
+  networkId: string;
+  nodeId: string;
+  relayEndpoint: string;
+  relayType: "wstunnel" | "direct";
+  correlationId: string;
+};
+
+type MNetDataplaneTunnelChangedPayload = {
+  networkId: string;
+  nodeId: string;
+  tunnelStatus: "up" | "down" | "degraded";
+  previousStatus: "up" | "down" | "degraded";
+  reason: string;
+  correlationId: string;
+};
+
 type PolicyDecisionCreatedPayload = {
   decisionId: string;
   actor: string;
@@ -225,6 +323,30 @@ type AuditEntryCreatedPayload = {
   action: string;
   resource: string;
   decisionId?: string;
+};
+
+type EventBusRejectedPayload = {
+  failedSubject: string;
+  eventId?: string;
+  source?: string;
+  correlationId?: string;
+  traceId?: string;
+  reason: 'invalid_envelope' | 'subject_not_allowed' | 'subject_mismatch';
+  errors: string[];
+  originalEvent: unknown;
+};
+
+type EventBusPublishFailedPayload = {
+  failedSubject: string;
+  eventId: string;
+  source: string;
+  correlationId?: string;
+  traceId?: string;
+  reason: 'publish_failed';
+  attempts: number;
+  errorMessage: string;
+  originalEvent: unknown;
+  actor?: string;
 };
 
 type ExtensionLifecyclePayload = {
@@ -428,6 +550,7 @@ type TaskOperationRejectedPayload = {
 | `mnet.profile.disabled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileDisabledPayload` | at-least-once |
 | `mnet.profile.apply_failed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileApplyFailedPayload` | at-least-once |
 | `mnet.profile.enable.canceled.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileEnableCanceledPayload` | at-least-once |
+| `mnet.profile.defaults.updated.v0` | event | M-Net | M-Log, M-UI BFF | `MNetProfileDefaultsUpdatedEventPayload` | at-least-once |
 
 All profile events use singular `profile` in the subject. Events are emitted after PostgreSQL state changes; they do not replace PostgreSQL as the authoritative state.
 
@@ -451,6 +574,14 @@ type MNetProfileEnableRequestedPayload = MNetProfileEventPayload;
 type MNetProfileEnabledPayload = MNetProfileEventPayload;
 type MNetProfileDisableRequestedPayload = MNetProfileEventPayload;
 type MNetProfileDisabledPayload = MNetProfileEventPayload;
+type MNetProfileDefaultsUpdatedEventPayload = {
+  defaultProfileVersion: string;
+  actor: string;
+  reason: string;
+  correlationId: string;
+  controlPlaneOnly: boolean;
+  migrationOperationId?: string;
+};
 
 type MNetProfileApplyFailedPayload = MNetProfileEventPayload & {
   errorCode: string;

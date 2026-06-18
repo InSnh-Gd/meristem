@@ -134,8 +134,8 @@ The MVP-era `task:assign` permission is replaced during M-Task cutover. It is no
 | Log | When Written | Required Fields |
 |-----|--------------|-----------------|
 | Timeline | accepted, queued, dispatched, running, completed, failed, canceled, timed_out | `taskId`, `taskType`, `state`, `correlationId`, `traceId` |
-| Full | validation errors, dependency degradation, retry not implemented, cancel delivery failures, timeout worker errors/races/skips | `taskId`, `source`, `level`, `message`, `correlationId`, `traceId` |
-| Audit | explicitly defined task actions/outcomes such as accepted submit, policy-rejected cancel, policy escalation, retry deny/require_*, and task definition changes | `actor`, `action`, `resource`, `decisionId`, `correlationId`, `traceId` |
+| Full | validation errors, dependency degradation, dispatch delivery failures, retry not implemented, cancel delivery failures, timeout worker errors/races/skips | `taskId`, `source`, `level`, `message`, `correlationId`, `traceId` |
+| Audit | explicitly defined task actions/outcomes such as accepted submit, dispatch failure, policy-rejected cancel, policy escalation, retry deny/require_*, and task definition changes | `actor`, `action`, `resource`, `decisionId`, `correlationId`, `traceId` |
 
 Audit is defined by M-Task action and outcome rules. High risk alone does not create a generic Audit write rule. System-driven timeout does not write Audit by default unless a task definition or service rule explicitly requires it.
 
@@ -161,6 +161,7 @@ Audit is defined by M-Task action and outcome rules. High risk alone does not cr
 - M-Task persists task lifecycle state in M-Task-owned PostgreSQL tables.
 - M-Task publishes canonical `task.*.v0` lifecycle events through M-EventBus.
 - M-Task coordinates delivery through M-Net and never calls node-agent sessions directly.
+- M-Net offline or stale-session delivery failures map to typed M-Task failure outcomes with Full Log and Audit evidence.
 - `submit`, best-effort `cancel`, and timeout worker behavior are implemented.
 - `retry` returns a policy-aware `not_implemented_yet` response without executing retry.
 - Approval-required operations create `task_suspended_operations`, call M-Policy approval creation, and publish `task.operation.suspended.v0`.

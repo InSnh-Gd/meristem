@@ -248,11 +248,32 @@ Network profile lifecycle security rules:
 - M-Policy owns approval records and quorum; M-Net owns suspended operations, profile state, transitions, and per-network applied profile.
 - enabling M-Net CN is per network, not global.
 - profile transitions write Audit Log for every state change.
-- M-Net must not execute real DERP, TCP, UDP, Headscale, or path-selection data-plane behavior.
+- M-Net/Core must not forward packets or implement transport protocols; M-Net orchestrates data-plane control metadata (identity, topology, ACL intent, relay selection, key metadata, status, audit). Packet path is owned by node-agent and host-local sidecars (WireGuard, wstunnel relay).
 - profile events are emitted after PostgreSQL state changes and must not be treated as the canonical authority.
 - Audit must distinguish approval authorization from profile application: an approved M-Policy approval does not imply M-Net successfully applied the profile.
 - missing or revoked `network:profile-enable` or `network:profile-disable` returns `403`.
 - M-Net CN disabled network must not appear as M-Net CN active in any read path.
+
+### 3.3 M-Net Data-Plane Security Model
+
+M-Net CN data-plane security is fail-closed by default and must preserve the boundary that Core and M-Net orchestrate metadata only, while node-agent and host-local sidecars own packet movement.
+
+Rules:
+
+- Core and M-Net publish signed topology, ACL intent, relay selection, ticket state, and key metadata only. They must not store, return, log, or emit plaintext WireGuard private keys, node runtime tokens, ACME account keys, or sidecar secret fields.
+- Duplicate public keys across nodes are rejected as `key.duplicate` before the network-map is refreshed.
+- Join ticket redemption and key registration reject control-plane clock skew above five minutes with `clock.skew_exceeded`.
+- Expired or revoked join tickets must not issue credentials, session state, or replacement secrets.
+- Concurrent credential rotation on the same node is single-winner: one rotation may succeed, and the losing request must surface a typed conflict instead of silently replacing the winner.
+- ACME directory failure must return a typed `acme.directory_unavailable` result. Fallback to `local-dev` is allowed only when the caller explicitly permits it; otherwise the relay path fails closed.
+- node-agent sidecar crash, stale signed map, invalid signature, or control-channel partition must drive degraded or `fail_closed` state and prepare tunnel teardown rather than claiming healthy forwarding.
+- Signed map TTL expiry must surface `network_map.stale` first and then move to fail-closed enforcement if refresh does not recover.
+- Audit unavailability blocks high-risk CN operations before state mutation. Policy denial blocks the operation with no state change.
+- Event-bus publish failure must surface a typed unavailable outcome and must not create false success in state, UI, or audit trails.
+- Relay outage may fall back to a direct path only when a direct path is already available and policy allows it; otherwise the data plane must fail closed.
+- Overlay CIDR exhaustion must return typed `address.exhausted` results rather than reusing an existing address or inventing an out-of-range address.
+- Offline leaf migration must remain `pending` until all required leaf members are reachable; partial progress must not be reported as complete.
+- Break-glass disable is a higher-precedence safety action: it may preempt in-flight apply or migration work, but it still requires the full audit chain and fail-closed handling if audit cannot be written.
 
 ---
 
@@ -360,7 +381,7 @@ SecretRef v0.1 rules:
 
 ### 8.2 M-Net Runtime Config SecretRef Boundary
 
-M-Net runtime transport, interconnect, and routing configuration (DFW-013) uses `secretRef` exclusively for all credential-bearing fields:
+M-Net runtime transport, interconnect, and routing configuration uses `secretRef` exclusively for all credential-bearing fields (these are active for `m-net-cn@0.2.0` profiles, no longer deferred):
 
 - `derpRelay` — DERP relay endpoint credentials.
 - `tcpInterconnect` — TCP interconnect credentials.
@@ -370,7 +391,7 @@ M-Net runtime transport, interconnect, and routing configuration (DFW-013) uses 
 
 Every field uses the `SecretRefFieldSchema` (`{ secretRefId: string }`) pattern. Plaintext TLS certificates, STUN passwords, TURN shared secrets, Headscale preauth keys, and routing pre-shared keys are rejected at the schema level. The `MNetRuntimeConfigSchema` Effect Schema `Struct` strips unknown keys by default, so even an injection attempt that includes plaintext fields alongside valid `secretRef` entries produces only redacted output. `JSON.stringify()` of a decoded runtime config contains only `secretRefId` values.
 
-Redaction contract (DFW-013):
+Redaction contract:
 - Plaintext secret fields fail decode/validation.
 - `secretRef` fields decode and redact correctly — only `secretRefId` survives.
 - Redaction covers log output, UI error envelopes, projection payloads, and approval LLM context inputs.

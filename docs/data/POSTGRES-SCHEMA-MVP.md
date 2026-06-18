@@ -21,7 +21,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | Owner | Tables |
 |-------|--------|
 | Core | `nodes`, `node_credentials`, `node_join_tickets`, `service_definitions`, `tasks` (historical compatibility table), `actors`, `actor_tokens`, `actor_token_revocations` |
-| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations` |
+| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations`, `mnet_global_defaults`, `mnet_profile_switch_operations`, `mnet_profile_switch_batches`, `mnet_profile_switch_batch_members`, `mnet_profile_switch_results`, `mnet_profile_switch_snapshots`, `mnet_profile_default_set_results`, `mnet_profile_disable_policies`, `mnet_profile_migrations`, `mnet_network_map_renders`, `mnet_node_public_keys`, `mnet_tunnel_address_allocations`, `mnet_relay_assignments`, `mnet_data_plane_operation_locks`, `mnet_sidecar_desired_configs`, `mnet_partition_states` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
@@ -338,6 +338,206 @@ M-Task cutover moves canonical task lifecycle state to M-Task-owned tables. `tas
 | `terminal_reason` | text nullable | expiration or error reason |
 
 `networks.profile_version` remains the operator-visible current profile for a network. The M-Net profile state table records lifecycle metadata around that profile assignment.
+
+### M-Net Profile Switching Tables
+
+#### `mnet_global_defaults`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | singleton row ID |
+| `default_profile_version` | text | default profile version for new networks |
+| `switch_state` | text | global switch operation state |
+| `switch_operation_id` | text nullable | active switch operation reference |
+| `updated_at` | timestamptz | UTC |
+
+#### `mnet_profile_switch_operations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text primary key | switch operation ID |
+| `idempotency_key` | text unique | idempotency key |
+| `target_profile_version` | text | target profile version for the switch |
+| `batch_size` | integer | networks per batch |
+| `reason` | text | operator reason |
+| `state` | text | operation lifecycle state |
+| `current_batch_id` | integer nullable | current executing batch |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `mnet_profile_switch_batches`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text | references `mnet_profile_switch_operations.operation_id` |
+| `batch_id` | integer | batch sequence number |
+
+Primary key: `(operation_id, batch_id)`.
+
+#### `mnet_profile_switch_batch_members`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text | references `mnet_profile_switch_operations.operation_id` |
+| `batch_id` | integer | batch sequence number |
+| `network_id` | text | references `networks.id` |
+
+Primary key: `(operation_id, batch_id, network_id)`.
+
+#### `mnet_profile_switch_results`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text | references `mnet_profile_switch_operations.operation_id` |
+| `network_id` | text | references `networks.id` |
+| `previous_profile_version` | text | profile version before switch |
+| `target_profile_version` | text | target profile version |
+| `status` | text | switch result status |
+| `reason` | text nullable | failure or skip reason |
+| `audit_id` | text nullable | audit record reference |
+| `correlation_id` | text nullable | request correlation |
+
+Primary key: `(operation_id, network_id)`.
+
+#### `mnet_profile_switch_snapshots`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text | references `mnet_profile_switch_operations.operation_id` |
+| `network_id` | text | references `networks.id` |
+| `previous_profile_version` | text | profile version snapshot |
+
+Primary key: `(operation_id, network_id)`.
+
+#### `mnet_profile_default_set_results`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `idempotency_key` | text primary key | idempotency key |
+| `operation_id` | text | originating operation ID |
+| `policy_decision_id` | text | references `policy_decisions.id` |
+| `audit_id` | text | audit record reference |
+
+#### `mnet_profile_disable_policies`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | policy row ID |
+| `require_approval` | text | approval requirement setting |
+| `emergency_break_glass_enabled` | text | break-glass override flag |
+| `reason` | text | policy reason |
+| `idempotency_key` | text | idempotency key |
+| `updated_at` | timestamptz | UTC |
+
+### M-Net Data Plane Tables
+
+M-Net data plane tables store authoritative metadata for node-to-node connectivity, tunnel addressing, relay assignments, and operational locks. They do not store WireGuard private keys or packet forwarding state.
+
+#### `mnet_profile_migrations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text | references `networks.id` |
+| `operation_id` | text | migration operation ID |
+| `from_version` | text | previous profile version |
+| `to_version` | text | target profile version |
+| `status` | text | migration lifecycle status |
+| `idempotency_key` | text | idempotency key |
+| `started_at` | timestamptz | UTC |
+| `completed_at` | timestamptz nullable | UTC |
+| `audit_metadata` | jsonb | audit metadata |
+
+Primary key: `(network_id, operation_id)`.
+
+#### `mnet_network_map_renders`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text | references `networks.id` |
+| `map_version` | integer | monotonic render version |
+| `profile_version` | text | profile version used for render |
+| `map_json` | jsonb | rendered network map |
+| `signature_metadata` | jsonb | signing metadata |
+| `expires_at` | timestamptz | UTC |
+| `published_at` | timestamptz | UTC |
+
+Primary key: `(network_id, map_version)`.
+
+#### `mnet_node_public_keys`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `node_id` | text | references `nodes.id` |
+| `key_id` | text | key identifier |
+| `public_key` | text | node public key |
+| `fingerprint` | text unique | key fingerprint |
+| `algorithm` | text | key algorithm |
+| `created_at` | timestamptz | UTC |
+| `rotated_at` | timestamptz nullable | last rotation |
+| `rotation_due_at` | timestamptz nullable | next rotation deadline |
+| `rotation_counter` | integer | rotation count |
+| `status` | text | key lifecycle status |
+
+Primary key: `(node_id, key_id)`.
+
+#### `mnet_tunnel_address_allocations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text | references `networks.id` |
+| `node_id` | text | references `nodes.id` |
+| `subnet_cidr` | text | assigned subnet |
+| `tunnel_ip` | text | unique within network |
+| `allocated_at` | timestamptz | UTC |
+
+Primary key: `(network_id, node_id)`.
+Unique index: `(network_id, tunnel_ip)`.
+
+#### `mnet_relay_assignments`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text | references `networks.id` |
+| `relay_id` | text | references `nodes.id` |
+| `relay_type` | text | relay role type |
+| `endpoint` | text | relay endpoint address |
+| `assigned_at` | timestamptz | UTC |
+
+Primary key: `(network_id, relay_id)`.
+
+#### `mnet_data_plane_operation_locks`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text primary key | lock operation ID |
+| `network_id` | text | references `networks.id` |
+| `operation_type` | text | lock operation type |
+| `idempotency_key` | text nullable | idempotency key |
+| `acquired_at` | timestamptz | UTC |
+| `expires_at` | timestamptz | UTC |
+| `status` | text | lock lifecycle status |
+| `lock_row_id` | text unique | unique lock row identifier |
+| `fencing_token` | integer | fencing token |
+| `updated_at` | timestamptz | UTC |
+
+#### `mnet_sidecar_desired_configs`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `node_id` | text primary key | references `nodes.id` |
+| `config_hash` | text | desired config hash |
+| `desired_at` | timestamptz | UTC |
+| `applied_at` | timestamptz nullable | UTC |
+
+#### `mnet_partition_states`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text primary key | references `networks.id` |
+| `state` | text | partition state |
+| `reason` | jsonb | partition reason |
+| `transitioned_at` | timestamptz | UTC |
+| `previous_state` | text nullable | previous partition state |
 
 ### M-Extension Control Plane Tables
 

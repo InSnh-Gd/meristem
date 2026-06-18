@@ -31,7 +31,7 @@
 | `config/` | 配置生命周期状态机与回滚规则 | `config/CONFIG-LIFECYCLE.md` |
 | `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md` |
 | `testing/` | 测试策略与 CI 门禁 | `testing/TESTING.md` |
-| `ui/` | SDUI schema 与运营组件契约 | `ui/SDUI-SCHEMA.md` |
+| `ui/` | M-UI 过渡型工作台 brief、SDUI schema 与运营组件契约 | `ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`, `ui/SDUI-SCHEMA.md` |
 | `references/` | 上游技术快照 | `references/elysiajs-latest.md` |
 | `agents/` | Agent issue tracker、分类标签与领域上下文说明 | `agents/domain.md` |
 
@@ -52,7 +52,8 @@
 | 事件目录 | `events/EVENT-CATALOG.md` |
 | 安全与 RBAC | `security/SECURITY-MODEL.md` |
 | 测试门禁 | `testing/TESTING.md` |
-| M-UI / SDUI | `ui/SDUI-SCHEMA.md` |
+| M-UI transitional workbench brief | `ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md` |
+| M-UI / SDUI contract | `ui/SDUI-SCHEMA.md` |
 
 ---
 

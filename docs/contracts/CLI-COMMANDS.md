@@ -82,6 +82,57 @@ Rules:
 - only one active token exists per node in MVP.
 - this command is a compatibility path, not the primary public node-join flow.
 
+### `meristem node-agent install --kind stem|leaf --name <name> [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>]`
+
+Permission: `node:register`.
+
+Installs and configures the node-agent service on the local host. Creates a systemd service unit file, writes the initial configuration, and registers the node with Core if a Join Ticket is provided.
+
+Rules:
+
+- `--kind stem|leaf` is required. `core` is not supported for node-agent.
+- `--name` is required and must be unique.
+- `--join-url` defaults to `wss://localhost:8443/join/v0/session`.
+- `--wg-binary` defaults to `wg` (PATH lookup).
+- `--wstunnel-binary` defaults to `wstunnel` (PATH lookup).
+- `--acme-directory` defaults to the Let's Encrypt production directory.
+- `--relay-endpoint` is optional; when omitted, relay fallback is disabled.
+- the command writes the systemd service unit to `/etc/systemd/system/meristem-node-agent.service`.
+- the command does not start the service; use `meristem node-agent run` or `systemctl start meristem-node-agent`.
+- WireGuard and wstunnel binaries must exist at the specified paths or the command fails with a diagnostic message.
+- on success, prints the node ID and service unit path.
+
+### `meristem node-agent run [--foreground]`
+
+Permission: none (local execution only).
+
+Starts the node-agent runtime process. In foreground mode, the agent runs in the current terminal until stopped with SIGINT. Without `--foreground`, the agent starts as a background systemd service.
+
+Rules:
+
+- if `--foreground` is specified, the agent runs in the foreground and logs to stdout.
+- without `--foreground`, the command delegates to `systemctl start meristem-node-agent`.
+- the agent performs pre-flight checks (WireGuard tooling, wstunnel binary, ACME key) before establishing the M-Net session.
+- on join failure, the agent prints a diagnostic message and exits non-zero.
+- `MERISTEM_JOIN_TICKET` or `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` must be set in the environment.
+
+### `meristem node-agent status`
+
+Permission: `core:read`.
+
+Shows the current status of the local node-agent: session state, WireGuard interface state, wstunnel sidecar state, and network-map freshness.
+
+Output fields:
+
+- `nodeId`: registered node ID
+- `sessionState`: `disconnected`, `joining`, `healthy`, or `offline`
+- `wireguardState`: `configured`, `degraded`, or `unavailable`
+- `sidecarState`: `running`, `restarting`, `stopped`, or `unavailable`
+- `networkMapVersion`: latest applied map version or `none`
+- `networkMapAge`: time since last successful map pull
+- `lastHeartbeatAt`: ISO 8601 timestamp of last successful heartbeat
+- `agentVersion`: agent version string
+
 ### `meristem node list`
 
 Permission: `core:read`.

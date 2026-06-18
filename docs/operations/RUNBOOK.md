@@ -67,6 +67,7 @@ bun run meristem network create --name lab-mesh
 bun run meristem network join --network <network-id> --node <stem-node-id>
 bun run meristem network members --network <network-id>
 bun run meristem node list
+bun run meristem node-agent status
 bun run meristem task submit --node <leaf-node-id> --type noop
 bun run meristem task status <task-id>
 bun run meristem task cancel <queued-task-id>
@@ -88,6 +89,7 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
 | M-Task | `3105` | canonical M-Task API `/api/v0/tasks` |
 | M-Extension | `3106` | M-Extension control-plane API |
+| M-Net fallback relay | `443` | public WSS endpoint for pinned `wstunnel` UDP-over-WSS fallback to local WireGuard `51820` |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | M-UI | `5173` or framework default | SvelteKit dev server |
 | M-UI BFF | `3200` | UI-facing BFF dev server |
@@ -102,7 +104,7 @@ Ports are provisional until the project scaffold defines them.
 
 Public exposure rule:
 
-- public deployment exposes only `8443`
+- public deployment exposes `8443` for join ingress and `443` for the fallback relay when the relay sidecar is enabled
 - `3000`, `3101`, `3102`, `3103`, `3104`, `3105`, `3106`, PostgreSQL, NATS, OpenSearch, and Redis stay private or loopback-only unless an explicit local optional profile documents otherwise
 - exposing `3000 + 4223` for remote validation is now a development exception, not the target topology
 - APISIX profile may expose only explicit external-route allowlists from `ops/apisix/apisix.yaml`; it must not expose `/internal/v0/*`
@@ -134,6 +136,19 @@ Public exposure rule:
 | `MERISTEM_AGENT_VERSION` | node-agent reported version | `0.1.0` |
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
+| `MERISTEM_MNET_CONTROL_URL` | node-agent M-Net control plane URL | derived from join URL host on port `3104` |
+| `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` | node-agent stale map TTL (ms) | `900000` |
+| `MERISTEM_WG_BINARY_PATH` | WireGuard binary path | `wg` (PATH lookup) |
+| `MERISTEM_WSTUNNEL_BINARY_PATH` | wstunnel binary path | `wstunnel` (PATH lookup) |
+| `MERISTEM_ACME_DIRECTORY` | ACME directory URL | Let's Encrypt production directory |
+| `MERISTEM_ACME_ACCOUNT_KEY` | ACME account key (secret, host-local) | none |
+| `MERISTEM_HOST_PRIVATE_KEY_PATH` | host WireGuard private key path (secret, host-local only) | `.local/wg/private.key` |
+| `MERISTEM_RELAY_ENDPOINT` | wstunnel relay endpoint for fallback | none |
+| `MERISTEM_RELAY_PUBLIC_HOSTNAME` | public fallback relay hostname | `localhost` in local development |
+| `MERISTEM_RELAY_PUBLIC_PORT` | public fallback relay port | `443` |
+| `MERISTEM_RELAY_PATH_PREFIX` | relay upgrade-path prefix | `meristem-fallback-relay` |
+| `MERISTEM_RELAY_HEALTH_URL` | relay loopback health probe | `http://127.0.0.1:19090/health` |
+| `MERISTEM_WSTUNNEL_VERSION` | pinned upstream relay release | `v10.5.5` |
 
 MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
@@ -156,14 +171,15 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal fr
 
 ## 5.1 M-Net Profile controlPlaneOnly Behavior
 
-`m-net-cn@0.1.0` profile carries `controlPlaneOnly: true`. This means:
+`m-net-cn@0.1.x` profiles carry `controlPlaneOnly: true`. This means:
 
-- enabling the CN profile changes control-plane state only (profile transitions, events, audit entries).
-- no runtime transport paths (DERP relay, TCP tunnel, UDP switching) are activated or mutated.
-- the data-plane feature gate (`services/m-net/src/data-plane/noop-adapter.ts`) defaults to OFF.
+- enabling the `0.1.x` CN profile changes control-plane state only (profile transitions, events, audit entries).
+- no runtime transport paths are activated or mutated.
+- the data-plane feature gate defaults to OFF.
 - even with the gate on, no real transport is exposed (skeleton returns noop status).
-- operators should not expect network routing changes when enabling CN profile.
-- real data-plane rollout will require a separate ADR and feature gate update.
+- operators should not expect network routing changes when enabling `0.1.x` CN profile.
+
+For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This activates the production data-plane (ADR-N03) using WireGuard + wstunnel relay sidecars. Operators should expect actual host-level interface orchestration and network traffic routing when enabling `0.2.0`.
 
 ---
 
@@ -202,6 +218,201 @@ Compatibility note:
 
 - `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` remain available for `session.resume` and operator recovery flows.
 - `meristem node issue-token` is no longer the primary public join flow.
+
+---
+
+## 6.1 First Multi-Host Harness
+
+The first topology keeps all M-* services on the local control host and isolates only the two Leaf hosts with Docker bridge networking. This proves distinct leaf networking without claiming split M-* runtime support.
+
+Local limitation summary:
+
+- the control host still runs on the local machine because internal M-* URLs remain loopback-oriented.
+- the relay uses local port `18443` instead of privileged `443` so the harness can run without `CAP_NET_BIND_SERVICE`.
+- the harness refuses to start unless the host already exposes `wg`, `CAP_NET_ADMIN`, the visible WireGuard kernel module, `wstunnel`, Docker, and the cached `oven/bun:1` image.
+
+Exact commands:
+
+```bash
+bun run mnet:harness:preflight
+bun run mnet:harness:start
+bun run mnet:harness:status
+bun run mnet:harness:stop
+bun run mnet:harness:reset
+```
+
+Expected preflight checks:
+
+- `wg --version` succeeds.
+- `/sys/module/wireguard` exists.
+- the current shell carries `CAP_NET_ADMIN`.
+- `wstunnel --version` succeeds.
+- Docker can start a bridge-networked Bun container that reaches `host.docker.internal`.
+
+Commands for this topology:
+
+```bash
+bun run mnet:harness:preflight
+bun run mnet:harness:start
+```
+
+The harness writes live logs under `.local/mnet-multihost/logs/` and returns those paths through `bun run mnet:harness:status`.
+
+Leaf host runtime shape:
+
+- control host: local Bun processes for `m-eventbus`, `m-policy`, `m-log`, `m-net`, `m-task`, `m-extension`, `core`, plus the co-located relay wrapper.
+- leaf hosts: `oven/bun:1` containers that run `bun run services/node-agent/src/index.ts` with Join Ticket env injected at start.
+- control-plane Join URL inside leaf containers: `wss://host.docker.internal:8443/join/v0/session`.
+- relay endpoint inside leaf containers: `wss://host.docker.internal:18443`.
+
+---
+
+## 7. Relay ACME Certificate Management
+
+The wstunnel relay sidecar terminates TLS at WSS/443 using certificates provisioned through ACME (Let's Encrypt). The node-agent owns certificate lifecycle: issuance, renewal, and failure handling. See `docs/services/node-agent.md` §7 for the authoritative ACME trust specification.
+
+The first production topology keeps a co-located relay on the control-plane host with the following pinned deployment contract:
+
+| Concern | Value |
+|--------|-------|
+| systemd unit | `meristem-wstunnel-relay.service` |
+| pinned version | `v10.5.5` |
+| binary source | `https://github.com/erebe/wstunnel/releases/download/v10.5.5/wstunnel_10.5.5_linux_amd64.tar.gz` |
+| container reference | `ghcr.io/erebe/wstunnel:v10.5.5` |
+| config directory | `/etc/meristem/wstunnel/` |
+| restrictions file | `/etc/meristem/wstunnel/restrictions.yaml` |
+| readiness probe | `GET http://127.0.0.1:19090/health` |
+| local target | `localhost:51820` |
+
+Pinned relay command:
+
+```bash
+wstunnel server wss://[::]:443 \
+  --restrict-to localhost:51820 \
+  --restrict-config /etc/meristem/wstunnel/restrictions.yaml \
+  --restrict-http-upgrade-path-prefix meristem-fallback-relay \
+  --tls-certificate /etc/meristem/wstunnel/tls/fullchain.pem \
+  --tls-private-key /etc/meristem/wstunnel/tls/key.pem \
+  --log-lvl INFO \
+  --no-color
+```
+
+Relay logging contract:
+
+- write structured JSON lines to the systemd journal
+- include `service`, `source`, `version`, `endpoint`, `healthUrl`, `mode`, and `message`
+- do not log `MERISTEM_INTERNAL_TOKEN`, private keys, or ACME account material
+
+### 7.1 ACME Certificate Issuance
+
+Certificates are obtained from the Let's Encrypt production directory by default, configurable via `MERISTEM_ACME_DIRECTORY`.
+
+| Aspect | Detail |
+|--------|--------|
+| ACME directory URL | Let's Encrypt production (`https://acme-v02.api.letsencrypt.org/directory`) or value of `MERISTEM_ACME_DIRECTORY` |
+| Challenge type | HTTP-01 or DNS-01 (selected by configuration) |
+| Account key | Stored at `MERISTEM_ACME_ACCOUNT_KEY` (PEM format, host-local, never transmitted) |
+| Certificate storage | `/var/lib/meristem/certs/` on the host |
+| Private key permissions | `0400` |
+| Certificate file permissions | `0600` |
+
+First-time provisioning flow:
+
+1. The node-agent reads `MERISTEM_ACME_DIRECTORY` and `MERISTEM_ACME_ACCOUNT_KEY`.
+2. If no account key exists, the agent generates one and stores it at the configured path.
+3. The agent requests a certificate for the relay endpoint hostname.
+4. The ACME challenge is completed (HTTP-01 or DNS-01).
+5. The issued certificate and private key are written to `/var/lib/meristem/certs/`.
+6. The wstunnel sidecar is started with the new certificate.
+
+On first-time provisioning failure, wstunnel starts without TLS and the node-agent reports degraded status. See §7.3 for failure handling.
+
+### 7.2 ACME Certificate Renewal
+
+Renewal is automatic. The node-agent monitors certificate lifetime and renews before expiry.
+
+| Aspect | Detail |
+|--------|--------|
+| Renewal window | 30 days before expiration |
+| Renewal check interval | On startup and periodically thereafter |
+| Renewal hook | After successful renewal, the agent reloads the wstunnel sidecar with the new certificate |
+| Post-renewal behavior | Wstunnel restarts with the new certificate; existing relay connections are gracefully migrated |
+
+Monitoring alerts for certificate expiry:
+
+- The node-agent reports certificate lifetime in heartbeat frames (`certificateExpiresAt` field).
+- Operators should configure alerting when the certificate lifetime drops below 14 days.
+- A warning log entry is emitted at 30 days remaining.
+- An error log entry is emitted at 7 days remaining when renewal has not succeeded.
+
+### 7.3 ACME Certificate Failure
+
+When ACME provisioning or renewal fails, the system follows a defined fallback path.
+
+| Failure scenario | Behavior | Operator action |
+|------------------|----------|-----------------|
+| First-time issuance fails | Wstunnel starts without TLS; relay-only degraded mode; agent reports degraded through heartbeats | Check DNS resolution of the ACME directory; verify the challenge endpoint is reachable; verify `MERISTEM_ACME_ACCOUNT_KEY` path is writable |
+| Renewal fails before expiry | Existing certificate continues to be used; agent logs a warning and retries with exponential backoff (1m, 2m, 4m, 8m) | Investigate ACME directory reachability; check that the challenge method is still valid |
+| Certificate expires without renewal | Wstunnel relay becomes unavailable; agents fall back to direct WireGuard peering; relay-only degraded mode | Immediate manual intervention: provision a certificate manually or point to a staging ACME directory, then restart the node-agent |
+| ACME directory unreachable | Agent logs an error and retries every 10 minutes | Verify outbound connectivity to the ACME directory on port 443; verify system trust store is current |
+
+Manual certificate provisioning (emergency fallback):
+
+```bash
+# Place a manually obtained certificate and key in the cert directory
+sudo mkdir -p /var/lib/meristem/certs
+sudo cp <manual-cert.pem> /var/lib/meristem/certs/relay-cert.pem
+sudo cp <manual-key.pem> /var/lib/meristem/certs/relay-key.pem
+sudo chmod 0600 /var/lib/meristem/certs/relay-cert.pem
+sudo chmod 0400 /var/lib/meristem/certs/relay-key.pem
+sudo systemctl restart meristem-node-agent
+```
+
+### 7.4 Relay Health Check
+
+The relay wstunnel sidecar is a separate process managed by the node-agent. Its health is monitored through multiple mechanisms.
+
+**Process-level health check:**
+
+```bash
+# Verify wstunnel process is running
+systemctl status meristem-node-agent
+# Check wstunnel output in journal
+journalctl -u meristem-node-agent -f | grep wstunnel
+```
+
+**Local HTTP health probe (when enabled):**
+
+The node-agent may expose a local HTTP health endpoint on `127.0.0.1:9090` for systemd health checks and operator diagnostics.
+
+```bash
+# Check node-agent composite health
+curl -s http://127.0.0.1:9090/health | jq .
+# Expected fields: liveness, readiness, sidecar (wstunnel status), wireguard
+```
+
+**Logs to check for relay health:**
+
+| Log pattern | Meaning | Action |
+|-------------|---------|--------|
+| `wstunnel started` | Sidecar started successfully | Normal operation |
+| `wstunnel health check passed` | Periodic health check succeeded | Normal operation |
+| `wstunnel restart attempt` | Sidecar crashed and is being restarted | Monitor restart count; if persistent, check wstunnel binary and config |
+| `wstunnel restart exhausted` | Maximum retries reached, sidecar failed permanently | Check wstunnel binary path, permissions, and relay endpoint reachability |
+| `relay-only degraded mode entered` | Wstunnel is running but WireGuard is not configured | Wait for fresh network map |
+| `ACME renewal failed` | Certificate renewal attempt failed | Check ACME directory connectivity and challenge validity |
+| `certificate expires in` | Certificate lifetime warning | Verify renewal is functioning; prepare manual intervention if expiry is imminent |
+
+**Relay endpoint verification:**
+
+```bash
+# Test WSS connectivity from a leaf node
+curl -v --http1.1 -H "Upgrade: websocket" -H "Connection: Upgrade" \
+  https://<relay-endpoint>:443/
+# Expected: HTTP 101 Switching Protocols or wstunnel handshake response
+```
+
+---
 
 Optional deployment pack:
 
