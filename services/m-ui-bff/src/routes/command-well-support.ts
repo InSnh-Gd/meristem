@@ -1,4 +1,9 @@
-import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
+import type {
+  ActorId,
+  MNode,
+  MNodeFromSchema,
+  Permission
+} from '../../../../packages/contracts/src/index.ts'
 import {
   type ApprovalPreviewBody,
   COMMAND_PREVIEW_DEFINITIONS,
@@ -279,18 +284,8 @@ export function deriveNetworkProfilePreviewEligibility(
   )
 }
 
-export function toMutableNode(node: {
-  readonly id: string
-  readonly kind: 'stem' | 'leaf'
-  readonly name: string
-  readonly mode: 'agent' | 'simulated'
-  readonly status: 'joining' | 'healthy' | 'degraded' | 'offline' | 'revoked'
-  readonly reachability: 'unknown' | 'reachable' | 'unreachable'
-  readonly lastSeenAt?: string | undefined
-  readonly agentVersion?: string | undefined
-  readonly capabilities: readonly string[]
-  readonly createdAt: string
-}) {
+/** Core schema decode 返回 readonly 读模型；BFF 复制一份可变数组，避免后续 helper 误写入只读数组。 */
+export function toMutableNode(node: MNodeFromSchema): MNode {
   return {
     id: node.id,
     kind: node.kind,
