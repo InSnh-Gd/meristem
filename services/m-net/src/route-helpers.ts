@@ -70,10 +70,15 @@ export function statusCodeForMNetError(code: string): 404 | 409 | 503 {
     case 'task.not_found':
       return 404
     case 'network.conflict':
+    case 'network_map.stale':
+    case 'network_map.expired':
     case 'network.stem_required':
+    case 'key.invalid':
+    case 'key.duplicate':
     case 'node.invalid_kind':
     case 'node.invalid_status':
     case 'node.unreachable':
+    case 'node.stale_session':
     case 'node.join_ticket_expired':
     case 'node.join_ticket_redeemed':
     case 'node.join_ticket_revoked':

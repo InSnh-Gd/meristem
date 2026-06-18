@@ -9,6 +9,7 @@ import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../../packages/contracts/src/types/mnet-profile.ts'
+import type { DataPlaneStores } from './data-plane-store-types.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { MigrationEngine } from './migration-engine.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
@@ -129,6 +130,8 @@ export type MNetAppDeps = {
   policyHealthCheck?: {
     checkHealth(): Promise<{ healthy: boolean }>
   }
+  /** 数据面存储（NATS KV/PostgreSQL 分区状态、操作锁、迁移记录） */
+  dataPlane?: DataPlaneStores
   /** 全局默认 Profile 与批量 switch 状态存储 */
   globalDefaultsStore?: GlobalDefaultsStore
   /** 批量 Profile 迁移引擎 */

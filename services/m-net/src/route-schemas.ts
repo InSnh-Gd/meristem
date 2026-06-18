@@ -75,7 +75,11 @@ export const executeNoopBodySchema = t.Object({
 })
 
 export const setNetworkProfileBodySchema = t.Object({
-  profileVersion: t.Union([t.Literal('m-net-cn@0.1.0'), t.Literal('m-net-default@0.1.0')]),
+  profileVersion: t.Union([
+    t.Literal('m-net-cn@0.1.0'),
+    t.Literal('m-net-cn@0.2.0'),
+    t.Literal('m-net-default@0.1.0')
+  ]),
   reason: t.String({ minLength: 1 })
 })
 
@@ -90,8 +94,73 @@ export const setNetworkProfileResponseSchema = t.Union([
     status: t.Literal('disabled'),
     profileVersion: t.String(),
     correlationId: t.String()
+  }),
+  t.Object({
+    status: t.Literal('enabled'),
+    profileVersion: t.String(),
+    correlationId: t.String(),
+    operationId: t.String(),
+    mapVersion: t.Number(),
+    relayAssignment: t.Object({
+      nodeId: t.String(),
+      relayEndpoint: t.String(),
+      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')])
+    })
   })
 ])
+
+export const nodeIdParamsSchema = t.Object({
+  nodeId: t.String({ minLength: 1 })
+})
+
+export const latestNetworkMapSchema = t.Object({
+  profileVersion: t.String(),
+  networkId: t.String(),
+  members: t.Array(
+    t.Object({
+      nodeId: t.String(),
+      tunnelIp: t.String(),
+      publicKey: t.String()
+    })
+  ),
+  aclRules: t.Array(
+    t.Object({
+      ruleId: t.String(),
+      action: t.Union([t.Literal('allow'), t.Literal('deny')]),
+      sourceNodeId: t.String(),
+      targetNodeId: t.String(),
+      protocol: t.Union([t.Literal('any'), t.Literal('tcp'), t.Literal('udp'), t.Literal('icmp')])
+    })
+  ),
+  relayAssignment: t.Optional(
+    t.Object({
+      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]),
+      relayEndpoint: t.String(),
+      nodeIds: t.Array(t.String())
+    })
+  ),
+  expiresAt: t.Number(),
+  mapVersion: t.Number(),
+  signatureMetadata: t.Object({
+    algorithm: t.Literal('placeholder-ed25519'),
+    keyId: t.String(),
+    value: t.String()
+  })
+})
+
+export const nodeKeyRegistrationBodySchema = t.Object({
+  keyId: t.String({ minLength: 1 }),
+  publicKey: t.String({ minLength: 1 }),
+  createdAt: t.String({ minLength: 1 })
+})
+
+export const nodeKeyRegistrationResponseSchema = t.Object({
+  nodeId: t.String(),
+  keyId: t.String(),
+  fingerprint: t.String(),
+  mapVersion: t.Number(),
+  correlationId: t.String()
+})
 
 export const breakGlassDisableBodySchema = t.Object({
   emergencyReason: t.String(),
