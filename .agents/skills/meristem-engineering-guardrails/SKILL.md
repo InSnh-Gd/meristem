@@ -15,7 +15,7 @@ description: Use when implementing, reviewing, or changing Meristem code, tests,
 
 - `meristem-service-definition`：服务、BFF、生命周期、依赖、日志行为。
 - `meristem-contract-versioning`：REST、OpenAPI、Eden、事件、Effect Schema、配置、Webhook、SDUI 等版本化契约。
-- `meristem-ui-contract`：M-UI、SDUI、CommandWell、Phase 9 demo shell。
+- `meristem-ui-contract`：M-UI、SDUI、CommandWell、M-UI Transitional Workbench。
 - `meristem-testing-gates`：测试矩阵、故障模式、完成声明、阶段验收。
 
 ## 文档先行检查

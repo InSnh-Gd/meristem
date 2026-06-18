@@ -84,6 +84,16 @@ Do not claim a capability complete until the relevant gates pass or a documented
 - Elysia method chains explain auth, policy, lifecycle, logging, and error mapping where non-obvious.
 - Contract docs, tests, and implementation are updated together.
 
+### M-UI Ownership Hard Gates
+
+For M-UI, SDUI, BFF display contract, CommandWell, or M-Extension UI-adjacent changes:
+
+- M-UI owns route surfaces, Svelte components, layout decisions, interaction structure, and the `layout / modules / ui` split.
+- M-* services, M-Extension, and plugins must not supply M-UI pages, components, layouts, or runtime frontend modules.
+- SDUI remains a route/component contract registry; it must not become a runtime page renderer or composition engine without a new ADR and contract migration.
+- M-UI BFF remains a UI-facing adaptation layer; it must not own UI component structure, final business facts, final authorization, or final policy decisions.
+- Design exploration, tests, and implementation must respect `M-UI -> M-UI BFF -> Core public facade -> M-* services`.
+
 ### Type Safety Hard Gates
 
 - No `as unknown as` double assertions in production code except documented ORM/runtime limitations with inline justification (see guardrails §类型断言边界).
@@ -116,6 +126,20 @@ When reviewing or claiming completion, verify each item against the changed file
 | 8 | Type gate coverage | `typecheck` + `typecheck:e2e` + `typecheck:m-ui` all pass |
 | 9 | Pre-push gate | `scripts/git-hooks/pre-push` includes typecheck (not just format + drift) |
 | 10 | Test helper integrity | Test mocks use structural construction, not whole-object double assertions |
+
+## M-UI Ownership Review Checklist
+
+When reviewing or claiming completion for M-UI, SDUI, BFF display contracts, CommandWell, or extension-UI-adjacent changes, verify:
+
+| # | Check | Pass Criteria |
+|---|-------|---------------|
+| 1 | UI ownership | M-UI-owned files implement route surfaces, components, layout, and interaction structure |
+| 2 | Service boundary | M-* services expose facts/capabilities/contracts only; they do not declare or ship frontend pages/components |
+| 3 | BFF boundary | BFF adapts UI-facing data but does not own UI structure, final facts, final authorization, or final policy decisions |
+| 4 | SDUI boundary | SDUI changes update route/component inventory and validation only; runtime rendering/composition is not introduced without ADR |
+| 5 | Plugin boundary | M-Extension/plugin UI contribution remains deferred unless a dedicated ADR, security model, and SDUI extension track are present |
+| 6 | Data flow | M-UI calls M-UI BFF only; BFF uses Core public facades for Core/M-* facts and capabilities |
+| 7 | Modular frontend | New frontend modularity happens inside M-UI `layout / modules / ui`, not through service/plugin-supplied runtime UI |
 
 ## Timeout Rule
 

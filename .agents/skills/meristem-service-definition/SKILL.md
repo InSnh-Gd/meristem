@@ -25,6 +25,7 @@ Before implementing or reviewing a service change, identify:
 
 - Service identity: `name`, `version`, `domain`, `kind`, owner.
 - What the service owns and must not own.
+- Whether the change touches M-UI, SDUI, BFF display contracts, or extension UI-adjacent behavior; services must not claim frontend page/component/layout ownership.
 - API, Eden, REST, event, and BFF contracts it exposes or consumes.
 - Permissions and risk level for every control action.
 - Dependencies and failure behavior.
@@ -41,6 +42,7 @@ If any item is unknown, update the service definition before coding.
 - A service must not read another service's private state.
 - A service must not publish events absent from `docs/events/EVENT-CATALOG.md`.
 - A service must not introduce unversioned contracts.
+- A service must not supply M-UI pages, Svelte components, layouts, runtime frontend modules, or plugin UI surfaces. Services expose facts, capabilities, events, policy state, audit state, and domain state; M-UI owns frontend structure and M-UI BFF adapts facts into UI-facing data.
 - High-risk operations require M-Policy and Audit Log when the docs require them.
 - Degraded behavior must be explicit; do not leave dependency failure as an accidental exception path.
 
