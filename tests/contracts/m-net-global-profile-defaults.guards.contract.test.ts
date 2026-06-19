@@ -233,6 +233,103 @@ describe('M-Net global defaults route guards', () => {
     ).toBe(403)
   })
 
+  it('returns cached default-set success before policy deny on idempotent replay', async () => {
+    const profileStore = createInMemoryProfileStore()
+    const { log } = createInMemoryTestLog()
+    const denyPolicy: MNetAppDeps['policyAuthorize'] = {
+      async authorize() {
+        return { result: 'deny', id: 'deny-1', reasons: ['denied for test'] }
+      }
+    }
+    const globalDefaultsStore = (
+      await import('../../services/m-net/src/global-defaults-store.ts')
+    ).createInMemoryGlobalDefaultsStore(profileStore)
+    await globalDefaultsStore.recordDefaultSetResult('idem-replay', {
+      operationId: 'op-replay-1',
+      policyDecisionId: 'pd-replay-1',
+      auditId: 'audit-replay-1',
+      defaultProfileVersion: 'm-net-cn@0.1.0'
+    })
+
+    const app = createMNetApp(
+      createDeps({
+        policyAuthorize: denyPolicy,
+        globalDefaultsStore,
+        migrationEngine: (
+          await import('../../services/m-net/src/migration-engine.ts')
+        ).createMigrationEngine({
+          globalDefaultsStore,
+          profileStore,
+          dataPlane: (
+            await import('../../services/m-net/src/data-plane-store-memory.ts')
+          ).createInMemoryDataPlaneStores(),
+          async writeAudit() {
+            return 'audit-1'
+          },
+          async writeFull(input) {
+            await log.writeFull(input.level, input.message, input.correlationId, input.metadata)
+          }
+        }),
+        profileStore
+      })
+    )
+    const token = await mintTestToken('admin')
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/networks/profile-defaults', {
+        method: 'PUT',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          profileVersion: 'm-net-cn@0.1.0',
+          reason: 'replay',
+          idempotencyKey: 'idem-replay'
+        })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      operationId: 'op-replay-1',
+      policyDecisionId: 'pd-replay-1',
+      auditId: 'audit-replay-1',
+      defaultProfileVersion: 'm-net-cn@0.1.0'
+    })
+  })
+
+  it('returns profile.not_found before policy deny for unknown default profile version', async () => {
+    const profileStore = createInMemoryProfileStore()
+    const denyPolicy: MNetAppDeps['policyAuthorize'] = {
+      async authorize() {
+        return { result: 'deny', id: 'deny-1', reasons: ['denied for test'] }
+      }
+    }
+    const app = createMNetApp(
+      createDeps({
+        policyAuthorize: denyPolicy,
+        globalDefaultsStore: (
+          await import('../../services/m-net/src/global-defaults-store.ts')
+        ).createInMemoryGlobalDefaultsStore(profileStore),
+        profileStore
+      })
+    )
+    const token = await mintTestToken('admin')
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/networks/profile-defaults', {
+        method: 'PUT',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          profileVersion: 'm-net-missing@9.9.9',
+          reason: 'invalid version',
+          idempotencyKey: 'idem-missing'
+        })
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ error: { code: 'profile.not_found' } })
+  })
+
   it('returns 401 on rollback/resume when bearer auth is missing', async () => {
     const app = createMNetApp(createDeps())
 

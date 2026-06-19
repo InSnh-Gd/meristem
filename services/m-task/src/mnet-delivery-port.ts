@@ -5,13 +5,13 @@ import {
   ok as resultOk
 } from '../../../packages/common/src/result.ts'
 import {
-  ApiErrorSchema,
   type NodeAgentTaskExecuteEnvelopeResponseFromSchema,
   NodeAgentTaskExecuteEnvelopeResponseSchema
 } from '../../../packages/contracts/src/index.ts'
 import {
   createInternalFetcher,
   internalRequestHeaders,
+  serviceErrorFromEnvelope,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
 import type { MTaskDeliveryPort, ServiceError } from './deps.ts'
@@ -19,12 +19,6 @@ import type { MTaskDeliveryPort, ServiceError } from './deps.ts'
 type DeliveryPortOptions = {
   baseUrl?: string
   fetcher?: typeof fetch
-}
-
-function serviceErrorFromHttpResponse(value: unknown, fallback: ServiceError): ServiceError {
-  const decoded = Schema.decodeUnknownEither(ApiErrorSchema)(value)
-  if (decoded._tag === 'Left') return fallback
-  return decoded.right.error
 }
 
 function decodeDispatchResponse(
@@ -94,7 +88,7 @@ export function createHttpMNetTaskDeliveryPort(
       if (!response.ok) {
         return resultErr(
           mapDispatchFailure(
-            serviceErrorFromHttpResponse(body, {
+            serviceErrorFromEnvelope(body, {
               code: 'dispatch.unavailable',
               message: 'm-net dispatch unavailable'
             })

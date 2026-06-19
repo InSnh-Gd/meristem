@@ -184,7 +184,6 @@ export const MinimalPolicyDecisionSummarySchema = Schema.Struct({
   result: PolicyDecisionResultSchema,
   createdAt: Schema.String
 })
-export type MinimalPolicyDecisionSummary = typeof MinimalPolicyDecisionSummarySchema.Type
 export type MinimalPolicyDecisionSummaryFromSchema = typeof MinimalPolicyDecisionSummarySchema.Type
 
 export const PolicyApprovalSummarySchema = Schema.Struct({
@@ -217,5 +216,4 @@ export const PolicyInternalSummarySchema = Schema.Struct({
   approvals: PolicyApprovalSummarySchema,
   pendingApprovals: Schema.Array(PolicyPendingApprovalSummarySchema)
 })
-export type PolicyInternalSummary = typeof PolicyInternalSummarySchema.Type
 export type PolicyInternalSummaryFromSchema = typeof PolicyInternalSummarySchema.Type

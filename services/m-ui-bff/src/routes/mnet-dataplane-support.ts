@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 import type {
-  CommandWellEligibility,
+  CommandWellEligibilityFromSchema as CommandWellEligibility,
   Permission
 } from '../../../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../../../packages/internal-http/src/index.ts'

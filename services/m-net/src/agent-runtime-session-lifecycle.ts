@@ -30,9 +30,12 @@ export function sessionId(ws: ServerWebSocket<JoinSessionData>): string | null {
 /**
  * 每个 agent 节点同一时刻只保留一个活动 session；后来的连接会顶掉旧连接，避免任务被双写。
  */
-export function bindSession(
-  context: Pick<AgentRuntimeContext, 'activeSessions' | 'activeSessionIds'>,
-  ws: ServerWebSocket<JoinSessionData>,
+export function bindSession<TSocket extends Pick<ServerWebSocket<JoinSessionData>, 'data' | 'close'>>(
+  context: {
+    activeSessions: Map<string, TSocket>
+    activeSessionIds: Map<string, string>
+  },
+  ws: TSocket,
   nodeId: string
 ): string {
   const previous = context.activeSessions.get(nodeId)
@@ -137,23 +140,39 @@ export async function redeemJoinTicket(
 
     const now = new Date()
     const nodeId = crypto.randomUUID()
-    await tx
+    await tx.insert(nodes).values({
+      id: nodeId,
+      kind: ticketRow.kind,
+      name: ticketRow.name,
+      mode: 'agent',
+      status: 'joining',
+      reachability: 'unknown',
+      capabilities: Array.isArray(ticketRow.capabilities) ? ticketRow.capabilities.map(String) : [],
+      scope: ticketRow.kind === 'leaf' ? ['restricted-api', 'restricted-interconnect'] : [],
+      createdAt: now,
+      updatedAt: now
+    })
+
+    const updateResult = await tx
       .update(nodeJoinTickets)
       .set({
         status: 'redeemed',
-        redeemedAt: now
+        redeemedAt: now,
+        redeemedNodeId: nodeId
       })
       .where(and(eq(nodeJoinTickets.id, ticketRow.id), eq(nodeJoinTickets.status, 'active')))
+      .returning({ id: nodeJoinTickets.id })
+
+    if (updateResult.length === 0) {
+      await tx.delete(nodes).where(eq(nodes.id, nodeId))
+    }
 
     const [latestTicket] = await tx
       .select()
       .from(nodeJoinTickets)
       .where(eq(nodeJoinTickets.id, ticketRow.id))
       .limit(1)
-    if (
-      latestTicket?.status !== 'redeemed' ||
-      latestTicket.redeemedAt?.getTime() !== now.getTime()
-    ) {
+    if (updateResult.length === 0 || latestTicket?.status !== 'redeemed' || latestTicket.redeemedNodeId !== nodeId) {
       const latestStatus = latestTicket?.status as typeof ticketRow.status | undefined
       if (latestStatus === 'expired') {
         return err('node.join_ticket_expired', 'join ticket is expired')
@@ -167,25 +186,8 @@ export async function redeemJoinTicket(
       return err('node.join_ticket_invalid', 'join ticket is invalid')
     }
 
-    await tx.insert(nodes).values({
-      id: nodeId,
-      kind: ticketRow.kind,
-      name: ticketRow.name,
-      mode: 'agent',
-      status: 'joining',
-      reachability: 'unknown',
-      capabilities: Array.isArray(ticketRow.capabilities) ? ticketRow.capabilities.map(String) : [],
-      scope: ticketRow.kind === 'leaf' ? ['restricted-api', 'restricted-interconnect'] : [],
-      createdAt: now,
-      updatedAt: now
-    })
     const [nodeRow] = await tx.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1)
     if (!nodeRow) return err('node.unavailable', 'failed to create node')
-
-    await tx
-      .update(nodeJoinTickets)
-      .set({ redeemedNodeId: nodeId })
-      .where(eq(nodeJoinTickets.id, ticketRow.id))
 
     const runtimeCredential = await issueRuntimeCredential(tx, nodeId)
 

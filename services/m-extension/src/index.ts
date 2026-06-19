@@ -6,6 +6,7 @@ import {
   fetchReadyState,
   internalApiPaths,
   internalRequestHeaders,
+  probePostgresReadiness,
   serveHttpApp,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
@@ -21,16 +22,6 @@ function requiredJwtSecret(): string {
 
 initTelemetry(mExtensionServiceName)
 const { db, client } = createDb()
-
-/**
- * readiness 允许把依赖故障收敛成 false，但必须保留诊断线索。
- */
-function warnReadinessFallback(service: string, error: unknown): false {
-  console.warn(
-    `m-extension: ${service} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
-  )
-  return false
-}
 
 const app = createMExtensionApp({
   jwtSecret: requiredJwtSecret(),
@@ -122,9 +113,13 @@ const app = createMExtensionApp({
     }
   },
   async readiness() {
-    const postgresReady = await client`select 1`
-      .then(() => true)
-      .catch(error => warnReadinessFallback('postgres', error))
+    const postgresReady = await probePostgresReadiness({
+      client,
+      service: 'm-extension',
+      readyValue: true,
+      fallback: false,
+      warn: ({ message }) => console.warn(message)
+    })
     const [policyReady, logReady, eventBusReady] = await Promise.all([
       fetchReadyState(`${serviceUrl('m-policy')}/ready`),
       fetchReadyState(`${serviceUrl('m-log')}/ready`),

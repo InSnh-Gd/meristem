@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
-  type NetworkMap,
+  type NetworkMapFromSchema as NetworkMap,
   NetworkMapEnforcementDecisionSchema,
   NetworkMapSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'

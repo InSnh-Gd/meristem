@@ -39,7 +39,7 @@ export type EnableDataPlaneSuccess = {
 }
 
 export type LatestNetworkMapSuccess = {
-  map: import('../../../packages/contracts/src/schemas/mnet-profile.ts').NetworkMap
+  map: import('../../../packages/contracts/src/schemas/mnet-profile.ts').NetworkMapFromSchema
 }
 
 export type NodeKeyRegistrationSuccess = {

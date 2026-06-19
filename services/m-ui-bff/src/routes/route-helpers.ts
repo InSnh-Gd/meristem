@@ -1,7 +1,7 @@
 import { Either } from 'effect'
 import * as Schema from 'effect/Schema'
 import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
-import type { CommandWellEligibility } from '../../../../packages/contracts/src/index.ts'
+import type { CommandWellEligibilityFromSchema as CommandWellEligibility } from '../../../../packages/contracts/src/index.ts'
 import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
 import type { ServiceFetch, ServiceFetchResult } from '../deps.ts'
 import {

@@ -3,6 +3,7 @@ import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import {
   fetchReadyState,
   internalRequestHeaders,
+  probePostgresReadiness,
   serviceUrl
 } from '../../../packages/internal-http/src/index.ts'
 import type { ApprovalDeps } from './approval-schemas.ts'
@@ -102,17 +103,14 @@ export function createPolicyReadiness(
   client: ReturnType<typeof import('../../../packages/db/src/client.ts').createDb>['client']
 ) {
   return async function readiness(): Promise<{ ready: boolean }> {
-    const postgresReady = await client`select 1`
-      .then(() => true)
-      .catch(error => warnReadinessFallback('postgres', error))
+    const postgresReady = await probePostgresReadiness({
+      client,
+      service: 'm-policy',
+      readyValue: true,
+      fallback: false,
+      warn: ({ message }) => console.warn(message)
+    })
     const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
     return { ready: postgresReady && eventBusReady }
   }
-}
-
-function warnReadinessFallback(dependency: string, error: unknown): false {
-  console.warn(
-    `m-policy: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
-  )
-  return false
 }

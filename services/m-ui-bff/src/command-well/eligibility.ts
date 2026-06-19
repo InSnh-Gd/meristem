@@ -1,6 +1,6 @@
 import type {
-  CommandWellEligibility,
-  DisabledCommandExplanation,
+  CommandWellEligibilityFromSchema as CommandWellEligibility,
+  DisabledCommandExplanationFromSchema as DisabledCommandExplanation,
   MNode,
   Permission
 } from '../../../../packages/contracts/src/index.ts'

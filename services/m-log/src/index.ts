@@ -2,8 +2,10 @@ import { createDb } from '../../../packages/db/src/client.ts'
 import {
   fetchReadyState,
   internalServicePorts,
+  probePostgresReadiness,
   serveHttpApp,
-  serviceUrl
+  serviceUrl,
+  warnDegradedAndReturn
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import {
@@ -53,20 +55,6 @@ if (!projectionAvailable) {
 
 const runtimeState = createLogRuntimeState()
 
-/**
- * readiness 探针把依赖故障收敛为 false，但仍然要输出诊断信息给运维面。
- */
-function warnReadinessFallback(dependency: string, error: unknown): false {
-  logger.warn(
-    {
-      dependency,
-      error: error instanceof Error ? error.message : String(error)
-    },
-    'readiness probe degraded'
-  )
-  return false
-}
-
 const writeService = createLogWriteService(db, opensearch, opensearchAvailable, publisher)
 const queryService = createLogQueryService(db)
 startEventBusOperationalConsumer(nc, writeService.writeFull)
@@ -88,13 +76,26 @@ async function reload(_request: {
 
 const app = createLogApp({
   async readiness() {
-    const postgresReady = await client`select 1`
-      .then(() => true)
-      .catch(error => warnReadinessFallback('postgres', error))
+    const postgresReady = await probePostgresReadiness({
+      client,
+      service: 'm-log',
+      readyValue: true,
+      fallback: false,
+      warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
+    })
     const natsReady = await nc
       .flush()
       .then(() => true)
-      .catch(error => warnReadinessFallback('nats', error))
+      .catch(error =>
+        warnDegradedAndReturn({
+          service: 'm-log',
+          target: 'nats',
+          error,
+          context: 'readiness probe degraded',
+          fallback: false,
+          warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
+        })
+      )
     const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
     return {
       ready: postgresReady && natsReady && eventBusReady,

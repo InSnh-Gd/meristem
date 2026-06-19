@@ -1,16 +1,11 @@
 import { t } from 'elysia'
 import {
+  apiErrorRouteSchema,
   mExtensionManifestVersion,
   mExtensionScope
-} from '../../../packages/contracts/src/types/extension.ts'
+} from '../../../packages/contracts/src/index.ts'
 
-export const errorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String(),
-    correlationId: t.Optional(t.String())
-  })
-})
+export const errorSchema = apiErrorRouteSchema
 
 export const manifestSchema = t.Object({
   id: t.String(),

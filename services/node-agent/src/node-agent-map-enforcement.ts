@@ -1,4 +1,7 @@
-import type { AclRule, NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type {
+  AclRuleFromSchema as AclRule,
+  NetworkMapFromSchema as NetworkMap
+} from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_CLOCK_SKEW_MS } from '../../m-net/src/key-lifecycle.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../m-net/src/network-map-renderer.ts'
 import type { EnforcementDecision } from '../../m-net/src/network-map-types.ts'

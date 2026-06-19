@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import type { EventBusPublishMetricsSummaryFromSchema } from '../../../packages/contracts/src/index.ts'
+import { apiErrorRouteSchema, type EventBusPublishMetricsSummaryFromSchema } from '../../../packages/contracts/src/index.ts'
 import { type MEventEnvelope, validateEventEnvelope } from '../../../packages/events/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
@@ -31,12 +31,7 @@ export type EventBusAppDeps = {
   }): Promise<void>
 }
 
-const internalErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+const internalErrorSchema = apiErrorRouteSchema
 
 /**
  * M-EventBus 对内只暴露发布入口，不允许上游绕过 envelope 校验直接向 NATS 写裸消息。

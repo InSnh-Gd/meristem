@@ -1,4 +1,9 @@
-import { fetchReadyState, serviceUrl } from '../../../packages/internal-http/src/index.ts'
+import {
+  fetchReadyState,
+  probePostgresReadiness,
+  serviceUrl,
+  warnDegradedAndReturn
+} from '../../../packages/internal-http/src/index.ts'
 import type { MNetSqlClient } from './clients.ts'
 
 /**
@@ -8,24 +13,25 @@ export function createReadinessProbe(
   client: MNetSqlClient,
   checkStoreHealth?: () => Promise<boolean>
 ) {
-  const warnReadinessFallback = (dependency: string, error: unknown) => {
-    console.warn(
-      `m-net: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
-    )
-  }
-
   return async function readiness(): Promise<{ ready: boolean }> {
-    const postgresReady = await client`select 1`
-      .then(() => true)
-      .catch(error => {
-        warnReadinessFallback('postgres', error)
-        return false
-      })
+    const postgresReady = await probePostgresReadiness({
+      client,
+      service: 'm-net',
+      readyValue: true,
+      fallback: false,
+      warn: ({ message }) => console.warn(message)
+    })
     const storesReady = checkStoreHealth
-      ? await checkStoreHealth().catch(error => {
-          warnReadinessFallback('stores', error)
-          return false
-        })
+      ? await checkStoreHealth().catch(error =>
+          warnDegradedAndReturn({
+            service: 'm-net',
+            target: 'stores',
+            error,
+            context: 'readiness probe degraded',
+            fallback: false,
+            warn: ({ message }) => console.warn(message)
+          })
+        )
       : true
     const [eventBusReady, logReady] = await Promise.all([
       fetchReadyState(`${serviceUrl('m-eventbus')}/ready`),

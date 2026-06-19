@@ -48,9 +48,9 @@ export const SecretRefV01Schema = SecretRefV01
 export const SecretRefVersionSchema = SecretRefVersionV01
 export const SecretRefTransitionSchema = SecretRefTransitionV01
 
-export type SecretRefV01 = typeof SecretRefV01.Type
-export type SecretRefVersionV01 = typeof SecretRefVersionV01.Type
-export type SecretRefTransitionV01 = typeof SecretRefTransitionV01.Type
+export type SecretRefV01FromSchema = typeof SecretRefV01.Type
+export type SecretRefVersionV01FromSchema = typeof SecretRefVersionV01.Type
+export type SecretRefTransitionV01FromSchema = typeof SecretRefTransitionV01.Type
 
 export const SecretListRecordSchema = Schema.Struct({
   id: Schema.String,

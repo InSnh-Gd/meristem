@@ -87,6 +87,87 @@ export function createInternalFetcher(): typeof fetch {
 }
 
 /**
+ * ponytail: 仓库内已经统一使用 `{ error: { code, message } }` envelope，
+ * 这里直接提供最小解析 helper，避免 Core / M-Task / internal-http 各写一份 Reflect 样板。
+ */
+export function serviceErrorFromEnvelope(
+  value: unknown,
+  fallback: { code: string; message: string }
+): { code: string; message: string } {
+  if (typeof value !== 'object' || value === null) return fallback
+  const maybeError = Reflect.get(value, 'error')
+  if (typeof maybeError !== 'object' || maybeError === null) return fallback
+  const code = Reflect.get(maybeError, 'code')
+  const message = Reflect.get(maybeError, 'message')
+  return {
+    code: typeof code === 'string' ? code : fallback.code,
+    message: typeof message === 'string' ? message : fallback.message
+  }
+}
+
+export function errorMessageFromEnvelope(value: unknown, fallback: string): string {
+  return serviceErrorFromEnvelope(value, { code: 'ignored', message: fallback }).message
+}
+
+export type DegradedWarning = {
+  target: string
+  error: string
+  message: string
+}
+
+type SqlProbeClient = (
+  strings: TemplateStringsArray,
+  ...values: ReadonlyArray<unknown>
+) => unknown
+
+/**
+ * ponytail: 多个服务都在做“记录 degraded 原因并返回 fallback”的同一件事，
+ * 这里只统一消息拼装和返回值，不统一日志框架。
+ */
+export function warnDegradedAndReturn<T>(input: {
+  service: string
+  target: string
+  error: unknown
+  context: string
+  fallback: T
+  warn(warning: DegradedWarning): void
+}): T {
+  const errorMessage = input.error instanceof Error ? input.error.message : String(input.error)
+  input.warn({
+    target: input.target,
+    error: errorMessage,
+    message: `${input.service}: ${input.target} ${input.context} - ${errorMessage}`
+  })
+  return input.fallback
+}
+
+/**
+ * ponytail: 多个服务的 PostgreSQL readiness 都只是同一个 `select 1` 探针；
+ * 这里只收掉重复样板，不接管各服务自己的 ready 组合逻辑。
+ */
+export async function probePostgresReadiness<T>(input: {
+  client: SqlProbeClient
+  service: string
+  readyValue: T
+  fallback: T
+  warn(warning: DegradedWarning): void
+}): Promise<T> {
+  try {
+    await input.client`select 1`
+    return input.readyValue
+  } catch (error) {
+    return warnDegradedAndReturn({
+      service: input.service,
+      target: 'postgres',
+      error,
+      context: 'readiness probe degraded',
+      fallback: input.fallback,
+      warn: input.warn
+    })
+  }
+}
+
+/**
  * 所有内部服务路由统一走这一段认证逻辑，保证未授权 loopback 调用
  * 使用同一套错误契约返回，而不是各服务自行发散。
  */

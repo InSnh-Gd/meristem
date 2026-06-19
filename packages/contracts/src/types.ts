@@ -7,12 +7,6 @@ export type {
   ConfigTransitionV01,
   ConfigVersionV01
 } from './schemas/config.ts'
-export type {
-  SecretRefTransitionV01,
-  SecretRefV01,
-  SecretRefVersionV01
-} from './schemas/secrets.ts'
-
 export type DependencyState = 'ready' | 'unavailable'
 
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。

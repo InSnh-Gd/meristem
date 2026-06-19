@@ -1,7 +1,7 @@
 import type {
-  CommandWellEligibility,
-  OperationalCommandPreview,
-  OperationalCommandPreviewCommandId,
+  CommandWellEligibilityFromSchema as CommandWellEligibility,
+  OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
+  OperationalCommandPreviewFromSchema as OperationalCommandPreview,
   Permission
 } from '../../../packages/contracts/src/index.ts'
 

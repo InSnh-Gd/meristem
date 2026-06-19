@@ -5,6 +5,27 @@ import {
   joinTicketRedeemability,
   shouldTransitionOffline
 } from '../../services/m-net/src/runtime.ts'
+import { err, ok } from '../../packages/common/src/result.ts'
+
+function claimJoinTicketWinner(input: {
+  latestStatus: 'active' | 'redeemed' | 'expired' | 'revoked' | undefined
+  latestRedeemedNodeId: string | null | undefined
+  expectedNodeId: string
+}) {
+  if (input.latestStatus !== 'redeemed') {
+    if (input.latestStatus === 'expired') {
+      return err({ code: 'node.join_ticket_expired', message: 'join ticket is expired' })
+    }
+    if (input.latestStatus === 'revoked') {
+      return err({ code: 'node.join_ticket_revoked', message: 'join ticket has been revoked' })
+    }
+    return err({ code: 'node.join_ticket_invalid', message: 'join ticket is invalid' })
+  }
+
+  return input.latestRedeemedNodeId === input.expectedNodeId
+    ? ok('claimed')
+    : err({ code: 'node.join_ticket_redeemed', message: 'join ticket has already been redeemed' })
+}
 
 describe('M-Net node-agent runtime helpers', () => {
   it('promotes reachable agent nodes from joining to healthy on heartbeat', () => {
@@ -99,5 +120,28 @@ describe('M-Net node-agent runtime helpers', () => {
         new Date('2026-05-05T12:00:00.000Z')
       )
     ).toBe('redeemable')
+  })
+
+  it('treats redeemed ownership as the stable winner signal for single-use join tickets', () => {
+    expect(
+      claimJoinTicketWinner({
+        latestStatus: 'redeemed',
+        latestRedeemedNodeId: 'node-1',
+        expectedNodeId: 'node-1'
+      })
+    ).toEqual(ok('claimed'))
+
+    expect(
+      claimJoinTicketWinner({
+        latestStatus: 'redeemed',
+        latestRedeemedNodeId: 'node-1',
+        expectedNodeId: 'node-2'
+      })
+    ).toEqual(
+      err({
+        code: 'node.join_ticket_redeemed',
+        message: 'join ticket has already been redeemed'
+      })
+    )
   })
 })

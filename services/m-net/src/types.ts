@@ -1,9 +1,11 @@
+import type { Result } from '../../../packages/common/src/result.ts'
+
 export type MNetServiceError = {
   code: string
   message: string
 }
 
-export type MNetServiceResult<T> = { ok: true; value: T } | { ok: false; error: MNetServiceError }
+export type MNetServiceResult<T> = Result<T, MNetServiceError>
 
 /**
  * Break-glass 紧急禁用请求体。

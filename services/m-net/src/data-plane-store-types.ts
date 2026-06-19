@@ -1,4 +1,4 @@
-import type { NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   NetworkOperationLock,
   NetworkOperationType,

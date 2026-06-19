@@ -1,8 +1,8 @@
 import type {
   MNetProfileVersionFromSchema,
   MNetRelayTypeFromSchema,
-  NetworkMap,
-  NetworkMapEnforcementDecision
+  NetworkMapEnforcementDecisionFromSchema as NetworkMapEnforcementDecision,
+  NetworkMapFromSchema as NetworkMap
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { NodeKind } from '../../../packages/contracts/src/types.ts'
 

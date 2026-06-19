@@ -1,11 +1,7 @@
 import { t } from 'elysia'
+import { apiErrorRouteSchema } from '../../../packages/contracts/src/index.ts'
 
-export const internalErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+export const internalErrorSchema = apiErrorRouteSchema
 
 // /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
 export const readyResponseSchema = t.Object({
@@ -57,12 +53,7 @@ export const logSearchResultSchema = <T extends ReturnType<typeof t.Object>>(ent
     total: t.Number()
   })
 
-export const degradedSearchSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+export const degradedSearchSchema = apiErrorRouteSchema
 
 export const projectionHealthSchema = t.Object({
   index: t.String(),

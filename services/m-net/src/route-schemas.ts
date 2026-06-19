@@ -1,18 +1,9 @@
 import { t } from 'elysia'
+import { apiErrorRouteSchema } from '../../../packages/contracts/src/index.ts'
 
-export const internalErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+export const internalErrorSchema = apiErrorRouteSchema
 
-export const externalErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+export const externalErrorSchema = apiErrorRouteSchema
 
 export const networkSchema = t.Object({
   id: t.String(),

@@ -1,6 +1,6 @@
 import type { MNetworkMember } from '../../../packages/contracts/src/index.ts'
 import { assessOfflineLeafMigration } from './data-plane-security-support.ts'
-import type { DataPlaneStores, StoredProfileMigration } from './data-plane-store-types.ts'
+import type { DataPlaneStores } from './data-plane-store-types.ts'
 import type {
   GlobalDefaultsStore,
   NetworkProfileMigrationResult,
@@ -16,7 +16,12 @@ import {
   type OperationTransitionReason,
   releaseOperationLock
 } from './operation-locks.ts'
-import { type MigrationProfileCandidate, migrateMNetProfile } from './profile-migration.ts'
+import {
+  type MigrationAlreadyApplied,
+  type MigrationProfileCandidate,
+  type MigrationSuccess,
+  migrateMNetProfile
+} from './profile-migration.ts'
 import type { ProfileStore } from './profile-store.ts'
 import {
   type NetworkSnapshot,
@@ -24,6 +29,7 @@ import {
   migrationResult,
   readReason
 } from './migration-engine-helpers.ts'
+import { toStoredProfileMigrationRecord } from './migration-storage-utils.ts'
 
 export type MigrationEngineDeps = {
   globalDefaultsStore: GlobalDefaultsStore
@@ -64,6 +70,8 @@ export type PlanMigrationResult = {
   candidates: string[]
   batches: SwitchBatch[]
 }
+
+type MigrationApplySuccess = MigrationSuccess | MigrationAlreadyApplied
 
 export const ok = <T>(value: T) => ({ ok: true as const, value })
 export const fail = (error: string) => ({ ok: false as const, error })
@@ -152,20 +160,106 @@ export async function storeMigration(
   }
 ) {
   const current = await getStoredMigration(deps, input.networkId, input.operationId)
-  const record: StoredProfileMigration = {
-    networkId: input.networkId,
-    fromVersion: input.fromVersion,
-    toVersion: input.toVersion,
-    operationId: input.operationId,
-    status: input.status,
-    idempotencyKey: `${input.operationId}:${input.networkId}`,
-    startedAt: current?.startedAt ?? input.timestamp,
-    ...(input.status === 'applied' || input.status === 'pending' || input.status === 'rolled_back'
-      ? { completedAt: input.timestamp }
-      : {}),
-    auditMetadata: input.auditMetadata
-  }
+  const record = toStoredProfileMigrationRecord(input, current?.startedAt)
   await deps.dataPlane.profileMigrations.upsert(record)
+}
+
+async function finalizeAppliedMigration(
+  deps: MigrationEngineDeps,
+  input: {
+    operation: { operationId: string; targetProfileVersion: string; reason: string }
+    networkId: string
+    actor: string
+    batchId: number
+    targetStatus?: 'enabled' | 'enabling'
+  },
+  state: NetworkSnapshot,
+  migrated: MigrationApplySuccess,
+  operationLock: NetworkOperationLock,
+  timestamp: string,
+  correlationId: string
+): Promise<NetworkProfileMigrationResult> {
+  const offline = await assessOffline(deps, input.networkId)
+  const resultStatus = offline.kind === 'pending' ? 'pending' : 'applied'
+  await deps.profileStore.setNetworkState(input.networkId, {
+    profileVersion: migrated.profile.profileVersion,
+    status: input.targetStatus ?? migrated.network.status
+  })
+  await deps.profileStore.recordTransition({
+    networkId: input.networkId,
+    fromVersion: state.profileVersion,
+    toVersion: migrated.profile.profileVersion,
+    fromStatus: state.status,
+    toStatus: input.targetStatus ?? migrated.network.status,
+    actor: input.actor,
+    reason: input.operation.reason,
+    correlationId
+  })
+  const auditId =
+    (await deps.writeAudit({
+      actor: input.actor,
+      action:
+        resultStatus === 'pending'
+          ? 'mnet.profile.migration.pending'
+          : migrated.kind === 'already-migrated'
+            ? 'mnet.profile.migration.applied'
+            : migrated.audit.action,
+      resource: `network:${input.networkId}`,
+      result: resultStatus === 'pending' ? 'pending' : 'applied',
+      correlationId,
+      metadata: {
+        operationId: input.operation.operationId,
+        batchId: input.batchId,
+        offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : [],
+        plannedEffects: migrated.plannedEffects
+      }
+    })) ?? correlationId
+  await deps.writeTimeline?.({
+    summary:
+      resultStatus === 'pending'
+        ? `migration pending follow-up for ${input.networkId}`
+        : `migration applied for ${input.networkId}`,
+    subject:
+      resultStatus === 'pending'
+        ? 'mnet.profile.migration.pending'
+        : 'mnet.profile.migration.applied',
+    correlationId
+  })
+  await deps.writeFull({
+    level: 'info',
+    message: `profile migration ${resultStatus} for ${input.networkId}`,
+    correlationId,
+    metadata: {
+      operationId: input.operation.operationId,
+      batchId: input.batchId,
+      offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : []
+    }
+  })
+  await storeMigration(deps, {
+    networkId: input.networkId,
+    fromVersion: state.profileVersion,
+    toVersion: input.operation.targetProfileVersion,
+    operationId: input.operation.operationId,
+    status: resultStatus,
+    timestamp,
+    auditMetadata: {
+      auditId,
+      plannedEffects: migrated.plannedEffects,
+      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
+    }
+  })
+  await releaseLock(deps, operationLock, timestamp)
+  return migrationResult(
+    input.networkId,
+    state.profileVersion,
+    input.operation.targetProfileVersion,
+    resultStatus,
+    {
+      correlationId,
+      auditId,
+      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
+    }
+  )
 }
 
 // ── 核心 apply / rollback ───────────────────────────
@@ -312,86 +406,14 @@ export async function applyNetwork(
       }
     )
   }
-  const offline = await assessOffline(deps, input.networkId)
-  const resultStatus = offline.kind === 'pending' ? 'pending' : 'applied'
-  await deps.profileStore.setNetworkState(input.networkId, {
-    profileVersion: migrated.profile.profileVersion,
-    status: input.targetStatus ?? migrated.network.status
-  })
-  await deps.profileStore.recordTransition({
-    networkId: input.networkId,
-    fromVersion: state.profileVersion,
-    toVersion: migrated.profile.profileVersion,
-    fromStatus: state.status,
-    toStatus: input.targetStatus ?? migrated.network.status,
-    actor: input.actor,
-    reason: input.operation.reason,
-    correlationId
-  })
-  const auditId =
-    (await deps.writeAudit({
-      actor: input.actor,
-      action:
-        resultStatus === 'pending'
-          ? 'mnet.profile.migration.pending'
-          : migrated.kind === 'already-migrated'
-            ? 'mnet.profile.migration.applied'
-            : migrated.audit.action,
-      resource: `network:${input.networkId}`,
-      result: resultStatus === 'pending' ? 'pending' : 'applied',
-      correlationId,
-      metadata: {
-        operationId: input.operation.operationId,
-        batchId: input.batchId,
-        offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : [],
-        plannedEffects: migrated.plannedEffects
-      }
-    })) ?? correlationId
-  await deps.writeTimeline?.({
-    summary:
-      resultStatus === 'pending'
-        ? `migration pending follow-up for ${input.networkId}`
-        : `migration applied for ${input.networkId}`,
-    subject:
-      resultStatus === 'pending'
-        ? 'mnet.profile.migration.pending'
-        : 'mnet.profile.migration.applied',
-    correlationId
-  })
-  await deps.writeFull({
-    level: 'info',
-    message: `profile migration ${resultStatus} for ${input.networkId}`,
-    correlationId,
-    metadata: {
-      operationId: input.operation.operationId,
-      batchId: input.batchId,
-      offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : []
-    }
-  })
-  await storeMigration(deps, {
-    networkId: input.networkId,
-    fromVersion: state.profileVersion,
-    toVersion: input.operation.targetProfileVersion,
-    operationId: input.operation.operationId,
-    status: resultStatus,
+  return finalizeAppliedMigration(
+    deps,
+    input,
+    state,
+    migrated,
+    operationLock.value,
     timestamp,
-    auditMetadata: {
-      auditId,
-      plannedEffects: migrated.plannedEffects,
-      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
-    }
-  })
-  await releaseLock(deps, operationLock.value, timestamp)
-  return migrationResult(
-    input.networkId,
-    state.profileVersion,
-    input.operation.targetProfileVersion,
-    resultStatus,
-    {
-      correlationId,
-      auditId,
-      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
-    }
+    correlationId
   )
 }
 

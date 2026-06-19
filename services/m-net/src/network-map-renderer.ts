@@ -1,7 +1,7 @@
 import type {
-  AclRule,
-  NetworkMap,
-  NetworkMapSigningMetadata
+  AclRuleFromSchema as AclRule,
+  NetworkMapFromSchema as NetworkMap,
+  NetworkMapSigningMetadataFromSchema as NetworkMapSigningMetadata
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   EnforcementDecision,

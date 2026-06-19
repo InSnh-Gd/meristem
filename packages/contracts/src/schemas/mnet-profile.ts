@@ -252,21 +252,21 @@ export type MNetAclRuleFromSchema = typeof MNetAclRuleSchema.Type
 
 // 节点侧执行使用已渲染 ACL，不在 agent 上重新调用策略服务。
 export const AclRuleSchema = MNetAclRuleSchema
-export type AclRule = typeof AclRuleSchema.Type
+export type AclRuleFromSchema = typeof AclRuleSchema.Type
 
 export const NetworkMapMemberSchema = Schema.Struct({
   nodeId: Schema.String,
   tunnelIp: Schema.String,
   publicKey: Schema.String
 })
-export type NetworkMapMember = typeof NetworkMapMemberSchema.Type
+export type NetworkMapMemberFromSchema = typeof NetworkMapMemberSchema.Type
 
 export const NetworkMapSigningMetadataSchema = Schema.Struct({
   algorithm: Schema.Literal('placeholder-ed25519'),
   keyId: Schema.String,
   value: Schema.String
 })
-export type NetworkMapSigningMetadata = typeof NetworkMapSigningMetadataSchema.Type
+export type NetworkMapSigningMetadataFromSchema = typeof NetworkMapSigningMetadataSchema.Type
 
 export const NetworkMapSchema = Schema.Struct({
   profileVersion: MNetProfileVersionSchema,
@@ -278,14 +278,14 @@ export const NetworkMapSchema = Schema.Struct({
   mapVersion: Schema.Number,
   signatureMetadata: NetworkMapSigningMetadataSchema
 })
-export type NetworkMap = typeof NetworkMapSchema.Type
+export type NetworkMapFromSchema = typeof NetworkMapSchema.Type
 
 export const NetworkMapEnforcementReasonSchema = Schema.Literal(
   'network_map.stale',
   'network_map.invalid_signature',
   'network_map.version_regression'
 )
-export type NetworkMapEnforcementReason = typeof NetworkMapEnforcementReasonSchema.Type
+export type NetworkMapEnforcementReasonFromSchema = typeof NetworkMapEnforcementReasonSchema.Type
 
 export const NetworkMapEnforcementDecisionSchema = Schema.Union(
   Schema.Struct({ decision: Schema.Literal('apply') }),
@@ -294,7 +294,7 @@ export const NetworkMapEnforcementDecisionSchema = Schema.Union(
     reason: NetworkMapEnforcementReasonSchema
   })
 )
-export type NetworkMapEnforcementDecision = typeof NetworkMapEnforcementDecisionSchema.Type
+export type NetworkMapEnforcementDecisionFromSchema = typeof NetworkMapEnforcementDecisionSchema.Type
 
 export const MNetNetworkMapReferenceSchema = Schema.Struct({
   networkId: Schema.String,

@@ -7,7 +7,7 @@ import {
   requireProfileReadDeps,
   requireProfileWriteDeps
 } from './profile-enable-disable-workflows.ts'
-import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
+import { isProfileWorkflowFailure, type ProfileReadDeps } from './profile-workflow-types.ts'
 import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import {
   breakGlassDisableBodySchema,
@@ -22,6 +22,51 @@ import {
   setNetworkProfileBodySchema,
   setNetworkProfileResponseSchema
 } from './route-schemas.ts'
+
+type ProfileReadRouteFailure = {
+  status: 400 | 401 | 403 | 404 | 409 | 503
+  code: string
+  message: string
+}
+
+async function requireAuthorizedProfileReadContext(
+  deps: Pick<MNetAppDeps, 'profileStore' | 'policyAuthorize'>,
+  input: { headers: Record<string, string | undefined>; resource: string }
+): Promise<
+  | { profileDeps: ProfileReadDeps }
+  | ProfileReadRouteFailure
+> {
+  const actor = await verifyBearerAuth(input.headers)
+  if (!actor) {
+    return {
+      status: 401,
+      code: 'auth.invalid_token',
+      message: 'invalid or missing bearer token'
+    }
+  }
+  const profileDeps = requireProfileReadDeps(deps)
+  if (isEnableDisableFailure(profileDeps)) {
+    return {
+      status: profileDeps.status,
+      code: profileDeps.error.code,
+      message: profileDeps.error.message
+    }
+  }
+  const policyResult = await profileDeps.policyAuthorize.authorize(
+    actor,
+    'network:profile-read',
+    input.resource
+  )
+  if (policyResult.result !== 'allow') {
+    return {
+      status: 403,
+      code: 'policy.denied',
+      message: `read denied: ${policyResult.reasons.join(', ')}`
+    }
+  }
+
+  return { profileDeps }
+}
 
 /**
  * 对外 REST API 只暴露 profile 查询与切换；JWT、M-Policy、M-Log、M-EventBus 顺序必须保持稳定。
@@ -97,37 +142,15 @@ export function createProfileRoutes(
       .get(
         '/network-profiles',
         async ({ headers, set }) => {
-          const actor = await verifyBearerAuth(headers)
-          if (!actor)
-            return externalApiError(
-              set,
-              401,
-              'auth.invalid_token',
-              'invalid or missing bearer token'
-            )
-          const profileDeps = requireProfileReadDeps(deps)
-          if (isEnableDisableFailure(profileDeps))
-            return externalApiError(
-              set,
-              profileDeps.status,
-              profileDeps.error.code,
-              profileDeps.error.message
-            )
-          const policyResult = await profileDeps.policyAuthorize.authorize(
-            actor,
-            'network:profile-read',
-            'network-profiles'
-          )
-          if (policyResult.result !== 'allow') {
-            return externalApiError(
-              set,
-              403,
-              'policy.denied',
-              `read denied: ${policyResult.reasons.join(', ')}`
-            )
+          const context = await requireAuthorizedProfileReadContext(deps, {
+            headers,
+            resource: 'network-profiles'
+          })
+          if ('status' in context) {
+            return externalApiError(set, context.status, context.code, context.message)
           }
 
-          const defs = await profileDeps.profileStore.getDefinitions()
+          const defs = await context.profileDeps.profileStore.getDefinitions()
           return { profiles: defs }
         },
         {
@@ -137,37 +160,15 @@ export function createProfileRoutes(
       .get(
         '/network-profiles/:profileVersion',
         async ({ params, headers, set }) => {
-          const actor = await verifyBearerAuth(headers)
-          if (!actor)
-            return externalApiError(
-              set,
-              401,
-              'auth.invalid_token',
-              'invalid or missing bearer token'
-            )
-          const profileDeps = requireProfileReadDeps(deps)
-          if (isEnableDisableFailure(profileDeps))
-            return externalApiError(
-              set,
-              profileDeps.status,
-              profileDeps.error.code,
-              profileDeps.error.message
-            )
-          const policyResult = await profileDeps.policyAuthorize.authorize(
-            actor,
-            'network:profile-read',
-            `network-profile:${params.profileVersion}`
-          )
-          if (policyResult.result !== 'allow') {
-            return externalApiError(
-              set,
-              403,
-              'policy.denied',
-              `read denied: ${policyResult.reasons.join(', ')}`
-            )
+          const context = await requireAuthorizedProfileReadContext(deps, {
+            headers,
+            resource: `network-profile:${params.profileVersion}`
+          })
+          if ('status' in context) {
+            return externalApiError(set, context.status, context.code, context.message)
           }
 
-          const def = await profileDeps.profileStore.getDefinition(params.profileVersion)
+          const def = await context.profileDeps.profileStore.getDefinition(params.profileVersion)
           if (!def) return externalApiError(set, 404, 'profile.not_found', 'profile not found')
           return def
         },

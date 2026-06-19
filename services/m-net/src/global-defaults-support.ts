@@ -1,5 +1,6 @@
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import type { MNetAppDeps } from './deps.ts'
+import { CHINA_DATA_PLANE_PROFILE_VERSION } from './mnet-dataplane-workflows.ts'
 import { verifyBearerAuth } from './route-helpers.ts'
 
 type RouteSet = { status?: unknown }
@@ -22,6 +23,27 @@ type MigrationDeps = Pick<MNetAppDeps, 'migrationEngine' | 'policyAuthorize'> & 
   migrationEngine: NonNullable<MNetAppDeps['migrationEngine']>
   policyAuthorize: NonNullable<MNetAppDeps['policyAuthorize']>
 }
+
+type GlobalDefaultsWriteRuntimeDeps = {
+  globalDefaultsStore: NonNullable<MNetAppDeps['globalDefaultsStore']>
+  profileStore: MNetAppDeps['profileStore'] | undefined
+  migrationEngine: MNetAppDeps['migrationEngine'] | undefined
+  log: MNetAppDeps['log'] | undefined
+  events: MNetAppDeps['events'] | undefined
+}
+
+type SetDefaultsSuccess = {
+  operationId: string
+  policyDecisionId: string
+  auditId: string
+  defaultProfileVersion: string
+  migrationOperationId?: string
+}
+
+type SetDefaultsPreflight =
+  | { kind: 'continue' }
+  | { kind: 'success'; value: SetDefaultsSuccess }
+  | RouteFailure
 
 /**
  * 外部控制面 Bearer 校验统一收口，保持所有 global-defaults 写路径共享同一 401 语义。
@@ -120,6 +142,37 @@ export async function requireGlobalDefaultsPolicy(
 }
 
 /**
+ * migration 路由都共享同一套 actor + deps + policy unwrap；收在这里避免每条 handler 重复 fail-closed 样板。
+ */
+export async function requireAuthorizedMigrationContext(
+  deps: Pick<MNetAppDeps, 'migrationEngine' | 'policyAuthorize'>,
+  input: {
+    headers: Record<string, string | undefined>
+    set: RouteSet
+    action: string
+    resource: string
+    deniedPrefix: string
+  }
+): Promise<{ actor: ActorId; migrationDeps: MigrationDeps } | RouteFailure> {
+  const actor = await requireGlobalDefaultsActor(input.headers, input.set)
+  if (isGlobalDefaultsFailure(actor)) return actor
+
+  const migrationDeps = requireMigrationDeps(deps, input.set)
+  if (isGlobalDefaultsFailure(migrationDeps)) return migrationDeps
+
+  const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
+    actor,
+    action: input.action,
+    resource: input.resource,
+    deniedPrefix: input.deniedPrefix,
+    set: input.set
+  })
+  if (isGlobalDefaultsFailure(policy)) return policy
+
+  return { actor, migrationDeps }
+}
+
+/**
  * apply/resume/rollback 的 engine 结果都统一映射 operation_not_found，避免每条路由重复 unwrap。
  */
 export function requireSwitchOperationResult<T>(
@@ -130,4 +183,147 @@ export function requireSwitchOperationResult<T>(
     return routeFailure(404, 'switch.operation_not_found', result.error)
   }
   return result.value
+}
+
+async function applyPlannedMigration(
+  migrationEngine: NonNullable<MNetAppDeps['migrationEngine']>,
+  operationId: string,
+  actor: string
+) {
+  while (true) {
+    const status = await migrationEngine.getStatus(operationId)
+    if (!status.ok) return
+    if (status.value.completedBatchIds.length >= status.value.batches.length) return
+    const applied = await migrationEngine.apply(operationId, actor)
+    if (!applied.ok || applied.value.isComplete) return
+  }
+}
+
+/**
+ * PUT /profile-defaults 的原始语义是：先命中幂等缓存/版本校验，再做 policy。
+ * ponytail: 只把这一段预检单独抽出来，恢复行为顺序，不回退整块 support 下沉。
+ */
+export async function preflightSetGlobalDefaultProfile(
+  deps: Pick<GlobalDefaultsWriteRuntimeDeps, 'globalDefaultsStore' | 'profileStore'>,
+  input: { profileVersion: string; idempotencyKey: string }
+): Promise<SetDefaultsPreflight> {
+  const existingResult = await deps.globalDefaultsStore.getDefaultSetResultByIdempotencyKey(
+    input.idempotencyKey
+  )
+  if (existingResult) {
+    return {
+      kind: 'success',
+      value: {
+        operationId: existingResult.operationId,
+        policyDecisionId: existingResult.policyDecisionId,
+        auditId: existingResult.auditId,
+        defaultProfileVersion: existingResult.defaultProfileVersion ?? input.profileVersion,
+        ...(existingResult.migrationOperationId
+          ? { migrationOperationId: existingResult.migrationOperationId }
+          : {})
+      }
+    }
+  }
+
+  const defs = deps.profileStore ? await deps.profileStore.getDefinitions() : []
+  const validDef = defs.find(definition => definition.profileVersion === input.profileVersion)
+  if (!validDef) {
+    return routeFailure(
+      400,
+      'profile.not_found',
+      `unknown profile version: ${input.profileVersion}`
+    )
+  }
+
+  return { kind: 'continue' }
+}
+
+export async function setGlobalDefaultProfile(
+  deps: GlobalDefaultsWriteRuntimeDeps,
+  input: {
+    actor: string
+    policyDecisionId: string
+    profileVersion: string
+    reason: string
+    idempotencyKey: string
+  }
+): Promise<SetDefaultsSuccess | RouteFailure> {
+  const preflight = await preflightSetGlobalDefaultProfile(deps, {
+    profileVersion: input.profileVersion,
+    idempotencyKey: input.idempotencyKey
+  })
+  if (preflight.kind === 'success') {
+    return preflight.value
+  }
+  if (isGlobalDefaultsFailure(preflight)) {
+    return preflight
+  }
+
+  const correlationId = crypto.randomUUID()
+  const auditId = crypto.randomUUID()
+
+  await deps.globalDefaultsStore.setDefaultProfileVersion(input.profileVersion)
+
+  let migrationOperationId: string | undefined
+  if (input.profileVersion === CHINA_DATA_PLANE_PROFILE_VERSION && deps.migrationEngine) {
+    const plan = await deps.migrationEngine.plan({
+      targetProfileVersion: input.profileVersion,
+      batchSize: 10,
+      reason: input.reason,
+      idempotencyKey: `defaults:${input.idempotencyKey}:${input.profileVersion}`
+    })
+    if (plan.ok && plan.value.candidateCount > 0) {
+      migrationOperationId = plan.value.operationId
+      await applyPlannedMigration(deps.migrationEngine, plan.value.operationId, input.actor)
+    }
+  }
+
+  const responseBody: SetDefaultsSuccess = {
+    operationId: correlationId,
+    policyDecisionId: input.policyDecisionId,
+    auditId,
+    defaultProfileVersion: input.profileVersion,
+    ...(migrationOperationId ? { migrationOperationId } : {})
+  }
+
+  await deps.globalDefaultsStore.recordDefaultSetResult(input.idempotencyKey, responseBody)
+
+  await deps.log?.writeTimeline(
+    `global default profile set to ${input.profileVersion}`,
+    'mnet.profile.defaults.set',
+    correlationId
+  )
+  await deps.log?.writeFull(
+    'info',
+    `global default profile set to ${input.profileVersion} by ${input.actor}`,
+    correlationId,
+    {
+      profileVersion: input.profileVersion,
+      reason: input.reason,
+      idempotencyKey: input.idempotencyKey
+    }
+  )
+  await deps.log?.writeAudit(
+    input.actor,
+    'mnet.profile.defaults.set',
+    'network:profile-defaults',
+    'success',
+    auditId,
+    { profileVersion: input.profileVersion, reason: input.reason }
+  )
+  await deps.events?.publish(
+    'mnet.profile.defaults.updated.v0',
+    'mnet.profile.defaults.updated',
+    {
+      defaultProfileVersion: input.profileVersion,
+      actor: input.actor,
+      reason: input.reason,
+      correlationId,
+      controlPlaneOnly: input.profileVersion !== CHINA_DATA_PLANE_PROFILE_VERSION,
+      ...(migrationOperationId ? { migrationOperationId } : {})
+    },
+    correlationId
+  )
+
+  return responseBody
 }

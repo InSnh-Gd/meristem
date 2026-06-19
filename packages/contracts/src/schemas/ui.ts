@@ -152,12 +152,8 @@ export const OperationalCommandPreviewSchema = Schema.Struct({
 
 /** 组件种类白名单，不在名单内的 kind 解码时被拒绝 */
 export const SduiV02ComponentKindSchema = Schema.Literal(
-  'TimelinePanel',
-  'NodeListPanel',
-  'NodeDetailPanel',
   'AuditLedger',
   'PolicyDecisionPanel',
-  'ServiceListPanel',
   'CommandWellPanel',
   'StateSourceBadge',
   'RouteHeader',
@@ -206,19 +202,20 @@ export const SduiV02RouteRegistrySchema = Schema.Struct({
   routes: Schema.Array(SduiV02RouteSchema)
 })
 
-export type ApprovalQueueItem = typeof ApprovalQueueItemSchema.Type
-export type ApprovalDetailDisplay = typeof ApprovalDetailDisplaySchema.Type
-export type NetworkProfileListItem = typeof NetworkProfileListItemSchema.Type
-export type OperationalCommandPreviewCommandId =
+export type ApprovalQueueItemFromSchema = typeof ApprovalQueueItemSchema.Type
+export type ApprovalDetailDisplayFromSchema = typeof ApprovalDetailDisplaySchema.Type
+export type NetworkProfileListItemFromSchema = typeof NetworkProfileListItemSchema.Type
+export type OperationalCommandPreviewCommandIdFromSchema =
   typeof OperationalCommandPreviewCommandIdSchema.Type
-export type OperationalCommandPreviewAction = typeof OperationalCommandPreviewActionSchema.Type
-export type OperationalCommandPreviewState = typeof OperationalCommandPreviewStateSchema.Type
-export type OperationalCommandPreview = typeof OperationalCommandPreviewSchema.Type
-export type DisabledCommandExplanation = typeof DisabledCommandExplanationSchema.Type
-export type CommandWellEligibility = typeof CommandWellEligibilitySchema.Type
-export type SduiV02ComponentKind = typeof SduiV02ComponentKindSchema.Type
-export type SduiV02StateSource = typeof SduiV02StateSourceSchema.Type
-export type StateSourceMetadata = typeof StateSourceMetadataSchema.Type
-export type SduiV02Route = typeof SduiV02RouteSchema.Type
-export type SduiV02RouteRegistry = typeof SduiV02RouteRegistrySchema.Type
-export type ServiceInspectorResponse = typeof ServiceInspectorResponseSchema.Type
+export type OperationalCommandPreviewActionFromSchema =
+  typeof OperationalCommandPreviewActionSchema.Type
+export type OperationalCommandPreviewStateFromSchema = typeof OperationalCommandPreviewStateSchema.Type
+export type OperationalCommandPreviewFromSchema = typeof OperationalCommandPreviewSchema.Type
+export type DisabledCommandExplanationFromSchema = typeof DisabledCommandExplanationSchema.Type
+export type CommandWellEligibilityFromSchema = typeof CommandWellEligibilitySchema.Type
+export type SduiV02ComponentKindFromSchema = typeof SduiV02ComponentKindSchema.Type
+export type SduiV02StateSourceFromSchema = typeof SduiV02StateSourceSchema.Type
+export type StateSourceMetadataFromSchema = typeof StateSourceMetadataSchema.Type
+export type SduiV02RouteFromSchema = typeof SduiV02RouteSchema.Type
+export type SduiV02RouteRegistryFromSchema = typeof SduiV02RouteRegistrySchema.Type
+export type ServiceInspectorResponseFromSchema = typeof ServiceInspectorResponseSchema.Type

@@ -1,13 +1,15 @@
 import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
 import {
+  requireAuthorizedMigrationContext,
   isGlobalDefaultsFailure,
+  preflightSetGlobalDefaultProfile,
   requireDefaultsReadDeps,
   requireDefaultsWriteDeps,
   requireGlobalDefaultsActor,
   requireGlobalDefaultsPolicy,
-  requireMigrationDeps,
-  requireSwitchOperationResult
+  requireSwitchOperationResult,
+  setGlobalDefaultProfile
 } from './global-defaults-support.ts'
 import { CHINA_DATA_PLANE_PROFILE_VERSION } from './mnet-dataplane-workflows.ts'
 import { externalApiError } from './route-helpers.ts'
@@ -27,16 +29,6 @@ export function createGlobalDefaultsRoutes(
     | 'profileStore'
   >
 ) {
-  const applyPlannedMigration = async (operationId: string, actor: string) => {
-    while (true) {
-      const status = await deps.migrationEngine?.getStatus(operationId)
-      if (!status?.ok) return
-      if (status.value.completedBatchIds.length >= status.value.batches.length) return
-      const applied = await deps.migrationEngine?.apply(operationId, actor)
-      if (!applied?.ok || applied.value.isComplete) return
-    }
-  }
-
   return (
     new Elysia({ prefix: '/api/v0' })
       // ── 全局默认 Profile 读写 ──────────────────────────────────────────
@@ -84,24 +76,22 @@ export function createGlobalDefaultsRoutes(
 
           const { profileVersion, reason, idempotencyKey } = body
 
-          // 幂等性检查
-          const existingResult =
-            await defaultsDeps.globalDefaultsStore.getDefaultSetResultByIdempotencyKey(
-              idempotencyKey
-            )
-          if (existingResult) {
-            return existingResult
+          const preflight = await preflightSetGlobalDefaultProfile(
+            {
+              globalDefaultsStore: defaultsDeps.globalDefaultsStore,
+              profileStore: deps.profileStore
+            },
+            { profileVersion, idempotencyKey }
+          )
+          if (preflight.kind === 'success') {
+            return preflight.value
           }
-
-          // 验证 profile 版本存在
-          const defs = deps.profileStore ? await deps.profileStore.getDefinitions() : []
-          const validDef = defs.find(d => d.profileVersion === profileVersion)
-          if (!validDef) {
+          if (isGlobalDefaultsFailure(preflight)) {
             return externalApiError(
               set,
-              400,
-              'profile.not_found',
-              `unknown profile version: ${profileVersion}`
+              preflight.status,
+              preflight.error.code,
+              preflight.error.message
             )
           }
 
@@ -116,73 +106,30 @@ export function createGlobalDefaultsRoutes(
           if (isGlobalDefaultsFailure(policy)) {
             return externalApiError(set, policy.status, policy.error.code, policy.error.message)
           }
-
-          const correlationId = crypto.randomUUID()
-          const auditId = crypto.randomUUID()
-
-          // 设置全局默认
-          await defaultsDeps.globalDefaultsStore.setDefaultProfileVersion(profileVersion)
-
-          let migrationOperationId: string | undefined
-          if (profileVersion === CHINA_DATA_PLANE_PROFILE_VERSION && deps.migrationEngine) {
-            const plan = await deps.migrationEngine.plan({
-              targetProfileVersion: profileVersion,
-              batchSize: 10,
-              reason,
-              idempotencyKey: `defaults:${idempotencyKey}:${profileVersion}`
-            })
-            if (plan.ok && plan.value.candidateCount > 0) {
-              migrationOperationId = plan.value.operationId
-              await applyPlannedMigration(plan.value.operationId, actor)
-            }
-          }
-
-          const responseBody = {
-            operationId: correlationId,
-            policyDecisionId: policy.policyDecisionId,
-            auditId,
-            defaultProfileVersion: profileVersion,
-            ...(migrationOperationId ? { migrationOperationId } : {})
-          }
-
-          // 记录幂等
-          await defaultsDeps.globalDefaultsStore.recordDefaultSetResult(
-            idempotencyKey,
-            responseBody
-          )
-
-          await deps.log?.writeTimeline(
-            `global default profile set to ${profileVersion}`,
-            'mnet.profile.defaults.set',
-            correlationId
-          )
-          await deps.log?.writeFull(
-            'info',
-            `global default profile set to ${profileVersion} by ${actor}`,
-            correlationId,
-            { profileVersion, reason, idempotencyKey }
-          )
-          await deps.log?.writeAudit(
-            actor,
-            'mnet.profile.defaults.set',
-            'network:profile-defaults',
-            'success',
-            auditId,
-            { profileVersion, reason }
-          )
-          await deps.events?.publish(
-            'mnet.profile.defaults.updated.v0',
-            'mnet.profile.defaults.updated',
+          const responseBody = await setGlobalDefaultProfile(
             {
-              defaultProfileVersion: profileVersion,
-              actor,
-              reason,
-              correlationId,
-              controlPlaneOnly: profileVersion !== CHINA_DATA_PLANE_PROFILE_VERSION,
-              ...(migrationOperationId ? { migrationOperationId } : {})
+              globalDefaultsStore: defaultsDeps.globalDefaultsStore,
+              profileStore: deps.profileStore,
+              migrationEngine: deps.migrationEngine,
+              log: deps.log,
+              events: deps.events
             },
-            correlationId
+            {
+              actor,
+              policyDecisionId: policy.policyDecisionId,
+              profileVersion,
+              reason,
+              idempotencyKey
+            }
           )
+          if (isGlobalDefaultsFailure(responseBody)) {
+            return externalApiError(
+              set,
+              responseBody.status,
+              responseBody.error.code,
+              responseBody.error.message
+            )
+          }
 
           return responseBody
         },
@@ -199,30 +146,23 @@ export function createGlobalDefaultsRoutes(
       .post(
         '/networks/profile-switches/plan',
         async ({ body, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
-          if (isGlobalDefaultsFailure(actor)) {
-            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
-          }
-          const migrationDeps = requireMigrationDeps(deps, set)
-          if (isGlobalDefaultsFailure(migrationDeps)) {
+          const context = await requireAuthorizedMigrationContext(deps, {
+            headers,
+            set,
+            action: 'network:profile-switch-plan',
+            resource: 'network:profile-switches',
+            deniedPrefix: 'plan'
+          })
+          if (isGlobalDefaultsFailure(context)) {
             return externalApiError(
               set,
-              migrationDeps.status,
-              migrationDeps.error.code,
-              migrationDeps.error.message
+              context.status,
+              context.error.code,
+              context.error.message
             )
           }
 
-          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
-            actor,
-            action: 'network:profile-switch-plan',
-            resource: 'network:profile-switches',
-            deniedPrefix: 'plan',
-            set
-          })
-          if (isGlobalDefaultsFailure(policy)) {
-            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
-          }
+          const { migrationDeps } = context
 
           // 迁移 dry-run 默认指向生产数据面 Profile，保留显式传参以兼容已有调用方与契约测试。
           const targetProfileVersion = body.targetProfileVersion ?? CHINA_DATA_PLANE_PROFILE_VERSION
@@ -259,30 +199,22 @@ export function createGlobalDefaultsRoutes(
       .get(
         '/networks/profile-switches/:operationId',
         async ({ params, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
-          if (isGlobalDefaultsFailure(actor)) {
-            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
-          }
-          const migrationDeps = requireMigrationDeps(deps, set)
-          if (isGlobalDefaultsFailure(migrationDeps)) {
-            return externalApiError(
-              set,
-              migrationDeps.status,
-              migrationDeps.error.code,
-              migrationDeps.error.message
-            )
-          }
-          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
-            actor,
+          const context = await requireAuthorizedMigrationContext(deps, {
+            headers,
+            set,
             action: 'network:profile-read',
             resource: `network:profile-switch:${params.operationId}`,
-            deniedPrefix: 'read migration status',
-            set
+            deniedPrefix: 'read migration status'
           })
-          if (isGlobalDefaultsFailure(policy)) {
-            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
+          if (isGlobalDefaultsFailure(context)) {
+            return externalApiError(
+              set,
+              context.status,
+              context.error.code,
+              context.error.message
+            )
           }
-          const result = await migrationDeps.migrationEngine.getStatus(params.operationId)
+          const result = await context.migrationDeps.migrationEngine.getStatus(params.operationId)
           if (!result.ok) return externalApiError(set, 404, 'switch.not_found', result.error)
           return result.value
         },
@@ -293,34 +225,24 @@ export function createGlobalDefaultsRoutes(
       .post(
         '/networks/profile-switches/:operationId/apply',
         async ({ params, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
-          if (isGlobalDefaultsFailure(actor)) {
-            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
-          }
-          const migrationDeps = requireMigrationDeps(deps, set)
-          if (isGlobalDefaultsFailure(migrationDeps)) {
+          const context = await requireAuthorizedMigrationContext(deps, {
+            headers,
+            set,
+            action: 'network:profile-switch-apply',
+            resource: `network:profile-switch:${params.operationId}`,
+            deniedPrefix: 'apply'
+          })
+          if (isGlobalDefaultsFailure(context)) {
             return externalApiError(
               set,
-              migrationDeps.status,
-              migrationDeps.error.code,
-              migrationDeps.error.message
+              context.status,
+              context.error.code,
+              context.error.message
             )
           }
 
-          // M-Policy 检查
-          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
-            actor,
-            action: 'network:profile-switch-apply',
-            resource: `network:profile-switch:${params.operationId}`,
-            deniedPrefix: 'apply',
-            set
-          })
-          if (isGlobalDefaultsFailure(policy)) {
-            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
-          }
-
           const result = requireSwitchOperationResult(
-            await migrationDeps.migrationEngine.apply(params.operationId, actor),
+            await context.migrationDeps.migrationEngine.apply(params.operationId, context.actor),
             set
           )
           if (isGlobalDefaultsFailure(result)) {
@@ -343,34 +265,24 @@ export function createGlobalDefaultsRoutes(
       .post(
         '/networks/profile-switches/:operationId/resume',
         async ({ params, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
-          if (isGlobalDefaultsFailure(actor)) {
-            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
-          }
-          const migrationDeps = requireMigrationDeps(deps, set)
-          if (isGlobalDefaultsFailure(migrationDeps)) {
+          const context = await requireAuthorizedMigrationContext(deps, {
+            headers,
+            set,
+            action: 'network:profile-switch-resume',
+            resource: `network:profile-switch:${params.operationId}`,
+            deniedPrefix: 'resume'
+          })
+          if (isGlobalDefaultsFailure(context)) {
             return externalApiError(
               set,
-              migrationDeps.status,
-              migrationDeps.error.code,
-              migrationDeps.error.message
+              context.status,
+              context.error.code,
+              context.error.message
             )
           }
 
-          // M-Policy 检查
-          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
-            actor,
-            action: 'network:profile-switch-resume',
-            resource: `network:profile-switch:${params.operationId}`,
-            deniedPrefix: 'resume',
-            set
-          })
-          if (isGlobalDefaultsFailure(policy)) {
-            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
-          }
-
           const result = requireSwitchOperationResult(
-            await migrationDeps.migrationEngine.resume(params.operationId, actor),
+            await context.migrationDeps.migrationEngine.resume(params.operationId, context.actor),
             set
           )
           if (isGlobalDefaultsFailure(result)) {
@@ -393,36 +305,30 @@ export function createGlobalDefaultsRoutes(
       .post(
         '/networks/profile-switches/:operationId/rollback',
         async ({ params, body, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
-          if (isGlobalDefaultsFailure(actor)) {
-            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
-          }
-          const migrationDeps = requireMigrationDeps(deps, set)
-          if (isGlobalDefaultsFailure(migrationDeps)) {
-            return externalApiError(
-              set,
-              migrationDeps.status,
-              migrationDeps.error.code,
-              migrationDeps.error.message
-            )
-          }
-
-          // M-Policy 检查（回滚是高权限操作）
-          const policy = await requireGlobalDefaultsPolicy(migrationDeps.policyAuthorize, {
-            actor,
+          const context = await requireAuthorizedMigrationContext(deps, {
+            headers,
+            set,
             action: 'network:profile-switch-rollback',
             resource: `network:profile-switch:${params.operationId}`,
-            deniedPrefix: 'rollback',
-            set
+            deniedPrefix: 'rollback'
           })
-          if (isGlobalDefaultsFailure(policy)) {
-            return externalApiError(set, policy.status, policy.error.code, policy.error.message)
+          if (isGlobalDefaultsFailure(context)) {
+            return externalApiError(
+              set,
+              context.status,
+              context.error.code,
+              context.error.message
+            )
           }
 
           const reason = body?.reason
 
           const result = requireSwitchOperationResult(
-            await migrationDeps.migrationEngine.rollback(params.operationId, actor, reason),
+            await context.migrationDeps.migrationEngine.rollback(
+              params.operationId,
+              context.actor,
+              reason
+            ),
             set
           )
           if (isGlobalDefaultsFailure(result)) {

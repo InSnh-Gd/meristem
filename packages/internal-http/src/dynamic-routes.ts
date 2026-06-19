@@ -1,5 +1,6 @@
 import type { Result } from '../../common/src/result.ts'
 import { err, ok } from '../../common/src/result.ts'
+import { serviceErrorFromEnvelope } from './index.ts'
 
 export type DynamicRouteError = {
   code: string
@@ -58,7 +59,14 @@ export function createDynamicRouteAdapter(config: DynamicRouteAdapterConfig): Dy
       })
       const parsed = await parseJson(response)
       if (!parsed.ok) return parsed
-      if (!response.ok) return err(errorFromEnvelope(parsed.value, response.status))
+      if (!response.ok) {
+        return err(
+          serviceErrorFromEnvelope(parsed.value, {
+            code: `http.${response.status}`,
+            message: `request failed: ${response.status}`
+          })
+        )
+      }
       return ok(parsed.value as TResponse)
     } catch (error) {
       return err({
@@ -96,16 +104,4 @@ async function parseJson(response: Response): Promise<Result<unknown, DynamicRou
   } catch {
     return err({ code: 'http.invalid_json', message: 'response body is not valid JSON' })
   }
-}
-
-function errorFromEnvelope(value: unknown, status: number): DynamicRouteError {
-  if (typeof value === 'object' && value !== null) {
-    const envelope = Reflect.get(value, 'error')
-    if (typeof envelope === 'object' && envelope !== null) {
-      const code = Reflect.get(envelope, 'code')
-      const message = Reflect.get(envelope, 'message')
-      if (typeof code === 'string' && typeof message === 'string') return { code, message }
-    }
-  }
-  return { code: `http.${status}`, message: `request failed: ${status}` }
 }

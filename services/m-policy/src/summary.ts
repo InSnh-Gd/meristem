@@ -1,5 +1,5 @@
 import type {
-  MinimalPolicyDecisionSummary,
+  MinimalPolicyDecisionSummaryFromSchema as MinimalPolicyDecisionSummary,
   PolicyApproval,
   PolicyDecision
 } from '../../../packages/contracts/src/index.ts'

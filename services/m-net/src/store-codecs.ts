@@ -1,5 +1,5 @@
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
-import type { NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   MNetPartitionState,
   MNetProfileVersion,

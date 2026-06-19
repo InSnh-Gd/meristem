@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import type { MinimalPolicyDecisionSummary } from '../../../../packages/contracts/src/index.ts'
+import type { MinimalPolicyDecisionSummaryFromSchema as MinimalPolicyDecisionSummary } from '../../../../packages/contracts/src/index.ts'
 import {
   ApprovalDetailResponseSchema,
   EventBusPublishMetricsSummarySchema,
@@ -96,7 +96,7 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
           sourceId: string
         } | null
         let policySummary = null as
-          | import('../../../../packages/contracts/src/index.ts').PolicyInternalSummary
+          | import('../../../../packages/contracts/src/index.ts').PolicyInternalSummaryFromSchema
           | null
         let policySummaryStateSource = null as { sourceType: 'policy'; sourceId: string } | null
         if (params.id === 'm-eventbus') {
@@ -149,7 +149,7 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
           }
         }
 
-        const response: import('../../../../packages/contracts/src/index.ts').ServiceInspectorResponse =
+        const response: import('../../../../packages/contracts/src/index.ts').ServiceInspectorResponseFromSchema =
           {
             service: withStateSource(matched, {
               sourceType: 'authoritative',

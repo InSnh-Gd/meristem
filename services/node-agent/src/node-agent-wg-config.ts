@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 export const DEFAULT_WG_LISTEN_PORT = 51820
 export const DEFAULT_WG_PRIVATE_KEY_PATH = '/run/meristem/wg-private.key'

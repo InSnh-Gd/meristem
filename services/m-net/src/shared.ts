@@ -8,6 +8,7 @@ import type {
   NodeAgentTaskExecuteResponse,
   NodeKind
 } from '../../../packages/contracts/src/index.ts'
+import { err as resultErr, ok } from '../../../packages/common/src/result.ts'
 import type { networks, nodes } from '../../../packages/db/src/schema.ts'
 import type { RuntimeNodeSnapshot } from './runtime.ts'
 import type { MNetServiceError, MNetServiceResult } from './types.ts'
@@ -25,15 +26,13 @@ export type PendingTask = {
   reject(error: MNetServiceError): void
 }
 
-export function ok<T>(value: T): MNetServiceResult<T> {
-  return { ok: true, value }
-}
+export { ok }
 
 /**
  * 运行态错误统一保持 `{ code, message }` 形状，便于 internal HTTP、WebSocket 和日志复用。
  */
 export function err(code: string, message: string): MNetServiceResult<never> {
-  return { ok: false, error: { code, message } }
+  return resultErr({ code, message })
 }
 
 export function asNodeKind(value: string): NodeKind | null {

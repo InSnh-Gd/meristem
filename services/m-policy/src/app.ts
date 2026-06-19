@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
-import { actorIds, permissions } from '../../../packages/contracts/src/index.ts'
+import { actorIds, apiErrorRouteSchema, permissions } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import type { PolicySummaryPayload } from './summary.ts'
@@ -20,12 +20,7 @@ export type PolicyAppDeps = {
   getSummary(): Promise<PolicySummaryPayload>
 }
 
-const internalErrorSchema = t.Object({
-  error: t.Object({
-    code: t.String(),
-    message: t.String()
-  })
-})
+const internalErrorSchema = apiErrorRouteSchema
 
 const policyDecisionSchema = t.Object({
   id: t.String(),

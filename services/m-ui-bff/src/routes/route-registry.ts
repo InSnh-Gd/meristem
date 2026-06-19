@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 import {
-  type SduiV02RouteRegistry,
+  type SduiV02RouteRegistryFromSchema as SduiV02RouteRegistry,
   SduiV02RouteRegistrySchema
 } from '../../../../packages/contracts/src/schemas/ui.ts'
 
@@ -31,9 +31,8 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       stateSources: ['authoritative', 'event'],
       degradedState: { enabled: true, reason: '节点权威读路径降级时显示空列表' },
       components: [
-        { kind: 'NodeListPanel', id: 'nodes-list' },
-        { kind: 'KeyValueInspector', id: 'nodes-inspector' },
-        { kind: 'TraceLink', id: 'nodes-trace-link' }
+        { kind: 'FilterBar', id: 'nodes-filter-bar' },
+        { kind: 'KeyValueInspector', id: 'nodes-inspector' }
       ]
     },
     {
@@ -68,7 +67,6 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       degradedState: { enabled: true, reason: 'Audit Log 由 Core 鉴权，拒绝时显示访问受限' },
       components: [
         { kind: 'AuditLedger', id: 'audit-ledger' },
-        { kind: 'TraceLink', id: 'audit-trace-link' },
         { kind: 'RawEnvelopeView', id: 'audit-envelope' }
       ]
     },
@@ -103,7 +101,6 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       degradedState: { enabled: true, reason: '审批详情缺失时保留审计、日志与原始 envelope' },
       components: [
         { kind: 'ApprovalDetailPanel', id: 'policy-approval-detail-panel' },
-        { kind: 'TraceLink', id: 'policy-approval-trace-link' },
         { kind: 'RawEnvelopeView', id: 'policy-approval-envelope' },
         { kind: 'OperationalCommandPreview', id: 'policy-approval-detail-command-preview' }
       ]
@@ -127,7 +124,6 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       degradedState: { enabled: true, reason: 'Profile 详情缺失时保留追踪链接与命令预览' },
       components: [
         { kind: 'NetworkProfileDetailPanel', id: 'network-profile-detail-panel' },
-        { kind: 'TraceLink', id: 'network-profile-trace-link' },
         { kind: 'OperationalCommandPreview', id: 'network-profile-detail-command-preview' }
       ]
     },
@@ -161,7 +157,6 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       degradedState: { enabled: true, reason: '网络详情降级时显示追踪与基本信息' },
       components: [
         { kind: 'NetworkDetailPanel', id: 'network-detail-panel' },
-        { kind: 'TraceLink', id: 'network-trace-link' },
         { kind: 'CommandWellPanel', id: 'network-detail-command-well' }
       ]
     },
@@ -183,8 +178,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       stateSources: ['authoritative', 'event', 'audit'],
       degradedState: { enabled: true, reason: '数据面状态探测降级时显示最后已知状态' },
       components: [
-        { kind: 'DataplaneStatusPanel', id: 'dataplane-status-panel' },
-        { kind: 'TraceLink', id: 'dataplane-trace-link' }
+        { kind: 'DataplaneStatusPanel', id: 'dataplane-status-panel' }
       ]
     },
     {
@@ -194,8 +188,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       stateSources: ['authoritative', 'policy', 'audit'],
       degradedState: { enabled: true, reason: '迁移过程查询降级时禁止执行新命令' },
       components: [
-        { kind: 'CommandWellPanel', id: 'mnet-migration-command-well' },
-        { kind: 'TraceLink', id: 'mnet-migration-trace-link' }
+        { kind: 'CommandWellPanel', id: 'mnet-migration-command-well' }
       ]
     },
     {
@@ -205,8 +198,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       stateSources: ['authoritative', 'audit'],
       degradedState: { enabled: true, reason: '核心服务降级时通过本地备用配置允许操作' },
       components: [
-        { kind: 'CommandWellPanel', id: 'mnet-break-glass-command-well' },
-        { kind: 'TraceLink', id: 'mnet-break-glass-trace-link' }
+        { kind: 'CommandWellPanel', id: 'mnet-break-glass-command-well' }
       ]
     }
   ]
