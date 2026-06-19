@@ -5,6 +5,10 @@ import type { ConfigPort, ServiceError } from './types.ts'
 
 type ConfigStatus = 'draft' | 'validated' | 'published' | 'applied' | 'failed' | 'rolled_back'
 type AckStatus = 'pending' | 'acked' | 'failed'
+type ConfigStore = ReturnType<typeof createConfigStore>
+type ConfigRecord = NonNullable<Awaited<ReturnType<ConfigStore['get']>>>
+type ApplyAckInput = Parameters<ConfigPort['applyAck']>[1]
+type ApplyAckResponse = { ackId: string; status: 'acked' | 'failed'; ackedAt: string }
 
 const CONFIG_SCHEMA_VERSION = 'config@0.1.0'
 const APPLY_ACK_TIMEOUT_MS = 60_000
@@ -84,7 +88,7 @@ function actorFromCorrelation(correlationId: string): string {
 }
 
 async function updateWithTransition(
-  store: ReturnType<typeof createConfigStore>,
+  store: ConfigStore,
   input: {
     id: string
     fromStatus: string
@@ -106,6 +110,127 @@ async function updateWithTransition(
     ...(input.correlationId ? { correlationId: input.correlationId } : {}),
     createdAt: new Date()
   })
+}
+
+async function requireRecordForTransition(
+  store: ConfigStore,
+  id: string,
+  toStatus: ConfigStatus
+): Promise<ConfigRecord | ServiceError> {
+  const record = await store.get(id)
+  if (!record) return configError('config.not_found', 'config record not found')
+  const transitionError = ensureTransition(record.status, toStatus)
+  return transitionError ?? record
+}
+
+async function handlePendingApplyAck(
+  store: ConfigStore,
+  input: { id: string; record: ConfigRecord; ack: ApplyAckInput; now: Date }
+): Promise<ServiceError> {
+  if (!canTransition(input.record.status, 'failed')) {
+    return configError(
+      'config.invalid_state',
+      `config cannot transition from ${input.record.status} to failed`
+    )
+  }
+  await updateWithTransition(store, {
+    id: input.id,
+    fromStatus: input.record.status,
+    toStatus: 'failed',
+    actor: input.ack.targetService,
+    reason: 'apply ack timeout',
+    correlationId: input.ack.correlationId
+  })
+  await store.recordAck({
+    id: crypto.randomUUID(),
+    configId: input.id,
+    version: input.ack.version,
+    targetService: input.ack.targetService,
+    status: 'failed',
+    error: input.ack.error ?? 'apply ack timed out',
+    ackedAt: input.now,
+    expiresAt: new Date(input.now.getTime() + APPLY_ACK_TIMEOUT_MS),
+    createdAt: input.now
+  })
+  return configError('config.ack_timeout', 'config apply ack timed out while pending')
+}
+
+async function handleFailedApplyAck(
+  store: ConfigStore,
+  input: { id: string; record: ConfigRecord; ack: ApplyAckInput; now: Date }
+): Promise<ApplyAckResponse | ServiceError> {
+  const transitionError = ensureTransition(input.record.status, 'failed')
+  if (transitionError) return transitionError
+
+  const ackId = crypto.randomUUID()
+  await store.recordAck({
+    id: ackId,
+    configId: input.id,
+    version: input.ack.version,
+    targetService: input.ack.targetService,
+    status: 'failed',
+    ...(input.ack.error ? { error: input.ack.error } : {}),
+    ackedAt: input.now,
+    createdAt: input.now
+  })
+  await updateWithTransition(store, {
+    id: input.id,
+    fromStatus: input.record.status,
+    toStatus: 'failed',
+    actor: input.ack.targetService,
+    ...(input.ack.error ? { reason: input.ack.error } : {}),
+    correlationId: input.ack.correlationId
+  })
+  return { ackId, status: 'failed', ackedAt: input.now.toISOString() }
+}
+
+async function handleAckedApplyAck(
+  store: ConfigStore,
+  input: { id: string; record: ConfigRecord; ack: ApplyAckInput; now: Date }
+): Promise<ApplyAckResponse | ServiceError> {
+  const ackId = crypto.randomUUID()
+  await store.recordAck({
+    id: ackId,
+    configId: input.id,
+    version: input.ack.version,
+    targetService: input.ack.targetService,
+    status: 'acked',
+    ackedAt: input.now,
+    createdAt: input.now
+  })
+
+  const targetScope: string[] = Array.isArray(input.record.targetScope) ? input.record.targetScope : []
+  if (targetScope.length === 0) {
+    const transitionError = ensureTransition(input.record.status, 'applied')
+    if (transitionError) return transitionError
+    await updateWithTransition(store, {
+      id: input.id,
+      fromStatus: input.record.status,
+      toStatus: 'applied',
+      actor: input.ack.targetService,
+      correlationId: input.ack.correlationId
+    })
+    return { ackId, status: 'acked', ackedAt: input.now.toISOString() }
+  }
+
+  const allAcks = await store.listAcks(input.id, input.ack.version)
+  const ackedServices = new Set(allAcks.map(ack => ack.targetService))
+  const allAcked = targetScope.every(service => ackedServices.has(service))
+
+  if (!allAcked) {
+    return { ackId, status: 'acked', ackedAt: input.now.toISOString() }
+  }
+
+  const transitionError = ensureTransition(input.record.status, 'applied')
+  if (transitionError) return transitionError
+  await updateWithTransition(store, {
+    id: input.id,
+    fromStatus: input.record.status,
+    toStatus: 'applied',
+    actor: input.ack.targetService,
+    correlationId: input.ack.correlationId
+  })
+  return { ackId, status: 'acked', ackedAt: input.now.toISOString() }
 }
 
 /**
@@ -176,10 +301,8 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
     },
 
     async validate(id) {
-      const record = await store.get(id)
-      if (!record) return err(configError('config.not_found', 'config record not found'))
-      const transitionError = ensureTransition(record.status, 'validated')
-      if (transitionError) return err(transitionError)
+      const record = await requireRecordForTransition(store, id, 'validated')
+      if ('code' in record) return err(record)
 
       await updateWithTransition(store, {
         id,
@@ -191,10 +314,8 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
     },
 
     async publish(id, input) {
-      const record = await store.get(id)
-      if (!record) return err(configError('config.not_found', 'config record not found'))
-      const transitionError = ensureTransition(record.status, 'published')
-      if (transitionError) return err(transitionError)
+      const record = await requireRecordForTransition(store, id, 'published')
+      if ('code' in record) return err(record)
 
       const publishedAt = new Date()
       const publishedBy = actorFromCorrelation(input.correlationId)
@@ -217,10 +338,8 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
     },
 
     async rollback(id, input) {
-      const record = await store.get(id)
-      if (!record) return err(configError('config.not_found', 'config record not found'))
-      const transitionError = ensureTransition(record.status, 'rolled_back')
-      if (transitionError) return err(transitionError)
+      const record = await requireRecordForTransition(store, id, 'rolled_back')
+      if ('code' in record) return err(record)
 
       const version = await store.getVersion(id, input.toVersion)
       if (!version)
@@ -267,111 +386,18 @@ export function createConfigStateMachine(db: MeristemDb): ConfigPort {
 
       const now = new Date()
       if (ackStatus === 'pending') {
-        if (!canTransition(record.status, 'failed')) {
-          return err(
-            configError(
-              'config.invalid_state',
-              `config cannot transition from ${record.status} to failed`
-            )
-          )
-        }
-        await updateWithTransition(store, {
-          id,
-          fromStatus: record.status,
-          toStatus: 'failed',
-          actor: input.targetService,
-          reason: 'apply ack timeout',
-          correlationId: input.correlationId
-        })
-        await store.recordAck({
-          id: crypto.randomUUID(),
-          configId: id,
-          version: input.version,
-          targetService: input.targetService,
-          status: 'failed',
-          error: input.error ?? 'apply ack timed out',
-          ackedAt: now,
-          expiresAt: new Date(now.getTime() + APPLY_ACK_TIMEOUT_MS),
-          createdAt: now
-        })
-        return err(configError('config.ack_timeout', 'config apply ack timed out while pending'))
+        return err(await handlePendingApplyAck(store, { id, record, ack: input, now }))
       }
 
       // 单个 ack failed 直接导致配置转入 failed 状态
       if (ackStatus === 'failed') {
-        const transitionError = ensureTransition(record.status, 'failed')
-        if (transitionError) return err(transitionError)
-
-        const ackId = crypto.randomUUID()
-        await store.recordAck({
-          id: ackId,
-          configId: id,
-          version: input.version,
-          targetService: input.targetService,
-          status: 'failed',
-          ...(input.error ? { error: input.error } : {}),
-          ackedAt: now,
-          createdAt: now
-        })
-        await updateWithTransition(store, {
-          id,
-          fromStatus: record.status,
-          toStatus: 'failed',
-          actor: input.targetService,
-          ...(input.error ? { reason: input.error } : {}),
-          correlationId: input.correlationId
-        })
-        return ok({ ackId, status: 'failed', ackedAt: now.toISOString() })
+        const failed = await handleFailedApplyAck(store, { id, record, ack: input, now })
+        return 'code' in failed ? err(failed) : ok(failed)
       }
 
       // ackStatus === 'acked': 记录 ack，然后检查是否所有 targetScope 服务都已 ack
-      const ackId = crypto.randomUUID()
-      await store.recordAck({
-        id: ackId,
-        configId: id,
-        version: input.version,
-        targetService: input.targetService,
-        status: 'acked',
-        ackedAt: now,
-        createdAt: now
-      })
-
-      // 检查累计 ack 是否覆盖全部目标服务
-      const targetScope: string[] = Array.isArray(record.targetScope) ? record.targetScope : []
-      if (targetScope.length === 0) {
-        // 无目标服务声明时，单个 ack 即可完成
-        const transitionError = ensureTransition(record.status, 'applied')
-        if (transitionError) return err(transitionError)
-        await updateWithTransition(store, {
-          id,
-          fromStatus: record.status,
-          toStatus: 'applied',
-          actor: input.targetService,
-          correlationId: input.correlationId
-        })
-        return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
-      }
-
-      const allAcks = await store.listAcks(id, input.version)
-      const ackedServices = new Set(allAcks.map(ack => ack.targetService))
-      const allAcked = targetScope.every(service => ackedServices.has(service))
-
-      if (!allAcked) {
-        // 尚有目标服务未 ack，保持当前状态不变
-        return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
-      }
-
-      // 全部目标服务已 ack，转换到 applied
-      const transitionError = ensureTransition(record.status, 'applied')
-      if (transitionError) return err(transitionError)
-      await updateWithTransition(store, {
-        id,
-        fromStatus: record.status,
-        toStatus: 'applied',
-        actor: input.targetService,
-        correlationId: input.correlationId
-      })
-      return ok({ ackId, status: 'acked', ackedAt: now.toISOString() })
+      const acked = await handleAckedApplyAck(store, { id, record, ack: input, now })
+      return 'code' in acked ? err(acked) : ok(acked)
     }
   }
 }

@@ -1,6 +1,10 @@
 import { Effect } from 'effect'
 import { err, ok } from '../../../packages/common/src/result.ts'
-import { createInternalFetcher as createInternalHttpFetcher } from '../../../packages/internal-http/src/index.ts'
+import {
+  createInternalFetcher as createInternalHttpFetcher,
+  errorMessageFromEnvelope,
+  serviceErrorFromEnvelope
+} from '../../../packages/internal-http/src/index.ts'
 
 export type ServiceFailure = { code: string; message: string }
 
@@ -9,11 +13,7 @@ export type ServiceFailure = { code: string; message: string }
  * 不依赖某个服务的偶然字符串实现。
  */
 export function errorMessageFromHttpResponse(value: unknown, fallback: string): string {
-  if (typeof value !== 'object' || value === null) return fallback
-  const maybeError = Reflect.get(value, 'error')
-  if (typeof maybeError !== 'object' || maybeError === null) return fallback
-  const message = Reflect.get(maybeError, 'message')
-  return typeof message === 'string' ? message : fallback
+  return errorMessageFromEnvelope(value, fallback)
 }
 
 export function serviceErrorFromHttpResponse(
@@ -21,19 +21,10 @@ export function serviceErrorFromHttpResponse(
   fallbackCode: string,
   fallbackMessage: string
 ): { code: string; message: string } {
-  if (typeof value !== 'object' || value === null) {
-    return { code: fallbackCode, message: fallbackMessage }
-  }
-  const maybeError = Reflect.get(value, 'error')
-  if (typeof maybeError !== 'object' || maybeError === null) {
-    return { code: fallbackCode, message: fallbackMessage }
-  }
-  const code = Reflect.get(maybeError, 'code')
-  const message = Reflect.get(maybeError, 'message')
-  return {
-    code: typeof code === 'string' ? code : fallbackCode,
-    message: typeof message === 'string' ? message : fallbackMessage
-  }
+  return serviceErrorFromEnvelope(value, {
+    code: fallbackCode,
+    message: fallbackMessage
+  })
 }
 
 /**

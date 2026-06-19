@@ -3,7 +3,11 @@ import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/i
 import { err, ok } from '../../../packages/common/src/result.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
+import {
+  probePostgresReadiness,
+  serviceUrl,
+  warnDegradedAndReturn
+} from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
@@ -80,31 +84,29 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
   const { db, client } = createDb()
   const natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
 
-  /**
-   * 依赖就绪探针在启动/健康检查阶段允许降级，但不能把失败原因静默吞掉。
-   */
-  const warnReadinessFallback = (dependency: string, error: unknown) => {
-    console.warn(
-      `meristem-core: ${dependency} readiness probe degraded - ${error instanceof Error ? error.message : String(error)}`
-    )
-  }
-
   const readinessChecks = async (): Promise<CoreDependencies> => {
-    const postgresReady = await client`select 1`
-      .then(() => 'ready' as const)
-      .catch(error => {
-        warnReadinessFallback('postgres', error)
-        return 'unavailable' as const
-      })
+    const postgresReady = await probePostgresReadiness({
+      client,
+      service: 'meristem-core',
+      readyValue: 'ready' as const,
+      fallback: 'unavailable' as const,
+      warn: ({ message }) => console.warn(message)
+    })
     const natsReady = await connectToNats(natsUrl)
       .then(async nc => {
         await nc.drain()
         return 'ready' as const
       })
-      .catch(error => {
-        warnReadinessFallback('nats', error)
-        return 'unavailable' as const
-      })
+      .catch(error =>
+        warnDegradedAndReturn({
+          service: 'meristem-core',
+          target: 'nats',
+          error,
+          context: 'readiness probe degraded',
+          fallback: 'unavailable' as const,
+          warn: ({ message }) => console.warn(message)
+        })
+      )
     const [policyReady, logReady, eventBusReady, mNetReady] = await Promise.all([
       dependencyStateFromReady(`${serviceUrl('m-policy')}/ready`),
       dependencyStateFromReady(`${serviceUrl('m-log')}/ready`),
