@@ -26,3 +26,5 @@ doc-driven-ai/
 .codegraph/
 .dependency-cruiser-known-violations.json
 *.dependency-cruiser-*.html
+playwright-report/
+test-results/

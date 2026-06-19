@@ -94,6 +94,37 @@ Additional hard gates:
 - source comments must satisfy `MERISTEM-DEV.md §8.2`
 - complex internal workflows must have Effect success and failure-path tests at the workflow interface, not only route-level tests
 
+Real-environment full-stack gate for local verification:
+
+```bash
+bun run test:real-env
+```
+
+This command reuses the local stack runtime to:
+- start Docker-backed PostgreSQL and NATS
+- generate join ingress certs
+- migrate and seed the database
+- run `typecheck`, `test:agent-submit`, and `test:integration` first
+- run `test:e2e` last under the e2e harness's own full-stack orchestration
+
+Important orchestration rules:
+
+- `test:integration` runs before `test:e2e` because some integration suites start their own mock/internal services and must not compete with a pre-started dev stack on the same ports.
+- `test:e2e` self-manages `dev:all` and `dev:m-ui-bff` via `tests/e2e/_shared.ts`; wrapper scripts must not start a second copy of those services for the same run.
+- `test:real-env` executes Bun subcommands through `nix develop -c` so nested test subprocesses inherit required toolchain binaries such as `openssl`.
+
+Optional `--opensearch`, `--redis`, and `--apisix` flags are treated as best-effort extras for this script: failure to start those profiles prints a warning and does not block the core real-environment gate, because those profiles are not standard test prerequisites.
+
+Use `bun run test:real-env --dry-run` to inspect the exact orchestration steps without starting services.
+
+Standalone browser smoke verification:
+
+```bash
+nix develop -c bun run test:playwright
+```
+
+This command validates the Playwright-to-Nix browser wiring only. It is intentionally separate from `test:e2e`, and must remain a standalone browser/runtime smoke layer unless a capability explicitly requires browser interaction as part of its contract.
+
 Timeout rule:
 
 - keep the default `bun test` per-test timeout at `5000ms`
@@ -112,6 +143,8 @@ Every new capability must extend e2e coverage with at least:
 - One boundary test if the capability has a documented state or input restriction (e.g., `409` for invalid mode, `404` for missing resource).
 
 Do not add UI-only browser tests to the e2e suite unless the capability is explicitly UI-facing and the browser interaction is part of the contract. The existing e2e suite covers API, BFF, and CLI layers only.
+
+When a refactor extracts a new helper/support/workflow/client-factory seam from existing code, add at least one **direct** test for the extracted seam. Do not rely only on historical indirect coverage from the original file.
 
 When removing or replacing old e2e tests, update this section to describe the new canonical suite.
 

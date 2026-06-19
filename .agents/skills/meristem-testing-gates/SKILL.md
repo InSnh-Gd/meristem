@@ -72,6 +72,16 @@ Every new capability needs:
 - Contract tests if a versioned contract changes.
 - Failure-mode tests for degraded dependencies and fail-closed policy/audit behavior.
 - Effect success and typed failure-path tests when complex workflows move into Effect.
+- When a refactor extracts a new seam (new file, support helper, workflow helper, client factory, runtime adapter), add at least one **direct** test for that seam; do not rely only on older indirect coverage from the source file it came from.
+
+### Refactor Follow-Up Gates
+
+When the change is primarily a refactor, split, or helper extraction, verify all of the following before claiming completion:
+
+1. **Behavior parity**: the original high-value regression tests still pass.
+2. **Direct seam coverage**: new extracted files/helpers have at least one focused test covering success and/or failure mapping.
+3. **No harness conflict**: real-environment orchestration does not double-start services that a test harness already manages.
+4. **Environment fit**: if a test requires toolchain assets such as `openssl`, the real-environment entrypoint must provide them (for this repo, prefer `nix develop -c`).
 
 Do not claim a capability complete until the relevant gates pass or a documented exception names the failing gate and reason.
 
@@ -146,6 +156,13 @@ When reviewing or claiming completion for M-UI, SDUI, BFF display contracts, Com
 - Keep default `bun test` per-test timeout at `5000ms`.
 - Only real TLS, WebSocket, or subprocess integration tests may opt into longer per-test timeout.
 - Prefer test-level timeout over widening the whole suite or script timeout.
+
+## Real-Environment Orchestration Rule
+
+- `test:integration` and `test:e2e` do **not** have the same runtime assumptions. If an integration file self-starts mocks or services, do not run it behind an already-running dev stack that occupies the same ports.
+- `test:e2e` in this repo self-manages the full stack via `tests/e2e/_shared.ts#startFullStack()`. Real-environment wrapper scripts must not independently start `dev:all` / `dev:m-ui-bff` for the same run.
+- Optional infra profiles (OpenSearch, Redis, APISIX) are best-effort extras for real-environment verification, not prerequisites for the standard gate.
+- Real-environment wrapper scripts should execute Bun subcommands under `nix develop -c` so subprocesses inherit required toolchain binaries.
 
 ## Review Stage Integration
 

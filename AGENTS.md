@@ -20,6 +20,7 @@
 - `.agents/skills/meristem-contract-versioning/SKILL.md` - 修改 REST、OpenAPI、Eden、事件、Effect Schema、服务定义、配置、策略、日志、Webhook、BFF、SDUI 或 M-Net Profile 契约。
 - `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF workbench contract、CommandWell、审计/策略/日志可见性或过渡型工作台行为。
 - `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
+- `.agents/skills/meristem-acceptance-scenarios/SKILL.md` - 为跨服务、高风险、权限/审计、M-UI CommandWell、M-Net profile、M-Task lifecycle 或契约迁移工作编写轻量 BDD-lite acceptance scenarios，并映射到现有测试门禁。
 
 代码库探索与理解始终使用：
 
