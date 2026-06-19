@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import FilterBar from '$lib/components/FilterBar.svelte'
-  import AuditLedger from '$lib/components/AuditLedger.svelte'
-  import RawEnvelopeView from '$lib/components/RawEnvelopeView.svelte'
-  import InlineOperationalAlert from '$lib/components/InlineOperationalAlert.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import FilterBar from '$lib/components/layout/FilterBar.svelte'
+  import AuditLedger from '$lib/components/modules/audit/AuditLedger.svelte'
+  import RawEnvelopeView from '$lib/components/ui/RawEnvelopeView.svelte'
+  import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
   import { appState } from '$lib/stores.svelte.ts'
   import type { AuditEntry } from '$lib/types.ts'
 

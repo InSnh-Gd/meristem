@@ -57,10 +57,12 @@ class AppState {
   overview = $state<OverviewData | null>(null)
   selectedNodeId = $state<string | null>(null)
   commandState = $state<CommandState | null>(null)
+  commandStateError = $state<string | null>(null)
   commandParams = $state<Record<string, unknown> | null>(null)
   taskResult = $state<TaskResult | null>(null)
   commandConfirming = $state(false)
   policySummary = $state<PolicyDecisionSummary | null>(null)
+  policySummaryError = $state<string | null>(null)
   routes = $state<RouteRegistry | null>(null)
   nodes = $state<NodeListData | null>(null)
   timeline = $state<TimelineData | null>(null)
@@ -88,8 +90,10 @@ class AppState {
   joinTickets = $state<JoinTicketListResponseData | null>(null)
   joinTicketsLoading = $state(false)
   dataplaneStatus = $state<DataPlaneStatusResponseData | null>(null)
+  dataplaneStatusError = $state<string | null>(null)
   globalDefaults = $state<GlobalDefaultsResponseData | null>(null)
   globalDefaultsLoading = $state(false)
+  globalDefaultsError = $state<string | null>(null)
 
   actor = $derived(this.overview?.session.actor ?? null)
   permissions = $derived(this.overview?.session.permissions ?? [])
@@ -251,20 +255,24 @@ class AppState {
 
   async fetchDataplaneStatus(networkId: string) {
     if (!this.token) return
+    this.dataplaneStatusError = null
     try {
       this.dataplaneStatus = await fetchBffDataplaneStatus(this.token, networkId)
-    } catch {
-      // ignore
+    } catch (e: unknown) {
+      this.dataplaneStatus = null
+      this.dataplaneStatusError = formatBffError(e, '数据面状态加载失败')
     }
   }
 
   async fetchGlobalDefaults() {
     if (!this.token) return
     this.globalDefaultsLoading = true
+    this.globalDefaultsError = null
     try {
       this.globalDefaults = await fetchBffGlobalDefaults(this.token)
-    } catch {
+    } catch (e: unknown) {
       this.globalDefaults = null
+      this.globalDefaultsError = formatBffError(e, '全局控制状态加载失败')
     } finally {
       this.globalDefaultsLoading = false
     }
@@ -278,11 +286,13 @@ class AppState {
     this.selectedNodeId = nodeId
     this.taskResult = null
     this.commandConfirming = false
+    this.commandStateError = null
     if (this.token && nodeId) {
       try {
         this.commandState = await fetchCommandState(this.token, nodeId)
-      } catch {
+      } catch (e: unknown) {
         this.commandState = null
+        this.commandStateError = formatBffError(e, '操作状态加载失败')
       }
     }
   }
@@ -310,10 +320,12 @@ class AppState {
   }
 
   async fetchPolicySummary(decisionId: string) {
+    this.policySummaryError = null
     try {
       this.policySummary = (await fetchPolicySummary(this.token, decisionId)).decision
-    } catch {
+    } catch (e: unknown) {
       this.policySummary = null
+      this.policySummaryError = formatBffError(e, '策略摘要加载失败')
     }
   }
 }

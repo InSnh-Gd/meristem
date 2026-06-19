@@ -22,9 +22,9 @@ const FORBIDDEN_PATTERNS = [
   { pattern: /svelte-toast/, reason: 'svelte-toast library prohibited' }
 ]
 const _REQUIRED_CHINESE_LABELS = [
-  { label: '确认执行', files: ['lib/components/CommandWell.svelte'] },
-  { label: '操作成功', files: ['lib/components/CommandWell.svelte'] },
-  { label: '操作失败', files: ['lib/components/CommandWell.svelte'] }
+  { label: '确认执行', files: ['lib/components/modules/command/CommandWell.svelte'] },
+  { label: '操作成功', files: ['lib/components/modules/command/CommandWell.svelte'] },
+  { label: '操作失败', files: ['lib/components/modules/command/CommandWell.svelte'] }
 ]
 
 type Violation = { filePath: string; line: number; reason: string; snippet: string }
@@ -75,7 +75,7 @@ describe('M-UI CommandWell Mutation UI Contract', () => {
   })
 
   it('CommandWell component has Chinese confirmation labels', () => {
-    const cmdWellSource = readFileSync(`${M_UI_SRC}/lib/components/CommandWell.svelte`, 'utf-8')
+    const cmdWellSource = readFileSync(`${M_UI_SRC}/lib/components/modules/command/CommandWell.svelte`, 'utf-8')
     expect(cmdWellSource).toContain('确认执行')
     expect(cmdWellSource).toContain('确认')
   })

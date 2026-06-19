@@ -14,6 +14,7 @@ const DISPLAY_ONLY_ROUTE_FILES = [
 ] as const
 
 const FORBIDDEN_COMPONENT_NAMES = [
+  // UI anti-patterns that must never appear as SDUI component kinds
   'Toast',
   'Snackbar',
   'DecorativeCard',
@@ -22,7 +23,12 @@ const FORBIDDEN_COMPONENT_NAMES = [
   'Carousel',
   'FloatingActionButton',
   'UnscopedDropdownActionMenu',
-  'UnlabeledDestructiveIconButton'
+  'UnlabeledDestructiveIconButton',
+  // Orphan kinds removed during SDUI v0.2 registry lock — must not return
+  'TimelinePanel',
+  'NodeListPanel',
+  'NodeDetailPanel',
+  'ServiceListPanel'
 ] as const
 
 type Violation = {

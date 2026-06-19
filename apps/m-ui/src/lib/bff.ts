@@ -24,7 +24,9 @@ import type {
   TimelineData
 } from './types'
 
-const BFF_URL = 'http://localhost:3200'
+export function getBffUrl(): string {
+  return import.meta.env.VITE_MERISTEM_MUI_BFF_URL || 'http://localhost:3200'
+}
 
 type BffErrorEnvelope = {
   error: {
@@ -62,7 +64,7 @@ export function formatBffError(error: unknown, fallback: string): string {
 
 export async function bffFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const normalizedToken = normalizeBearerTokenInput(token)
-  const response = await fetch(`${BFF_URL}${path}`, {
+  const response = await fetch(`${getBffUrl()}${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),

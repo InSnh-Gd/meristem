@@ -62,3 +62,22 @@
 - 当代码变更触及 `docs/` 中定义的契约边界时，必须在同一次变更中更新对应契约。
 - 如果根文档中的产品意图发生变化，应先更新 `../MERISTEM.md`，再级联到 `../MERISTEM-DESIGN.md`、`../MERISTEM-DEV.md`、`../MERISTEM-ROADMAP.md` 以及受影响的契约文档。
 - 索引本身只增删目录或入口链接，不展开规范细节。
+
+---
+
+## 5. UI 设计激活文档集
+
+The following documents record the M-UI Transitional Workbench design activation. They supplement the brief and SDUI schema listed in §2 and §3 above.
+
+| Document | Purpose |
+|----------|---------|
+| [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](./ui/M-UI-DESIGN-TOOL-AVAILABILITY.md) | Design tool availability and fallback path |
+| [`ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) | Structure/test gap audit and drift findings D1–D10 |
+| [`ui/M-UI-STITCH-CONCEPTS.md`](./ui/M-UI-STITCH-CONCEPTS.md) | Two layout concepts compared during exploration |
+| [`ui/M-UI-DESIGN-EXPLORATION-DECISION.md`](./ui/M-UI-DESIGN-EXPLORATION-DECISION.md) | Convergence decision: Focus-Flow Ledger |
+| [`ui/DESIGN.md`](./ui/DESIGN.md) | Design-system tokens and primitive layer |
+| [`ui/M-UI-DESIGN-MD-CLI-EVALUATION.md`](./ui/M-UI-DESIGN-MD-CLI-EVALUATION.md) | design-md CLI tool evaluation |
+| [`ui/M-UI-FIGMA-CONTEXT-VALIDATION.md`](./ui/M-UI-FIGMA-CONTEXT-VALIDATION.md) | Figma MCP context validation (deferred) |
+| [`ui/M-UI-STRUCTURE-MAPPING.md`](./ui/M-UI-STRUCTURE-MAPPING.md) | Component-to-module (`layout / modules / ui`) mapping |
+| [`ui/M-UI-BITS-UI-EVALUATION.md`](./ui/M-UI-BITS-UI-EVALUATION.md) | Bits UI primitive-layer evaluation |
+| [`ui/M-UI-FRONTEND-TECH-DECISIONS.md`](./ui/M-UI-FRONTEND-TECH-DECISIONS.md) | Frontend technology decisions |

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import CommandWell from '$lib/components/CommandWell.svelte'
-  import StateSourceBadge from '$lib/components/StateSourceBadge.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import CommandWell from '$lib/components/modules/command/CommandWell.svelte'
+  import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
+  import StateSourceBadge from '$lib/components/ui/StateSourceBadge.svelte'
   import type { GenericCommandParams } from '$lib/types.ts'
 
   const stateSources = ['authoritative', 'policy', 'audit']
@@ -42,9 +43,11 @@
     try {
       const { fetchCommandEligibility } = await import('$lib/bff')
       appState.commandState = await fetchCommandEligibility(appState.token, commandId, params as GenericCommandParams)
-    } catch {
+    } catch (e: unknown) {
+      const { formatBffError } = await import('$lib/bff')
       appState.commandState = null
       appState.commandParams = null
+      appState.commandStateError = formatBffError(e, '验证操作资格失败')
     }
   }
 
@@ -73,6 +76,10 @@
     <h3>全局配置状态</h3>
     {#if appState.globalDefaultsLoading}
       <p class="empty-state">加载中...</p>
+    {:else if appState.globalDefaultsError}
+      <div class="error-container">
+        <InlineOperationalAlert message={appState.globalDefaultsError} severity="block" />
+      </div>
     {:else if appState.globalDefaults}
       <dl class="meta-grid">
         <div>
@@ -148,6 +155,7 @@
 <div class="command-region">
   <CommandWell
     commandState={appState.commandState}
+    commandStateError={appState.commandStateError}
     selectedNode={appState.selectedNode}
     confirming={appState.commandConfirming}
     emptyStateText="请在面板中验证迁移操作"

@@ -2,11 +2,11 @@
   import { page } from '$app/state'
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import NetworkDetailPanel from '$lib/components/NetworkDetailPanel.svelte'
-  import DataplaneStatusPanel from '$lib/components/DataplaneStatusPanel.svelte'
-  import JoinTicketPanel from '$lib/components/JoinTicketPanel.svelte'
-  import CommandWell from '$lib/components/CommandWell.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import NetworkDetailPanel from '$lib/components/modules/network/NetworkDetailPanel.svelte'
+  import DataplaneStatusPanel from '$lib/components/modules/network/DataplaneStatusPanel.svelte'
+  import JoinTicketPanel from '$lib/components/modules/network/JoinTicketPanel.svelte'
+  import CommandWell from '$lib/components/modules/command/CommandWell.svelte'
 
   const stateSources = ['authoritative', 'event', 'log']
   const networkId = $derived(page.params.id)
@@ -61,6 +61,7 @@
 <div class="command-region">
   <CommandWell
     commandState={appState.commandState}
+    commandStateError={appState.commandStateError}
     selectedNode={appState.selectedNode}
     confirming={appState.commandConfirming}
     emptyStateText="请在面板中验证操作资格"

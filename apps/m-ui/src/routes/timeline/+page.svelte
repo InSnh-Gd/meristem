@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import FilterBar from '$lib/components/FilterBar.svelte'
-  import TimelineStream from '$lib/components/TimelineStream.svelte'
-  import TraceLink from '$lib/components/TraceLink.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import FilterBar from '$lib/components/layout/FilterBar.svelte'
+  import TimelineStream from '$lib/components/modules/audit/TimelineStream.svelte'
+  import TraceLink from '$lib/components/modules/audit/TraceLink.svelte'
   import { appState } from '$lib/stores.svelte.ts'
 
   let query = $state('')

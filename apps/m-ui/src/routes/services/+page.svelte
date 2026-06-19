@@ -2,9 +2,9 @@
   import { onMount } from 'svelte'
   import { fetchServiceDetail, formatBffError } from '$lib/bff'
   import { appState } from '$lib/stores.svelte.ts'
-  import KeyValueInspector from '$lib/components/KeyValueInspector.svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import ServiceRegistryTable from '$lib/components/ServiceRegistryTable.svelte'
+  import KeyValueInspector from '$lib/components/ui/KeyValueInspector.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import ServiceRegistryTable from '$lib/components/modules/control-room/ServiceRegistryTable.svelte'
   import type { ServiceInspectorData } from '$lib/types'
 
   const stateSources = ['authoritative']

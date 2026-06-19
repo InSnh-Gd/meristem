@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import ApprovalQueuePanel from '$lib/components/ApprovalQueuePanel.svelte'
-  import DecisionQueueSummary from '$lib/components/DecisionQueueSummary.svelte'
-  import InlineOperationalAlert from '$lib/components/InlineOperationalAlert.svelte'
-  import OperationalCommandPreview from '$lib/components/OperationalCommandPreview.svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
+  import ApprovalQueuePanel from '$lib/components/modules/policy/ApprovalQueuePanel.svelte'
+  import DecisionQueueSummary from '$lib/components/modules/policy/DecisionQueueSummary.svelte'
+  import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
+  import OperationalCommandPreview from '$lib/components/modules/policy/OperationalCommandPreview.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
   import { appState as muiStores } from '$lib/stores.svelte.ts'
 
   const stateSources = ['policy', 'audit']

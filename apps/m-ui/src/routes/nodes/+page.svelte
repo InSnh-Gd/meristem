@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
-  import FilterBar from '$lib/components/FilterBar.svelte'
-  import KeyValueInspector from '$lib/components/KeyValueInspector.svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
+  import FilterBar from '$lib/components/layout/FilterBar.svelte'
+  import KeyValueInspector from '$lib/components/ui/KeyValueInspector.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
   import type { NodeListData } from '$lib/types.ts'
 
   const stateSources = ['authoritative', 'event']

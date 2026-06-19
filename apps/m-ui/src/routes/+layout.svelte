@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state'
   import { appState } from '$lib/stores.svelte.ts'
-  import NavRail from '$lib/components/NavRail.svelte'
-  import TokenInput from '$lib/components/TokenInput.svelte'
+  import NavRail from '$lib/components/layout/NavRail.svelte'
+  import TokenInput from '$lib/components/ui/TokenInput.svelte'
   import '../app.css'
 
   let { children } = $props<{ children: import('svelte').Snippet }>()

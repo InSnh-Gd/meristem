@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import NetworkListPanel from '$lib/components/NetworkListPanel.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import NetworkListPanel from '$lib/components/modules/network/NetworkListPanel.svelte'
 
   const stateSources = ['authoritative', 'event']
 

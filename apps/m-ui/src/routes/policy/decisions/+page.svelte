@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import DecisionQueueSummary from '$lib/components/DecisionQueueSummary.svelte'
-  import PolicyDecisionPanel from '$lib/components/PolicyDecisionPanel.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import DecisionQueueSummary from '$lib/components/modules/policy/DecisionQueueSummary.svelte'
+  import PolicyDecisionPanel from '$lib/components/modules/policy/PolicyDecisionPanel.svelte'
   import { appState } from '$lib/stores.svelte.ts'
 
   const resultLabel: Record<string, string> = {

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { appState } from '$lib/stores.svelte.ts'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
   import type { DataPlaneStatusResponseData, BffNetworkMapSummary } from '$lib/types.ts'
-  import DataplaneStatusPanel from '$lib/components/DataplaneStatusPanel.svelte'
+  import DataplaneStatusPanel from '$lib/components/modules/network/DataplaneStatusPanel.svelte'
 
   const stateSources = ['authoritative', 'read-model']
 
@@ -50,7 +51,7 @@
   </div>
 
   {#if error}
-    <div class="error-message">{error}</div>
+    <InlineOperationalAlert message={error} severity="block" />
   {/if}
 
   {#if status && mapSummary}
@@ -96,14 +97,6 @@
   .network-input-row button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .error-message {
-    color: var(--error-color, #c00);
-    padding: 0.5rem;
-    border: 1px solid var(--error-border, #fcc);
-    border-radius: 4px;
-    background: var(--error-bg, #fee);
   }
 
   .empty-hint {

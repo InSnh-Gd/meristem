@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import InlineOperationalAlert from '$lib/components/InlineOperationalAlert.svelte'
-  import NetworkProfileListPanel from '$lib/components/NetworkProfileListPanel.svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
+  import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
+  import NetworkProfileListPanel from '$lib/components/modules/network/NetworkProfileListPanel.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
   import { appState as muiStores } from '$lib/stores.svelte.ts'
 
   const stateSources = ['authoritative', 'policy', 'audit']

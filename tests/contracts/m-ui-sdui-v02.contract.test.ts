@@ -30,6 +30,7 @@ const requiredSduiV02RouteIds = [
 ] as const
 
 const forbiddenComponentKinds = [
+  // UI anti-patterns that must never appear as SDUI component kinds
   'Toast',
   'Snackbar',
   'DecorativeCard',
@@ -38,7 +39,12 @@ const forbiddenComponentKinds = [
   'Carousel',
   'FloatingActionButton',
   'UnscopedDropdownActionMenu',
-  'UnlabeledDestructiveIconButton'
+  'UnlabeledDestructiveIconButton',
+  // Orphan kinds removed during SDUI v0.2 registry lock — must not return
+  'TimelinePanel',
+  'NodeListPanel',
+  'NodeDetailPanel',
+  'ServiceListPanel'
 ] as const
 
 const validRouteV02 = {
@@ -52,7 +58,7 @@ const validRouteV02 = {
   },
   components: [
     {
-      kind: 'TimelinePanel',
+      kind: 'TimelineStream',
       id: 'timeline-main'
     }
   ]

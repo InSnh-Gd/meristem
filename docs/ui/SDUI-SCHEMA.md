@@ -6,7 +6,24 @@
 
 ---
 
+## Design Activation Status
+
+The canonical route schema for the M-UI Transitional Workbench is `SduiV02Route` (fields: `components`, `stateSources`, `degradedState`), documented in §8 below and emitted by the BFF route registry at `GET /api/v0/routes`.
+
+The legacy `MUiRouteSchema` shape (`regions` / `layout` / `version`) documented in §1 and referenced in §7 is **deprecated**. It is retained only as a historical description of the original route intent; the BFF no longer emits it. It will be removed in a future contract migration.
+
+Design direction:
+
+- See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) for the selected concept (Focus-Flow Ledger) and convergence rationale.
+- See [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md) for the component-to-module (`layout / modules / ui`) mapping.
+
+The SDUI registry remains a route/component contract registry that drives navigation labels and component-kind contracts; it is not a runtime page composition engine.
+
+---
+
 ## 1. Route Shape
+
+> **Deprecated:** This schema shape (`MUiRouteSchema` with `regions` / `layout` / `version`) is superseded by `SduiV02Route`. See the Design Activation Status above and §8. It will be removed in a future contract migration.
 
 ```ts
 type MUiRouteSchema = {

@@ -2,10 +2,10 @@
   import { page } from '$app/state'
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
-  import KeyValueInspector from '$lib/components/KeyValueInspector.svelte'
-  import RawEnvelopeView from '$lib/components/RawEnvelopeView.svelte'
-  import RouteHeader from '$lib/components/RouteHeader.svelte'
-  import TimelineStream from '$lib/components/TimelineStream.svelte'
+  import KeyValueInspector from '$lib/components/ui/KeyValueInspector.svelte'
+  import RawEnvelopeView from '$lib/components/ui/RawEnvelopeView.svelte'
+  import RouteHeader from '$lib/components/layout/RouteHeader.svelte'
+  import TimelineStream from '$lib/components/modules/audit/TimelineStream.svelte'
   import type { TimelineData } from '$lib/types.ts'
 
   const stateSources = ['authoritative', 'event', 'log']
