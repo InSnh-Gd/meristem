@@ -32,10 +32,7 @@ type ProfileReadRouteFailure = {
 async function requireAuthorizedProfileReadContext(
   deps: Pick<MNetAppDeps, 'profileStore' | 'policyAuthorize'>,
   input: { headers: Record<string, string | undefined>; resource: string }
-): Promise<
-  | { profileDeps: ProfileReadDeps }
-  | ProfileReadRouteFailure
-> {
+): Promise<{ profileDeps: ProfileReadDeps } | ProfileReadRouteFailure> {
   const actor = await verifyBearerAuth(input.headers)
   if (!actor) {
     return {

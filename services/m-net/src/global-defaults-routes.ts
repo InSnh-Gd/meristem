@@ -154,12 +154,7 @@ export function createGlobalDefaultsRoutes(
             deniedPrefix: 'plan'
           })
           if (isGlobalDefaultsFailure(context)) {
-            return externalApiError(
-              set,
-              context.status,
-              context.error.code,
-              context.error.message
-            )
+            return externalApiError(set, context.status, context.error.code, context.error.message)
           }
 
           const { migrationDeps } = context
@@ -207,12 +202,7 @@ export function createGlobalDefaultsRoutes(
             deniedPrefix: 'read migration status'
           })
           if (isGlobalDefaultsFailure(context)) {
-            return externalApiError(
-              set,
-              context.status,
-              context.error.code,
-              context.error.message
-            )
+            return externalApiError(set, context.status, context.error.code, context.error.message)
           }
           const result = await context.migrationDeps.migrationEngine.getStatus(params.operationId)
           if (!result.ok) return externalApiError(set, 404, 'switch.not_found', result.error)
@@ -233,12 +223,7 @@ export function createGlobalDefaultsRoutes(
             deniedPrefix: 'apply'
           })
           if (isGlobalDefaultsFailure(context)) {
-            return externalApiError(
-              set,
-              context.status,
-              context.error.code,
-              context.error.message
-            )
+            return externalApiError(set, context.status, context.error.code, context.error.message)
           }
 
           const result = requireSwitchOperationResult(
@@ -273,12 +258,7 @@ export function createGlobalDefaultsRoutes(
             deniedPrefix: 'resume'
           })
           if (isGlobalDefaultsFailure(context)) {
-            return externalApiError(
-              set,
-              context.status,
-              context.error.code,
-              context.error.message
-            )
+            return externalApiError(set, context.status, context.error.code, context.error.message)
           }
 
           const result = requireSwitchOperationResult(
@@ -313,12 +293,7 @@ export function createGlobalDefaultsRoutes(
             deniedPrefix: 'rollback'
           })
           if (isGlobalDefaultsFailure(context)) {
-            return externalApiError(
-              set,
-              context.status,
-              context.error.code,
-              context.error.message
-            )
+            return externalApiError(set, context.status, context.error.code, context.error.message)
           }
 
           const reason = body?.reason

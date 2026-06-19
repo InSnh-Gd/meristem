@@ -177,9 +177,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       requiredPermissions: ['network:read'],
       stateSources: ['authoritative', 'event', 'audit'],
       degradedState: { enabled: true, reason: '数据面状态探测降级时显示最后已知状态' },
-      components: [
-        { kind: 'DataplaneStatusPanel', id: 'dataplane-status-panel' }
-      ]
+      components: [{ kind: 'DataplaneStatusPanel', id: 'dataplane-status-panel' }]
     },
     {
       id: 'mnet.profile.migration',
@@ -187,9 +185,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       requiredPermissions: ['network:profile-enable'],
       stateSources: ['authoritative', 'policy', 'audit'],
       degradedState: { enabled: true, reason: '迁移过程查询降级时禁止执行新命令' },
-      components: [
-        { kind: 'CommandWellPanel', id: 'mnet-migration-command-well' }
-      ]
+      components: [{ kind: 'CommandWellPanel', id: 'mnet-migration-command-well' }]
     },
     {
       id: 'mnet.break-glass',
@@ -197,9 +193,7 @@ export const SDUI_V02_ROUTE_REGISTRY: SduiV02RouteRegistry = Schema.decodeUnknow
       requiredPermissions: ['network:profile-disable'],
       stateSources: ['authoritative', 'audit'],
       degradedState: { enabled: true, reason: '核心服务降级时通过本地备用配置允许操作' },
-      components: [
-        { kind: 'CommandWellPanel', id: 'mnet-break-glass-command-well' }
-      ]
+      components: [{ kind: 'CommandWellPanel', id: 'mnet-break-glass-command-well' }]
     }
   ]
 })

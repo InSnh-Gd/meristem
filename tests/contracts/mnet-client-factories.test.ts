@@ -82,7 +82,9 @@ describe('M-Net extracted client factories', () => {
     })
 
     const denyFetcher = makeFetcher(async () => jsonResponse({}, { status: 503 }))
-    await expect(createPolicyAuthorizeClient(denyFetcher).authorize('actor', 'write', 'resource')).resolves.toEqual({
+    await expect(
+      createPolicyAuthorizeClient(denyFetcher).authorize('actor', 'write', 'resource')
+    ).resolves.toEqual({
       result: 'deny',
       id: expect.any(String),
       reasons: ['policy service unavailable']
@@ -94,7 +96,9 @@ describe('M-Net extracted client factories', () => {
 
     const eventBus = {
       health: { get: async () => ({ data: { ok: true }, error: null, response: new Response() }) },
-      ready: { get: async () => ({ data: { ready: true }, error: null, response: new Response() }) },
+      ready: {
+        get: async () => ({ data: { ready: true }, error: null, response: new Response() })
+      },
       internal: {
         v0: {
           publish: {
@@ -109,7 +113,9 @@ describe('M-Net extracted client factories', () => {
 
     const logService = {
       health: { get: async () => ({ data: { ok: true }, error: null, response: new Response() }) },
-      ready: { get: async () => ({ data: { ready: true }, error: null, response: new Response() }) },
+      ready: {
+        get: async () => ({ data: { ready: true }, error: null, response: new Response() })
+      },
       internal: {
         v0: {
           timeline: {
@@ -135,7 +141,12 @@ describe('M-Net extracted client factories', () => {
     } as unknown as Parameters<typeof createLogWriters>[0]
 
     await createEventPublisher(eventBus)('subject.one', 'type.one', { ok: true }, 'corr-1')
-    await createProfileEventsClient(eventBus).publish('subject.two', 'type.two', { ok: true }, 'corr-2')
+    await createProfileEventsClient(eventBus).publish(
+      'subject.two',
+      'type.two',
+      { ok: true },
+      'corr-2'
+    )
 
     const writers = createLogWriters(logService)
     await writers.writeTimeline('timeline one', 'subject.one', 'corr-1')
@@ -160,7 +171,9 @@ describe('M-Net extracted client factories', () => {
 
     const brokenEventBus = {
       health: { get: async () => ({ data: { ok: true }, error: null, response: new Response() }) },
-      ready: { get: async () => ({ data: { ready: true }, error: null, response: new Response() }) },
+      ready: {
+        get: async () => ({ data: { ready: true }, error: null, response: new Response() })
+      },
       internal: { v0: { publish: { post: async () => ({ error: true, data: null }) } } }
     } as unknown as Parameters<typeof createEventPublisher>[0]
     await expect(

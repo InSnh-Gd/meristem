@@ -69,10 +69,12 @@ describe('internal-http helpers', () => {
   })
 
   it('falls back when the shared error envelope is invalid', () => {
-    expect(serviceErrorFromEnvelope('bad', { code: 'fallback.code', message: 'fallback' })).toEqual({
-      code: 'fallback.code',
-      message: 'fallback'
-    })
+    expect(serviceErrorFromEnvelope('bad', { code: 'fallback.code', message: 'fallback' })).toEqual(
+      {
+        code: 'fallback.code',
+        message: 'fallback'
+      }
+    )
     expect(errorMessageFromEnvelope({ error: { message: 123 } }, 'fallback')).toBe('fallback')
   })
 

@@ -199,7 +199,9 @@ async function handleAckedApplyAck(
     createdAt: input.now
   })
 
-  const targetScope: string[] = Array.isArray(input.record.targetScope) ? input.record.targetScope : []
+  const targetScope: string[] = Array.isArray(input.record.targetScope)
+    ? input.record.targetScope
+    : []
   if (targetScope.length === 0) {
     const transitionError = ensureTransition(input.record.status, 'applied')
     if (transitionError) return transitionError

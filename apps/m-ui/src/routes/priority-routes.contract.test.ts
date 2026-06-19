@@ -10,7 +10,9 @@ describe('priority M-UI route source contracts', () => {
 
     // Thin route glue: delegates all workbench logic to ControlRoomWorkspace
     expect(source).toContain('ControlRoomWorkspace')
-    expect(source).toContain("from '$lib/components/modules/control-room/ControlRoomWorkspace.svelte'")
+    expect(source).toContain(
+      "from '$lib/components/modules/control-room/ControlRoomWorkspace.svelte'"
+    )
   })
 
   it('keeps approvals route wired to approval queue loading and preview surfaces', () => {

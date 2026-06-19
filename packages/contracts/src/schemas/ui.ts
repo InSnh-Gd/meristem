@@ -209,7 +209,8 @@ export type OperationalCommandPreviewCommandIdFromSchema =
   typeof OperationalCommandPreviewCommandIdSchema.Type
 export type OperationalCommandPreviewActionFromSchema =
   typeof OperationalCommandPreviewActionSchema.Type
-export type OperationalCommandPreviewStateFromSchema = typeof OperationalCommandPreviewStateSchema.Type
+export type OperationalCommandPreviewStateFromSchema =
+  typeof OperationalCommandPreviewStateSchema.Type
 export type OperationalCommandPreviewFromSchema = typeof OperationalCommandPreviewSchema.Type
 export type DisabledCommandExplanationFromSchema = typeof DisabledCommandExplanationSchema.Type
 export type CommandWellEligibilityFromSchema = typeof CommandWellEligibilitySchema.Type

@@ -10,7 +10,12 @@ export type ProfileEvents = {
 
 export type ProfileLog = {
   writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void>
-  writeFull(level: string, message: string, correlationId?: string, payload?: unknown): Promise<void>
+  writeFull(
+    level: string,
+    message: string,
+    correlationId?: string,
+    payload?: unknown
+  ): Promise<void>
   writeAudit(
     actor: ActorId,
     action: string,

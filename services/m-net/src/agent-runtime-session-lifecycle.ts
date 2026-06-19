@@ -30,7 +30,9 @@ export function sessionId(ws: ServerWebSocket<JoinSessionData>): string | null {
 /**
  * 每个 agent 节点同一时刻只保留一个活动 session；后来的连接会顶掉旧连接，避免任务被双写。
  */
-export function bindSession<TSocket extends Pick<ServerWebSocket<JoinSessionData>, 'data' | 'close'>>(
+export function bindSession<
+  TSocket extends Pick<ServerWebSocket<JoinSessionData>, 'data' | 'close'>
+>(
   context: {
     activeSessions: Map<string, TSocket>
     activeSessionIds: Map<string, string>
@@ -172,7 +174,11 @@ export async function redeemJoinTicket(
       .from(nodeJoinTickets)
       .where(eq(nodeJoinTickets.id, ticketRow.id))
       .limit(1)
-    if (updateResult.length === 0 || latestTicket?.status !== 'redeemed' || latestTicket.redeemedNodeId !== nodeId) {
+    if (
+      updateResult.length === 0 ||
+      latestTicket?.status !== 'redeemed' ||
+      latestTicket.redeemedNodeId !== nodeId
+    ) {
       const latestStatus = latestTicket?.status as typeof ticketRow.status | undefined
       if (latestStatus === 'expired') {
         return err('node.join_ticket_expired', 'join ticket is expired')

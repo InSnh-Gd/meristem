@@ -14,7 +14,9 @@ describe('network profiles runtime behavior', () => {
     render(NetworkProfilesPage)
 
     expect(screen.getByRole('heading', { name: '网络 Profile' })).toBeTruthy()
-    expect(screen.getByText('当前列表仅展示控制面 Profile。启用或停用动作保留为详情页中的禁用展示态。')).toBeTruthy()
+    expect(
+      screen.getByText('当前列表仅展示控制面 Profile。启用或停用动作保留为详情页中的禁用展示态。')
+    ).toBeTruthy()
     expect(screen.getByText('Global profile')).toBeTruthy()
     expect(screen.getByText('profile-v1')).toBeTruthy()
   })

@@ -24,6 +24,8 @@ describe('NetworkProfileWorkspace seam', () => {
     expect(screen.getByLabelText('网络 Profile 详情面板')).toBeTruthy()
     expect(screen.getByText('CN profile')).toBeTruthy()
     expect(screen.getByLabelText('目标网络')).toBeTruthy()
-    expect(screen.getAllByText('配置变更仅影响控制平面，运行时数据面不受影响').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText('配置变更仅影响控制平面，运行时数据面不受影响').length
+    ).toBeGreaterThan(0)
   })
 })

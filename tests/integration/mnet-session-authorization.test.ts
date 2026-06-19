@@ -29,11 +29,7 @@ describe('M-Net session authorization', () => {
     const firstSocket = createBindableSocket()
     const secondSocket = createBindableSocket()
 
-    const firstSessionId = bindSession(
-      { activeSessions, activeSessionIds },
-      firstSocket,
-      'node-1'
-    )
+    const firstSessionId = bindSession({ activeSessions, activeSessionIds }, firstSocket, 'node-1')
     const secondSessionId = bindSession(
       { activeSessions, activeSessionIds },
       secondSocket,
@@ -44,7 +40,9 @@ describe('M-Net session authorization', () => {
     expect(activeSessions.get('node-1')).toBe(secondSocket)
     expect(activeSessionIds.get('node-1')).toBe(secondSessionId)
     expect(secondSessionId).not.toBe(firstSessionId)
-    expect(authorizeSessionMessage('node-1', firstSessionId, activeSessionIds.get('node-1'))).toEqual({
+    expect(
+      authorizeSessionMessage('node-1', firstSessionId, activeSessionIds.get('node-1'))
+    ).toEqual({
       ok: false,
       code: 'session.superseded',
       message: 'session has been superseded by a newer connection'

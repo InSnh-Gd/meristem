@@ -24,7 +24,7 @@ describe('dataplane degraded behavior', () => {
     appState.token = 'fixture-token'
 
     const { getByPlaceholderText, getByRole } = render(DataplaneStatusPage)
-    
+
     // Set networkId
     const input = getByPlaceholderText('输入网络 ID')
     await fireEvent.input(input, { target: { value: 'net-123' } })

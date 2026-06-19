@@ -35,7 +35,9 @@ describe('degraded BFF behavior', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('全局 Profile 控制状态加载失败: global defaults offline')).toBeTruthy()
+      expect(
+        screen.getByText('全局 Profile 控制状态加载失败: global defaults offline')
+      ).toBeTruthy()
     })
 
     expect(screen.getByText('演示界面只展示控制命令，未启用前端执行。')).toBeTruthy()

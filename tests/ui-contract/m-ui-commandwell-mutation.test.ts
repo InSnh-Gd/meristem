@@ -75,7 +75,10 @@ describe('M-UI CommandWell Mutation UI Contract', () => {
   })
 
   it('CommandWell component has Chinese confirmation labels', () => {
-    const cmdWellSource = readFileSync(`${M_UI_SRC}/lib/components/modules/command/CommandWell.svelte`, 'utf-8')
+    const cmdWellSource = readFileSync(
+      `${M_UI_SRC}/lib/components/modules/command/CommandWell.svelte`,
+      'utf-8'
+    )
     expect(cmdWellSource).toContain('确认执行')
     expect(cmdWellSource).toContain('确认')
   })

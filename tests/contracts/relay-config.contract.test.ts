@@ -65,7 +65,11 @@ describe('relay deployment contract', () => {
         '}'
     )
     expect(fixture.module).toContain(
-      '--restrict-to ${' + 'relayCfg.restrictHost' + '}:${' + 'toString relayCfg.wireGuardPort' + '}'
+      '--restrict-to ${' +
+        'relayCfg.restrictHost' +
+        '}:${' +
+        'toString relayCfg.wireGuardPort' +
+        '}'
     )
     expect(fixture.module).toContain('protocol:')
     expect(fixture.module).toContain('- Udp')

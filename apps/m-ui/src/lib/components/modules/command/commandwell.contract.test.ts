@@ -12,7 +12,7 @@ describe('CommandWell source contract', () => {
   it('keeps the four controlled rendering branches', () => {
     expect(source).toContain('{#if commandStateError}')
     expect(source).toContain('{:else if !commandState}')
-    expect(source).toContain('{:else if commandState.state === \'disabled\'}')
+    expect(source).toContain("{:else if commandState.state === 'disabled'}")
     expect(source).toContain('{:else if confirming}')
     expect(source).toContain('{:else}')
   })

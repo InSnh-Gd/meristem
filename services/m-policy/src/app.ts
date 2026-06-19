@@ -1,6 +1,10 @@
 import { Elysia, t } from 'elysia'
 import type { ActorId, Permission, PolicyDecision } from '../../../packages/contracts/src/index.ts'
-import { actorIds, apiErrorRouteSchema, permissions } from '../../../packages/contracts/src/index.ts'
+import {
+  actorIds,
+  apiErrorRouteSchema,
+  permissions
+} from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import type { PolicySummaryPayload } from './summary.ts'

@@ -255,10 +255,7 @@ async function applyApprovedEnableResume(
     status: 'enabling'
   })
 
-  if (
-    suspendedOp.toProfileVersion !== CHINA_DATA_PLANE_PROFILE_VERSION ||
-    !deps.listMembers
-  ) {
+  if (suspendedOp.toProfileVersion !== CHINA_DATA_PLANE_PROFILE_VERSION || !deps.listMembers) {
     return applyApprovedDirectResume(deps, suspendedOp, {
       isDisable: false,
       expectedState: 'enabling'
@@ -303,10 +300,7 @@ async function applyApprovedEnableResume(
 async function validateResumeState(
   deps: FeatureDeps,
   suspendedOp: SuspendedOp
-): Promise<
-  | { isDisable: boolean; expectedState: ProfileState }
-  | ProfileAdminFailure
-> {
+): Promise<{ isDisable: boolean; expectedState: ProfileState } | ProfileAdminFailure> {
   const state = await deps.profileStore.getNetworkState(suspendedOp.networkId)
   if (!state || state.profileVersion !== suspendedOp.fromProfileVersion) {
     await publishResumeFailureArtifacts(deps, suspendedOp, {

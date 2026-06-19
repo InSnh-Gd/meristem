@@ -24,7 +24,12 @@ describe('SDUI registry drift contracts', () => {
   })
 
   it('does not allow legacy component kinds without an M-UI implementation', () => {
-    for (const orphanKind of ['TimelinePanel', 'NodeListPanel', 'NodeDetailPanel', 'ServiceListPanel']) {
+    for (const orphanKind of [
+      'TimelinePanel',
+      'NodeListPanel',
+      'NodeDetailPanel',
+      'ServiceListPanel'
+    ]) {
       expect(uiSchemaSource).not.toContain(`'${orphanKind}'`)
       expect(registrySource).not.toContain(`kind: '${orphanKind}'`)
     }
@@ -56,7 +61,10 @@ describe('SDUI registry drift contracts', () => {
       ]
 
       const found = possiblePaths.some(p => existsSync(p))
-      expect(found, `Registry kind '${kind}' has no corresponding Svelte file (${filename}.svelte)`).toBe(true)
+      expect(
+        found,
+        `Registry kind '${kind}' has no corresponding Svelte file (${filename}.svelte)`
+      ).toBe(true)
     }
   })
 })

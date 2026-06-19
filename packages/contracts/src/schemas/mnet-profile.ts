@@ -294,7 +294,8 @@ export const NetworkMapEnforcementDecisionSchema = Schema.Union(
     reason: NetworkMapEnforcementReasonSchema
   })
 )
-export type NetworkMapEnforcementDecisionFromSchema = typeof NetworkMapEnforcementDecisionSchema.Type
+export type NetworkMapEnforcementDecisionFromSchema =
+  typeof NetworkMapEnforcementDecisionSchema.Type
 
 export const MNetNetworkMapReferenceSchema = Schema.Struct({
   networkId: Schema.String,

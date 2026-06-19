@@ -115,10 +115,7 @@ export type DegradedWarning = {
   message: string
 }
 
-type SqlProbeClient = (
-  strings: TemplateStringsArray,
-  ...values: ReadonlyArray<unknown>
-) => unknown
+type SqlProbeClient = (strings: TemplateStringsArray, ...values: ReadonlyArray<unknown>) => unknown
 
 /**
  * ponytail: 多个服务都在做“记录 degraded 原因并返回 fallback”的同一件事，

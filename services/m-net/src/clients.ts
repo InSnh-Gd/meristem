@@ -159,7 +159,9 @@ export function createMNetInfrastructure(): MNetInfrastructure {
       ])
       return true
     } catch (error: unknown) {
-      console.warn(`m-net: m-net store health check degraded - ${error instanceof Error ? error.message : String(error)}`)
+      console.warn(
+        `m-net: m-net store health check degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
       return false
     }
   }

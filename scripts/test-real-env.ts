@@ -87,13 +87,17 @@ function printDryRun(): void {
   const requestedProfiles = profileFlagsFromArgv()
   for (const [flag, service] of optionalProfileServices) {
     if (!requestedProfiles[flag]) continue
-    console.log(`[real-env] best-effort optional profile: docker compose --profile ${flag} up -d ${service}`)
+    console.log(
+      `[real-env] best-effort optional profile: docker compose --profile ${flag} up -d ${service}`
+    )
   }
   console.log('[real-env] prepareWorkspace()')
   for (const command of preE2eCommands) {
     console.log(`[real-env] run: ${withNixDevelop(command.command).join(' ')}`)
   }
-  console.log('[real-env] note: test:e2e self-manages dev:all + dev:m-ui-bff via tests/e2e/_shared.ts')
+  console.log(
+    '[real-env] note: test:e2e self-manages dev:all + dev:m-ui-bff via tests/e2e/_shared.ts'
+  )
   console.log(`[real-env] run: ${withNixDevelop(e2eCommand.command).join(' ')}`)
 }
 
