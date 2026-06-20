@@ -52,6 +52,7 @@ bun run typecheck
 bun run typecheck:e2e
 bun run typecheck:m-ui
 bun run test
+bun --cwd apps/m-ui run test
 bun run test:agent-submit
 bun run test:contracts
 bun run test:failure-modes
@@ -61,6 +62,14 @@ bun run test:ui-contract
 bun run test:perf
 bun run test:e2e
 ```
+
+Runner ownership matters here:
+
+- root `bun run test` owns only Bun-compatible `*.test.ts` suites
+- `bun --cwd apps/m-ui run test` owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts`)
+- `bun run test:playwright` owns Playwright-only browser smoke coverage (`*.playwright.ts`)
+
+Do not collapse those layers back into a single filename pattern. The split prevents bare root `bun test` from trying to execute Vitest `vi.mock` suites or Playwright `test()` files under Bun's runner.
 
 OpenSearch-specific supplementary gates (not part of the standard matrix):
 
@@ -123,7 +132,7 @@ Standalone browser smoke verification:
 nix develop -c bun run test:playwright
 ```
 
-This command validates the Playwright-to-Nix browser wiring only. It is intentionally separate from `test:e2e`, and must remain a standalone browser/runtime smoke layer unless a capability explicitly requires browser interaction as part of its contract.
+This command validates the Playwright-to-Nix browser wiring only via `tests/playwright/*.playwright.ts`. It is intentionally separate from `test:e2e`, and must remain a standalone browser/runtime smoke layer unless a capability explicitly requires browser interaction as part of its contract.
 
 Timeout rule:
 

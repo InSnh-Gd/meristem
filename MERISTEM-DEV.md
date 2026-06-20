@@ -834,11 +834,15 @@ Meristem Core 计划使用 BSD-3 协议。
 - **禁止模糊命名**：不得使用 `utils.ts`、`helpers.ts`、`misc.ts`、`common.ts`、`shared.ts` 作为单一功能文件。仅当文件确实承载跨模块通用、无明确单一职责的工具函数集合时允许，但此类文件也应控制在行数上限内。
 - **测试文件命名**：
   - 单元测试：`{源文件名}.test.ts`，如 `task-state-machine.test.ts`
+  - Vitest / `happy-dom` 运行时或组件测试：`{源文件名}.vitest.ts`，仅用于必须由 Vitest 执行的前端测试（例如 `vi.mock`、Svelte render、browser-like DOM）
   - 契约测试：`{契约名}.contract.test.ts`，如 `task-events.contract.test.ts`
   - 集成测试：`{场景}.integration.test.ts`，如 `task-lifecycle.integration.test.ts`
   - E2E 测试：`{流程}.e2e.test.ts`，如 `approval-flow.e2e.test.ts`
+  - Playwright 浏览器测试：`{场景}.playwright.ts`，避免被根目录 `bun test` 按 `*.test.ts` 误收录
 - **测试文件与源文件同目录或镜像目录**：测试文件应放在与源文件相同的目录，或在 `__tests__/` 子目录中，但不能散落在无关联的目录下。
 - **目录命名**：目录名反映功能域或模块边界，使用 kebab-case。如 `suspended-operation/`、`approval-routes/`、`projection-engine/`。
+
+补充约束：根目录 `bun test` 只应发现 Bun 兼容的 `*.test.ts`；需要 Vitest 或 Playwright 的测试必须通过后缀和各自 runner 显式分流，不能依赖“同名但不同 runner” 的隐式约定。
 
 ### 8.4 注释要求
 
