@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run"
   },
+  "dependencies": {
+    "bits-ui": "2.18.1"
+  },
   "devDependencies": {
     "@sveltejs/adapter-static": "3.0.8",
     "@sveltejs/kit": "2.25.0",

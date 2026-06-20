@@ -270,5 +270,5 @@ The M-UI design exploration is complete. This section records the outcome so fut
 - **Selected concept:** Focus-Flow Ledger. See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) for the convergence rationale and the rejected concept.
 - **Structure mapping:** The component-to-module (`layout / modules / ui`) mapping is recorded in [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md).
 - **Tech decisions:** Frontend technology decisions (Svelte 5 runes, module barrel pattern, CSS approach) are recorded in [`M-UI-FRONTEND-TECH-DECISIONS.md`](./M-UI-FRONTEND-TECH-DECISIONS.md).
-- **DESIGN.md:** The design-system tokens and primitive layer are recorded in [`DESIGN.md`](./DESIGN.md).
+- **DESIGN.md:** The design-system tokens and primitive layer are recorded in [`DESIGN.md`](../../DESIGN.md).
 - **Remaining:** Implementation is gated on the test-foundation prerequisites from [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) §8 (route-render smoke tests, token-presence checks, CommandWell behavior tests, degraded-BFF scenarios). The `layout / modules / ui` file restructuring must not begin until at least items 1–4 of that section are green.

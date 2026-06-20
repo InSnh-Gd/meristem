@@ -46,13 +46,14 @@ This gate runs the contract drift checks most likely to fail after documentation
 Final gate command matrix:
 
 ```bash
+bun run design:lint
 bun run format:check
 bun run lint
 bun run typecheck
 bun run typecheck:e2e
 bun run typecheck:m-ui
 bun run test
-bun --cwd apps/m-ui run test
+cd apps/m-ui && bun run test
 bun run test:agent-submit
 bun run test:contracts
 bun run test:failure-modes
@@ -65,11 +66,23 @@ bun run test:e2e
 
 Runner ownership matters here:
 
+- root `bun run design:lint` owns the canonical [`DESIGN.md`](../DESIGN.md) file structure and token vocabulary validation (it does not scan component CSS or Svelte files)
 - root `bun run test` owns only Bun-compatible `*.test.ts` suites
-- `bun --cwd apps/m-ui run test` owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts`)
+- `cd apps/m-ui && bun run test` owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts`)
 - `bun run test:playwright` owns Playwright-only browser smoke coverage (`*.playwright.ts`)
 
 Do not collapse those layers back into a single filename pattern. The split prevents bare root `bun test` from trying to execute Vitest `vi.mock` suites or Playwright `test()` files under Bun's runner.
+
+**`*.vitest.ts` runner boundary (hard gate):** Component DOM tests inside
+`apps/m-ui` must use the `*.vitest.ts` naming convention so they are picked up
+by the Vitest runner (`cd apps/m-ui && bun run test`) and safely ignored by the
+root Bun runner (`bun run test`). Root Bun suites must use the `*.test.ts`
+naming convention. Do not mix runner-specific filename patterns — placing a
+`vi.mock` or `@testing-library/svelte` import in a `*.test.ts` file will cause
+the root Bun runner to fail. Conversely, a `*.vitest.ts` file that imports a
+contract test helper expecting Bun's runner will fail under Vitest. The existing
+`confirm-action-dialog.vitest.ts` and workspace seam tests
+(`*-workspace.vitest.ts`) follow this convention.
 
 OpenSearch-specific supplementary gates (not part of the standard matrix):
 
@@ -309,6 +322,30 @@ M-UI ownership gates:
 - M-Extension and plugin UI contribution remain deferred architecture; tests for current scope must not require plugin-provided routes, components, or layouts.
 - M-UI must continue to call M-UI BFF only; BFF must use Core public facades for Core/M-* facts and capabilities.
 - Frontend modularity must happen inside M-UI-owned `layout / modules / ui`, with domain modules consuming BFF-shaped data rather than service/plugin-supplied runtime UI.
+
+### 6.0 Primitive Quality Gate Verification
+
+M-UI primitive wrappers (Bits UI-backed or hand-written) must pass the quality gates
+defined in [`docs/ui/M-UI-PRIMITIVE-QUALITY-GATES.md`](../ui/M-UI-PRIMITIVE-QUALITY-GATES.md)
+before they can appear in a production route. The following commands from that
+document's §8 are the automated enforcement:
+
+| Command | What It Verifies |
+|---------|-----------------|
+| `bun run design:lint` | Validates the canonical `DESIGN.md` file structure and token vocabulary. It does not scan component CSS or Svelte files. Component-level token enforcement (no raw colour literals, defined-token-only usage) is a manual review responsibility (see [`M-UI-PRIMITIVE-QUALITY-GATES.md`](../ui/M-UI-PRIMITIVE-QUALITY-GATES.md) §8). |
+| `bun run typecheck:m-ui` | TypeScript strictness for the `apps/m-ui` workspace. Verifies that wrapper Svelte and TypeScript files have no type errors. |
+| `cd apps/m-ui && bun run test` | M-UI Vitest / `happy-dom` runtime and component suites. Primitive wrapper tests must use the `*.vitest.ts` naming convention (e.g., `confirm-action-dialog.vitest.ts`). |
+
+The primitive adoption governance framework is at
+[`docs/ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](../ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md).
+The current baseline is a single approved Bits UI pilot: the `AlertDialog`-backed
+`ConfirmActionDialog` at `apps/m-ui/src/lib/components/ui/ConfirmActionDialog.svelte`.
+All other Bits UI primitives (Skeleton, Command/Combobox, Table, Tabs, Select,
+Accordion, Button, Menu, Alert, Separator) are deferred behind the seven adoption
+gates. The design token parity audit at
+[`docs/ui/M-UI-DESIGN-TOKEN-PARITY.md`](../ui/M-UI-DESIGN-TOKEN-PARITY.md)
+records the current alignment between root `DESIGN.md` and the CSS custom-property
+sheet; it is an audit only and does not authorise token rewrites or code generation.
 
 ---
 

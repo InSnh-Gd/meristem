@@ -146,11 +146,37 @@ The first split uncovered several SDUI/render drift items. Their current status:
   internal M-UI module utilities remains a future-facing classification question
   that does not block the current split or Workspace extraction.
 
-### 3.3 Final primitive layer remains deferred
+### 3.3 Primitive layer status: pilot only, remainder deferred
 
-Bits UI, Tailwind, charting, advanced motion, and project-level `DESIGN.md`
-decisions remain conditional future tracks. The current split does not introduce
-those dependencies.
+The canonical design-system source is root [`DESIGN.md`](../../DESIGN.md); the
+companion at [`docs/ui/DESIGN.md`](./DESIGN.md) explains the document
+relationship. The design token and visual contract gate is `bun run design:lint`.
+
+Bits UI adoption is currently limited to the **single `AlertDialog`-backed
+`ConfirmActionDialog` pilot** at
+`apps/m-ui/src/lib/components/ui/ConfirmActionDialog.svelte`. All other Bits UI
+primitives (Skeleton, Command/Combobox, Table, Tabs, Select, Accordion, Button,
+Menu, Alert, Separator) remain deferred behind the seven adoption gates defined in
+[`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md).
+Broad Bits UI adoption is not the current target.
+
+The following baseline documents record the design activation's current state and
+must be consulted before any primitive adoption or token change:
+
+- [`M-UI-DESIGN-TOKEN-PARITY.md`](./M-UI-DESIGN-TOKEN-PARITY.md) — audit of
+  token alignment between root `DESIGN.md` and `app.css` CSS custom properties.
+  Audit only; no code changes or token rewrites are authorized.
+- [`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md) —
+  seven-gate governance framework for approving any Bits UI primitive beyond the
+  `AlertDialog` pilot.
+- [`M-UI-PRIMITIVE-QUALITY-GATES.md`](./M-UI-PRIMITIVE-QUALITY-GATES.md) —
+  production-readiness gates (accessibility, destructive confirmation, token-only
+  styling, reduced-motion, manual/screenshot QA checklist) that every primitive
+  wrapper must pass after adoption.
+
+Tailwind, charting libraries, state-machine libraries, and motion-token
+decisions remain deferred. The current split does not introduce those
+dependencies.
 
 ---
 
@@ -161,7 +187,7 @@ The split and subsequent extraction are protected by a growing M-UI test foundat
 Runner ownership is now explicit:
 
 - root `bun test` owns Bun-compatible `*.test.ts` source-contract suites
-- `bun --cwd apps/m-ui run test` owns the Vitest / `happy-dom` M-UI runtime and component suites (`*.vitest.ts`)
+- `cd apps/m-ui && bun run test` owns the Vitest / `happy-dom` M-UI runtime and component suites (`*.vitest.ts`)
 - `bun run test:ui-contract` owns repo-root UI-boundary enforcement in `tests/ui-contract/`
 
 **Source contract tests:**
@@ -212,12 +238,14 @@ for its extracted Workspace component.
 After any follow-up change to this split, run:
 
 ```bash
+# Design token and visual contract verification
+bun run design:lint
 # Source contract tests
-bun --cwd apps/m-ui run test -- priority-routes.contract.test.ts commandwell.contract.test.ts inline-operational-alert.contract.test.ts global-profile-controls.contract.test.ts bff.vitest.ts
+cd apps/m-ui && bun run test -- priority-routes.contract.test.ts commandwell.contract.test.ts inline-operational-alert.contract.test.ts global-profile-controls.contract.test.ts bff.vitest.ts
 # Workspace seam tests
-bun --cwd apps/m-ui run test -- control-room-workspace.vitest.ts approval-detail-workspace.vitest.ts network-profile-workspace.vitest.ts break-glass-workspace.vitest.ts
+cd apps/m-ui && bun run test -- control-room-workspace.vitest.ts approval-detail-workspace.vitest.ts network-profile-workspace.vitest.ts break-glass-workspace.vitest.ts
 # Runtime characterization suite
-bun --cwd apps/m-ui run test -- tests/runtime/priority-routes.runtime.vitest.ts tests/runtime/commandwell.behavior.vitest.ts tests/runtime/degraded-bff.behavior.vitest.ts tests/runtime/dataplane-degraded.behavior.vitest.ts tests/runtime/fail-closed-command.behavior.vitest.ts tests/runtime/token-presence.behavior.vitest.ts
+cd apps/m-ui && bun run test -- tests/runtime/priority-routes.runtime.vitest.ts tests/runtime/commandwell.behavior.vitest.ts tests/runtime/degraded-bff.behavior.vitest.ts tests/runtime/dataplane-degraded.behavior.vitest.ts tests/runtime/fail-closed-command.behavior.vitest.ts tests/runtime/token-presence.behavior.vitest.ts
 # UI contract boundary
 bun run test:ui-contract
 bun run typecheck:m-ui
@@ -235,9 +263,13 @@ These decisions are still intentionally left to later M-UI implementation work:
 - Whether the `network/` profile routes remain in `modules/network/` or later
   split into a dedicated profile/M-Net submodule.
 - Whether detail surfaces stay route-based or become inline expansions.
-- When to evaluate Bits UI inside `ui/` primitives.
 - Whether to introduce a sticky CommandWell footer wrapper.
 - Whether `+layout.svelte` keeps its current grid or delegates to a
   `layout/Shell.svelte` wrapper.
+
+Bits UI evaluation timing is now answered: the `AlertDialog`-backed
+`ConfirmActionDialog` is the sole approved pilot, and all other primitives are
+gated behind [`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md).
+No further Bits UI primitives are under active evaluation for the current plan stage.
 
 Do not treat those deferred choices as blockers for the current file-level split.

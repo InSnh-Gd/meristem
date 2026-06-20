@@ -38,9 +38,13 @@ The six concrete conditional decisions for the transitional workbench are:
    `stores.svelte.ts` holds global shell state; per-module state lives in
    `lib/modules/<domain>/state.ts`. No global mega-store, no cross-domain
    coupling.
-4. **Bits UI adoption is gated on the `layout / modules / ui` split.** Do not
-   add `bits-ui` until after the structural split. Adoption order: Skeleton →
-   Dialog → Table → Command/Combobox. Primitives stay inside `ui/`.
+4. **Bits UI adoption is pilot-limited.** A single Bits UI primitive (`AlertDialog`,
+   wrapped as `ConfirmActionDialog`) is approved. All other Bits UI primitives
+   (Skeleton, Command/Combobox, Table, Tabs, Select, Accordion, Button, Menu,
+   Alert, Separator) are deferred behind the seven adoption gates in
+   [`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md).
+   Broad Bits UI adoption, Table/Combobox primitives, Tailwind, and state/chart/
+   motion decisions remain deferred. Primitives stay inside `ui/`.
 5. **BFF/SDUI consumption remains contract-first.** M-UI calls the BFF via the
    existing `lib/bff.ts`; new SDUI routes must be added to `lib/types.ts` and
    the route registry reader.
@@ -188,56 +192,70 @@ Specifically:
 
 ---
 
-## 5. Decision 4 — Bits UI Adoption Is Gated on `layout / modules / ui` Split
+## 5. Decision 4 — Bits UI Adoption Is Pilot-Limited
 
-**Status: `bits-ui` is not installed** (Task 8 §2 confirms no declaration in
-`apps/m-ui/package.json`, root `package.json`, or `bun.lock`; no imports
-repo-wide).
+**Status: `bits-ui` is installed only in `apps/m-ui` (pinned `2.18.1`) and only
+one Bits UI primitive is approved for production use.**
 
-**Decision:** Do **not** add `bits-ui` until after the `layout / modules / ui`
-structural split and the test-foundation prerequisites (audit §8 items 1–4) are
-green. Bits UI is a headless (unstyled) Svelte component library that ships
-behavior and accessibility without styles, so it composes with the existing
-token-driven CSS layer without imposing a visual language.
+The `AlertDialog`-backed `ConfirmActionDialog` at
+`apps/m-ui/src/lib/components/ui/ConfirmActionDialog.svelte` is the sole approved
+Bits UI pilot. No other Bits UI primitive (Skeleton, Command/Combobox, Table,
+Tabs, Select, Accordion, Button, Menu, Alert, Separator) is approved for
+production adoption in the current plan stage. Broad Bits UI adoption is not the
+current target.
 
-**Adoption order** (sequenced by the audit's degraded-visibility priority and
-the Focus-Flow Ledger's surfaces):
+**Decision:** Bits UI adoption is governed by
+[`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md),
+which defines seven gates any second primitive must pass before it can be
+considered. The adoption order described in the Bits UI evaluation (Skeleton →
+Dialog → Table → Command/Combobox) was a pre-pilot candidate prioritisation
+list, not a committed roadmap. The current state is:
 
-1. **Skeleton (degraded states)** — addresses drift D10 (silent error
-   swallowing in `fetchDataplaneStatus`/`fetchGlobalDefaults`) and pairs with
-   the degraded-BFF test scenario (audit §8 item 4). Adopted first because
-   degraded-state visibility is a required workbench rule and the
-   highest-severity gap in the current surface.
-2. **Dialog (command confirmation)** — wraps destructive/high-risk command
-   confirmation in the shared `CommandWell`. Brings focus-trap,
-   escape-to-cancel, backdrop, and scroll-lock for free, directly strengthening
-   the conservative-action contract. The single highest-value primitive per
-   Task 8.
-3. **Table (ledgers)** — backs `AuditLedger` and `ServiceRegistryTable` when
-   sorting/pagination/keyboard navigation is needed. For the current read-only
-   ledger view the gain is modest; revisit when ledger interactivity expands.
-4. **Command/Combobox (command search)** — drives CommandWell eligibility search
-   over BFF-derived eligible commands. New capability (not a replacement),
-   supporting the orient→evaluate→execute workflow.
+- **Approved (pilot):** `AlertDialog` → `ConfirmActionDialog`. Passes Gates 1–7:
+  concrete use case (destructive-command confirmation), accessibility/focus-trap
+  evidence, token-only styling, ownership boundary check, wrapper API stability,
+  single-primitive scope, and component test coverage
+  (`confirm-action-dialog.vitest.ts`).
+- **Deferred (all others):** Skeleton, Command/Combobox, Table, Tabs, Select,
+  Accordion, Button, Menu, Alert, Separator. Each is blocked by at least one
+  adoption gate. See `M-UI-PRIMITIVE-ADOPTION-CRITERIA.md` §4 for the full
+  deferred table with per-primitive gate status.
 
 **Containment rule:** Bits UI primitives stay inside the `ui/` primitive layer
-only. Wrappers (`ui/ConfirmDialog.svelte`, `ui/Skeleton.svelte`,
-`ui/LedgerTable.svelte`, `ui/CommandSearch.svelte`) enforce the workbench rules
-(Chinese disabled reasons, impact summaries, non-icon-only destructive actions,
-non-dismissible alerts) — the headless primitive never receives domain semantics
-directly. Bits UI shapes must **never** leak into BFF contracts or SDUI schemas;
-contract tests should assert no `bits-ui` import paths appear outside
-`apps/m-ui/src/lib/ui/`.
+only. Wrappers enforce the workbench rules (Chinese disabled reasons, impact
+summaries, non-icon-only destructive actions, non-dismissible alerts). Bits UI
+shapes must **never** leak into BFF contracts or SDUI schemas; contract tests
+assert no `bits-ui` import paths appear outside `apps/m-ui/src/lib/components/ui/`.
+
+The design token and visual contract is enforced by `bun run design:lint`, which
+validates the canonical `DESIGN.md` file structure and token vocabulary against the
+[`DESIGN.md`](../../DESIGN.md) source. Component-level token enforcement is a
+manual review responsibility. Every Bits UI wrapper must use only design-system
+tokens (CSS custom properties from the canonical `DESIGN.md` vocabulary and the
+current CSS token sheet) for all visual
+properties. Hardcoded colour values, raw hex values, and Tailwind utility classes
+are prohibited in primitive wrappers. The token parity audit at
+[`M-UI-DESIGN-TOKEN-PARITY.md`](./M-UI-DESIGN-TOKEN-PARITY.md) records the
+current alignment between root `DESIGN.md` and the CSS custom-property sheet;
+it is an audit only and does not authorise token rewrites.
+
+Primitive quality gates are documented in
+[`M-UI-PRIMITIVE-QUALITY-GATES.md`](./M-UI-PRIMITIVE-QUALITY-GATES.md), covering
+accessibility, destructive-confirmation behaviour, token-only styling,
+reduced-motion awareness, and a manual/screenshot visual QA baseline checklist.
+Every primitive wrapper must satisfy those gates before it can appear in a
+production route.
 
 **Rationale:**
-- Task 8 §6 explicitly recommends adopting after the split so primitives can be
-  swapped inside `ui/` without disturbing module composition, and so
-  regressions are attributable (adding a dependency in the same window as a
-  structure move multiplies risk).
-- Task 8 §5 confirms adoption is boundary-safe provided Bits UI is confined to
-  `ui/` and wrapped to enforce workbench invariants.
+- Task 8 codified the single-primitive pilot limit specifically to prevent Bits UI
+  from spreading by default just because it is installed. The pilot proves the
+  integration model (headless + wrapper + token styling) works without committing
+  to a component library migration.
 - The headless/unstyled nature means zero conflict with the Control Room Ledger
   aesthetic and the token-driven CSS layer (Decision 2).
+- Per-primitive adoption (Gate 6) ensures each new dependency earns its own
+  justification through a concrete route/module use case, accessibility evidence,
+  wrapper design, and test coverage.
 
 **Conditions for revisiting:**
 - A primitive's behavior (focus trap, a11y, scroll-lock) is needed **before**
@@ -309,9 +327,10 @@ hard gates for follow-up refactors):
    Locks the rendered surface so file moves cannot silently drop a component.
 
 2. **Token-presence / auth-context tests.** Render representative components and
-   assert styles resolve to CSS custom properties from `MERISTEM-DESIGN.md`
-   tokens (no raw color values) at render time — extending the current static
-   scan into a rendered-DOM assertion. Also assert token/session context is
+   assert styles resolve to CSS custom properties from the canonical root
+   `DESIGN.md` token vocabulary and the current CSS token sheet (no raw color
+   values) at render time — extending the current static scan into a
+   rendered-DOM assertion. Also assert token/session context is
    present before privileged surfaces render.
 
 3. **CommandWell behavior tests.** Component-level tests for the shared
@@ -350,7 +369,10 @@ deferred with the trigger that would bring it back into scope.
   stabilize and a concrete need (theming, utility-class ergonomics) appears.
   The current CSS custom-property layer (Decision 2) migrates cleanly to
   Tailwind v4's CSS-variable foundation when the trigger fires; no preemptive
-  migration is warranted.
+  migration is warranted. The token parity audit
+  ([`M-UI-DESIGN-TOKEN-PARITY.md`](./M-UI-DESIGN-TOKEN-PARITY.md)) records the
+  current DESIGN.md ↔ CSS alignment and must be consulted before any Tailwind
+  evaluation.
 
 - **PWA / offline behavior.** Out of scope for v0.1. The transitional workbench
   assumes an online operator with a live BFF. Revisit only if a control-room
@@ -361,7 +383,10 @@ deferred with the trigger that would bring it back into scope.
   library is adopted. Degraded-state banners and command confirmations use CSS
   transitions only. Revisit if transitions become complex enough that hand-rolled
   CSS is harder to maintain than a focused motion utility (e.g., Svelte's
-  built-in transitions suffice for most cases).
+  built-in transitions suffice for most cases). Motion tokens (`--duration-*`,
+  `--easing-*`) are deferred; see
+  [`M-UI-PRIMITIVE-QUALITY-GATES.md`](./M-UI-PRIMITIVE-QUALITY-GATES.md) §6 for
+  the reduced-motion and motion-token-family baseline.
 
 - **Server-side rendering strategy for the control-room.** Currently
   `@sveltejs/adapter-static` with SPA fallback (`svelte.config.js`). The
@@ -377,7 +402,9 @@ deferred with the trigger that would bring it back into scope.
   machine) is deferred. Revisit if the command lifecycle gains non-trivial
   states (e.g., async approval polling, multi-step param collection) that runes
   flags cannot express safely. Any adoption would be scoped to the command
-  module's `state.ts`, not a global pattern (per Decision 3).
+  module's `state.ts`, not a global pattern (per Decision 3). This is a separate
+  concern from Bits UI primitive adoption
+  ([`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md)).
 
 ---
 
@@ -386,8 +413,11 @@ deferred with the trigger that would bring it back into scope.
 - Concept selection: [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) (Task 9 implications)
 - Structure mapping: [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md) (Task 7 — `layout / modules / ui` split, migration waves)
 - Bits UI evaluation: [`M-UI-BITS-UI-EVALUATION.md`](./M-UI-BITS-UI-EVALUATION.md) (Task 8 — candidate primitives, boundary compliance, adoption sequencing)
+- Bits UI adoption criteria: [`M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./M-UI-PRIMITIVE-ADOPTION-CRITERIA.md) (seven-gate governance for future primitives)
+- Primitive quality gates: [`M-UI-PRIMITIVE-QUALITY-GATES.md`](./M-UI-PRIMITIVE-QUALITY-GATES.md) (accessibility, destructive-confirmation, token-only styling, reduced-motion, visual QA baseline)
+- Design token parity audit: [`M-UI-DESIGN-TOKEN-PARITY.md`](./M-UI-DESIGN-TOKEN-PARITY.md) (DESIGN.md ↔ app.css alignment audit; no code changes authorised)
 - Structure & test gap audit: [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) (§7 test gaps, §8 test-foundation prerequisites, D1–D10 drift)
-- Design system / tokens: [`DESIGN.md`](./DESIGN.md) §4–§6, §8
+- Design system / tokens: [`DESIGN.md`](../../DESIGN.md) §4–§6, §8
 - Workbench brief & ownership rules: [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md)
 - SDUI contract: [`SDUI-SCHEMA.md`](./SDUI-SCHEMA.md)
 - Testing gates: [`docs/testing/TESTING.md`](../testing/TESTING.md)

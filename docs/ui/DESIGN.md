@@ -1,92 +1,111 @@
----
-name: "M-UI Transitional Workbench"
-colors:
-  primary: "#0f172a"
-  surface: "#ffffff"
-  background: "#f8fafc"
-  border: "#e2e8f0"
-  danger: "#ef4444"
-  warning: "#f59e0b"
-  success: "#10b981"
-  textPrimary: "#1e293b"
-  textSecondary: "#64748b"
+# M-UI Design System: Companion & Index
+
+> **This document is a companion, not a standalone design-system source.** The canonical AI-readable design-system file is root [`DESIGN.md`](../../DESIGN.md). Read that file for token definitions, component intent, layout primitives, spacing and typography scales, and reconciliation notes.
+>
+> This companion explains how the canonical design system relates to the M-UI Transitional Workbench brief, the SDUI schema, `MERISTEM-DESIGN.md`, and the component mapping. It carries UI-specific rationale and boundary notes that are not duplicated in the canonical root.
+
 ---
 
-# Design System: M-UI Transitional Workbench
+## 1. Document Map
 
-> **Note:** This document serves as the design-system contract and intent specification for the M-UI Transitional Workbench. It is a semantic reference for Stitch, Figma, and human developers, not a literal Svelte component implementation spec.
+| Document | Role | Location |
+|----------|------|----------|
+| `DESIGN.md` | **Canonical** design-system source (tokens, primitives, components, intent) | Root |
+| `MERISTEM-DESIGN.md` | Target visual design contract (dark-native, deferred adoption) | Root |
+| `M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md` | Operator workflows, experience layers, ownership principles | `docs/ui/` |
+| `SDUI-SCHEMA.md` | Route/component contract registry (not a renderer) | `docs/ui/` |
+| `M-UI-STRUCTURE-MAPPING.md` | Component-to-module (`layout / modules / ui`) implementation mapping | `docs/ui/` |
+| This file | Companion/index explaining relationships and UI-specific rationale | `docs/ui/` |
 
-## 1. Design Philosophy & Product Intent
+---
 
-The M-UI Transitional Workbench is a "Focus-Flow Ledger" designed for security, policy, and platform operators. It operates as a Control Room Ledger where orientation, traceability, and conservative action take precedence over decorative visuals. The design language must communicate authority, safety, and chronological truth. We treat the system as an append-only ledger of facts and audits, prioritizing temporal sequence and clear policy approvals. Operators must feel confident that what they see is exactly what the system state reflects, and any destructive or high-risk action is bounded by explicit confirmation and visible impact summaries.
+## 2. Two-Tier Design Model
 
-## 2. Information Architecture
+Meristem maintains two design documents at different layers, intentionally:
 
-The Focus-Flow Ledger relies on a strict, predictable vertical hierarchy across all domains (nodes, policy, audit, timeline). Instead of a complex multi-pane spatial grid, information stacks linearly top-to-bottom:
+1. **`DESIGN.md` (root)** — The canonical transitional design-system authority. It records the design-intent tokens, primitives, and component catalog. The CSS implementation (`apps/m-ui/src/app.css`) has adopted the dark/graphite target palette from `MERISTEM-DESIGN.md` ahead of this document's token update; this documented divergence (see root `DESIGN.md` §9.1) means the canonical source is the design authority, not a literal mirror of the current CSS. AI design tools and frontend implementers should read this file as the primary design-system input, consulting the parity audit at `docs/ui/M-UI-DESIGN-TOKEN-PARITY.md` for token-by-token divergence details.
 
-1. **Header Zone:** `NavRail` (side) and `RouteHeader` (top) with an integrated `StateSourceBadge` establishing context and truth.
-2. **Alert Zone:** A full-width `InlineOperationalAlert` immediately below the header that injects itself only when the system is in a degraded or fail-closed state.
-3. **Filter Zone:** A `FilterBar` for narrowing the ledger or stream.
-4. **Content Stream (Primary):** The vertical workspace module (e.g., `AuditLedger`, `TimelineStream`, `NodeMap`).
-5. **Inspector Zone (Inline):** When an item is selected, a `KeyValueInspector`, `TraceLink`, and `RawEnvelopeView` expand inline, directly above the content stream.
-6. **Command Zone (Footer):** A full-width, sticky `CommandWellPanel` fixed to the bottom of the viewport, acting as the secure execution environment.
+2. **`MERISTEM-DESIGN.md` (root)** — The target visual design contract for the future formal workbench. It mandates a dark-native graphite palette, IBM Plex Sans and Berkeley Mono font families, semantic signal tokens, and stricter component/layout/motion rules. Adoption of this target is deferred; the transitional workbench does not implement it yet.
 
-## 3. Layout Primitives
+**Do not merge these two documents.** The root `DESIGN.md` serves as the current implementation contract. `MERISTEM-DESIGN.md` serves as the future target. Collapsing them into a single document would conflate what is implemented with what is planned.
 
-* **Vertical Rhythm:** The interface flows vertically. Stacking context is linear.
-* **Full-Width Banners:** Degraded states and alerts span the entire width of the primary content area, pushing the ledger down. They are impossible to ignore.
-* **Sticky Footer Container:** The `CommandWellPanel` spans the full width of the viewport bottom, anchoring all operational commands securely regardless of vertical scroll position.
-* **Responsive Baseline:** The linear vertical stack natively degrades to single-column layouts for smaller or compressed viewports without complex breakpoint logic.
+---
 
-## 4. Color Strategy
+## 3. Relationship to the M-UI Transitional Workbench Brief
 
-Colors are semantic and functional. Avoid raw hex spam in implementation; rely on token mapping.
+The [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md) defines the operator workflows, experience layers (Orientation, Investigation, Controlled Action, Traceability), ownership principles, and evaluation criteria for the M-UI Transitional Workbench. The canonical `DESIGN.md` is the design-system expression of that brief: it translates the brief's Focus-Flow Ledger concept into concrete tokens, layout primitives, and component intent.
 
-* **Neutral / Surface:** Slate and gray scales (`#f8fafc` background, `#ffffff` surface, `#e2e8f0` borders). Provides a clean, document-like foundation.
-* **Primary / Text:** Deep navy or slate (`#0f172a`, `#1e293b`). Used for typography, primary structure, and neutral focus states. 
-* **Danger:** Red (`#ef4444`). Used strictly for destructive actions, error states, and critical alerts.
-* **Warning:** Amber/Orange (`#f59e0b`). Used for degraded states, pending approvals, and cautionary alerts.
-* **Success:** Emerald/Green (`#10b981`). Used for approved policies, successful command execution, and healthy node states.
+The brief's four deferred areas remain unaddressed in the design system:
+- Final visual language and brand polish
+- Final primitive/component library decisions
+- Final state architecture
+- Advanced charting, visualization, and motion systems
 
-## 5. Spacing Scale
+---
 
-Based on a standard 4px/8px grid system to maintain a structured, ledger-like density:
-* **Micro:** `4px` (gap between icons and text, dense data points)
-* **Tight:** `8px` (padding within tight badges or list items)
-* **Base:** `16px` (standard container padding, spacing between ledger entries)
-* **Loose:** `24px` (spacing between major architectural zones, e.g., Alert to Filter)
-* **Layout:** `32px` - `48px` (page margins, spacing above the sticky footer)
+## 4. Relationship to SDUI Schema
 
-## 6. Typography Scale
+The [`SDUI-SCHEMA.md`](./SDUI-SCHEMA.md) records the route and component inventory that M-UI commits to support. It is a **contract registry**, not a runtime page renderer or composition engine. The canonical `DESIGN.md` defines the visual language for the components listed in the SDUI registry; the SDUI schema defines which components exist and which routes use them.
 
-Clean, system-level sans-serif optimized for data density and readability.
-* **Display / Header 1:** `24px`, Semibold (Route titles)
-* **Header 2:** `18px`, Medium (Section headers within the ledger)
-* **Body / Base:** `14px`, Regular (Standard data points, ledger entries, log text)
-* **Caption / Meta:** `12px`, Regular/Mono (Timestamps, trace IDs, raw envelope data, state source tags)
-* **Monospace:** Used exclusively for code blocks, IDs, JSON envelopes, and exact values to ensure vertical alignment.
+Key boundary: SDUI does not create pages or dynamically instantiate components at runtime in the current Transitional Workbench stage. Any future runtime rendering or dynamic composition requires a new ADR and contract migration.
 
-## 7. State-Source and Degraded-State Language
+---
 
-* **State Source Attribution:** Every critical fact rendered on screen must visually attribute its source (e.g., authoritative, event, cache, read-model, log, audit, policy) via a `StateSourceBadge`.
-* **Degraded States:** When the UI cannot reach authoritative data or a dependency fails, it must fail-closed. The UI must clearly explain the degraded state in Chinese via the `InlineOperationalAlert` (e.g., "Core 当前处于 degraded 模式"). Disabled commands in the CommandWell must display visible Chinese reasoning (e.g., "缺少权限：task:submit").
+## 5. UI-Specific Rationale
 
-## 8. Component Catalog & Intent
+This section records design decisions that are specific to the UI layer and are not captured in the canonical token definitions at root `DESIGN.md`.
 
-*   **NavRail:** Global orientation; persistent left-side navigation.
-*   **RouteHeader:** Page-level orientation and title.
-*   **StateSourceBadge:** Small tag attached to headers or data points identifying the origin of the facts (e.g., "audit", "policy").
-*   **InlineOperationalAlert:** Full-width banner for communicating degraded modes, system failures, or missing dependencies.
-*   **FilterBar:** Search and filtering controls for the content streams.
-*   **KeyValueInspector:** Dense, vertical table for deep inspection of entity fields.
-*   **TraceLink:** Affordance connecting an event to its correlation ID, navigating the operator to the origin.
-*   **RawEnvelopeView:** Monospace container for displaying raw, untampered JSON/event data.
-*   **AuditLedger:** A chronological, append-only list of operator actions, policy decisions, and system changes.
-*   **TimelineStream:** A chronological stream of domain events and state transitions.
-*   **DecisionQueueSummary:** A list view summarizing pending policy approvals or manual tasks.
-*   **CommandWellPanel:** The sticky footer container that evaluates command eligibility, previews impact, and captures explicit confirmation before executing action.
-*   **NetworkProfileListPanel:** Ledger view for network profile definitions.
-*   **NetworkDetailPanel:** Inspection view for a specific network.
-*   **NodeMap:** Topology/list visualization of system nodes.
-*   **ServiceRegistryTable:** Ledger view of registered services and their health.
-*   **NodeCredentialPanel:** Secure inspection panel for node-specific credentials or identity claims.
+### 5.1 Why a light/slate palette (not dark-native)
+
+The canonical `DESIGN.md` records a light/slate palette (`#ffffff` surface, `#f8fafc` background) as the transitional design intent. `MERISTEM-DESIGN.md` mandates a dark-native graphite palette as the target visual design contract, but adopting it requires a coordinated migration across the entire component tree. The CSS implementation (`apps/m-ui/src/app.css`) has already adopted the dark/graphite target palette ahead of `DESIGN.md`'s token update; this divergence is documented in root `DESIGN.md` §9.1. The transitional workbench intentionally defers full token reconciliation; the canonical `DESIGN.md` remains the design-system authority while the implementation runs ahead on colour tokens. This should not be resolved through a documentation-only change.
+
+This deferral is scoped in the `M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md` §3 (deferred: final visual language). It should not be resolved through a documentation-only change.
+
+### 5.2 Why `CommandWellPanel` in design vs `CommandWell` in code
+
+The canonical `DESIGN.md` §8 uses `CommandWellPanel` to describe the layout role: a panel that occupies the command zone at the bottom of the viewport. The implementation file is `CommandWell.svelte` inside `modules/command/`. The design document describes intent and layout semantics; the implementation filename drops the `Panel` suffix because the Svelte file naming convention does not encode layout roles. This is not a naming inconsistency that needs correction.
+
+### 5.3 Component catalog coverage
+
+The canonical `DESIGN.md` §8 describes design-intent components. Additional implementation components exist in the landed code tree that were added after the design document was authored. For the full implementation inventory, see `M-UI-STRUCTURE-MAPPING.md`. The canonical catalog captures design intent; the structure mapping captures implementation fact.
+
+### 5.4 State-source attribution
+
+The canonical `DESIGN.md` §7 requires that every critical fact visually attribute its source (authoritative, event, cache, read-model, log, audit, policy). This is enforced via the `StateSourceBadge` component. The BFF is responsible for annotating data with `stateSource` metadata; the UI renders it without interpreting or authoring the classification. The BFF must not own final facts or final authorization.
+
+---
+
+## 6. What This Companion Does Not Duplicate
+
+This companion intentionally does not duplicate:
+- Token definitions (color hex values, spacing scale, typography scale) — see root `DESIGN.md` §§4–6
+- Information architecture zones — see root `DESIGN.md` §2
+- Layout primitives — see root `DESIGN.md` §3
+- Component catalog entries and intent descriptions — see root `DESIGN.md` §8
+- Reconciliation notes — see root `DESIGN.md` §9
+
+If a fact appears in both files, the root `DESIGN.md` version is authoritative.
+
+---
+
+## 7. Intended Readers
+
+| Reader | Primary Document |
+|--------|-----------------|
+| AI design tools (Stitch, Figma MCP, Claude Design) | Root `DESIGN.md` |
+| SvelteKit frontend implementers | Root `DESIGN.md` + `M-UI-STRUCTURE-MAPPING.md` |
+| Design exploration agents | Root `DESIGN.md` + `M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md` |
+| PR reviewers checking visual code | Root `DESIGN.md` + `MERISTEM-DESIGN.md` §9.2 |
+| Anyone understanding document relationships | This file |
+| Anyone checking SDUI contract validity | `SDUI-SCHEMA.md` |
+
+---
+
+## 8. Maintenance Rules
+
+- If a token changes, update root `DESIGN.md`. Do not duplicate the change here.
+- If the two-tier model changes (e.g., the transitional workbench adopts `MERISTEM-DESIGN.md` tokens), update §2 here and the header note in root `DESIGN.md`.
+- If SDUI introduces runtime rendering, update §4 here and file a new ADR.
+- If the brief's deferred areas are activated, update §3 here.
+
+This file is an index and explanation layer. It should not grow into a second design-system copy.

@@ -10,11 +10,12 @@
 
 1. `../AGENTS.md` — AI agent 入口与项目 skill 路由。
 2. `../MERISTEM.md` — 产品意图、产品边界、隐私与安全原则。
-3. `../MERISTEM-DESIGN.md` — M-UI 视觉与交互契约。
-4. `../MERISTEM-DEV.md` — 工程规范、模块边界、数据结构、冻结条款。
-5. `../MERISTEM-ROADMAP.md` — v0.1 交付范围、验收标准与后续跟踪项。
-6. `../DEFERRED-WORK.md` — v0.1 之后或暂缓的工作。
-7. 本文档（`docs/README.md`）— 查找具体契约的入口。
+3. `../MERISTEM-DESIGN.md` — M-UI 目标视觉与交互契约。
+4. `../DESIGN.md` — M-UI Transitional Workbench 规范设计系统源文件（token、基本元素、组件意图）。
+5. `../MERISTEM-DEV.md` — 工程规范、模块边界、数据结构、冻结条款。
+6. `../MERISTEM-ROADMAP.md` — v0.1 交付范围、验收标准与后续跟踪项。
+7. `../DEFERRED-WORK.md` — v0.1 之后或暂缓的工作。
+8. 本文档（`docs/README.md`）— 查找具体契约的入口。
 
 ---
 
@@ -31,7 +32,7 @@
 | `config/` | 配置生命周期状态机与回滚规则 | `config/CONFIG-LIFECYCLE.md` |
 | `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md` |
 | `testing/` | 测试策略与 CI 门禁 | `testing/TESTING.md` |
-| `ui/` | M-UI 过渡型工作台 brief、SDUI schema 与运营组件契约 | `ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`, `ui/SDUI-SCHEMA.md` |
+| `ui/` | M-UI 过渡型工作台 brief、SDUI schema、设计系统 companion、运营组件契约、token parity audit、primitive adoption criteria 与 primitive quality gates。规范设计系统源文件位于根目录 `../DESIGN.md`；`bun run design:lint` 校验规范 `DESIGN.md` 文件结构与 token 词汇表（不扫描组件 CSS 或 Svelte 文件）。 | `ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`, `ui/SDUI-SCHEMA.md`, `ui/DESIGN.md` |
 | `references/` | 上游技术快照 | `references/elysiajs-latest.md` |
 | `agents/` | Agent issue tracker、分类标签与领域上下文说明 | `agents/domain.md` |
 
@@ -60,24 +61,32 @@
 ## 4. 文档维护规则
 
 - 当代码变更触及 `docs/` 中定义的契约边界时，必须在同一次变更中更新对应契约。
-- 如果根文档中的产品意图发生变化，应先更新 `../MERISTEM.md`，再级联到 `../MERISTEM-DESIGN.md`、`../MERISTEM-DEV.md`、`../MERISTEM-ROADMAP.md` 以及受影响的契约文档。
+- 如果根文档中的产品意图发生变化，应先更新 `../MERISTEM.md`，再级联到 `../MERISTEM-DESIGN.md`、`../DESIGN.md`、`../MERISTEM-DEV.md`、`../MERISTEM-ROADMAP.md` 以及受影响的契约文档。
 - 索引本身只增删目录或入口链接，不展开规范细节。
 
 ---
 
 ## 5. UI 设计激活文档集
 
-The following documents record the M-UI Transitional Workbench design activation. They supplement the brief and SDUI schema listed in §2 and §3 above.
+The following documents record the M-UI Transitional Workbench design activation. The canonical design-system source is root [`../DESIGN.md`](../DESIGN.md); the companion at `ui/DESIGN.md` explains the relationship among the canonical design system, the brief, SDUI schema, and `MERISTEM-DESIGN.md`.
 
 | Document | Purpose |
 |----------|---------|
-| [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](./ui/M-UI-DESIGN-TOOL-AVAILABILITY.md) | Design tool availability and fallback path |
+| [`../DESIGN.md`](../DESIGN.md) | **Canonical** design-system source (tokens, primitives, component intent) |
+| [`ui/DESIGN.md`](./ui/DESIGN.md) | Companion/index: explains document relationships and UI-specific rationale |
+| [`ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md) | Workbench brief: operator workflows and experience layers |
+| [`ui/SDUI-SCHEMA.md`](./ui/SDUI-SCHEMA.md) | SDUI contract registry (route/component inventory; not a runtime renderer) |
 | [`ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) | Structure/test gap audit and drift findings D1–D10 |
 | [`ui/M-UI-STITCH-CONCEPTS.md`](./ui/M-UI-STITCH-CONCEPTS.md) | Two layout concepts compared during exploration |
 | [`ui/M-UI-DESIGN-EXPLORATION-DECISION.md`](./ui/M-UI-DESIGN-EXPLORATION-DECISION.md) | Convergence decision: Focus-Flow Ledger |
-| [`ui/DESIGN.md`](./ui/DESIGN.md) | Design-system tokens and primitive layer |
+| [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](./ui/M-UI-DESIGN-TOOL-AVAILABILITY.md) | Design tool availability and fallback path |
 | [`ui/M-UI-DESIGN-MD-CLI-EVALUATION.md`](./ui/M-UI-DESIGN-MD-CLI-EVALUATION.md) | design-md CLI tool evaluation |
 | [`ui/M-UI-FIGMA-CONTEXT-VALIDATION.md`](./ui/M-UI-FIGMA-CONTEXT-VALIDATION.md) | Figma MCP context validation (deferred) |
 | [`ui/M-UI-STRUCTURE-MAPPING.md`](./ui/M-UI-STRUCTURE-MAPPING.md) | Component-to-module (`layout / modules / ui`) mapping |
 | [`ui/M-UI-BITS-UI-EVALUATION.md`](./ui/M-UI-BITS-UI-EVALUATION.md) | Bits UI primitive-layer evaluation |
 | [`ui/M-UI-FRONTEND-TECH-DECISIONS.md`](./ui/M-UI-FRONTEND-TECH-DECISIONS.md) | Frontend technology decisions |
+| [`ui/M-UI-DESIGN-TOKEN-PARITY.md`](./ui/M-UI-DESIGN-TOKEN-PARITY.md) | Design token parity audit (DESIGN.md ↔ app.css; audit only, no code changes) |
+| [`ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](./ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md) | Bits UI primitive adoption governance (seven adoption gates; AlertDialog pilot only) |
+| [`ui/M-UI-PRIMITIVE-QUALITY-GATES.md`](./ui/M-UI-PRIMITIVE-QUALITY-GATES.md) | Primitive quality gates: accessibility, destructive confirmation, token-only styling, reduced-motion, visual QA baseline |
+
+The canonical `DESIGN.md` file structure and token vocabulary are validated by `bun run design:lint`. This command does not scan component CSS or Svelte files. Component-level token enforcement (no raw colour literals, defined-token-only usage in primitive wrappers) is a manual review responsibility (see [`M-UI-PRIMITIVE-QUALITY-GATES.md`](./ui/M-UI-PRIMITIVE-QUALITY-GATES.md) §8). Bits UI adoption is currently limited to the `AlertDialog`-backed `ConfirmActionDialog` pilot only; all other Bits UI primitives (Skeleton, Command/Combobox, Table, Tabs, Select, Accordion, Button, Menu, Alert, Separator) remain deferred behind the adoption criteria in `M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`. Tailwind, charting libraries, state-machine libraries, and motion-token decisions are not yet decided and remain deferred.

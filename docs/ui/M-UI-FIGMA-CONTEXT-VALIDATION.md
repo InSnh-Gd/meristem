@@ -284,10 +284,9 @@ meets that fallback acceptance by recording:
 Wave 3 / Task 6 is therefore complete for the current environment because the
 plan's fallback path requires a gap-and-activation record, not a fabricated
 Figma validation transcript.
-- No `.omo/` paths are referenced in commands, examples, or assertions. The
-  orchestration plan location is not named here; the activation path is
-  expressed entirely through `docs/ui/` cross-references and the OpenCode config
-  path.
+- No internal orchestration paths are referenced in commands, examples, or
+  assertions. The activation path is expressed entirely through `docs/ui/`
+  cross-references and the OpenCode config path.
 - The ownership boundaries from
   [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md)
   are preserved: the future Figma file depicts an M-UI-owned workbench

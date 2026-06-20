@@ -343,9 +343,10 @@ here so the structure-mapping task has a concrete gate.
    `network.profiles.detail`, `mnet.break-glass` (the highest-risk surfaces).
 
 2. **Token-presence checks.** A test that renders representative components and
-   asserts styles resolve to CSS custom properties from `MERISTEM-DESIGN.md`
-   tokens (no raw color values) at render time — extending the current static
-   scan into a rendered-DOM assertion. This locks the visual contract before any
+   asserts styles resolve to CSS custom properties from the canonical root
+   `DESIGN.md` token vocabulary and the current CSS token sheet (no raw color
+   values) at render time — extending the current static scan into a
+   rendered-DOM assertion. This locks the visual contract before any
    component restructure.
 
 3. **CommandWell behavior tests.** Component-level tests for the shared
@@ -389,7 +390,7 @@ structure-mapping task):
 - No inline CommandWell (D4) is converged onto the shared component.
 - No `GlobalProfileControls`/`JoinTicketPanel` registration (D5) is changed.
 - No test is added; the §8 list is a gate for a future task, not this one.
-- No dependency (Bits UI, Tailwind, state/chart/motion libraries) is adopted.
+- No dependency (Bits UI, Tailwind, state/chart/motion libraries) was adopted at the time this audit was written; a single AlertDialog Bits UI pilot was later approved under the criteria in `M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`.
 
 The audit's sole tracked-file output is this document. All findings are
 recorded to inform the convergence decision and structure-mapping task; they do

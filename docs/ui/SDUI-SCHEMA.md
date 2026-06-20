@@ -199,7 +199,7 @@ Transitional workbench rules:
 - Unknown component kind fails closed.
 - Missing permission hides or disables command with reason; the transitional workbench must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
-- Component token usage follows `MERISTEM-DESIGN.md`.
+- Component token usage follows the canonical root `DESIGN.md` for transitional implementation tokens. Note that the CSS implementation currently uses the target dark/graphite palette from `MERISTEM-DESIGN.md` ahead of the canonical token update; this divergence is documented in root `DESIGN.md` §9.1. Until the token migration is executed, token-level enforcement should reference both the canonical DESIGN.md vocabulary and the current CSS token sheet.
 
 ---
 

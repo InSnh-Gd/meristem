@@ -27,7 +27,7 @@ optionally table semantics for the ledgers.
 
 Bits UI is a **headless (unstyled) Svelte component library**. Because it ships
 behavior and accessibility — not styles — it composes cleanly with the existing
-token-driven CSS custom-property system documented in [`DESIGN.md`](./DESIGN.md)
+token-driven CSS custom-property system documented in [`DESIGN.md`](../../DESIGN.md)
 §4–§6. It does not impose a visual language and therefore does not conflict with
 the Control Room Ledger aesthetic.
 
@@ -46,11 +46,13 @@ Task 7) and the test-foundation prerequisites (audit §8) are in place, and only
 inside the `ui/` primitive layer. Bits UI shapes must never leak into BFF
 contracts or SDUI schemas.
 
-> **Premise correction.** The task brief assumed `bits-ui` was already present in
-> `apps/m-ui/package.json`. It is **not** (see §2). This evaluation therefore
-> treats adoption as a future decision rather than a migration of an existing
-> dependency, and frames all recommendations accordingly. No dependency is
-> installed or upgraded by this document.
+> **Premise correction (historical).** The original evaluation was written when `bits-ui` was absent
+> from `apps/m-ui/package.json`. It has since been adopted as a single-pilot dependency
+> (v2.18.1, `AlertDialog` via `ConfirmActionDialog.svelte`) under the governance gates in
+> `M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`. All other Bits UI primitives listed in §3 remain
+> unevaluated for actual adoption — the evaluation framework, candidate scoring, and boundary
+> analysis below still apply to those primitives. This document has been updated to reflect the
+> post-pilot state while preserving the original evaluative structure.
 
 ---
 
@@ -58,11 +60,11 @@ contracts or SDUI schemas.
 
 | Item | Value |
 |---|---|
-| Declared in `apps/m-ui/package.json` | **No** |
+| Declared in `apps/m-ui/package.json` | **Yes** (v2.18.1, `dependencies`) |
 | Declared in root `package.json` | **No** |
-| Present in `bun.lock` | **No** |
-| Direct imports in `apps/m-ui/src/**` | **None** (repo-wide search for `bits-ui` returns no matches) |
-| Current direct usage in M-UI | **None** |
+| Present in `bun.lock` | **Yes** |
+| Direct imports in `apps/m-ui/src/**` | **Single import** (`AlertDialog` in `ConfirmActionDialog.svelte`; repo-wide search for `bits-ui` returns 1 match) |
+| Current direct usage in M-UI | **Pilot only** (`AlertDialog`-backed `ConfirmActionDialog`; all other Bits UI primitives remain unadopted per the adoption criteria) |
 
 `apps/m-ui/package.json` now declares a `test` script (`vitest run`) plus the
 frontend test dependencies required by the current render/runtime foundation:
@@ -71,13 +73,14 @@ frontend test dependencies required by the current render/runtime foundation:
 `@sveltejs/vite-plugin-svelte`, `svelte-check`, `svelte` (**5.37.0**), and
 `vite`.
 
-**Implication.** Because bits-ui is not installed, there is nothing to migrate
-and no existing usage to preserve. The cost of adoption is purely the
-*introduction* cost: a new dev dependency, a version to pin, and a contributor
-learning curve. The Svelte 5 runes compatibility of the chosen version must be
-verified at adoption time against `svelte@5.37.0` (see §7). All current M-UI
-components are already Svelte 5 runes-based (`$props`, `$derived`) and
-token-driven, so there is no legacy slot/svelte-4 pattern to reconcile.
+**Implication (post-pilot).** The `AlertDialog` pilot has been introduced as a
+single dependency (`bits-ui@2.18.1` in `apps/m-ui`), wrapping `AlertDialog.Root`
+through `ConfirmActionDialog.svelte`. No other Bits UI primitives are imported or
+used. The cost of adopting additional primitives remains a new import at the correct
+`ui/` layer entry point, with Svelte 5 runes compatibility verified against the
+current `svelte@5.37.0` (see §7). All current M-UI components are already Svelte 5
+runes-based (`$props`, `$derived`) and token-driven; there is no legacy slot/svelte-4
+pattern to reconcile.
 
 ---
 
@@ -160,11 +163,14 @@ not delegated to the headless primitive.
 
 **Sequencing — adopt AFTER the `layout / modules / ui` split, not before.**
 
-1. **Do not introduce Bits UI during the current flat-`lib/components/` state.**
+1. **The `AlertDialog` pilot is complete.** `ConfirmActionDialog.svelte` already wraps
+   Bits UI `AlertDialog` inside `ui/`. The remaining primitives should not be
+   introduced during any further `layout / modules / ui` restructuring.
    The audit (§8) requires a minimum test foundation (route-render smoke tests,
    token-presence checks, CommandWell behavior tests, degraded-BFF scenarios)
-   before any file restructuring. Adding a dependency in the same window as the
-   structure move multiplies risk and makes regressions hard to attribute.
+   before any file restructuring. Adding additional Bits UI primitives in the
+   same window as a structure move multiplies risk and makes regressions hard to
+   attribute.
 
 2. **Introduce Bits UI only inside the `ui/` primitive layer** once the split
    exists (per `M-UI-DESIGN-EXPLORATION-DECISION.md` Task 7):
@@ -190,13 +196,13 @@ not delegated to the headless primitive.
    `ui/ConfirmDialog.svelte` is an *internal* M-UI primitive, not a new SDUI
    kind. Contract tests (`tests/ui-contract/`) and the visual-contract scan
    should be extended to assert no `bits-ui` import paths appear outside
-   `apps/m-ui/src/lib/ui/`.
+   `apps/m-ui/src/lib/components/ui/`.
 
-5. **Pin and verify at adoption time.** When the split lands, add `bits-ui` as a
-   dev dependency of `apps/m-ui` only (not the root), pin an exact version,
-   verify Svelte 5 runes compatibility against the then-current `svelte`
-   version, and add a component test for each wrapper before it is consumed by
-   a module.
+5. **Pin and verify at adoption time for each new primitive.** When adopting a new
+   Bits UI primitive, add it as a dependency of `apps/m-ui` only (not the root),
+   pin an exact version, verify Svelte 5 runes compatibility against the
+   then-current `svelte` version, and add a component test for each wrapper
+   before it is consumed by a module.
 
 ---
 
@@ -216,7 +222,7 @@ not delegated to the headless primitive.
 ## Cross-References
 
 - Concept selection: [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) (Task 8 implications, §"Task 8 — Bits UI evaluation")
-- Design system / tokens: [`DESIGN.md`](./DESIGN.md) §4–§6, §8
+- Design system / tokens: [`DESIGN.md`](../../DESIGN.md) §4–§6, §8
 - Structure & test gaps: [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) §7.2, §8 (D10)
 - Workbench brief & ownership rules: [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md)
 - SDUI contract: [`SDUI-SCHEMA.md`](./SDUI-SCHEMA.md)

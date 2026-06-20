@@ -20,6 +20,7 @@
     "deploy:local": "bun run scripts/deploy-local.ts",
     "deploy:m-ui": "bun run scripts/run-m-ui-local.ts",
     "db:ownership-check": "bun run scripts/db-ownership-check.ts",
+    "design:lint": "design.md lint DESIGN.md",
     "dev:all": "bun run scripts/dev-all.ts",
     "dev:backend": "bun run scripts/dev-core.ts",
     "dev:core": "bun run scripts/dev-core.ts",
@@ -97,6 +98,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
+    "@google/design.md": "0.3.0",
     "@meristem/testing": "workspace:*",
     "@playwright/test": "^1.61.0",
     "@total-typescript/shoehorn": "0.1.2",
