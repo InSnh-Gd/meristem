@@ -293,14 +293,14 @@ the registry. M-UI does not call Core or M-* services directly; the
 
 ## 7. Decision 6 — Testing Strategy for the Split
 
-**Status: no Svelte component render tests exist today** (audit §7.2: no `test`
-script, no vitest, no `@testing-library/svelte` in `apps/m-ui/package.json`;
-all 15 existing test files are BFF/contract/boundary/failure-mode/e2e tests,
-none mount a Svelte component).
+**Status: landed.** The M-UI split is now protected by a real frontend test
+foundation: `apps/m-ui` owns a Vitest / `happy-dom` / `@testing-library/svelte`
+suite for rendered runtime and seam coverage, while repo-root Bun suites still
+own contracts and UI-boundary tests.
 
-**Decision:** Gate the `layout / modules / ui` restructure on the following test
-foundation (the audit §8 prerequisites, restated as hard gates). No file moves
-until items 1–4 are green; item 5 should accompany Wave 1.
+**Decision:** Keep the `layout / modules / ui` restructure protected by the
+following test foundation (the audit §8 prerequisites, now materially landed as
+hard gates for follow-up refactors):
 
 1. **Route-render smoke tests** for every route (all 18 SvelteKit pages). Each
    test mounts the page with a stubbed BFF and asserts the expected primary

@@ -280,7 +280,14 @@ or unused surface.
 
 ## 7. Test Coverage Summary
 
-Source: `tests/` and `apps/m-ui/`. M-UI-related test files found: **15**.
+> Historical note: this section was originally a pre-foundation audit snapshot.
+> The current authoritative landed-state test map now lives in
+> [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md) §4–§5. The summary
+> below has been updated to reflect the current runner split so this audit does
+> not contradict the implemented test setup.
+
+Source: `tests/` and `apps/m-ui/`. M-UI-related testing now spans repo-root Bun
+contract/ui-contract suites plus `apps/m-ui` Vitest runtime/component suites.
 
 ### 7.1 Existing Test Inventory
 
@@ -302,30 +309,22 @@ Source: `tests/` and `apps/m-ui/`. M-UI-related test files found: **15**.
 | failure-mode | `tests/failure-modes/m-ui-bff-mnet-commands.test.ts` | BFF mnet command failure modes |
 | service | `tests/services/m-ui-bff/types.test.ts` + `eligibility.test.ts` | BFF types and eligibility |
 | e2e | `tests/e2e/bff.test.ts`, `commandwell-mutation.test.ts`, `config-lifecycle.test.ts` | Full-stack BFF/e2e |
-| apps | `tests/apps/m-ui/bff.test.ts` | M-UI BFF client behavior |
+| apps (Vitest) | `apps/m-ui/src/lib/bff.vitest.ts` | M-UI BFF client behavior and URL override wiring |
+| apps (Vitest) | `apps/m-ui/tests/runtime/*.vitest.ts` | rendered runtime behavior, degraded-state visibility, token presence, and route parity |
+| apps (Vitest) | `apps/m-ui/src/lib/components/modules/**/*workspace.vitest.ts` | extracted Workspace seam coverage |
 
 ### 7.2 Coverage Gaps
 
-- **No Svelte component render tests.** `apps/m-ui/package.json` has no `test`
-  script, no `vitest`, and no `@testing-library/svelte` (or equivalent). The
-  visual-contract test is a **static source-file scan** (reads `.svelte` files as
-  text and regex-scans for raw colors inside `<style>` blocks); it never mounts
-  a component.
-- **No route render smoke tests.** No test asserts that a given route renders
-  its declared components or that `+layout.svelte` wires the registry to
-  `NavRail`.
-- **No token-presence checks at render time.** Token usage is validated only by
-  static scan, not by a rendered DOM assertion.
-- **No CommandWell behavior tests at the component level.** CommandWell is
-  tested at the BFF contract and mutation boundary, but confirmation flow,
-  disabled-reason visibility, and inline error-envelope rendering inside the
-  Svelte component are untested.
-- **No degraded-BFF UI scenario.** Failure-mode tests cover the BFF layer; none
-  assert that the UI surfaces a visible degraded state (e.g. via
-  `InlineOperationalAlert`) when a BFF endpoint fails.
-- **No registry↔renderer reconciliation test.** Nothing asserts that the
-  components a route actually renders match its registry `components` array,
-  which is why D2/D3/D8 went undetected by the suite.
+- **Resolved since the original audit:** the repo now has an `apps/m-ui` Vitest
+  script, `happy-dom`, Svelte render coverage, route render smoke tests,
+  token-presence checks, CommandWell behavior tests, degraded-BFF UI scenarios,
+  and registry↔renderer reconciliation tests.
+- **Current guardrail:** keep runner ownership explicit. Bun owns repo-root
+  `*.test.ts` suites, Vitest owns `apps/m-ui` `*.vitest.ts`, and Playwright owns
+  `tests/playwright/*.playwright.ts`.
+- **Remaining use for this audit:** treat the drift inventory in §6 as
+  historical rationale for why the newer structure-mapping and UI-contract gates
+  exist, not as the current coverage truth.
 
 ---
 

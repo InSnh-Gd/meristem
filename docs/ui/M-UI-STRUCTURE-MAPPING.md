@@ -108,8 +108,8 @@ contain only workspace import and render — no inline logic, no inline markup.
 - **Visible landmarks**: ARIA headings and primary content regions are present.
 - **Command/degraded landmarks**: CommandWell, disabled reasons, and operational alerts are present where applicable.
 - **BFF-only boundary**: All data fetching remains routed via the BFF.
-- **Direct seam tests**: Each Workspace has a focused component test (`*-workspace.test.ts`) covering initial mount, landmarks, and regression parity.
-- **Existing runtime suite**: `priority-routes.runtime.test.ts` still passes without changes, confirming DOM hierarchy was preserved.
+- **Direct seam tests**: Each Workspace has a focused component test (`*-workspace.vitest.ts`) covering initial mount, landmarks, and regression parity.
+- **Existing runtime suite**: `priority-routes.runtime.vitest.ts` still passes without changes, confirming DOM hierarchy was preserved.
 
 ### 3.2 Drift reconciliation status
 
@@ -158,6 +158,12 @@ those dependencies.
 
 The split and subsequent extraction are protected by a growing M-UI test foundation.
 
+Runner ownership is now explicit:
+
+- root `bun test` owns Bun-compatible `*.test.ts` source-contract suites
+- `bun --cwd apps/m-ui run test` owns the Vitest / `happy-dom` M-UI runtime and component suites (`*.vitest.ts`)
+- `bun run test:ui-contract` owns repo-root UI-boundary enforcement in `tests/ui-contract/`
+
 **Source contract tests:**
 
 - `src/routes/priority-routes.contract.test.ts` protects high-risk route source
@@ -169,27 +175,27 @@ The split and subsequent extraction are protected by a growing M-UI test foundat
   protects degraded-BFF/fail-closed visibility source contracts.
 - `src/lib/components/ui/inline-operational-alert.contract.test.ts` protects
   alert severity token mapping and accessibility attributes.
-- `src/lib/bff.test.ts` protects configurable BFF URL behavior (default and
+- `src/lib/bff.vitest.ts` protects configurable BFF URL behavior (default and
   override paths via `VITE_MERISTEM_MUI_BFF_URL`).
 
 **Runtime characterization tests:**
 
-- `tests/runtime/priority-routes.runtime.test.ts` acts as the characterization
+- `tests/runtime/priority-routes.runtime.vitest.ts` acts as the characterization
   suite ensuring Workspace extraction parity for layout, command states, and
   landmarks.
-- `tests/runtime/commandwell.behavior.test.ts`,
-  `tests/runtime/degraded-bff.behavior.test.ts`,
-  `tests/runtime/dataplane-degraded.behavior.test.ts`,
-  `tests/runtime/fail-closed-command.behavior.test.ts`, and
-  `tests/runtime/token-presence.behavior.test.ts` cover fail-closed command
+- `tests/runtime/commandwell.behavior.vitest.ts`,
+  `tests/runtime/degraded-bff.behavior.vitest.ts`,
+  `tests/runtime/dataplane-degraded.behavior.vitest.ts`,
+  `tests/runtime/fail-closed-command.behavior.vitest.ts`, and
+  `tests/runtime/token-presence.behavior.vitest.ts` cover fail-closed command
   visibility, degraded state, and token behavior.
 
 **Workspace seam tests (Task 8):**
 
-- `src/lib/components/modules/control-room/control-room-workspace.test.ts`
-- `src/lib/components/modules/policy/approval-detail-workspace.test.ts`
-- `src/lib/components/modules/network/network-profile-workspace.test.ts`
-- `src/lib/components/modules/network/break-glass-workspace.test.ts`
+- `src/lib/components/modules/control-room/control-room-workspace.vitest.ts`
+- `src/lib/components/modules/policy/approval-detail-workspace.vitest.ts`
+- `src/lib/components/modules/network/network-profile-workspace.vitest.ts`
+- `src/lib/components/modules/network/break-glass-workspace.vitest.ts`
 
 Each seam test covers initial mount, landmark presence, and regression parity
 for its extracted Workspace component.
@@ -207,13 +213,13 @@ After any follow-up change to this split, run:
 
 ```bash
 # Source contract tests
-cd apps/m-ui && bun run test -- priority-routes.contract.test.ts commandwell.contract.test.ts inline-operational-alert.contract.test.ts global-profile-controls.contract.test.ts bff.test.ts
+bun --cwd apps/m-ui run test -- priority-routes.contract.test.ts commandwell.contract.test.ts inline-operational-alert.contract.test.ts global-profile-controls.contract.test.ts bff.vitest.ts
 # Workspace seam tests
-cd apps/m-ui && bun run test -- control-room-workspace.test.ts approval-detail-workspace.test.ts network-profile-workspace.test.ts break-glass-workspace.test.ts
+bun --cwd apps/m-ui run test -- control-room-workspace.vitest.ts approval-detail-workspace.vitest.ts network-profile-workspace.vitest.ts break-glass-workspace.vitest.ts
 # Runtime characterization suite
-cd apps/m-ui && bun run test -- tests/runtime/priority-routes.runtime.test.ts tests/runtime/commandwell.behavior.test.ts tests/runtime/degraded-bff.behavior.test.ts tests/runtime/dataplane-degraded.behavior.test.ts tests/runtime/fail-closed-command.behavior.test.ts tests/runtime/token-presence.behavior.test.ts
+bun --cwd apps/m-ui run test -- tests/runtime/priority-routes.runtime.vitest.ts tests/runtime/commandwell.behavior.vitest.ts tests/runtime/degraded-bff.behavior.vitest.ts tests/runtime/dataplane-degraded.behavior.vitest.ts tests/runtime/fail-closed-command.behavior.vitest.ts tests/runtime/token-presence.behavior.vitest.ts
 # UI contract boundary
-cd apps/m-ui && bun run test -- tests/ui-contract/m-ui-bff-boundary.test.ts
+bun run test:ui-contract
 bun run typecheck:m-ui
 bun run lint
 bun run typecheck

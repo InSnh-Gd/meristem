@@ -64,10 +64,12 @@ contracts or SDUI schemas.
 | Direct imports in `apps/m-ui/src/**` | **None** (repo-wide search for `bits-ui` returns no matches) |
 | Current direct usage in M-UI | **None** |
 
-`apps/m-ui/package.json` declares only: `@sveltejs/adapter-static`,
-`@sveltejs/kit` (2.25.0), `@sveltejs/vite-plugin-svelte`, `svelte-check`,
-`svelte` (**5.37.0**), and `vite`. There is no `test` script and no
-component-testing dependency — consistent with audit §7.2.
+`apps/m-ui/package.json` now declares a `test` script (`vitest run`) plus the
+frontend test dependencies required by the current render/runtime foundation:
+`vitest`, `happy-dom`, and `@testing-library/svelte`, alongside
+`@sveltejs/adapter-static`, `@sveltejs/kit` (2.25.0),
+`@sveltejs/vite-plugin-svelte`, `svelte-check`, `svelte` (**5.37.0**), and
+`vite`.
 
 **Implication.** Because bits-ui is not installed, there is nothing to migrate
 and no existing usage to preserve. The cost of adoption is purely the
