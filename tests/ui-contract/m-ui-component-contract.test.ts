@@ -7,10 +7,11 @@ import {
 
 const COMPONENTS_ROOT = 'apps/m-ui/src/lib/components'
 
-const DISPLAY_ONLY_ROUTE_FILES = [
-  'apps/m-ui/src/routes/policy/approvals/+page.svelte',
-  'apps/m-ui/src/routes/policy/approvals/[id]/+page.svelte',
-  'apps/m-ui/src/routes/network/profiles/[profileVersion]/+page.svelte'
+const DISPLAY_ONLY_ROUTE_FILES = ['apps/m-ui/src/routes/policy/approvals/+page.svelte'] as const
+
+const DETAIL_WORKSPACE_FILES = [
+  'apps/m-ui/src/lib/components/modules/policy/ApprovalDetailWorkspace.svelte',
+  'apps/m-ui/src/lib/components/modules/network/NetworkProfileWorkspace.svelte'
 ] as const
 
 const FORBIDDEN_COMPONENT_NAMES = [
@@ -94,12 +95,25 @@ describe('M-UI component contract: forbidden UI patterns', () => {
     ).toEqual([])
   })
 
-  it('approval/profile display-only pages keep preview commands non-executable and avoid hidden action forms', async () => {
+  it('approval queue route keeps preview commands non-executable and avoids hidden action forms', async () => {
     const forbiddenTokens = ['<form', 'type="submit"', '/execute', 'fetch('] as const
 
     for (const filePath of DISPLAY_ONLY_ROUTE_FILES) {
       const source = await Bun.file(filePath).text()
       expect(source).toContain('OperationalCommandPreview')
+      for (const token of forbiddenTokens) {
+        expect(source, `${filePath} should not contain ${token}`).not.toContain(token)
+      }
+    }
+  })
+
+  it('approval/profile detail workspaces keep preview visibility while owning BFF-backed command execution', async () => {
+    const forbiddenTokens = ['<form', 'type="submit"', '/execute', 'fetch('] as const
+
+    for (const filePath of DETAIL_WORKSPACE_FILES) {
+      const source = await Bun.file(filePath).text()
+      expect(source).toContain('OperationalCommandPreview')
+      expect(source).toContain('executeCommand')
       for (const token of forbiddenTokens) {
         expect(source, `${filePath} should not contain ${token}`).not.toContain(token)
       }
