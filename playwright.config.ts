@@ -4,6 +4,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: "./tests/playwright",
+  testMatch: /.*\.playwright\.ts$/,
   reporter: "list",
   retries: process.env.CI ? 2 : 0,
   use: {
