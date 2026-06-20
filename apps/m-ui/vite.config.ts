@@ -11,6 +11,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     // ponytail: run runtime specs in Vitest directly; wrapper subprocesses were unnecessary and NixOS-host brittle.
-    include: ['src/**/*.test.ts', 'tests/runtime/**/*.test.ts']
+    include: [
+      'src/**/*.test.ts',
+      'src/**/*.vitest.ts',
+      'tests/runtime/**/*.behavior.vitest.ts',
+      'tests/runtime/**/*.runtime.vitest.ts'
+    ]
   }
 })
