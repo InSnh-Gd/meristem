@@ -18,8 +18,15 @@ import type {
   NetworkMapRenderInput,
   RequestedAclRule
 } from '../../services/m-net/src/network-map-types.ts'
+import {
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
 
 const issuedAt = 1_800_000
+const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
+const signingPublicKey = signingKey.publicKey ?? (() => {
+  throw new Error('expected test signing public key')
+})()
 
 const stem: NetworkMapMemberInput = {
   nodeId: 'stem-a',
@@ -73,7 +80,8 @@ function baseInput(
     },
     issuedAt,
     previousMapVersion: 0,
-    signingKeyId: 'mnet-map-key-a'
+    signingKeyId: signingKey.keyId,
+    signingPrivateKeyPem: signingKey.privateKeyPem
   }
 }
 
@@ -102,11 +110,10 @@ describe('M-Net signed network map contract', () => {
     expect(map.aclRules).toEqual([])
     expect(map.expiresAt).toBe(issuedAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS)
     expect(map.mapVersion).toBe(1)
-    expect(map.signatureMetadata).toEqual({
-      algorithm: 'placeholder-ed25519',
-      keyId: 'mnet-map-key-a',
-      value: 'placeholder-signature:network-prod-a:1:mnet-map-key-a'
-    })
+    expect(map.signatureMetadata.algorithm).toBe('ed25519')
+    expect(map.signatureMetadata.keyId).toBe(signingKey.keyId)
+    expect(map.signatureMetadata.publicKey).toBe(signingPublicKey)
+    expect(map.signatureMetadata.value.length).toBeGreaterThan(20)
   })
 
   it('renders a single leaf map with both peers, tunnel IPs, public keys, and ACL rules', () => {
@@ -206,9 +213,10 @@ describe('M-Net signed network map contract', () => {
     expect(map.networkId).toBe('network-prod-a')
     expect(map.expiresAt).toBe(issuedAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS)
     expect(map.mapVersion).toBe(1)
-    expect(map.signatureMetadata.algorithm).toBe('placeholder-ed25519')
-    expect(map.signatureMetadata.keyId).toBe('mnet-map-key-a')
-    expect(map.signatureMetadata.value).toContain('placeholder-signature')
+    expect(map.signatureMetadata.algorithm).toBe('ed25519')
+    expect(map.signatureMetadata.keyId).toBe(signingKey.keyId)
+    expect(map.signatureMetadata.publicKey).toBe(signingPublicKey)
+    expect(map.signatureMetadata.value).not.toContain('placeholder-signature')
   })
 
   it('lets node-agent enforcement consume rendered maps without dynamic M-Policy calls', () => {

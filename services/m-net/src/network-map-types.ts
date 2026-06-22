@@ -36,6 +36,7 @@ export type NetworkMapRenderInput = {
   readonly issuedAt: number
   readonly previousMapVersion: number
   readonly signingKeyId: string
+  readonly signingPrivateKeyPem: string
   readonly staleTtlMs?: number
 }
 

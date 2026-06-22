@@ -11,6 +11,7 @@ import type {
   RenderedNetworkMap,
   RequestedAclRule
 } from './network-map-types.ts'
+import { buildNetworkMapSignatureMetadata } from './network-map-signing.ts'
 
 export const NETWORK_MAP_STALE_TTL_ENV_KEY = 'MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS'
 export const DEFAULT_NETWORK_MAP_STALE_TTL_MS = 900_000
@@ -144,13 +145,7 @@ function buildNetworkMap(
       }
     : undefined
 
-  const signatureMetadata: NetworkMapSigningMetadata = {
-    algorithm: 'placeholder-ed25519',
-    keyId: input.signingKeyId,
-    value: `placeholder-signature:${input.networkId}:${mapVersion}:${input.signingKeyId}`
-  }
-
-  const mapWithoutRelay = {
+  const mapWithoutSignature = {
     profileVersion: input.profileVersion,
     networkId: input.networkId,
     members: members.map(member => ({
@@ -161,9 +156,16 @@ function buildNetworkMap(
     aclRules: [...aclRules],
     expiresAt: calculateNetworkMapExpiresAt(input.issuedAt, staleTtlMs),
     mapVersion,
-    signatureMetadata
+    ...(relayAssignment === undefined ? {} : { relayAssignment })
   }
 
-  if (relayAssignment === undefined) return mapWithoutRelay
-  return { ...mapWithoutRelay, relayAssignment }
+  const signatureMetadata: NetworkMapSigningMetadata = buildNetworkMapSignatureMetadata(
+    mapWithoutSignature,
+    {
+      keyId: input.signingKeyId,
+      privateKeyPem: input.signingPrivateKeyPem
+    }
+  )
+
+  return { ...mapWithoutSignature, signatureMetadata }
 }

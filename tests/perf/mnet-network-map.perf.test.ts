@@ -3,11 +3,14 @@ import {
   renderNetworkMap,
   renderNetworkMaps
 } from '../../services/m-net/src/network-map-renderer.ts'
+import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
 import type {
   NetworkMapMemberInput,
   NetworkMapRenderInput,
   RequestedAclRule
 } from '../../services/m-net/src/network-map-types.ts'
+
+const perfSigningKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 
 /**
  * 构造性能测试用的网络成员。
@@ -49,7 +52,8 @@ function buildRenderInput(memberCount: number): NetworkMapRenderInput {
     requestedAclRules: makeAclRules(members),
     issuedAt: Date.now(),
     previousMapVersion: 0,
-    signingKeyId: 'perf-signer'
+    signingKeyId: 'perf-signer',
+    signingPrivateKeyPem: perfSigningKey.privateKeyPem
   }
 }
 

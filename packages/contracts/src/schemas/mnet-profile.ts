@@ -262,8 +262,9 @@ export const NetworkMapMemberSchema = Schema.Struct({
 export type NetworkMapMemberFromSchema = typeof NetworkMapMemberSchema.Type
 
 export const NetworkMapSigningMetadataSchema = Schema.Struct({
-  algorithm: Schema.Literal('placeholder-ed25519'),
+  algorithm: Schema.Literal('ed25519'),
   keyId: Schema.String,
+  publicKey: Schema.String,
   value: Schema.String
 })
 export type NetworkMapSigningMetadataFromSchema = typeof NetworkMapSigningMetadataSchema.Type
