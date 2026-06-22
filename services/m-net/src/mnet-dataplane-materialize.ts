@@ -25,7 +25,7 @@ export async function materializeMembers(
   deps: DataPlaneDeps,
   networkId: string,
   profileVersion: MNetProfileVersionFromSchema,
-  correlationId: string
+  _correlationId: string
 ): Promise<ProfileWorkflowFailure | MaterializedMembers> {
   try {
     const membersResult = await deps.listMembers({ networkId })
@@ -150,7 +150,7 @@ export async function materializeMembers(
     }
 
     const issuedAt = Date.now()
-    let signingKey
+    let signingKey: ReturnType<typeof resolveNetworkMapSigningKeyMaterial>
     try {
       signingKey = resolveNetworkMapSigningKeyMaterial(process.env)
     } catch (error) {
