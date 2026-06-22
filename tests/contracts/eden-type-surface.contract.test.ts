@@ -31,6 +31,7 @@ import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
+import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
@@ -289,6 +290,27 @@ type ExpectedMNetAppDeps = {
   dataPlane?: DataPlaneStores
   globalDefaultsStore?: GlobalDefaultsStore
   migrationEngine?: MigrationEngine
+  nodeRuntime?: {
+    authorize(nodeId: string, token: string): Promise<boolean>
+    fetchLatestNetworkMap(
+      nodeId: string
+    ): Promise<{ map: NetworkMapFromSchema } | { kind: 'failure'; status: 400 | 401 | 403 | 404 | 409 | 503; error: { code: string; message: string } }>
+    registerNodePublicKey(input: {
+      nodeId: string
+      keyId: string
+      publicKey: string
+      createdAt: string
+    }): Promise<
+      | {
+          nodeId: string
+          keyId: string
+          fingerprint: string
+          mapVersion: number
+          correlationId: string
+        }
+      | { kind: 'failure'; status: 400 | 401 | 403 | 404 | 409 | 503; error: { code: string; message: string } }
+    >
+  }
 }
 
 type ExpectedEventBusAppDeps = {

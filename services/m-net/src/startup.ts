@@ -5,6 +5,7 @@ import { createMNetApp } from './app.ts'
 import { createMNetInfrastructure } from './clients.ts'
 import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
 import { createWiredMigrationEngine } from './migration-engine-factory.ts'
+import { requireDataPlaneDeps } from './mnet-dataplane-support.ts'
 import { createNetworkService } from './network-service.ts'
 import { createReadinessProbe } from './readiness.ts'
 
@@ -18,12 +19,22 @@ export async function startMNetService(): Promise<void> {
     profileStore: infrastructure.profileStore,
     globalDefaultsStore: infrastructure.globalDefaultsStore
   })
+  const nodeRuntimeDataPlaneDeps = requireDataPlaneDeps({
+    profileStore: infrastructure.profileStore,
+    policyAuthorize: infrastructure.policyAuthorize,
+    listMembers: networkService.listMembers,
+    dataPlane: infrastructure.dataPlaneStores,
+    events: infrastructure.profileEvents,
+    log: infrastructure.profileLog,
+    networkUpdater: networkService.networkUpdater
+  })
   const agentRuntime = createAgentRuntime({
     db: infrastructure.db,
     publishEvent: infrastructure.publishEvent,
     writeTimeline: infrastructure.writeTimeline,
     writeFull: infrastructure.writeFull,
-    writeAudit: infrastructure.writeAudit
+    writeAudit: infrastructure.writeAudit,
+    dataPlaneDeps: 'kind' in nodeRuntimeDataPlaneDeps ? null : nodeRuntimeDataPlaneDeps
   })
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const migrationEngine = createWiredMigrationEngine({
@@ -68,7 +79,8 @@ export async function startMNetService(): Promise<void> {
     profileDisablePolicy: infrastructure.profileDisablePolicy,
     globalDefaultsStore: infrastructure.globalDefaultsStore,
     migrationEngine,
-    policyHealthCheck: { checkHealth: checkPolicyHealth }
+    policyHealthCheck: { checkHealth: checkPolicyHealth },
+    ...(agentRuntime.nodeRuntime ? { nodeRuntime: agentRuntime.nodeRuntime } : {})
   })
 
   const internalServer = serveHttpApp('m-net', app.fetch)

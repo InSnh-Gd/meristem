@@ -5,6 +5,7 @@ import type {
   NetworkSummary,
   NodeAgentTaskExecuteResponse
 } from '../../../packages/contracts/src/index.ts'
+import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
@@ -12,7 +13,9 @@ import type {
 import type { DataPlaneStores } from './data-plane-store-types.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { MigrationEngine } from './migration-engine.ts'
+import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
+import type { ProfileWorkflowFailure } from './profile-workflow-types.ts'
 import type { MNetServiceResult } from './types.ts'
 
 export type MNetAppDeps = {
@@ -136,4 +139,17 @@ export type MNetAppDeps = {
   globalDefaultsStore?: GlobalDefaultsStore
   /** 批量 Profile 迁移引擎 */
   migrationEngine?: MigrationEngine
+  /** node-agent runtime-token authenticated boundary for map reads and key registration */
+  nodeRuntime?: {
+    authorize(nodeId: string, token: string): Promise<boolean>
+    fetchLatestNetworkMap(
+      nodeId: string
+    ): Promise<{ map: NetworkMapFromSchema } | ProfileWorkflowFailure>
+    registerNodePublicKey(input: {
+      nodeId: string
+      keyId: string
+      publicKey: string
+      createdAt: string
+    }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
+  }
 }

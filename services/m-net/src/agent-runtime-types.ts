@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from 'bun'
 import type { MNetDb } from './clients.ts'
+import type { DataPlaneDeps } from './mnet-dataplane-support.ts'
 import type { JoinSessionData, PendingTask } from './shared.ts'
 
 export type CredentialStore = Pick<MNetDb, 'insert' | 'update'>
@@ -28,6 +29,7 @@ export type AgentRuntimeDeps = {
     traceId?: string,
     payload?: unknown
   ): Promise<void>
+  dataPlaneDeps?: DataPlaneDeps | null
 }
 
 export type AgentRuntimeState = {

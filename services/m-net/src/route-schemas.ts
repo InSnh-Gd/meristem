@@ -133,8 +133,9 @@ export const latestNetworkMapSchema = t.Object({
   expiresAt: t.Number(),
   mapVersion: t.Number(),
   signatureMetadata: t.Object({
-    algorithm: t.Literal('placeholder-ed25519'),
+    algorithm: t.Literal('ed25519'),
     keyId: t.String(),
+    publicKey: t.String(),
     value: t.String()
   })
 })

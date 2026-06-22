@@ -48,6 +48,8 @@ type RouteFixture = {
   profileStore: NonNullable<MNetAppDeps['profileStore']>
 }
 
+const nodeRuntimeToken = 'node-runtime-token'
+
 function validKey(seed: string): string {
   return `${seed
     .replace(/[^A-Za-z0-9]/g, 'A')
@@ -96,6 +98,31 @@ function createRouteFixture(): RouteFixture {
     },
     async executeNoop() {
       return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
+    },
+    nodeRuntime: {
+      async authorize(_nodeId, token) {
+        return token === nodeRuntimeToken
+      },
+      async fetchLatestNetworkMap(_nodeId) {
+        const latest = await dataPlane.networkMaps.getLatest('network-dataplane-test')
+        return latest
+          ? { map: latest.map }
+          : {
+              kind: 'failure' as const,
+              status: 404 as const,
+              error: { code: 'network_map.not_found', message: 'network map not found' }
+            }
+      },
+      async registerNodePublicKey(input) {
+        const mapVersion = (await dataPlane.networkMaps.getLatest('network-dataplane-test'))?.mapVersion ?? 0
+        return {
+          nodeId: input.nodeId,
+          keyId: input.keyId,
+          fingerprint: `wg:${input.publicKey.slice(0, 8)}`,
+          mapVersion,
+          correlationId: 'node-runtime-correlation'
+        }
+      }
     },
     profileStore,
     suspendedOps,
@@ -301,6 +328,38 @@ describe('M-Net dataplane route contracts', () => {
     ).toEqual({
       error: { code: 'key.duplicate', message: 'duplicate or invalid public key rejected' }
     })
+
+    const nodeRuntimeMap = await fixture.app.handle(
+      new Request('http://localhost/api/v0/node-runtime/nodes/leaf-cn-1/network-map', {
+        headers: { authorization: `Bearer ${nodeRuntimeToken}` }
+      })
+    )
+    expect(nodeRuntimeMap.status).toBe(200)
+    expect(((await nodeRuntimeMap.json()) as { map: { mapVersion: number } }).map.mapVersion).toBeGreaterThan(1)
+
+    const nodeRuntimeKey = await fixture.app.handle(
+      new Request('http://localhost/api/v0/node-runtime/nodes/leaf-cn-1/key', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${nodeRuntimeToken}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          keyId: 'leaf-cn-1-runtime-key',
+          publicKey: validKey('leaf-cn-1-runtime-key'),
+          createdAt: '2026-06-18T00:05:00.000Z'
+        })
+      })
+    )
+    expect(nodeRuntimeKey.status).toBe(200)
+    expect((await nodeRuntimeKey.json()) as { keyId: string }).toMatchObject({
+      keyId: 'leaf-cn-1-runtime-key'
+    })
+
+    const unauthorizedRuntimeMap = await fixture.app.handle(
+      new Request('http://localhost/api/v0/node-runtime/nodes/leaf-cn-1/network-map')
+    )
+    expect(unauthorizedRuntimeMap.status).toBe(401)
   })
 
   it('stale internal network-map fetch returns typed fail-closed error', async () => {
@@ -313,8 +372,9 @@ describe('M-Net dataplane route contracts', () => {
       publishedAt: '2026-06-18T00:00:00.000Z',
       expiresAt: '2026-06-18T00:00:00.000Z',
       signatureMetadata: {
-        algorithm: 'placeholder-ed25519',
+        algorithm: 'ed25519',
         keyId: 'stale-map-key',
+        publicKey: 'stale-public-key',
         value: 'placeholder-signature:stale'
       },
       map: {
@@ -325,8 +385,9 @@ describe('M-Net dataplane route contracts', () => {
         expiresAt: 0,
         mapVersion: 99,
         signatureMetadata: {
-          algorithm: 'placeholder-ed25519',
+          algorithm: 'ed25519',
           keyId: 'stale-map-key',
+          publicKey: 'stale-public-key',
           value: 'placeholder-signature:stale'
         }
       }

@@ -1,3 +1,4 @@
+import { createNodeRuntimeFacade } from './agent-runtime-node-runtime.ts'
 import { markOfflineNodes } from './agent-runtime-session-lifecycle.ts'
 import { executeNoop, rejectPendingTasksOnShutdown } from './agent-runtime-task-dispatch.ts'
 import type { AgentRuntimeDeps } from './agent-runtime-types.ts'
@@ -11,7 +12,8 @@ export function createAgentRuntime({
   publishEvent,
   writeTimeline,
   writeFull,
-  writeAudit
+  writeAudit,
+  dataPlaneDeps
 }: AgentRuntimeDeps) {
   const context = {
     db,
@@ -23,6 +25,9 @@ export function createAgentRuntime({
     activeSessionIds: new Map(),
     pendingTasks: new Map()
   }
+  const nodeRuntime = createNodeRuntimeFacade(
+    dataPlaneDeps === undefined ? { db } : { db, dataPlaneDeps }
+  )
 
   return {
     executeNoop(input: { nodeId: string; taskId: string; correlationId: string }) {
@@ -34,6 +39,7 @@ export function createAgentRuntime({
     createJoinIngress() {
       return createJoinIngress(context)
     },
+    ...(nodeRuntime ? { nodeRuntime } : {}),
     rejectPendingTasksOnShutdown() {
       return rejectPendingTasksOnShutdown(context)
     }

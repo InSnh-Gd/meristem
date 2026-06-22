@@ -60,6 +60,7 @@ function toLatestNetworkMapResponse(map: Awaited<ReturnType<typeof fetchLatestNe
       signatureMetadata: {
         algorithm: map.map.signatureMetadata.algorithm,
         keyId: map.map.signatureMetadata.keyId,
+        publicKey: map.map.signatureMetadata.publicKey,
         value: map.map.signatureMetadata.value
       }
     }
