@@ -18,9 +18,11 @@ import {
 } from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
-const signingPublicKey = signingKey.publicKey ?? (() => {
-  throw new Error('expected test signing public key')
-})()
+const signingPublicKey =
+  signingKey.publicKey ??
+  (() => {
+    throw new Error('expected test signing public key')
+  })()
 
 function createAclRule(input: {
   action: 'allow' | 'deny'

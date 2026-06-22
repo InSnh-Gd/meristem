@@ -104,7 +104,9 @@ describe('node-agent local overlay apply', () => {
       ['ip', 'link', 'set', 'up', 'dev', 'meristem-wg0']
     ])
     expect(await stat(env.paths.configPath)).toBeDefined()
-    expect((await readFile(env.paths.configPath, 'utf8')).includes('Endpoint = 127.0.0.1:51821')).toBe(true)
+    expect(
+      (await readFile(env.paths.configPath, 'utf8')).includes('Endpoint = 127.0.0.1:51821')
+    ).toBe(true)
   })
 
   it('tears down local state when the signed map is stale', async () => {

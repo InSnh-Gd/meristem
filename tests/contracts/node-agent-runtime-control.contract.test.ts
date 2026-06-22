@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fetchLatestNodeRuntimeNetworkMap, registerNodeRuntimeKey } from '../../services/node-agent/src/node-agent-session.ts'
+import {
+  fetchLatestNodeRuntimeNetworkMap,
+  registerNodeRuntimeKey
+} from '../../services/node-agent/src/node-agent-session.ts'
 import {
   generateWireGuardKeyMaterial,
   loadOrCreateWireGuardKeyMaterial
