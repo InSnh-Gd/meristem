@@ -792,6 +792,12 @@ Owner: M-UI / M-UI BFF.
 
 Source: M-Extension service definition and M-UI contract docs.
 
+Scope note: this entry covers M-UI-owned extension management screens only.
+Plugin-supplied UI, page slots, or sandboxed contribution runtime remain a
+separate ADR/security/contract track under
+`docs/adr/ADR-U02-plugin-ui-sandbox-security-model.md`; DFW-022 does not reopen
+or authorize that runtime.
+
 Deferred work:
 
 - extension list screen.
@@ -816,6 +822,9 @@ Required before implementation:
 - SDUI route schema update if server-driven.
 - CommandWell contract for register / enable / disable.
 - UI tests for source visibility, disabled reasons, high-risk rejection wording, and no direct UI calls to fact-source services when BFF is required.
+- Plugin-supplied UI must satisfy ADR-U02 first; M-UI-owned extension management
+  screens must not introduce plugin runtime, dynamic component registration, or
+  service/plugin-provided frontend modules.
 
 ---
 

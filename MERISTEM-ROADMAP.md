@@ -2,7 +2,7 @@
 
 > This document is the single active roadmap for Meristem. It replaces the old per-phase files with one v0.1 scope, one acceptance matrix, and one post-v0.1 track list.
 >
-> If this roadmap conflicts with `MERISTEM.md`, `MERISTEM-DESIGN.md`, or `MERISTEM-DEV.md`, the root intent and engineering documents win. Deferred work lives in `DEFERRED-WORK.md`.
+> If this roadmap conflicts with `MERISTEM.md`, `MERISTEM-DEV.md`, or active contract docs, the root intent and engineering documents win. Deferred work lives in `DEFERRED-WORK.md`.
 
 ---
 
@@ -57,7 +57,7 @@ Any change that expands Core responsibility, creates implicit service coupling, 
 | Policy | RBAC and bounded high-risk decisions fail closed and write Audit facts | `docs/services/m-policy.md`, `docs/security/SECURITY-MODEL.md`, `docs/adr/ADR-F02-architecture-organization.md` |
 | State | PostgreSQL write model, read model, cache, event state, draft state, and log facts are not conflated | `docs/data/STATE-MODEL.md`, `docs/data/POSTGRES-SCHEMA-MVP.md` |
 | Config and secrets | Config lifecycle and SecretRef responsibilities are explicit and auditable | `docs/config/CONFIG-LIFECYCLE.md`, `docs/adr/ADR-F02-architecture-organization.md` |
-| UI / BFF | M-UI, BFF, and SDUI organize operational state, command eligibility, and traceable workbench structure through approved transitional workbench contracts | `MERISTEM-DESIGN.md`, `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md` |
+| UI / BFF | M-UI, BFF, and SDUI organize operational state, command eligibility, and traceable workbench structure through active UI/BFF contracts | `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md` |
 | Operations | Bun-only local operation, optional deployment pack, ports, and degraded modes are documented | `docs/operations/RUNBOOK.md`, `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md` |
 | Tests | Typecheck, contracts, failure modes, integration, CLI, e2e, and Node.js-ban gates are selected by boundary | `docs/testing/TESTING.md` |
 

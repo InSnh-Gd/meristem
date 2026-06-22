@@ -2,9 +2,9 @@
 
 > 这是 MERISTEM 的**工程规范**。它回答：产品怎么被实现、数据结构长什么样、哪些决策一旦定下来就不可更改。
 >
-> **边界**：`MERISTEM.md` 回答「是什么」，`MERISTEM-DESIGN.md` 回答「长什么样」，本文档回答「怎么被实现」。三份文档冲突时，`MERISTEM.md` 是意图，`MERISTEM-DESIGN.md` 是视觉契约，本文档是实现当前的草稿。意图先改，视觉契约再跟上，实现最后跟上。
+> **边界**：`MERISTEM.md` 回答「是什么」，本文档回答「怎么被实现」。文档冲突时，`MERISTEM.md` 是意图，本文档是实现当前的工程总纲。意图先改，工程与契约文档再跟上，实现最后跟上。
 >
-> **跨文档引用约定**：`产品文档 §X.Y` 引用 `MERISTEM.md`，`设计文档 §X.Y` 引用 `MERISTEM-DESIGN.md`，`开发文档 §X.Y` 引用本文档。
+> **跨文档引用约定**：`产品文档 §X.Y` 引用 `MERISTEM.md`，`开发文档 §X.Y` 引用本文档。
 
 ---
 
@@ -227,17 +227,14 @@ Timeline Log 不是审计证据。
 Full Log 不能替代 Audit Log。
 ```
 
-### 1.6 样式系统
+### 1.6 M-UI 契约边界
 
-M-UI 的视觉系统必须通过 token 和 SDUI schema 落地。
+M-UI 当前不再由独立视觉设计文档约束。前端重构可以重新定义视觉和样式方向，但必须保留以下契约边界：
 
-关键约束：
-
-- 所有颜色、字体、间距和状态信号必须通过 design token 引用，见 `设计文档 §2–§4`。
-- 禁止在组件文件中写死 hex、rgb、hsl 或任意 px 值。
-- SDUI schema 必须限制 route-level layout 和组件 inventory。
-- 高风险操作只能出现在 CommandWell 中，见 `设计文档 §6.1`。
-- Audit、Policy、Log、Node state 组件必须显示可追溯来源。
+- SDUI schema 只限定 route-level layout 和组件 inventory，不承载完整运行时渲染引擎。
+- 高风险操作只能通过明确的 CommandWell/确认路径进入执行流程。
+- Audit、Policy、Log、Node state 相关组件必须保留可追溯来源。
+- 当前用户需求和实现任务的明确要求优先于保留的历史设计探索文档。
 
 ---
 

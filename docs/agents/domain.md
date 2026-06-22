@@ -10,7 +10,7 @@ Read:
 
 - `CONTEXT.md` at the repo root for Meristem domain language.
 - `docs/adr/` for architectural decisions relevant to the area being changed.
-- `AGENTS.md`, `MERISTEM.md`, `MERISTEM-DESIGN.md`, `MERISTEM-DEV.md`, and `MERISTEM-ROADMAP.md` according to the repo's required document order.
+- `AGENTS.md`, `MERISTEM.md`, `MERISTEM-DEV.md`, and `MERISTEM-ROADMAP.md` according to the repo's required document order.
 
 There is no `CONTEXT-MAP.md` and no per-context ADR layout currently configured.
 

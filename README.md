@@ -89,7 +89,6 @@ meristem/
 ```text
 AGENTS.md
 ├── MERISTEM.md               # 产品意图与系统边界
-├── MERISTEM-DESIGN.md        # 可视化与运维 UI 契约
 ├── MERISTEM-DEV.md           # 工程规则与模块边界
 ├── MERISTEM-ROADMAP.md       # 活动 v0.1 范围与验收矩阵
 └── docs/README.md            # 详细文档索引
@@ -148,7 +147,6 @@ bun run test:e2e
 | --- | --- |
 | [`AGENTS.md`](./AGENTS.md) | 仓库上下文入口与技能路由 |
 | [`MERISTEM.md`](./MERISTEM.md) | 产品意图与领域边界 |
-| [`MERISTEM-DESIGN.md`](./MERISTEM-DESIGN.md) | 可视化与运维 UI 契约 |
 | [`MERISTEM-DEV.md`](./MERISTEM-DEV.md) | 工程规则与实现边界 |
 | [`MERISTEM-ROADMAP.md`](./MERISTEM-ROADMAP.md) | 活动 v0.1 范围与验收矩阵 |
 | [`docs/README.md`](./docs/README.md) | 详细文档索引 |
