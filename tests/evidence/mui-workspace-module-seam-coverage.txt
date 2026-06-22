@@ -1,0 +1,18 @@
+Workspace Module Seam Coverage
+
+Direct seam tests:
+- control-room-workspace.test.ts
+- approval-detail-workspace.test.ts
+- network-profile-workspace.test.ts
+- break-glass-workspace.test.ts
+
+Covered parity expectations:
+- document title
+- visible route landmarks
+- target selectors / structural cues
+- risk/degraded elements where applicable
+
+Combined verification:
+- Direct seam tests passed.
+- tests/runtime/priority-routes.runtime.test.ts remained green after extraction.
+- The extraction preserved 1:1 route behavior while making workspace seams directly testable.

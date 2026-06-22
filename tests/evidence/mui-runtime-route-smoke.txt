@@ -1,0 +1,16 @@
+M-UI Runtime Route Smoke
+
+Focused runtime route coverage:
+- control-room
+- policy approvals detail
+- network profile detail
+- mnet break-glass
+
+Behavior checked:
+- Document title parity
+- Primary landmarks / visible route structure
+- Command or degraded landmarks where applicable
+- BFF-only boundary expectations preserved
+
+Result:
+The focused runtime route smoke suite confirms the priority routes still render the expected workbench structure without wrapper-specific indirection.

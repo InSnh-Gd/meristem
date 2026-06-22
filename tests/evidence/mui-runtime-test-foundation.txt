@@ -1,0 +1,14 @@
+Task 1 Runtime / Behavior Test Foundation
+
+Foundation landed:
+- apps/m-ui/tests/runtime/ runtime suite exists
+- Vitest + happy-dom run the M-UI behavior tests directly
+- Wrapper indirection was removed in favor of direct vitest execution
+
+Constraints preserved:
+- Source stays portable; no NixOS-specific logic leaked into app code
+- Existing source-contract tests were kept alongside the runtime suite
+- Priority-route runtime coverage stays minimal and behavior-focused
+
+Result:
+The M-UI now has a real runtime/behavior test foundation that subsequent tasks can build on.

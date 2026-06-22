@@ -1,0 +1,15 @@
+SDUI Doc / Contract Alignment
+
+Alignment facts:
+- BFF route registry exposes 17 routes.
+- SDUI-SCHEMA.md documents the same effective route inventory (13 existing + 4 added = 17).
+- Workspace modules are internal extraction units inside M-UI, not SDUI-registered component kinds.
+- Component-kind allowlist remains aligned with the real registry and rendered implementation inventory.
+
+Docs left unchanged because no contract drift remained in this slice:
+- docs/ui/SDUI-SCHEMA.md
+- docs/services/m-ui-bff.md
+- docs/testing/TESTING.md
+
+Result:
+The SDUI documentation, route registry, and component-kind contract remain aligned after the workspace extraction state.

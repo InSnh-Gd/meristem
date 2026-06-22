@@ -1,0 +1,15 @@
+Degraded BFF Runtime Visibility
+
+Scope:
+- Global defaults and related BFF-backed M-UI state no longer fail silently at runtime.
+
+Behavior verified:
+- Degraded BFF responses now surface through InlineOperationalAlert rather than disappearing behind catch blocks.
+- GlobalProfileControls and adjacent flows preserve visible degraded/fail-closed communication.
+
+Implementation notes:
+- stores.svelte.ts now propagates concrete error strings for fetchGlobalDefaults and related refresh paths.
+- The M-UI runtime behavior suite keeps the degraded-BFF path covered using the existing Vitest + happy-dom harness.
+
+Result:
+Runtime BFF degradation is surfaced to the operator instead of being swallowed.

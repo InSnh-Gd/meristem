@@ -1,0 +1,16 @@
+Dataplane Degraded Visibility
+
+Coverage added:
+- apps/m-ui/tests/runtime/dataplane-degraded.behavior.test.ts
+
+Behavior verified:
+- When dataplane status loading fails, the user sees an InlineOperationalAlert instead of silent emptiness.
+- The degraded state is rendered as explicit fail-closed feedback.
+- Error text is propagated from the store layer into visible route/component state.
+
+Implementation notes:
+- stores.svelte.ts no longer swallows dataplane-status load failures.
+- Dataplane-related route surfaces now bubble formatted BFF errors into visible alerts.
+
+Result:
+Dataplane load failure is visibly degraded and no longer hidden.

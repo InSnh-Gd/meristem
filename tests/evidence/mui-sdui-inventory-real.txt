@@ -1,0 +1,19 @@
+Task 4 SDUI Inventory Reality Check
+
+State:
+- 23 active component kinds
+- 17 routes with state sources
+- Every component kind maps to a real Svelte component file
+
+Specific guards:
+- TraceLink limited to timeline.index only
+- Removed orphan kinds remain absent from registry and schema
+- No fabricated entries or placeholder kinds
+
+Verification:
+- Drift test passed with filesystem mapping coverage
+- M-UI SDUI contract test passed
+- UI component contract test passed
+
+Result:
+The SDUI inventory reflects real rendered implementation, not aspirational structure.

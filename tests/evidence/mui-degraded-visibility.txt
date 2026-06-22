@@ -1,0 +1,19 @@
+Task 3 Degraded / Fail-Closed Visibility Summary
+
+Swallowed paths fixed:
+- fetchDataplaneStatus
+- fetchGlobalDefaults
+- selectNode command-state loading
+- fetchPolicySummary refresh path
+
+UI outcome:
+- Previously hidden failures are now rendered through InlineOperationalAlert.
+- Failure communication remains non-color-only.
+- CommandWell and related network/profile surfaces fail closed with visible operator feedback.
+
+Tests and checks:
+- Local vitest run passed across 12 files / 30 tests.
+- Focused runtime behavior coverage now includes explicit degraded-state rendering checks.
+
+Result:
+The M-UI no longer hides these failure paths behind silent catches or log-only behavior.

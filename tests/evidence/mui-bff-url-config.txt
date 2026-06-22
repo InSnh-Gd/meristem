@@ -1,0 +1,21 @@
+Task 5 BFF URL Configuration
+
+Implementation:
+- apps/m-ui/src/lib/bff.ts now reads import.meta.env.VITE_MERISTEM_MUI_BFF_URL.
+- Default behavior remains http://localhost:3200 when the env var is unset or empty.
+- No server-only environment API is used.
+
+Tests and checks:
+- bun run test (apps/m-ui vitest): 32/32 passed
+- bun run check (apps/m-ui): 0 errors, 0 warnings
+- bun test tests/ui-contract/m-ui-bff-boundary.test.ts: 2/2 passed
+
+Verification facts:
+- grep shows the env-based source only in bff.ts and bff.test.ts; no accidental hardcoded BFF copies remain elsewhere.
+- apps/m-ui/src/lib/bff.test.ts proves both default and override behavior.
+
+Usage example:
+VITE_MERISTEM_MUI_BFF_URL=http://my-bff:9999 bun run dev:m-ui
+
+Result:
+Task 5 is complete and ready to mark done.

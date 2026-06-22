@@ -1,0 +1,18 @@
+Task 4 Real Route Registry Inventory
+
+Registry facts:
+- 17 routes in the M-UI BFF route registry
+- 23 active component kinds
+- TraceLink appears only on timeline.index
+
+Inventory conclusions:
+- Registry entries match real M-UI-owned rendered components.
+- No placeholder or fabricated component kinds are present.
+- Structural drift protection now checks that every registry component kind maps to a real Svelte component file.
+
+Verification:
+- sdui-registry-drift.contract.test.ts passed with the added filesystem-mapping guard.
+- M-UI SDUI contract tests passed.
+
+Result:
+The route registry remains a real inventory, not a speculative future registry.

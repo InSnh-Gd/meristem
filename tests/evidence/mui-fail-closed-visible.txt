@@ -1,0 +1,16 @@
+Fail-Closed Command Visibility
+
+Coverage added:
+- apps/m-ui/tests/runtime/fail-closed-command.behavior.test.ts
+
+Behavior verified:
+- When command validation/eligibility fails, the user sees an InlineOperationalAlert.
+- The UI halts cleanly instead of rendering an empty or misleading command state.
+- Disabled reasons remain visible and non-color-only.
+
+Implementation notes:
+- CommandWell gained explicit runtime error rendering.
+- Route/module panels now propagate command-state failures instead of swallowing them.
+
+Result:
+Command execution surfaces now fail closed with visible operator feedback.

@@ -1,0 +1,20 @@
+Task 4 Orphan Kinds Permanently Removed
+
+Removed / forbidden orphan component kinds:
+- TimelinePanel
+- NodeListPanel
+- NodeDetailPanel
+- ServiceListPanel
+
+Re-entry protection layers:
+1. Schema allowlist excludes the orphan kinds.
+2. Drift test asserts the schema/registry sources do not reintroduce them.
+3. Contract/UI contract tests reject the orphan kinds explicitly.
+
+Verification facts:
+- 0 orphan kinds in the route registry
+- 0 orphan kinds in the SDUI schema
+- Drift, contract, and UI contract tests all passed after strengthening
+
+Result:
+Orphan SDUI kinds remain excluded and are guarded against silent re-entry.

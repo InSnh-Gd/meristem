@@ -1,0 +1,22 @@
+Task 9 Doc Sync Summary
+
+Files changed:
+- docs/ui/M-UI-DESIGN-TOOL-AVAILABILITY.md
+
+Factual updates:
+- Route/module extraction was documented as complete for the four priority routes at the time this evidence was captured.
+- Workspace seam tests and runtime characterization coverage were reflected in the then-current UI reference docs.
+- Task 6 remains explicitly deferred/non-converged to preserve DFW-030 mutation semantics.
+- SDUI route IDs and component-kind inventory remain aligned with the BFF registry; no SDUI schema update was required.
+
+Production-doc hygiene:
+- Zero production-doc leaks of .omo paths.
+- Zero production-doc references to tests/evidence paths.
+- The only .omo-related doc hit was a negative attestation, not a leaked path.
+
+Verification:
+- grep -rn "\.omo/" docs/ --include="*.md" | grep -v "No \.omo" -> no leak hits
+- grep -rn "tests/evidence/" docs/ --include="*.md" -> no hits
+
+Result:
+Docs now match the landed Task 5-8 state while keeping the real deferred item (CommandWell convergence blocked by DFW-030) visible and factual.

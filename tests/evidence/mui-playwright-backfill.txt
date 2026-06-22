@@ -1,0 +1,18 @@
+Playwright Browser Smoke Backfill
+
+Purpose:
+- Validate the Playwright + Nix-provided Chromium wiring as a standalone browser/runtime smoke layer.
+- Keep this separate from e2e and from M-UI contract semantics.
+
+Coverage:
+- tests/playwright/browser-smoke.test.ts
+
+Behavior verified:
+- The configured Chromium runtime launches.
+- A simple page render/title assertion passes under Playwright.
+
+Command:
+- nix develop -c bun run test:playwright
+
+Result:
+Playwright browser smoke coverage is present as a focused environment-wiring check, not as a replacement for existing contract/runtime tests.

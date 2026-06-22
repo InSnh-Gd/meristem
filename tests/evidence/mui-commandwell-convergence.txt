@@ -1,0 +1,6 @@
+Task 6 Convergence Check Result:
+Non-overlapping convergence is not possible without violating DFW-030 UX semantics.
+The shared CommandWell.svelte component assumes a single-command flow with hardcoded confirmation labels and non-button disabled text.
+The inline mutations in policy/approvals and network/profiles require custom side-by-side buttons, distinct risk colors, disabled-button rendering, and custom confirmation values.
+Using CommandWell.svelte would change mutation UI layout/semantics or require new abstractions, both violating the Task 6 overlap gate.
+Result: Preserved here as historical evidence and blocked deeper extraction.

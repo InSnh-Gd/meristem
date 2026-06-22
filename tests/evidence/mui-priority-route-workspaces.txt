@@ -1,0 +1,21 @@
+Priority Route Workspace Extraction
+
+Route-level glue only:
+- apps/m-ui/src/routes/control-room/+page.svelte
+- apps/m-ui/src/routes/policy/approvals/[id]/+page.svelte
+- apps/m-ui/src/routes/network/profiles/[profileVersion]/+page.svelte
+- apps/m-ui/src/routes/mnet/break-glass/+page.svelte
+
+Workspace modules extracted:
+- modules/control-room/ControlRoomWorkspace.svelte
+- modules/policy/ApprovalDetailWorkspace.svelte
+- modules/network/NetworkProfileWorkspace.svelte
+- modules/network/BreakGlassWorkspace.svelte
+
+Verification:
+- Direct seam tests for all four extracted workspaces passed.
+- tests/runtime/priority-routes.runtime.test.ts passed after extraction.
+- Non-priority routes were not touched.
+
+Result:
+The four priority routes now delegate to focused workspace modules while preserving route parity and BFF-only boundaries.

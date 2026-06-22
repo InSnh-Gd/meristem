@@ -1,0 +1,26 @@
+Task 6 Boulder Overlap Check
+
+Decision:
+Non-overlapping convergence onto the shared CommandWell is not possible without violating the DFW-030 mutation-semantics overlap gate.
+
+Why the overlap is real:
+- CommandWell assumes a single-command flow driven by one CommandState.
+- CommandWell uses one confirmation layout and hardcoded confirmation detail labels.
+- The inline surfaces in policy approvals and network profiles require route-specific mutation UX:
+  - side-by-side multiple action buttons
+  - distinct risk-color semantics
+  - disabled-as-button rendering
+  - custom target/confirmation detail values
+
+Consequence:
+- Reusing CommandWell would either change the existing mutation UI semantics or require new abstractions inside CommandWell.
+- Both options violate the overlap gate for this task.
+
+Allowed outcome:
+- Keep the inline implementations.
+- Preserve this evidence as the non-overlap decision record.
+
+Verification:
+- bun test tests/ui-contract/m-ui-commandwell-mutation.test.ts passed
+- bun test apps/m-ui/src/lib/components/modules/command/commandwell.contract.test.ts passed
+- bun run test:contracts passed

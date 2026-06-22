@@ -1,0 +1,5 @@
+{
+  "phase": "error",
+  "bind": "100.96.0.2:18082",
+  "error": "Failed to listen at 100.96.0.2"
+}

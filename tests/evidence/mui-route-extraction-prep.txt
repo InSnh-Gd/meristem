@@ -1,0 +1,10 @@
+Priority Route Workspace Extraction Parity Ready
+- Target modules documented:
+  - modules/control-room/ControlRoomWorkspace.svelte
+  - modules/policy/ApprovalDetailWorkspace.svelte
+  - modules/network/NetworkProfileWorkspace.svelte
+  - modules/network/BreakGlassWorkspace.svelte
+- Parity requirements recorded (URL, title, landmarks, BFF boundary)
+- No workspace module files exist yet (Task 8 scope)
+- priority-routes.runtime.test.ts passes with title assertions
+- m-ui-bff-boundary.test.ts passes
