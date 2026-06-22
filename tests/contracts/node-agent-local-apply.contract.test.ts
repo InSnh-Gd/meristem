@@ -67,6 +67,8 @@ async function createEnv(commandLog: string[][]): Promise<LocalOverlayEnv> {
     localRelayEndpoint: '127.0.0.1:51821',
     expectedSigningKeyId: signingKey.keyId,
     ...(signingKey.publicKey ? { expectedSigningPublicKey: signingKey.publicKey } : {}),
+    ipBinaryPath: 'ip',
+    wgBinaryPath: 'wg',
     paths: {
       privateKeyPath: join(root, 'wg', 'private.key'),
       configPath: join(root, 'wg', 'meristem-wg0.conf'),
@@ -101,7 +103,8 @@ describe('node-agent local overlay apply', () => {
       ['ip', 'link', 'add', 'dev', 'meristem-wg0', 'type', 'wireguard'],
       ['wg', 'setconf', 'meristem-wg0', env.paths.configPath],
       ['ip', 'address', 'replace', '100.96.0.2/32', 'dev', 'meristem-wg0'],
-      ['ip', 'link', 'set', 'up', 'dev', 'meristem-wg0']
+      ['ip', 'link', 'set', 'up', 'dev', 'meristem-wg0'],
+      ['ip', 'route', 'replace', '100.96.0.3/32', 'dev', 'meristem-wg0']
     ])
     expect(await stat(env.paths.configPath)).toBeDefined()
     expect(

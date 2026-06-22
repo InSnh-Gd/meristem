@@ -14,14 +14,14 @@ export type WgConfigInput = {
   readonly map: NetworkMap
   readonly agentNodeId: string
   readonly listenPort?: number
-  readonly privateKeyPath?: string
+  /** WireGuard 私钥的 base64 内容，直接内联到配置中供 `wg setconf` 消费。 */
+  readonly privateKey: string
   readonly localRelayEndpoint?: string
 }
 
 export type WgConfigOutput = {
   readonly config: string
   readonly listenPort: number
-  readonly privateKeyPath: string
   readonly peerCount: number
 }
 
@@ -126,13 +126,14 @@ function defaultPortForProtocol(protocol: string): string | null {
 
 function buildInterfaceLines(
   localMember: NetworkMapMember,
-  privateKeyPath: string,
+  privateKey: string,
   listenPort: number
 ) {
+  // Address 由 ensureWireGuardInterface 通过 `ip address replace` 单独设置，
+  // 不放入配置文件——`wg setconf` 不识别 wg-quick 专用的 Address 指令。
   return [
     '[Interface]',
-    `Address = ${localMember.tunnelIp}/32`,
-    `PrivateKey = ${privateKeyPath}`,
+    `PrivateKey = ${privateKey}`,
     `ListenPort = ${listenPort}`
   ]
 }
@@ -186,7 +187,8 @@ function parseVersion(output: string, binary: 'wg' | 'wireguard-go'): string | n
 }
 
 /**
- * 从签名 network-map 渲染确定性的 WireGuard 配置文本；私钥只允许以宿主机路径引用，绝不内联材料。
+ * 从签名 network-map 渲染确定性的 WireGuard 配置文本；私钥以 base64 内容内联，
+ * 供 `wg setconf` 直接消费（`wg setconf` 不支持 wg-quick 的 Address 指令和文件路径引用）。
  */
 export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const listenPort = input.listenPort ?? DEFAULT_WG_LISTEN_PORT
@@ -194,8 +196,7 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     return { ok: false, error: { kind: 'wg.listen_port_invalid', listenPort } }
   }
 
-  const privateKeyPath = input.privateKeyPath ?? DEFAULT_WG_PRIVATE_KEY_PATH
-  if (!isNonEmpty(privateKeyPath)) {
+  if (!isNonEmpty(input.privateKey)) {
     return { ok: false, error: { kind: 'wg.private_key_path_missing' } }
   }
 
@@ -208,7 +209,7 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   }
 
   const peers = sortPeers(input.map.members.filter(member => member.nodeId !== input.agentNodeId))
-  const lines = buildInterfaceLines(localMember, privateKeyPath, listenPort)
+  const lines = buildInterfaceLines(localMember, input.privateKey, listenPort)
 
   if (peers.length > 0) {
     const normalizedEndpoint = resolveRelayEndpoint(input)
@@ -224,7 +225,6 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     value: {
       config: lines.join('\n'),
       listenPort,
-      privateKeyPath,
       peerCount: peers.length
     }
   }

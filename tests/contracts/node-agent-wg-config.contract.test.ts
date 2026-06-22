@@ -4,7 +4,6 @@ import {
   checkWgTooling,
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
-  DEFAULT_WG_PRIVATE_KEY_PATH,
   DEFAULT_WSTUNNEL_UDP_BIND_HOST,
   DEFAULT_WSTUNNEL_UDP_BIND_PORT,
   renderWireGuardConfig
@@ -15,6 +14,7 @@ import {
 } from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
+const TEST_PRIVATE_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 
 function createNetworkMap(overrides?: {
   readonly members?: NetworkMap['members']
@@ -61,7 +61,8 @@ describe('node-agent WireGuard config contract', () => {
   it('renders deterministic INI config from a signed network map with two peers', () => {
     const rendered = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -69,12 +70,10 @@ describe('node-agent WireGuard config contract', () => {
 
     expect(rendered.value.peerCount).toBe(2)
     expect(rendered.value.listenPort).toBe(DEFAULT_WG_LISTEN_PORT)
-    expect(rendered.value.privateKeyPath).toBe(DEFAULT_WG_PRIVATE_KEY_PATH)
     expect(rendered.value.config).toBe(
       [
         '[Interface]',
-        'Address = 100.96.0.1/32',
-        `PrivateKey = ${DEFAULT_WG_PRIVATE_KEY_PATH}`,
+        `PrivateKey = ${TEST_PRIVATE_KEY}`,
         `ListenPort = ${DEFAULT_WG_LISTEN_PORT}`,
         '',
         '[Peer]',
@@ -99,7 +98,8 @@ describe('node-agent WireGuard config contract', () => {
           nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
         }
       }),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -107,16 +107,17 @@ describe('node-agent WireGuard config contract', () => {
     expect(rendered.value.config).toContain('Endpoint = direct-peer.example:51820')
   })
 
-  it('renders config with host-local key path reference and never inline private key', () => {
+  it('inlines the private key content into the config for wg setconf consumption', () => {
     const rendered = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
     if (!rendered.ok) throw new Error(rendered.error.kind)
 
-    expect(rendered.value.config).toContain(`PrivateKey = ${DEFAULT_WG_PRIVATE_KEY_PATH}`)
+    expect(rendered.value.config).toContain(`PrivateKey = ${TEST_PRIVATE_KEY}`)
   })
 
   it('accepts parseable wg version output and returns typed metadata', () => {
@@ -162,11 +163,13 @@ describe('node-agent WireGuard config contract', () => {
   it('produces the same SHA-256 hash for the same config and a different hash for a changed map', () => {
     const first = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
     const second = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
     const changed = renderWireGuardConfig({
       map: createNetworkMap({
@@ -188,7 +191,8 @@ describe('node-agent WireGuard config contract', () => {
           nodeIds: ['node-agent-1', 'node-peer-2']
         }
       }),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(first.ok).toBe(true)
@@ -220,7 +224,7 @@ describe('node-agent WireGuard config contract', () => {
       }),
       agentNodeId: 'node-agent-1',
       listenPort: 51821,
-      privateKeyPath: '/run/meristem/custom-wg.key'
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -230,8 +234,7 @@ describe('node-agent WireGuard config contract', () => {
     expect(rendered.value.config).toBe(
       [
         '[Interface]',
-        'Address = 100.96.0.1/32',
-        'PrivateKey = /run/meristem/custom-wg.key',
+        `PrivateKey = ${TEST_PRIVATE_KEY}`,
         'ListenPort = 51821'
       ].join('\n')
     )

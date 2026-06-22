@@ -2,6 +2,10 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
+  loadRuntimeCredentials,
+  saveRuntimeCredentials
+} from '../../services/node-agent/src/node-agent-runtime-state.ts'
+import {
   fetchLatestNodeRuntimeNetworkMap,
   registerNodeRuntimeKey
 } from '../../services/node-agent/src/node-agent-session.ts'
@@ -36,6 +40,25 @@ describe('node-agent runtime control helpers', () => {
     expect(second).toEqual(first)
     expect((await readFile(privateKeyPath, 'utf8')).trim()).toBe(first.privateKey)
     expect((await readFile(`${privateKeyPath}.pub`, 'utf8')).trim()).toBe(first.publicKey)
+  })
+
+  it('persists runtime credentials so systemd restarts resume without join tickets', async () => {
+    const tempDir = await mkdtemp('/tmp/meristem-node-runtime-')
+    const runtimeStatePath = join(tempDir, 'runtime.json')
+
+    const saved = saveRuntimeCredentials(
+      { nodeId: 'node-systemd-1', runtimeToken: 'runtime-token-1' },
+      runtimeStatePath,
+      new Date('2026-06-18T00:30:00.000Z')
+    )
+
+    expect(saved).toEqual({
+      nodeId: 'node-systemd-1',
+      runtimeToken: 'runtime-token-1',
+      savedAt: '2026-06-18T00:30:00.000Z'
+    })
+    expect(loadRuntimeCredentials(runtimeStatePath)).toEqual(saved)
+    expect((await readFile(runtimeStatePath, 'utf8')).includes('runtime-token-1')).toBe(true)
   })
 
   it('registers node runtime keys and fetches signed maps through validated HTTP helpers', async () => {
