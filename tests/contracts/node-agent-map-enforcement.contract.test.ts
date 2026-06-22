@@ -12,10 +12,15 @@ import {
   evaluateAclForPeer,
   evaluateNetworkMap
 } from '../../services/node-agent/src/node-agent-map-enforcement.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
 
-function signatureValueFor(networkId: string, mapVersion: number, keyId: string): string {
-  return `placeholder-signature:${networkId}:${mapVersion}:${keyId}`
-}
+const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
+const signingPublicKey = signingKey.publicKey ?? (() => {
+  throw new Error('expected test signing public key')
+})()
 
 function createAclRule(input: {
   action: 'allow' | 'deny'
@@ -45,8 +50,8 @@ function createNetworkMap(overrides?: {
   const mapVersion = overrides?.mapVersion ?? 3
   const signatureKeyId = overrides?.signatureKeyId ?? 'signing-key-1'
 
-  return {
-    profileVersion: 'm-net-cn@0.2.0',
+  const unsignedMap = {
+    profileVersion: 'm-net-cn@0.2.0' as const,
     networkId,
     members: overrides?.members ?? [
       {
@@ -70,19 +75,32 @@ function createNetworkMap(overrides?: {
       createAclRule({ action: 'allow', sourceNodeId: 'node-2', targetNodeId: 'node-1' })
     ],
     relayAssignment: overrides?.relayAssignment ?? {
-      relayType: 'wstunnel',
+      relayType: 'wstunnel' as const,
       relayEndpoint: 'wss://relay.example',
       nodeIds: ['node-1', 'node-2']
     },
     expiresAt:
       overrides?.expiresAt ??
       Date.parse('2026-06-18T12:15:00.000Z') + DEFAULT_NETWORK_MAP_STALE_TTL_MS,
-    mapVersion,
-    signatureMetadata: {
-      algorithm: 'placeholder-ed25519',
-      keyId: signatureKeyId,
-      value: overrides?.signatureValue ?? signatureValueFor(networkId, mapVersion, signatureKeyId)
-    }
+    mapVersion
+  }
+
+  const signatureMetadata = overrides?.signatureValue
+    ? {
+        algorithm: 'ed25519' as const,
+        keyId: signatureKeyId,
+        publicKey: signingPublicKey,
+        value: overrides.signatureValue
+      }
+    : buildNetworkMapSignatureMetadata(unsignedMap, {
+        keyId: signatureKeyId,
+        privateKeyPem: signingKey.privateKeyPem,
+        publicKey: signingPublicKey
+      })
+
+  return {
+    ...unsignedMap,
+    signatureMetadata
   }
 }
 
@@ -109,6 +127,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap(),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
     })
@@ -141,6 +160,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap({ expiresAt }),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: expiresAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS + 1,
       serverTime: '2026-06-18T12:15:00.001Z',
       staleTtlMs: DEFAULT_NETWORK_MAP_STALE_TTL_MS
@@ -155,10 +175,11 @@ describe('node-agent map enforcement contract', () => {
   it('rejects a network map whose signature metadata does not match the trusted signing key', () => {
     const evaluated = evaluateNetworkMap({
       map: createNetworkMap({
-        signatureValue: 'placeholder-signature:network-1:3:wrong-key'
+        signatureValue: Buffer.from('not-a-valid-signature', 'utf8').toString('base64')
       }),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
     })
@@ -174,6 +195,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap({ mapVersion: 2 }),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       previousMapVersion: 3,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
@@ -190,6 +212,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap(),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:26:00.001Z',
       maxClockSkewMs: DEFAULT_CLOCK_SKEW_MS
@@ -206,6 +229,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap({ expiresAt: Date.parse('2026-06-18T12:00:00.000Z') }),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:15:00.001Z'),
       serverTime: '2026-06-18T12:15:00.001Z'
     })
@@ -222,6 +246,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap(),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
     })
@@ -253,6 +278,7 @@ describe('node-agent map enforcement contract', () => {
       map: denyAllMap,
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
     })
@@ -276,6 +302,7 @@ describe('node-agent map enforcement contract', () => {
       map: createNetworkMap({ aclRules: allowSpecificRules }),
       agentNodeId: 'node-1',
       expectedSigningKeyId: 'signing-key-1',
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T12:20:00.000Z'),
       serverTime: '2026-06-18T12:20:00.000Z'
     })

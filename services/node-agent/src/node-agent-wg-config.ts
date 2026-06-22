@@ -3,6 +3,8 @@ import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contr
 
 export const DEFAULT_WG_LISTEN_PORT = 51820
 export const DEFAULT_WG_PRIVATE_KEY_PATH = '/run/meristem/wg-private.key'
+export const DEFAULT_WSTUNNEL_UDP_BIND_HOST = '127.0.0.1'
+export const DEFAULT_WSTUNNEL_UDP_BIND_PORT = 51821
 
 type Result<TValue, TError> =
   | { readonly ok: true; readonly value: TValue }
@@ -13,6 +15,7 @@ export type WgConfigInput = {
   readonly agentNodeId: string
   readonly listenPort?: number
   readonly privateKeyPath?: string
+  readonly localRelayEndpoint?: string
 }
 
 export type WgConfigOutput = {
@@ -143,6 +146,32 @@ function buildPeerLines(peer: NetworkMapMember, endpoint: string) {
   ]
 }
 
+function resolveRelayEndpoint(input: WgConfigInput): Result<string, WgConfigError> {
+  const relayAssignment = input.map.relayAssignment
+  if (relayAssignment === undefined) {
+    return {
+      ok: false,
+      error: { kind: 'wg.endpoint_missing', nodeId: input.agentNodeId }
+    }
+  }
+
+  if (relayAssignment.relayType === 'wstunnel') {
+    const localEndpoint =
+      input.localRelayEndpoint ??
+      `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`
+    return normalizePeerEndpoint(localEndpoint)
+  }
+
+  if (!isNonEmpty(relayAssignment.relayEndpoint)) {
+    return {
+      ok: false,
+      error: { kind: 'wg.endpoint_missing', nodeId: input.agentNodeId }
+    }
+  }
+
+  return normalizePeerEndpoint(relayAssignment.relayEndpoint)
+}
+
 function sortPeers(peers: readonly NetworkMapMember[]): readonly NetworkMapMember[] {
   return [...peers].sort((left, right) => left.nodeId.localeCompare(right.nodeId))
 }
@@ -182,15 +211,7 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const lines = buildInterfaceLines(localMember, privateKeyPath, listenPort)
 
   if (peers.length > 0) {
-    const relayEndpoint = input.map.relayAssignment?.relayEndpoint
-    if (!isNonEmpty(relayEndpoint)) {
-      return {
-        ok: false,
-        error: { kind: 'wg.endpoint_missing', nodeId: input.agentNodeId }
-      }
-    }
-
-    const normalizedEndpoint = normalizePeerEndpoint(relayEndpoint)
+    const normalizedEndpoint = resolveRelayEndpoint(input)
     if (!normalizedEndpoint.ok) return normalizedEndpoint
 
     for (const peer of peers) {

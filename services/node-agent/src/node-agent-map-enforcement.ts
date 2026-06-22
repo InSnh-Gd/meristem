@@ -6,6 +6,10 @@ import { DEFAULT_CLOCK_SKEW_MS } from '../../m-net/src/key-lifecycle.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../m-net/src/network-map-renderer.ts'
 import type { EnforcementDecision } from '../../m-net/src/network-map-types.ts'
 import {
+  resolveExpectedNetworkMapSigningPublicKey,
+  verifyNetworkMapSignature
+} from '../../m-net/src/network-map-signing.ts'
+import {
   type NetworkPartitionState,
   type PartitionTransitionReason,
   type PartitionTransitionRequest,
@@ -53,6 +57,7 @@ export type MapEvaluationInput = {
   readonly map: NetworkMap
   readonly agentNodeId: string
   readonly expectedSigningKeyId: string
+  readonly expectedSigningPublicKey?: string
   readonly nowMs: number
   readonly serverTime: string
   readonly previousMapVersion?: number
@@ -103,14 +108,12 @@ function parseTimestamp(value: string): number | null {
   return Number.isNaN(parsed) ? null : parsed
 }
 
-function buildExpectedSignatureValue(map: NetworkMap, signingKeyId: string): string {
-  return `placeholder-signature:${map.networkId}:${map.mapVersion}:${signingKeyId}`
-}
-
-function isSignatureTrusted(map: NetworkMap, expectedSigningKeyId: string): boolean {
-  if (map.signatureMetadata.keyId !== expectedSigningKeyId) return false
-  if (map.signatureMetadata.value.length === 0) return false
-  return map.signatureMetadata.value === buildExpectedSignatureValue(map, expectedSigningKeyId)
+function isSignatureTrusted(
+  map: NetworkMap,
+  expectedSigningKeyId: string,
+  expectedSigningPublicKey: string
+): boolean {
+  return verifyNetworkMapSignature(map, expectedSigningKeyId, expectedSigningPublicKey)
 }
 
 function toPeerState(member: NetworkMapMember): MapPeerState {
@@ -249,7 +252,14 @@ export function evaluateNetworkMap(input: MapEvaluationInput): MapEvaluationResu
     }
   }
 
-  if (!isSignatureTrusted(map, input.expectedSigningKeyId)) {
+  if (
+    !isSignatureTrusted(
+      map,
+      input.expectedSigningKeyId,
+      input.expectedSigningPublicKey ??
+        resolveExpectedNetworkMapSigningPublicKey(process.env)
+    )
+  ) {
     return {
       decision: 'fail_closed',
       reason: 'network_map.invalid_signature',

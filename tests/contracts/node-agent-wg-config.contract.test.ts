@@ -5,16 +5,24 @@ import {
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
   DEFAULT_WG_PRIVATE_KEY_PATH,
+  DEFAULT_WSTUNNEL_UDP_BIND_HOST,
+  DEFAULT_WSTUNNEL_UDP_BIND_PORT,
   renderWireGuardConfig
 } from '../../services/node-agent/src/node-agent-wg-config.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
+
+const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 
 function createNetworkMap(overrides?: {
   readonly members?: NetworkMap['members']
   readonly relayAssignment?: NetworkMap['relayAssignment']
   readonly mapVersion?: number
 }): NetworkMap {
-  return {
-    profileVersion: 'm-net-cn@0.2.0',
+  const unsignedMap = {
+    profileVersion: 'm-net-cn@0.2.0' as const,
     networkId: 'network-wg-1',
     members: overrides?.members ?? [
       {
@@ -35,17 +43,17 @@ function createNetworkMap(overrides?: {
     ],
     aclRules: [],
     relayAssignment: overrides?.relayAssignment ?? {
-      relayType: 'wstunnel',
+      relayType: 'wstunnel' as const,
       relayEndpoint: 'wss://relay.example',
       nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
     },
     expiresAt: Date.parse('2026-06-18T12:15:00.000Z'),
-    mapVersion: overrides?.mapVersion ?? 7,
-    signatureMetadata: {
-      algorithm: 'placeholder-ed25519',
-      keyId: 'signing-key-1',
-      value: 'placeholder-signature:network-wg-1:7:signing-key-1'
-    }
+    mapVersion: overrides?.mapVersion ?? 7
+  }
+
+  return {
+    ...unsignedMap,
+    signatureMetadata: buildNetworkMapSignatureMetadata(unsignedMap, signingKey)
   }
 }
 
@@ -72,14 +80,31 @@ describe('node-agent WireGuard config contract', () => {
         '[Peer]',
         'PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
         'AllowedIPs = 100.96.0.2/32',
-        'Endpoint = relay.example:443',
+        `Endpoint = ${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`,
         '',
         '[Peer]',
         'PublicKey = CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
         'AllowedIPs = 100.96.0.3/32',
-        'Endpoint = relay.example:443'
+        `Endpoint = ${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`
       ].join('\n')
     )
+  })
+
+  it('uses the direct relay endpoint as the peer endpoint when the map declares direct transport', () => {
+    const rendered = renderWireGuardConfig({
+      map: createNetworkMap({
+        relayAssignment: {
+          relayType: 'direct',
+          relayEndpoint: 'https://direct-peer.example:51820',
+          nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
+        }
+      }),
+      agentNodeId: 'node-agent-1'
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    expect(rendered.value.config).toContain('Endpoint = direct-peer.example:51820')
   })
 
   it('renders config with host-local key path reference and never inline private key', () => {
