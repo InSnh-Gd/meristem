@@ -21,6 +21,15 @@ import {
   createLogBuffer,
   formatTaskResult
 } from '../../services/node-agent/src/node-agent-task-log.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
+
+const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
+const signingPublicKey = signingKey.publicKey ?? (() => {
+  throw new Error('expected test signing public key')
+})()
 
 function createDeps() {
   const dataPlane = createInMemoryDataPlaneStores()
@@ -80,7 +89,7 @@ function createDeps() {
 }
 
 function createSignedMap(expiresAt: number) {
-  return {
+  const unsignedMap = {
     profileVersion: 'm-net-cn@0.2.0' as const,
     networkId: 'network-hardening',
     members: [
@@ -110,12 +119,12 @@ function createSignedMap(expiresAt: number) {
       nodeIds: ['stem-a', 'leaf-a']
     },
     expiresAt,
-    mapVersion: 7,
-    signatureMetadata: {
-      algorithm: 'placeholder-ed25519' as const,
-      keyId: 'signing-key-1',
-      value: 'placeholder-signature:network-hardening:7:signing-key-1'
-    }
+    mapVersion: 7
+  }
+
+  return {
+    ...unsignedMap,
+    signatureMetadata: buildNetworkMapSignatureMetadata(unsignedMap, signingKey)
   }
 }
 
@@ -308,7 +317,8 @@ describe('M-Net data-plane security hardening failure modes', () => {
     const decision = evaluateNetworkMap({
       map: createSignedMap(expiresAt),
       agentNodeId: 'stem-a',
-      expectedSigningKeyId: 'signing-key-1',
+      expectedSigningKeyId: signingKey.keyId,
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: expiresAt + 900001,
       serverTime: new Date(expiresAt + 900001).toISOString(),
       staleTtlMs: 900000
@@ -332,13 +342,13 @@ describe('M-Net data-plane security hardening failure modes', () => {
       map: {
         ...createSignedMap(Date.parse('2026-06-18T00:30:00.000Z')),
         signatureMetadata: {
-          algorithm: 'placeholder-ed25519',
-          keyId: 'signing-key-1',
-          value: 'placeholder-signature:network-hardening:7:wrong-key'
+          ...createSignedMap(Date.parse('2026-06-18T00:30:00.000Z')).signatureMetadata,
+          value: Buffer.from('tampered-signature', 'utf8').toString('base64')
         }
       },
       agentNodeId: 'stem-a',
-      expectedSigningKeyId: 'signing-key-1',
+      expectedSigningKeyId: signingKey.keyId,
+      expectedSigningPublicKey: signingPublicKey,
       nowMs: Date.parse('2026-06-18T00:10:00.000Z'),
       serverTime: '2026-06-18T00:10:00.000Z'
     })

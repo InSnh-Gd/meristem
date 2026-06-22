@@ -178,6 +178,69 @@ describe('M-Net dataplane orchestration failure modes', () => {
     ).not.toBeNull()
   })
 
+  it('writes ISO tunnel allocation timestamps during enable orchestration', async () => {
+    const base = createDeps()
+    await base.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
+
+    const seenAllocatedAt: string[] = []
+    const result = await enableDataPlaneProfile(
+      {
+        ...base,
+        dataPlane: {
+          ...base.dataPlane,
+          tunnelAllocations: {
+            ...base.dataPlane.tunnelAllocations,
+            async upsert(record) {
+              seenAllocatedAt.push(record.allocatedAt)
+              await base.dataPlane.tunnelAllocations.upsert(record)
+            }
+          }
+        }
+      },
+      {
+        actor: 'admin',
+        networkId: 'network-dataplane-orchestration-failure',
+        reason: 'timestamp regression coverage'
+      }
+    )
+
+    if ('kind' in result) {
+      throw new Error(`expected enable success, got ${result.error.code}`)
+    }
+
+    expect(seenAllocatedAt.length).toBeGreaterThan(0)
+    for (const allocatedAt of seenAllocatedAt) {
+      expect(Number.isNaN(Date.parse(allocatedAt))).toBeFalse()
+    }
+  })
+
+  it('assigns distinct tunnel IPs to multiple members in one enable pass', async () => {
+    const deps = createDeps()
+    await deps.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'disabled'
+    })
+
+    const result = await enableDataPlaneProfile(deps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-orchestration-failure',
+      reason: 'unique tunnel allocation regression'
+    })
+
+    if ('kind' in result) {
+      throw new Error(`expected enable success, got ${result.error.code}`)
+    }
+
+    const allocations = await deps.dataPlane.tunnelAllocations.listByNetwork(
+      'network-dataplane-orchestration-failure'
+    )
+    expect(allocations).toHaveLength(2)
+    expect(new Set(allocations.map(allocation => allocation.tunnelIp)).size).toBe(2)
+  })
+
   it('store failure returns typed PG-like outcome', async () => {
     const base = createDeps()
     await base.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
@@ -208,7 +271,10 @@ describe('M-Net dataplane orchestration failure modes', () => {
     expect(result).toEqual({
       kind: 'failure',
       status: 503,
-      error: { code: 'dataplane.store_failed', message: 'pg write failed' }
+      error: {
+        code: 'dataplane.store_failed',
+        message: 'network_maps save failed for network-dataplane-orchestration-failure: pg write failed'
+      }
     })
   })
 

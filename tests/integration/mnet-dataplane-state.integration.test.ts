@@ -176,7 +176,12 @@ describe('M-Net PostgreSQL state persistence', () => {
         expiresAt: Date.now() + 60_000,
         members: [],
         aclRules: [],
-        signatureMetadata: { algorithm: 'placeholder-ed25519', keyId: 'key-1', value: 'sig-1' }
+        signatureMetadata: {
+          algorithm: 'ed25519',
+          keyId: 'key-1',
+          publicKey: 'public-key-1',
+          value: 'sig-1'
+        }
       },
       signatureMetadata: { keyId: 'key-1', signer: 'ops' },
       expiresAt: '2026-01-01T00:10:00.000Z',
