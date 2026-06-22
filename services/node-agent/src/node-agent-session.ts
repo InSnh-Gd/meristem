@@ -1,7 +1,10 @@
-import type {
-  JoinAcceptedMessage,
-  SessionErrorMessage
-} from '../../../packages/contracts/src/index.ts'
+import type { JoinAcceptedMessage, SessionErrorMessage } from '../../../packages/contracts/src/index.ts'
+import * as Either from 'effect/Either'
+import * as Schema from 'effect/Schema'
+import {
+  NetworkMapSchema,
+  type NetworkMapFromSchema
+} from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 export type SessionAckMessage = {
   type: 'session.ack'
@@ -36,6 +39,36 @@ export type SessionResumeSuccess = {
 }
 
 export type SessionResumeResult = SessionResumeSuccess | SessionFailedResult
+
+export type RuntimeKeyRegistrationInput = {
+  keyId: string
+  publicKey: string
+  createdAt: string
+}
+
+export type RuntimeKeyRegistrationResult =
+  | {
+      kind: 'runtime.key.registered'
+      nodeId: string
+      keyId: string
+      fingerprint: string
+      mapVersion: number
+      correlationId: string
+    }
+  | {
+      kind: 'runtime.request_failed'
+      reason: string
+    }
+
+export type RuntimeNetworkMapResult =
+  | {
+      kind: 'runtime.network_map.fetched'
+      map: NetworkMapFromSchema
+    }
+  | {
+      kind: 'runtime.request_failed'
+      reason: string
+    }
 
 export type HeartbeatSchedule = {
   nextHeartbeatAt: number
@@ -134,11 +167,32 @@ export type SessionStateEvent =
 type JoinRedeemInput = JoinAcceptedMessage | SessionErrorMessage
 type SessionResumeInput = SessionAckMessage | SessionErrorMessage
 
+type RuntimeFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+
+const NodeRuntimeKeyRegistrationResponseSchema = Schema.Struct({
+  nodeId: Schema.NonEmptyString,
+  keyId: Schema.NonEmptyString,
+  fingerprint: Schema.NonEmptyString,
+  mapVersion: Schema.Number.pipe(Schema.greaterThanOrEqualTo(1)),
+  correlationId: Schema.NonEmptyString
+})
+
+const NodeRuntimeNetworkMapResponseSchema = Schema.Struct({
+  map: NetworkMapSchema
+})
+
+const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownEither(
+  NodeRuntimeKeyRegistrationResponseSchema
+)
+const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownEither(
+  NodeRuntimeNetworkMapResponseSchema
+)
+
 function isNonEmptyString(value: string): boolean {
   return value.trim().length > 0
 }
 
-function deriveControlUrl(joinUrl: string): string | null {
+export function deriveControlUrl(joinUrl: string): string | null {
   try {
     const parsed = new URL(joinUrl)
     const controlProtocol =
@@ -151,6 +205,94 @@ function deriveControlUrl(joinUrl: string): string | null {
     return parsed.toString().replace(/\/$/, '')
   } catch {
     return null
+  }
+}
+
+function createNodeRuntimeUrl(controlUrl: string, nodeId: string, suffix: 'key' | 'network-map'): URL {
+  const url = new URL(
+    `/api/v0/node-runtime/nodes/${encodeURIComponent(nodeId)}/${suffix}`,
+    controlUrl.endsWith('/') ? controlUrl : `${controlUrl}/`
+  )
+  return url
+}
+
+async function parseRuntimeFailure(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: { code?: unknown; message?: unknown } }
+    const message = payload.error?.message
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return message
+    }
+  } catch {
+    // ignored: fall through to generic status reason
+  }
+
+  return `runtime request failed with status ${response.status}`
+}
+
+export async function registerNodeRuntimeKey(
+  controlUrl: string,
+  nodeId: string,
+  nodeToken: string,
+  input: RuntimeKeyRegistrationInput,
+  fetchImpl: RuntimeFetch = fetch
+): Promise<RuntimeKeyRegistrationResult> {
+  try {
+    const response = await fetchImpl(createNodeRuntimeUrl(controlUrl, nodeId, 'key'), {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${nodeToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(input)
+    })
+
+    if (!response.ok) {
+      return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
+    }
+
+    const payload = decodeNodeRuntimeKeyRegistrationResponse(await response.json())
+    if (Either.isLeft(payload)) {
+      return { kind: 'runtime.request_failed', reason: 'runtime key registration response is invalid' }
+    }
+
+    return { kind: 'runtime.key.registered', ...payload.right }
+  } catch (error) {
+    return {
+      kind: 'runtime.request_failed',
+      reason: error instanceof Error ? error.message : 'runtime key registration failed'
+    }
+  }
+}
+
+export async function fetchLatestNodeRuntimeNetworkMap(
+  controlUrl: string,
+  nodeId: string,
+  nodeToken: string,
+  fetchImpl: RuntimeFetch = fetch
+): Promise<RuntimeNetworkMapResult> {
+  try {
+    const response = await fetchImpl(createNodeRuntimeUrl(controlUrl, nodeId, 'network-map'), {
+      headers: {
+        authorization: `Bearer ${nodeToken}`
+      }
+    })
+
+    if (!response.ok) {
+      return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
+    }
+
+    const payload = decodeNodeRuntimeNetworkMapResponse(await response.json())
+    if (Either.isLeft(payload)) {
+      return { kind: 'runtime.request_failed', reason: 'runtime network-map response is invalid' }
+    }
+
+    return { kind: 'runtime.network_map.fetched', map: payload.right.map }
+  } catch (error) {
+    return {
+      kind: 'runtime.request_failed',
+      reason: error instanceof Error ? error.message : 'runtime network-map fetch failed'
+    }
   }
 }
 

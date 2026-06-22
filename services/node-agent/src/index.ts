@@ -14,6 +14,21 @@ import {
   parseServerMessage,
   requiredOneOf
 } from './node-agent-runtime.ts'
+import {
+  deriveControlUrl,
+  fetchLatestNodeRuntimeNetworkMap,
+  registerNodeRuntimeKey
+} from './node-agent-session.ts'
+import {
+  createInitialEnforcementState,
+  loadLocalOverlayEnv,
+  reconcileLocalOverlay,
+  type LocalOverlayEnv
+} from './node-agent-local-apply.ts'
+import {
+  loadOrCreateWireGuardKeyMaterial,
+  type WireGuardKeyMaterial
+} from './node-agent-wireguard-keys.ts'
 
 const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
@@ -22,6 +37,10 @@ let joinTicket = requiredOneOf(['MERISTEM_JOIN_TICKET'])
 let nodeId = process.env.MERISTEM_NODE_ID
 let runtimeToken = process.env.MERISTEM_NODE_TOKEN
 let currentSessionId: string | null = null
+let currentControlUrl: string | null = null
+let currentWireGuardKey: WireGuardKeyMaterial | null = null
+let currentEnforcementState = createInitialEnforcementState('network-pending')
+const localOverlayEnv: LocalOverlayEnv = loadLocalOverlayEnv()
 let socket: WebSocket | null = null
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let stopping = false
@@ -87,6 +106,75 @@ function exitWithError(message: string): never {
   throw new Error(message)
 }
 
+async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void> {
+  if (!nodeId || !runtimeToken) return
+
+  const controlUrl = currentControlUrl ?? deriveControlUrl(joinUrl)
+  if (!controlUrl) {
+    forwardLog('error', 'node runtime control url is invalid')
+    return
+  }
+  currentControlUrl = controlUrl
+
+  const keyMaterial = currentWireGuardKey ?? (await loadOrCreateWireGuardKeyMaterial())
+  currentWireGuardKey = keyMaterial
+
+  const registration = await registerNodeRuntimeKey(controlUrl, nodeId, runtimeToken, {
+    keyId: keyMaterial.keyId,
+    publicKey: keyMaterial.publicKey,
+    createdAt: keyMaterial.createdAt
+  })
+  if (registration.kind !== 'runtime.key.registered') {
+    forwardLog('error', 'failed to register node runtime key', undefined, {
+      nodeId,
+      reason: registration.reason
+    })
+    return
+  }
+
+  const latestMap = await fetchLatestNodeRuntimeNetworkMap(controlUrl, nodeId, runtimeToken)
+  if (latestMap.kind !== 'runtime.network_map.fetched') {
+    forwardLog('error', 'failed to fetch latest runtime network map', registration.correlationId, {
+      nodeId,
+      reason: latestMap.reason
+    })
+    return
+  }
+
+  const localOverlay = await reconcileLocalOverlay({
+    env: localOverlayEnv,
+    map: latestMap.map,
+    agentNodeId: nodeId,
+    keyMaterial,
+    currentState:
+      currentEnforcementState.partition.networkId === latestMap.map.networkId
+        ? currentEnforcementState
+        : createInitialEnforcementState(latestMap.map.networkId),
+    nowMs: Date.now(),
+    serverTime: new Date().toISOString()
+  })
+  currentEnforcementState = localOverlay.state
+
+  if (localOverlay.kind === 'torn_down') {
+    forwardLog('warn', 'node runtime overlay torn down', registration.correlationId, {
+      nodeId,
+      reason: localOverlay.reason,
+      status: localOverlay.state.status
+    })
+    return
+  }
+
+  forwardLog('info', 'node runtime state synchronized', registration.correlationId, {
+    nodeId,
+    keyId: registration.keyId,
+    mapVersion: latestMap.map.mapVersion,
+    mode,
+    configHash: localOverlay.configHash,
+    interfaceName: localOverlayEnv.interfaceName,
+    localTunnelIp: localOverlay.localTunnelIp
+  })
+}
+
 /**
  * join.accepted 会回传新的运行 token；resume 只恢复既有 token 对应的活动 session。
  * 依据 docs/services/node-agent.md §10，运行 token 只能进入内存与后续 resume，不得出现在 stdout。
@@ -94,6 +182,7 @@ function exitWithError(message: string): never {
 function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): void {
   nodeId = message.node.id
   currentSessionId = message.sessionId
+  currentControlUrl = deriveControlUrl(joinUrl)
   if (message.type === 'join.accepted') {
     runtimeToken = message.runtimeToken
     joinTicket = undefined
@@ -111,6 +200,7 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
       mode: message.node.mode
     }
   )
+  void reconcileNodeRuntimeState(message.type === 'join.accepted' ? 'join' : 'resume')
 }
 
 /**
