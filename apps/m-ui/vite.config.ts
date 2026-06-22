@@ -1,8 +1,9 @@
+import tailwindcss from '@tailwindcss/vite'
 import { sveltekit } from '@sveltejs/kit/vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [tailwindcss(), sveltekit()],
   resolve: {
     conditions: ['browser']
   },
@@ -15,7 +16,9 @@ export default defineConfig({
       'src/**/*.test.ts',
       'src/**/*.vitest.ts',
       'tests/runtime/**/*.behavior.vitest.ts',
-      'tests/runtime/**/*.runtime.vitest.ts'
+      'tests/runtime/**/*.runtime.vitest.ts',
+      'tests/runtime/**/*.contract.test.ts',
+      'tests/runtime/tooltip.vitest.ts'
     ]
   }
 })

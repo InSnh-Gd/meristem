@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vitest'
 import CommandWell from '../../src/lib/components/modules/command/CommandWell.svelte'
 import { createControlRoomCommandState, createOverviewFixture } from './_specs/fixtures'
 
 describe('CommandWell behavior', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('shows enabled state button', () => {
     render(CommandWell, {
       props: {
@@ -71,5 +75,40 @@ describe('CommandWell behavior', () => {
     await fireEvent.click(screen.getByTestId('command-cancel-btn'))
 
     expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('respects prefers-reduced-motion without crashing or blocking interaction', async () => {
+    // Mock matchMedia to simulate reduced motion preference
+    const motionQueryMatches = true
+    vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
+      matches: query === '(prefers-reduced-motion: reduce)' ? motionQueryMatches : false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+
+    const onRequestConfirm = vi.fn()
+
+    render(CommandWell, {
+      props: {
+        commandState: createControlRoomCommandState(),
+        selectedNode: createOverviewFixture().nodes[0],
+        confirming: false,
+        onRequestConfirm,
+        onCancel: vi.fn(),
+        onConfirm: vi.fn()
+      }
+    })
+
+    // Component renders safely with motion duration evaluated to 0
+    const btn = screen.getByTestId('command-btn')
+    expect(btn).toBeTruthy()
+
+    await fireEvent.click(btn)
+    expect(onRequestConfirm).toHaveBeenCalledTimes(1)
   })
 })

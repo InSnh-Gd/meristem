@@ -17,10 +17,12 @@
     "@sveltejs/adapter-static": "3.0.8",
     "@sveltejs/kit": "2.25.0",
     "@sveltejs/vite-plugin-svelte": "5.0.3",
+    "@tailwindcss/vite": "4.3.1",
     "@testing-library/svelte": "5.3.1",
     "happy-dom": "20.10.6",
-    "svelte-check": "latest",
     "svelte": "5.37.0",
+    "svelte-check": "latest",
+    "tailwindcss": "4.3.1",
     "vite": "6.3.4",
     "vitest": "4.1.9"
   }
