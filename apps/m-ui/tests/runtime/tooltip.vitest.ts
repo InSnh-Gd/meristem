@@ -28,9 +28,12 @@ describe('Tooltip Quality Gates', () => {
     await fireEvent.pointerEnter(wrapper)
     await fireEvent.mouseEnter(wrapper)
 
-    await waitFor(() => {
-      expect(screen.queryByText('This is the tooltip content')).toBeTruthy()
-    }, { timeout: 1000 })
+    await waitFor(
+      () => {
+        expect(screen.queryByText('This is the tooltip content')).toBeTruthy()
+      },
+      { timeout: 1000 }
+    )
   })
 
   it('is accessible via keyboard (Gate 2)', async () => {
@@ -45,15 +48,21 @@ describe('Tooltip Quality Gates', () => {
 
     await fireEvent.focus(wrapper)
 
-    await waitFor(() => {
-      expect(screen.queryByText('Keyboard tooltip')).toBeTruthy()
-    }, { timeout: 1000 })
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Keyboard tooltip')).toBeTruthy()
+      },
+      { timeout: 1000 }
+    )
 
     await fireEvent.blur(wrapper)
 
-    await waitFor(() => {
-      expect(screen.queryByText('Keyboard tooltip')).toBeNull()
-    }, { timeout: 1000 })
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Keyboard tooltip')).toBeNull()
+      },
+      { timeout: 1000 }
+    )
   })
 
   it('renders appropriate ARIA attributes (Gate 2)', async () => {
@@ -66,12 +75,15 @@ describe('Tooltip Quality Gates', () => {
     const wrapper = requireParent(trigger)
     await fireEvent.pointerEnter(wrapper)
 
-    await waitFor(() => {
-      const tooltip = screen.queryByText('ARIA content')
-      expect(tooltip).toBeTruthy()
-      if (tooltip) {
-        expect(tooltip.getAttribute('role')).toBe('tooltip')
-      }
-    }, { timeout: 1000 })
+    await waitFor(
+      () => {
+        const tooltip = screen.queryByText('ARIA content')
+        expect(tooltip).toBeTruthy()
+        if (tooltip) {
+          expect(tooltip.getAttribute('role')).toBe('tooltip')
+        }
+      },
+      { timeout: 1000 }
+    )
   })
 })

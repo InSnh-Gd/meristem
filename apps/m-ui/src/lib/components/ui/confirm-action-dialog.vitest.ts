@@ -48,7 +48,7 @@ describe('ConfirmActionDialog', () => {
     // role/accessible rendering
     const dialog = screen.getByRole('alertdialog', { name: 'Danger Zone' })
     expect(dialog).toBeTruthy()
-    
+
     expect(screen.getByText('Danger Zone')).toBeTruthy()
     expect(screen.getByText('Are you sure?')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
@@ -170,7 +170,7 @@ describe('ConfirmActionDialog', () => {
       callCount++
       return confirmPromise
     })
-    
+
     render(ConfirmActionDialog, {
       title: 'Danger Zone',
       description: 'Are you sure?',
@@ -182,27 +182,29 @@ describe('ConfirmActionDialog', () => {
 
     const confirmBtn = screen.getByRole('button', { name: 'Confirm' })
     const cancelBtn = screen.getByRole('button', { name: 'Cancel' })
-    
+
     // Click multiple times rapidly
     await fireEvent.click(confirmBtn)
     await waitFor(() => {
       expect(confirmBtn.hasAttribute('disabled')).toBe(true)
       expect(cancelBtn.hasAttribute('disabled')).toBe(true)
-      expect(screen.getByRole('alert').textContent?.trim()).toBe('确认操作进行中，暂时无法取消或重复提交')
+      expect(screen.getByRole('alert').textContent?.trim()).toBe(
+        '确认操作进行中，暂时无法取消或重复提交'
+      )
     })
     await fireEvent.click(confirmBtn)
     await fireEvent.click(confirmBtn)
-    
+
     // Verify it was only called once initially because it's waiting for promise
     expect(onConfirm).toHaveBeenCalledOnce()
     expect(callCount).toBe(1)
-    
+
     // resolve the promise
     resolveConfirm()
-    
+
     // ensure even after resolve, it wasn't called more times during the wait
     await waitFor(() => {
-       expect(callCount).toBe(1)
+      expect(callCount).toBe(1)
     })
   })
 
@@ -246,7 +248,7 @@ describe('ConfirmActionDialog', () => {
     await fireEvent.click(confirmBtn)
     expect(onConfirm).not.toHaveBeenCalled()
   })
-  
+
   it('shows explicit disabledReason and prevents confirm', async () => {
     const onConfirm = vi.fn()
     render(ConfirmActionDialog, {

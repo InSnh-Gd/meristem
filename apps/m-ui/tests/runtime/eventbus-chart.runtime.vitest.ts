@@ -8,10 +8,7 @@ import type { EventBusSubjectMetric } from '../../src/lib/types.ts'
 
 // vitest runs with cwd = apps/m-ui so a root-reachable project path is stable here.
 const CHART_SOURCE = readFileSync(
-  join(
-    process.cwd(),
-    'src/lib/components/modules/control-room/EventBusSubjectHealthChart.svelte'
-  ),
+  join(process.cwd(), 'src/lib/components/modules/control-room/EventBusSubjectHealthChart.svelte'),
   'utf8'
 )
 
@@ -63,9 +60,7 @@ describe('EventBusSubjectHealthChart', () => {
     render(EventBusSubjectHealthChart, { props: { subjects: [] } })
 
     expect(screen.queryByTestId('eventbus-chart')).toBeNull()
-    expect(screen.getByTestId('eventbus-chart-empty').textContent).toMatch(
-      /没有发布 subject 指标/
-    )
+    expect(screen.getByTestId('eventbus-chart-empty').textContent).toMatch(/没有发布 subject 指标/)
   })
 
   it('renders a row with "无数据" placeholder when a subject has zero totals', () => {
@@ -89,9 +84,7 @@ describe('EventBusSubjectHealthChart', () => {
 
     render(EventBusSubjectHealthChart, { props: { subjects } })
 
-    const rows = screen
-      .getByTestId('eventbus-chart')
-      .querySelectorAll('li[aria-label]')
+    const rows = screen.getByTestId('eventbus-chart').querySelectorAll('li[aria-label]')
     expect(rows.length).toBe(8)
   })
 })
