@@ -114,7 +114,8 @@ function createRouteFixture(): RouteFixture {
             }
       },
       async registerNodePublicKey(input) {
-        const mapVersion = (await dataPlane.networkMaps.getLatest('network-dataplane-test'))?.mapVersion ?? 0
+        const mapVersion =
+          (await dataPlane.networkMaps.getLatest('network-dataplane-test'))?.mapVersion ?? 0
         return {
           nodeId: input.nodeId,
           keyId: input.keyId,
@@ -335,7 +336,9 @@ describe('M-Net dataplane route contracts', () => {
       })
     )
     expect(nodeRuntimeMap.status).toBe(200)
-    expect(((await nodeRuntimeMap.json()) as { map: { mapVersion: number } }).map.mapVersion).toBeGreaterThan(1)
+    expect(
+      ((await nodeRuntimeMap.json()) as { map: { mapVersion: number } }).map.mapVersion
+    ).toBeGreaterThan(1)
 
     const nodeRuntimeKey = await fixture.app.handle(
       new Request('http://localhost/api/v0/node-runtime/nodes/leaf-cn-1/key', {

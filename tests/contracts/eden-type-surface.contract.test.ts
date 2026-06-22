@@ -292,9 +292,14 @@ type ExpectedMNetAppDeps = {
   migrationEngine?: MigrationEngine
   nodeRuntime?: {
     authorize(nodeId: string, token: string): Promise<boolean>
-    fetchLatestNetworkMap(
-      nodeId: string
-    ): Promise<{ map: NetworkMapFromSchema } | { kind: 'failure'; status: 400 | 401 | 403 | 404 | 409 | 503; error: { code: string; message: string } }>
+    fetchLatestNetworkMap(nodeId: string): Promise<
+      | { map: NetworkMapFromSchema }
+      | {
+          kind: 'failure'
+          status: 400 | 401 | 403 | 404 | 409 | 503
+          error: { code: string; message: string }
+        }
+    >
     registerNodePublicKey(input: {
       nodeId: string
       keyId: string
@@ -308,7 +313,11 @@ type ExpectedMNetAppDeps = {
           mapVersion: number
           correlationId: string
         }
-      | { kind: 'failure'; status: 400 | 401 | 403 | 404 | 409 | 503; error: { code: string; message: string } }
+      | {
+          kind: 'failure'
+          status: 400 | 401 | 403 | 404 | 409 | 503
+          error: { code: string; message: string }
+        }
     >
   }
 }

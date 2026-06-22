@@ -18,15 +18,15 @@ import type {
   NetworkMapRenderInput,
   RequestedAclRule
 } from '../../services/m-net/src/network-map-types.ts'
-import {
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
+import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
 
 const issuedAt = 1_800_000
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
-const signingPublicKey = signingKey.publicKey ?? (() => {
-  throw new Error('expected test signing public key')
-})()
+const signingPublicKey =
+  signingKey.publicKey ??
+  (() => {
+    throw new Error('expected test signing public key')
+  })()
 
 const stem: NetworkMapMemberInput = {
   nodeId: 'stem-a',
