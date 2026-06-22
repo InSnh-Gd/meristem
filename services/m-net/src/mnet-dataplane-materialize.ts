@@ -37,7 +37,9 @@ export async function materializeMembers(
       return profileWorkflowFailure(409, 'network.members_missing', 'network has no joined members')
     }
 
-    const existingAllocations = [...(await deps.dataPlane.tunnelAllocations.listByNetwork(networkId))]
+    const existingAllocations = [
+      ...(await deps.dataPlane.tunnelAllocations.listByNetwork(networkId))
+    ]
     const latestMap = await deps.dataPlane.networkMaps.getLatest(networkId)
     const relayAssignment = selectRelayForMembers(members)
     const relayNodeIds = members.map(member => member.nodeId)

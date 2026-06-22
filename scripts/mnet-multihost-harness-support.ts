@@ -1,7 +1,10 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { internalServicePorts, internalTokenHeaderName } from '../packages/internal-http/src/index.ts'
+import {
+  internalServicePorts,
+  internalTokenHeaderName
+} from '../packages/internal-http/src/index.ts'
 import {
   NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY,
   NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY,
@@ -427,7 +430,9 @@ async function mintAdminToken(): Promise<string> {
   return tokenResult.stdout.trim()
 }
 
-async function createHarnessNetwork(targetLeafIds: readonly string[]): Promise<CreatedHarnessNetwork> {
+async function createHarnessNetwork(
+  targetLeafIds: readonly string[]
+): Promise<CreatedHarnessNetwork> {
   const internalToken = process.env.MERISTEM_INTERNAL_TOKEN ?? ''
   if (!internalToken) {
     throw new Error('MERISTEM_INTERNAL_TOKEN is required to create the multihost harness network')
@@ -482,17 +487,20 @@ async function createHarnessNetwork(targetLeafIds: readonly string[]): Promise<C
 
 async function enableDataPlaneProfileFor(networkId: string): Promise<void> {
   const adminToken = await mintAdminToken()
-  const response = await fetch(`${mNetInternalUrl}/api/v0/networks/${encodeURIComponent(networkId)}/profile`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${adminToken}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      profileVersion: 'm-net-cn@0.2.0',
-      reason: 'enable data plane for multihost harness validation'
-    })
-  })
+  const response = await fetch(
+    `${mNetInternalUrl}/api/v0/networks/${encodeURIComponent(networkId)}/profile`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        profileVersion: 'm-net-cn@0.2.0',
+        reason: 'enable data plane for multihost harness validation'
+      })
+    }
+  )
 
   if (!response.ok) {
     const errorText = await response.text()
@@ -647,7 +655,9 @@ export async function startTopology(): Promise<HarnessStatus> {
     dockerNetworkName = `meristem-mnet-harness-${startedAt}`
     const networkCreate = run(['docker', 'network', 'create', dockerNetworkName])
     if (networkCreate.exitCode !== 0) {
-      throw new Error(`failed to create docker network ${dockerNetworkName}: ${networkCreate.stderr}`)
+      throw new Error(
+        `failed to create docker network ${dockerNetworkName}: ${networkCreate.stderr}`
+      )
     }
 
     const leafPlans = [
@@ -785,16 +795,14 @@ function listMatchingPids(fragment: string): number[] {
   const result = run(['ps', '-eo', 'pid,args'])
   if (result.exitCode !== 0 || result.stdout.length === 0) return []
 
-  return result.stdout
-    .split('\n')
-    .flatMap(line => {
-      if (!line.includes(fragment)) return []
-      const trimmed = line.trim()
-      if (trimmed.length === 0) return []
-      const [pidText] = trimmed.split(/\s+/, 1)
-      const pid = Number(pidText)
-      return Number.isInteger(pid) ? [pid] : []
-    })
+  return result.stdout.split('\n').flatMap(line => {
+    if (!line.includes(fragment)) return []
+    const trimmed = line.trim()
+    if (trimmed.length === 0) return []
+    const [pidText] = trimmed.split(/\s+/, 1)
+    const pid = Number(pidText)
+    return Number.isInteger(pid) ? [pid] : []
+  })
 }
 
 function killMatchingProcesses(fragment: string): void {
@@ -806,7 +814,10 @@ function killMatchingProcesses(fragment: string): void {
 function cleanupHarnessContainers(): void {
   const result = run(['docker', 'ps', '-aq', '--filter', 'name=meristem-mnet-leaf-'])
   if (result.exitCode !== 0 || result.stdout.length === 0) return
-  for (const containerId of result.stdout.split('\n').map(line => line.trim()).filter(Boolean)) {
+  for (const containerId of result.stdout
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)) {
     run(['docker', 'rm', '-f', containerId])
   }
 }
@@ -814,7 +825,10 @@ function cleanupHarnessContainers(): void {
 function cleanupHarnessNetworks(): void {
   const result = run(['docker', 'network', 'ls', '--format', '{{.Name}}'])
   if (result.exitCode !== 0 || result.stdout.length === 0) return
-  for (const networkName of result.stdout.split('\n').map(line => line.trim()).filter(Boolean)) {
+  for (const networkName of result.stdout
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)) {
     if (!networkName.startsWith('meristem-mnet-harness-')) continue
     run(['docker', 'network', 'rm', networkName])
   }

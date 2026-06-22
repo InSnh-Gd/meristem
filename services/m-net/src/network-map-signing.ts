@@ -71,7 +71,8 @@ function resolvePublicKeyFromEnv(
   if (configured) return configured.trim()
   const privateKeyPem = env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]
   if (privateKeyPem) return exportPublicKey(privateKeyPem)
-  if (allowTestDefaults(env, options)) return exportPublicKey(TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM)
+  if (allowTestDefaults(env, options))
+    return exportPublicKey(TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM)
   throw new Error(
     `${NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY} or ${NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY} is required for node-agent network-map verification`
   )
