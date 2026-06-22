@@ -154,7 +154,14 @@ async function ensureWireGuardInterface(
   }
 
   await env.commandRunner(['wg', 'setconf', env.interfaceName, configPath])
-  await env.commandRunner(['ip', 'address', 'replace', `${localTunnelIp}/32`, 'dev', env.interfaceName])
+  await env.commandRunner([
+    'ip',
+    'address',
+    'replace',
+    `${localTunnelIp}/32`,
+    'dev',
+    env.interfaceName
+  ])
   await env.commandRunner(['ip', 'link', 'set', 'up', 'dev', env.interfaceName])
 }
 
@@ -165,7 +172,10 @@ async function tearDownWireGuardInterface(env: LocalOverlayEnv): Promise<void> {
     // interface already absent: fail-closed teardown is satisfied
   }
 
-  await Promise.allSettled([rm(env.paths.configPath, { force: true }), rm(env.paths.statePath, { force: true })])
+  await Promise.allSettled([
+    rm(env.paths.configPath, { force: true }),
+    rm(env.paths.statePath, { force: true })
+  ])
 }
 
 export async function reconcileLocalOverlay(input: {
@@ -197,7 +207,8 @@ export async function reconcileLocalOverlay(input: {
     return {
       kind: 'torn_down',
       state: nextState,
-      reason: evaluation.decision === 'apply' ? 'network_map.local_member_missing' : evaluation.reason
+      reason:
+        evaluation.decision === 'apply' ? 'network_map.local_member_missing' : evaluation.reason
     }
   }
 
@@ -218,7 +229,13 @@ export async function reconcileLocalOverlay(input: {
   }
 
   const configHash = computeConfigHash(rendered.value.config)
-  await writeOverlayState(input.env.paths, input.keyMaterial, rendered.value.config, nextState, configHash)
+  await writeOverlayState(
+    input.env.paths,
+    input.keyMaterial,
+    rendered.value.config,
+    nextState,
+    configHash
+  )
   await ensureWireGuardInterface(input.env, nextState.localTunnelIp, input.env.paths.configPath)
 
   return {

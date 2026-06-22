@@ -1,4 +1,7 @@
-import type { JoinAcceptedMessage, SessionErrorMessage } from '../../../packages/contracts/src/index.ts'
+import type {
+  JoinAcceptedMessage,
+  SessionErrorMessage
+} from '../../../packages/contracts/src/index.ts'
 import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
 import {
@@ -208,7 +211,11 @@ export function deriveControlUrl(joinUrl: string): string | null {
   }
 }
 
-function createNodeRuntimeUrl(controlUrl: string, nodeId: string, suffix: 'key' | 'network-map'): URL {
+function createNodeRuntimeUrl(
+  controlUrl: string,
+  nodeId: string,
+  suffix: 'key' | 'network-map'
+): URL {
   const url = new URL(
     `/api/v0/node-runtime/nodes/${encodeURIComponent(nodeId)}/${suffix}`,
     controlUrl.endsWith('/') ? controlUrl : `${controlUrl}/`
@@ -253,7 +260,10 @@ export async function registerNodeRuntimeKey(
 
     const payload = decodeNodeRuntimeKeyRegistrationResponse(await response.json())
     if (Either.isLeft(payload)) {
-      return { kind: 'runtime.request_failed', reason: 'runtime key registration response is invalid' }
+      return {
+        kind: 'runtime.request_failed',
+        reason: 'runtime key registration response is invalid'
+      }
     }
 
     return { kind: 'runtime.key.registered', ...payload.right }

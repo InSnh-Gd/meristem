@@ -31,7 +31,10 @@ function deriveMetadataPath(privateKeyPath: string): string {
 }
 
 function base64UrlToBase64(value: string): string {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=')
+  const padded = value
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(value.length / 4) * 4, '=')
   return Buffer.from(padded, 'base64').toString('base64')
 }
 

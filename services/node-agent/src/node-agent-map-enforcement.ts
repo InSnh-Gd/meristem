@@ -256,8 +256,7 @@ export function evaluateNetworkMap(input: MapEvaluationInput): MapEvaluationResu
     !isSignatureTrusted(
       map,
       input.expectedSigningKeyId,
-      input.expectedSigningPublicKey ??
-        resolveExpectedNetworkMapSigningPublicKey(process.env)
+      input.expectedSigningPublicKey ?? resolveExpectedNetworkMapSigningPublicKey(process.env)
     )
   ) {
     return {
