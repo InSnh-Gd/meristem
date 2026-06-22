@@ -203,6 +203,10 @@ export type OverviewData = {
   audit: AuditEntry[] | null
 }
 
+// 单条 per-subject EventBus 发布指标项。
+// 派生自 OverviewData 的本地 UI 别名，供 M-UI 组件在 BFF 契约边界消费，避免相对路径穿透到 packages/contracts。
+export type EventBusSubjectMetric = NonNullable<OverviewData['eventBusMetrics']>['subjects'][number]
+
 export type CommandState = {
   state: 'enabled' | 'disabled'
   disabledReason?: string

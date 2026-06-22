@@ -82,16 +82,16 @@
   .network-input-row input {
     flex: 1;
     padding: 0.5rem;
-    border: 1px solid var(--border-color, #ccc);
+    border: 1px solid var(--line-soft);
     border-radius: 4px;
   }
 
   .network-input-row button {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--border-color, #ccc);
+    border: 1px solid var(--line-soft);
     border-radius: 4px;
     cursor: pointer;
-    background: var(--accent-bg, #f0f0f0);
+    background: var(--surface-raised);
   }
 
   .network-input-row button:disabled {
@@ -100,7 +100,7 @@
   }
 
   .empty-hint {
-    color: var(--text-muted, #888);
+    color: var(--text-60);
     padding: 2rem;
     text-align: center;
   }

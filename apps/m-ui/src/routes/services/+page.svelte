@@ -283,7 +283,7 @@
 
   dt,
   .metrics-grid span {
-    color: var(--text-300);
+    color: var(--text-60);
     font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;

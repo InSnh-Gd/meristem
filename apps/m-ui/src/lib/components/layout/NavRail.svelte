@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tooltip from '$lib/components/ui/Tooltip.svelte'
   type NavItem = { id: string; label: string; enabled: boolean; path?: string; disabledReason?: string }
 
   let { items, selected } = $props<{
@@ -19,14 +20,15 @@
         <span class="nav-label">{item.label}</span>
       </a>
     {:else}
-      <button
-        class="nav-item disabled"
-        title={item.disabledReason ?? '功能尚未实现'}
-        aria-disabled="true"
-      >
-        <span class="nav-label">{item.label}</span>
-        <span class="nav-disabled-reason">{item.disabledReason ?? '未实现'}</span>
-      </button>
+      <Tooltip content={item.disabledReason ?? '功能尚未实现'}>
+        <button
+          class="nav-item disabled"
+          aria-disabled="true"
+        >
+          <span class="nav-label">{item.label}</span>
+          <span class="nav-disabled-reason">{item.disabledReason ?? '未实现'}</span>
+        </button>
+      </Tooltip>
     {/if}
   {/each}
 </div>

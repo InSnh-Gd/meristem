@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CommandState, OverviewData } from '$lib/types.ts'
   import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
+  import { slide, fade } from 'svelte/transition'
 
   type Props = {
     emptyStateText?: string
@@ -16,20 +17,52 @@
   }
 
   let { commandState, commandStateError, selectedNode, confirming, emptyStateText = '请选择目标以执行命令', targetLabel = '目标', targetName, onRequestConfirm, onCancel, onConfirm }: Props = $props()
+
+  // ponytail: advanced motion pilot using native Svelte transitions over a motion library.
+  // Reads canonical --duration-normal token from app.css at runtime; falls back safely.
+  let prefersReducedMotion = $state(false)
+  let motionDuration = $state(250)
+
+  $effect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    prefersReducedMotion = mediaQuery.matches
+    const listener = (e: MediaQueryListEvent) => { prefersReducedMotion = e.matches }
+    mediaQuery.addEventListener('change', listener)
+    return () => mediaQuery.removeEventListener('change', listener)
+  })
+
+  // ponytail: smallest local helper to read canonical motion token. Parses
+  // --duration-normal (250ms in app.css) with a safe numeric fallback so no
+  // hardcoded duration value can drift from the canonical token.
+  $effect(() => {
+    if (prefersReducedMotion) {
+      motionDuration = 0
+      return
+    }
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--duration-normal')
+      const ms = parseFloat(raw)
+      motionDuration = Number.isFinite(ms) && ms > 0 ? ms : 250
+    } catch {
+      motionDuration = 250
+    }
+  })
 </script>
 
 <div class="command-well">
   {#if commandStateError}
-    <InlineOperationalAlert message={commandStateError} severity="block" />
+    <div in:slide={{ duration: motionDuration }} out:slide={{ duration: motionDuration }}>
+      <InlineOperationalAlert message={commandStateError} severity="block" />
+    </div>
   {:else if !commandState}
-    <div class="command-empty">{emptyStateText}</div>
+    <div class="command-empty" in:fade={{ duration: motionDuration }}>{emptyStateText}</div>
   {:else if commandState.state === 'disabled'}
-    <div class="command-disabled">
+    <div class="command-disabled" in:fade={{ duration: motionDuration }}>
       <span class="command-label">{commandState.command?.label ?? '命令'}</span>
       <span class="command-reason" data-testid="command-disabled-reason">{commandState.disabledReason}</span>
     </div>
   {:else if confirming}
-    <div class="command-confirm">
+    <div class="command-confirm" in:slide={{ duration: motionDuration }} out:slide={{ duration: motionDuration }}>
       <div class="confirm-info">
         <span class="confirm-label">确认执行</span>
         <div class="confirm-details">
@@ -46,7 +79,7 @@
       </div>
     </div>
   {:else}
-    <button class="btn-command" data-testid="command-btn" onclick={onRequestConfirm}>{commandState?.command?.label ?? '执行命令'}</button>
+    <button class="btn-command" data-testid="command-btn" in:fade={{ duration: motionDuration }} onclick={onRequestConfirm}>{commandState?.command?.label ?? '执行命令'}</button>
   {/if}
 </div>
 

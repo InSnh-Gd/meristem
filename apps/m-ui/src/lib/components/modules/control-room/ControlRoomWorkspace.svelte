@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { appState } from '$lib/stores.svelte.ts'
   import CommandWell from '$lib/components/modules/command/CommandWell.svelte'
+  import EventBusSubjectHealthChart from '$lib/components/modules/control-room/EventBusSubjectHealthChart.svelte'
   import InlineOperationalAlert from '$lib/components/ui/InlineOperationalAlert.svelte'
   import KeyValueInspector from '$lib/components/ui/KeyValueInspector.svelte'
   import NodeMap from '$lib/components/modules/control-room/NodeMap.svelte'
@@ -116,32 +117,9 @@
               </div>
             {/if}
 
-            {#if eventBusMetrics.subjects.length > 0}
-              <div class="subject-table-wrap">
-                <table class="subject-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Subject</th>
-                      <th scope="col">成功</th>
-                      <th scope="col">拒绝</th>
-                      <th scope="col">失败</th>
-                      <th scope="col">重试</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each eventBusMetrics.subjects.slice(0, 6) as subjectMetric}
-                      <tr>
-                        <td class="mono">{subjectMetric.subject}</td>
-                        <td>{subjectMetric.success}</td>
-                        <td>{subjectMetric.rejected}</td>
-                        <td>{subjectMetric.failed}</td>
-                        <td>{subjectMetric.retryAttempts}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
+            <div class="subject-chart-wrap">
+              <EventBusSubjectHealthChart subjects={eventBusMetrics.subjects} />
+            </div>
           {:else}
             <p class="empty-copy">当前未返回 EventBus 指标快照。</p>
           {/if}
@@ -238,7 +216,7 @@
   .metric-label,
   .operational-label,
   .empty-copy {
-    color: var(--text-300);
+    color: var(--text-60);
     font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -256,7 +234,7 @@
     gap: var(--space-2);
     border: 1px solid var(--line-soft);
     padding: var(--space-3);
-    background: var(--surface-1);
+    background: var(--surface-panel);
   }
 
   .metric-card strong {
@@ -286,25 +264,11 @@
   .operational-strip p {
     color: var(--text-100);
     font-size: var(--text-sm);
-    line-height: var(--lh-relaxed);
+    line-height: var(--lh-prose);
   }
 
-  .subject-table-wrap {
-    overflow-x: auto;
-  }
-
-  .subject-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-
-  .subject-table th,
-  .subject-table td {
-    padding: var(--space-2) var(--space-3);
-    border-bottom: 1px solid var(--line-soft);
-    text-align: left;
-    color: var(--text-100);
+  .subject-chart-wrap {
+    min-width: 0;
   }
 
   .empty-panel {
