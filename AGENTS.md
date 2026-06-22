@@ -40,11 +40,10 @@
 
 1. `AGENTS.md`
 2. `MERISTEM.md`
-3. `MERISTEM-DESIGN.md`
-4. `MERISTEM-DEV.md`
-5. `MERISTEM-ROADMAP.md`
-6. `docs/README.md`
-7. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
+3. `MERISTEM-DEV.md`
+4. `MERISTEM-ROADMAP.md`
+5. `docs/README.md`
+6. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档
 
 历史开发草案和旧阶段文档已从当前文档集移除；当前实现规范以根文档、`docs/README.md`、对应契约文档和 `DEFERRED-WORK.md` 为准。
 

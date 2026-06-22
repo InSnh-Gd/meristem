@@ -11,12 +11,12 @@ Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. For
 
 Primary source documents:
 
-- `MERISTEM-DESIGN.md`
-- `docs/ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`
 - `docs/ui/SDUI-SCHEMA.md`
 - `docs/services/m-ui-bff.md`
 - `docs/testing/TESTING.md`
 - `CONTEXT.md`
+
+Preserved M-UI design exploration docs under `docs/ui/` are historical context only. They should not override explicit current user requirements or the active SDUI/BFF contracts.
 
 ## Product Frame
 
@@ -90,3 +90,33 @@ These rules apply to the current M-UI Transitional Workbench surface and its SDU
 - BFF does not cache Core data or permission context across requests.
 - SDUI remains a contract registry; runtime page composition requires a future ADR and contract update.
 - Services, M-Extension, and plugins do not supply M-UI pages, components, layouts, or runtime frontend modules.
+
+## Expansion Track Boundaries
+
+M-UI expansion work is contract-gated rather than design-doc-gated. Styling and visual direction may be redefined by the current task, but the following boundaries remain:
+
+- UI state must continue to flow through `M-UI -> M-UI BFF -> Core public facade -> M-*`.
+- New frontend dependencies must not leak library-specific shapes into BFF contracts or SDUI schemas.
+- Critical state cannot be color-only and must expose traceable source information where applicable.
+- High-risk or destructive commands must remain explicit, confirmed, and auditable.
+
+### ADR / security / contract-gated (no implementation)
+
+- **SDUI runtime renderer:** ADR / contract-migration work only. Until an
+  accepted ADR and versioned contract migration authorise a runtime renderer,
+  SDUI remains a route/component contract registry. No runtime renderer
+  implementation exists. Reference: `ADR-U01-sdui-runtime-renderer-migration.md`.
+
+- **Plugin UI:** ADR / security / contract work only. No runtime plugin UI
+  implementation exists. Plugin-delivered UI remains blocked until sandbox, CSP,
+  signing/provenance, registration, and ownership-boundary rules are accepted.
+  Reference: `ADR-U02-plugin-ui-sandbox-security-model.md`.
+
+### Cross-track boundary rules
+
+- Runtime frontend tracks may introduce bounded pilots inside M-UI only. They must not
+  break the `M-UI -> M-UI BFF -> Core public facade -> M-*` data flow.
+- ADR-gated tracks remain decision-only. No runtime implementation, composition
+  engine, or plugin-delivered production UI is authorised.
+- Existing ownership principles (§Ownership Principles), route rules, CommandWell
+  rules, and forbidden UI patterns remain authoritative for all tracks.

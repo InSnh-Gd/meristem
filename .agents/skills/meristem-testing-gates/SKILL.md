@@ -151,6 +151,23 @@ When reviewing or claiming completion for M-UI, SDUI, BFF display contracts, Com
 | 6 | Data flow | M-UI calls M-UI BFF only; BFF uses Core public facades for Core/M-* facts and capabilities |
 | 7 | Modular frontend | New frontend modularity happens inside M-UI `layout / modules / ui`, not through service/plugin-supplied runtime UI |
 
+### M-UI Frontend Review Gates
+
+M-UI visual/style direction is currently reset. When reviewing or claiming completion for frontend work, treat preserved design exploration docs as historical context only and verify active contract behavior:
+
+| # | Gate | Pass Criteria |
+|---|------|---------------|
+| 1 | SDUI registry | Route/component/state-source contract remains valid and fail-closed. |
+| 2 | BFF boundary | M-UI calls M-UI BFF only; BFF does not own final facts or authorization. |
+| 3 | CommandWell | High-risk or destructive actions remain explicit, confirmed, and auditable. |
+| 4 | State visibility | Critical state remains visible, traceable, and not color-only. |
+| 5 | Runner split | M-UI DOM tests stay under the Vitest runner with `*.vitest.ts`; root Bun tests stay Bun-compatible. |
+
+Hard rules for frontend review:
+
+- New M-UI runtime/component tests go under `apps/m-ui/tests/runtime/`, not under production `src/**` paths unless they are source-contract tests.
+- No frontend expansion may weaken the existing M-UI ownership, SDUI registry, CommandWell, policy/audit/log visibility, or route-boundary hard gates above.
+
 ## Timeout Rule
 
 - Keep default `bun test` per-test timeout at `5000ms`.

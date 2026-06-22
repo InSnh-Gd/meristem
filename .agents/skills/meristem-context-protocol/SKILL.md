@@ -17,11 +17,10 @@ description: Use when working in the Meristem repository, before reading impleme
 
 1. `AGENTS.md` - 理解入口和项目 skill 路由。
 2. `MERISTEM.md` - 理解产品意图和范围。
-3. `MERISTEM-DESIGN.md` - 理解 M-UI 视觉和交互约束。
-4. `MERISTEM-DEV.md` - 理解工程规范、模块边界、数据结构和冻结条款。
-5. `MERISTEM-ROADMAP.md` - 理解分阶段实现顺序和 v0.1 护栏。
-6. `docs/README.md` - 查找细分契约文档。
-7. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档。
+3. `MERISTEM-DEV.md` - 理解工程规范、模块边界、数据结构和冻结条款。
+4. `MERISTEM-ROADMAP.md` - 理解分阶段实现顺序和 v0.1 护栏。
+5. `docs/README.md` - 查找细分契约文档。
+6. 相关 ADR、服务定义、事件目录、安全、配置、测试、运行或 UI schema 文档。
 
 历史开发草案和旧阶段文档已从当前文档集移除；当前实现规范以根文档、`docs/README.md`、对应契约文档和 `DEFERRED-WORK.md` 为准。
 
@@ -31,7 +30,6 @@ description: Use when working in the Meristem repository, before reading impleme
 
 ```text
 MERISTEM.md（产品意图）
-> MERISTEM-DESIGN.md（视觉契约）
 > MERISTEM-DEV.md（工程规范）
 > MERISTEM-ROADMAP.md（阶段计划）
 > 当前代码草稿
@@ -40,6 +38,7 @@ MERISTEM.md（产品意图）
 - 如果代码与 `MERISTEM-DEV.md` 冲突，先指出违反的章节号，再修改代码。
 - 如果 `MERISTEM-DEV.md` 的实现方案与 `MERISTEM.md` 的产品意图冲突，以 `MERISTEM.md` 为准，并建议同步更新开发文档。
 - 如果阶段计划要求实现完整能力但 v0.1 护栏明确禁止，以 v0.1 护栏为准。
+- M-UI 保留的设计探索文档只作历史参考；当前用户要求和活动契约优先。
 
 ## 产品意图边界
 
