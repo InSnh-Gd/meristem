@@ -252,18 +252,31 @@ Expected preflight checks:
 Commands for this topology:
 
 ```bash
-bun run mnet:harness:preflight
-bun run mnet:harness:start
+mnet-harness preflight
+mnet-harness start
+mnet-harness status
+mnet-harness stop
+mnet-harness reset
 ```
 
-The harness writes live logs under `.local/mnet-multihost/logs/` and returns those paths through `bun run mnet:harness:status`.
+The harness writes live logs under `.local/mnet-multihost/logs/` and returns those paths through `mnet-harness status`.
+`reset` now performs strong orphan cleanup, so a failed `start` should no longer require manual port cleanup before the next run.
+
+For a Chinese operator-oriented step-by-step validation guide, see [`M-NET-THREE-NODE-VALIDATION.md`](./M-NET-THREE-NODE-VALIDATION.md).
 
 Leaf host runtime shape:
 
 - control host: local Bun processes for `m-eventbus`, `m-policy`, `m-log`, `m-net`, `m-task`, `m-extension`, `core`, plus the co-located relay wrapper.
-- leaf hosts: `oven/bun:1` containers that run `bun run services/node-agent/src/index.ts` with Join Ticket env injected at start.
+- leaf hosts: `oven/bun:1` containers that run `bun run services/node-agent/src/index.ts` with Join Ticket env injected at start; the current proven topology is `1 stem + 1 leaf`.
 - control-plane Join URL inside leaf containers: `wss://host.docker.internal:8443/join/v0/session`.
 - relay endpoint inside leaf containers: `wss://host.docker.internal:18443`.
+- harness now injects an explicit `MERISTEM_MNET_CONTROL_URL=http://host.docker.internal:3104`, host `ip/wg/wstunnel` tool mounts, and a local `wstunnel client`, so node-agent runtime sync can complete inside the leaf containers.
+
+Current proof boundary:
+
+- automated E2E covers signed map publication, noop management dispatch, stale-map fail-closed, and invalid target rejection
+- the latest operator proof also verified in-tunnel overlay TCP from leaf `100.96.0.1` to stem `100.96.0.2`
+- this is sufficient to claim the first harness topology is **real virtual networking**, not just control-plane health
 
 ---
 

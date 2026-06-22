@@ -46,7 +46,6 @@ This gate runs the contract drift checks most likely to fail after documentation
 Final gate command matrix:
 
 ```bash
-bun run design:lint
 bun run format:check
 bun run lint
 bun run typecheck
@@ -66,7 +65,6 @@ bun run test:e2e
 
 Runner ownership matters here:
 
-- root `bun run design:lint` owns the canonical [`DESIGN.md`](../DESIGN.md) file structure and token vocabulary validation (it does not scan component CSS or Svelte files)
 - root `bun run test` owns only Bun-compatible `*.test.ts` suites
 - `cd apps/m-ui && bun run test` owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts`)
 - `bun run test:playwright` owns Playwright-only browser smoke coverage (`*.playwright.ts`)
@@ -285,6 +283,8 @@ Required command gate:
 bun run test:failure-modes
 ```
 
+When claiming that M-Net virtual networking is **really usable** (not only control-plane healthy), pair the automated gates above with the operator runbook proof in `docs/operations/M-NET-THREE-NODE-VALIDATION.md`, including at least one successful in-tunnel flow over the published `100.96.x.x` addresses on the live harness.
+
 Required evidence capture for data-plane security hardening:
 
 ```bash
@@ -300,8 +300,6 @@ The commands above are mandatory because the private-material scanner and expire
 
 Must cover:
 
-- no raw color literals in M-UI component styles
-- no forbidden component types from `MERISTEM-DESIGN.md §6.2`
 - high-risk action appears only in CommandWell
 - critical state is not color-only
 - Audit / Policy / Log / Node state components display traceable source
@@ -321,31 +319,21 @@ M-UI ownership gates:
 - SDUI remains a route/component contract registry. UI contract tests must not treat it as a runtime page renderer or composition engine unless a future ADR and contract migration explicitly introduce that architecture.
 - M-Extension and plugin UI contribution remain deferred architecture; tests for current scope must not require plugin-provided routes, components, or layouts.
 - M-UI must continue to call M-UI BFF only; BFF must use Core public facades for Core/M-* facts and capabilities.
-- Frontend modularity must happen inside M-UI-owned `layout / modules / ui`, with domain modules consuming BFF-shaped data rather than service/plugin-supplied runtime UI.
+- Frontend modularity should happen inside M-UI-owned code, with domain modules consuming BFF-shaped data rather than service/plugin-supplied runtime UI.
 
-### 6.0 Primitive Quality Gate Verification
+### 6.0 M-UI Frontend Verification
 
-M-UI primitive wrappers (Bits UI-backed or hand-written) must pass the quality gates
-defined in [`docs/ui/M-UI-PRIMITIVE-QUALITY-GATES.md`](../ui/M-UI-PRIMITIVE-QUALITY-GATES.md)
-before they can appear in a production route. The following commands from that
-document's §8 are the automated enforcement:
+M-UI frontend changes must use the current implementation and explicit task requirements as the source of visual truth. Historical design exploration documents under `docs/ui/` are reference material only.
+
+Required commands for UI-facing frontend changes:
 
 | Command | What It Verifies |
 |---------|-----------------|
-| `bun run design:lint` | Validates the canonical `DESIGN.md` file structure and token vocabulary. It does not scan component CSS or Svelte files. Component-level token enforcement (no raw colour literals, defined-token-only usage) is a manual review responsibility (see [`M-UI-PRIMITIVE-QUALITY-GATES.md`](../ui/M-UI-PRIMITIVE-QUALITY-GATES.md) §8). |
-| `bun run typecheck:m-ui` | TypeScript strictness for the `apps/m-ui` workspace. Verifies that wrapper Svelte and TypeScript files have no type errors. |
-| `cd apps/m-ui && bun run test` | M-UI Vitest / `happy-dom` runtime and component suites. Primitive wrapper tests must use the `*.vitest.ts` naming convention (e.g., `confirm-action-dialog.vitest.ts`). |
+| `bun run typecheck:m-ui` | TypeScript strictness for the `apps/m-ui` workspace. |
+| `cd apps/m-ui && bun run test` | M-UI Vitest / `happy-dom` runtime and component suites. Component DOM tests must use the `*.vitest.ts` naming convention. |
+| `bun run test:ui-contract` | SDUI and UI boundary contract coverage. |
 
-The primitive adoption governance framework is at
-[`docs/ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`](../ui/M-UI-PRIMITIVE-ADOPTION-CRITERIA.md).
-The current baseline is a single approved Bits UI pilot: the `AlertDialog`-backed
-`ConfirmActionDialog` at `apps/m-ui/src/lib/components/ui/ConfirmActionDialog.svelte`.
-All other Bits UI primitives (Skeleton, Command/Combobox, Table, Tabs, Select,
-Accordion, Button, Menu, Alert, Separator) are deferred behind the seven adoption
-gates. The design token parity audit at
-[`docs/ui/M-UI-DESIGN-TOKEN-PARITY.md`](../ui/M-UI-DESIGN-TOKEN-PARITY.md)
-records the current alignment between root `DESIGN.md` and the CSS custom-property
-sheet; it is an audit only and does not authorise token rewrites or code generation.
+Additional UI runtime tests should live under `apps/m-ui/tests/runtime/` when they need the M-UI Vitest runner. Runner boundaries from §3 (`*.vitest.ts` vs `*.test.ts`) apply.
 
 ---
 
