@@ -267,8 +267,8 @@ Evaluate generated concepts in this order:
 
 The M-UI design exploration is complete. This section records the outcome so future implementation can proceed from a single convergent direction rather than re-exploring.
 
+> Current status: this section is retained as historical reference. It should inform context, not override explicit current product or user requirements during the frontend reboot.
+
 - **Selected concept:** Focus-Flow Ledger. See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) for the convergence rationale and the rejected concept.
-- **Structure mapping:** The component-to-module (`layout / modules / ui`) mapping is recorded in [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md).
-- **Tech decisions:** Frontend technology decisions (Svelte 5 runes, module barrel pattern, CSS approach) are recorded in [`M-UI-FRONTEND-TECH-DECISIONS.md`](./M-UI-FRONTEND-TECH-DECISIONS.md).
-- **DESIGN.md:** The design-system tokens and primitive layer are recorded in [`DESIGN.md`](../../DESIGN.md).
-- **Remaining:** Implementation is gated on the test-foundation prerequisites from [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) §8 (route-render smoke tests, token-presence checks, CommandWell behavior tests, degraded-BFF scenarios). The `layout / modules / ui` file restructuring must not begin until at least items 1–4 of that section are green.
+- **Audit reference:** Earlier structure and test concerns remain recorded in [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md).
+- **Current boundary:** Active implementation gates are the SDUI contract, M-UI BFF contract, M-UI typecheck, M-UI tests, and explicit current requirements.

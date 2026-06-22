@@ -68,11 +68,9 @@ It is a valid concept for topology-heavy operator contexts and may become the ri
 
 ## Implications for subsequent tasks
 
-### Task 5 — Root `DESIGN.md`
-The root `DESIGN.md` should describe a **ledger-oriented workbench system** rather than a multi-pane control surface:
-- Tokens for vertical rhythm, typography, and full-width banners take precedence over dense grid/spacing tokens.
-- The primitive layer centers on stream/list/detail panels (AuditLedger, TimelineStream, DecisionQueueSummary, KeyValueInspector) and command affordances (CommandWellPanel).
-- The design language emphasizes state-source attribution, lineage, and conservative action.
+### Historical design-system implication
+
+The selected concept previously implied a ledger-oriented visual system rather than a multi-pane control surface. That implication is now reference-only; a future frontend redesign may keep, revise, or discard it based on the current task requirements.
 
 ### Task 6 — Figma context validation
 Figma MCP is unavailable. Validation is deferred to a later phase when:
@@ -90,14 +88,11 @@ Concept 2 maps cleanly:
 
 The current flat `lib/components/` components are redistributed along these lines; no new layout model is introduced.
 
-### Task 8 — Bits UI evaluation
-Because Concept 2 is a vertical-stack/ledger model, Bits UI primitives should be evaluated for:
-- Lists, tables, accordion, and disclosure primitives (content streams).
-- Button, command-menu, and dialog primitives (command footer and detail panels).
-- Alert, badge, and skeleton primitives (degraded states).
-- Resizable/splitter is lower priority than in Concept 1.
+### Historical primitive-layer implication
 
-### Task 9 — Frontend tech decisions
+Because Concept 2 was a vertical-stack/ledger model, the earlier plan treated list, disclosure, command, dialog, alert, badge, and skeleton primitives as plausible evaluation areas. This is not an adoption mandate.
+
+### Historical frontend tech implications
 The selected concept does not require new layout abstractions. Decisions should focus on:
 - Svelte 5 runes patterns for the shell and per-module stores.
 - How the sticky CommandWell footer communicates command state and eligibility without crossing into service-owned facts.

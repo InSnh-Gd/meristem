@@ -133,7 +133,7 @@ If Google Stitch or a similar generative UI tool were available in the environme
 **Prompting Stitch for Concept 2 (Focus-Flow Ledger):**
 > "Generate a security auditor's log interface. Top-to-bottom linear flow. Top: Breadcrumb header and a full-width yellow operational alert banner. Middle: An expanded detail view showing raw JSON envelope next to parsed keys. Lower: A dense table of audit logs. Bottom: A sticky footer spanning the full width acting as an action bar with primary and disabled buttons. Theme: light mode, minimal borders, typography-driven. Render UI text in Chinese."
 
-**Design System Assets to Feed Stitch:**
-*   **Colors:** Map to `MERISTEM-DESIGN.md` tokens: `Signal-Warn` (Yellow/Orange), `Signal-Block` (Red), `Signal-Info` (Blue), `Surface-Root` (Backgrounds), `Text-100` to `Text-40` (Typography hierarchy).
-*   **Typography:** Monospace fonts for `TraceId`, `CorrelationId`, and `RawEnvelopeView`. Sans-serif for UI labels.
+**Historical assets to feed Stitch:**
+*   **Colors:** Use task-specific semantic roles for warnings, blocked states, informational states, surfaces, and text hierarchy rather than a fixed repository palette.
+*   **Typography:** Consider monospace fonts for `TraceId`, `CorrelationId`, and `RawEnvelopeView`; use readable sans-serif text for UI labels unless a new design direction says otherwise.
 *   **SDUI Mapping:** We would explicitly instruct Stitch to map generated components back to the allowed `MUiComponentKind` list (e.g., mapping a generated timeline to `TimelineStream`).

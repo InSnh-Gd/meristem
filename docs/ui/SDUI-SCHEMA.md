@@ -6,24 +6,21 @@
 
 ---
 
-## Design Activation Status
+## Current Contract Status
 
 The canonical route schema for the M-UI Transitional Workbench is `SduiV02Route` (fields: `components`, `stateSources`, `degradedState`), documented in §8 below and emitted by the BFF route registry at `GET /api/v0/routes`.
 
 The legacy `MUiRouteSchema` shape (`regions` / `layout` / `version`) documented in §1 and referenced in §7 is **deprecated**. It is retained only as a historical description of the original route intent; the BFF no longer emits it. It will be removed in a future contract migration.
 
-Design direction:
+Historical design exploration documents under `docs/ui/` may provide background, but they are non-authoritative. Current product requirements, this SDUI contract, and the M-UI BFF contract define the active boundary.
 
-- See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) for the selected concept (Focus-Flow Ledger) and convergence rationale.
-- See [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md) for the component-to-module (`layout / modules / ui`) mapping.
-
-The SDUI registry remains a route/component contract registry that drives navigation labels and component-kind contracts; it is not a runtime page composition engine.
+The SDUI registry remains a route/component contract registry that drives navigation labels and component-kind contracts; it is not a runtime page composition engine. The proposed SDUI v0.3 runtime renderer path is recorded in [`ADR-U01`](../adr/ADR-U01-sdui-runtime-renderer-migration.md) as ADR / contract migration work only; until an accepted migration supersedes this contract, v0.2 remains the implemented boundary.
 
 ---
 
 ## 1. Route Shape
 
-> **Deprecated:** This schema shape (`MUiRouteSchema` with `regions` / `layout` / `version`) is superseded by `SduiV02Route`. See the Design Activation Status above and §8. It will be removed in a future contract migration.
+> **Deprecated:** This schema shape (`MUiRouteSchema` with `regions` / `layout` / `version`) is superseded by `SduiV02Route`. See the current contract status above and §8. It will be removed in a future contract migration.
 
 ```ts
 type MUiRouteSchema = {
@@ -199,7 +196,7 @@ Transitional workbench rules:
 - Unknown component kind fails closed.
 - Missing permission hides or disables command with reason; the transitional workbench must prefer a visible disabled command explanation.
 - High-risk command cannot bypass M-Policy.
-- Component token usage follows the canonical root `DESIGN.md` for transitional implementation tokens. Note that the CSS implementation currently uses the target dark/graphite palette from `MERISTEM-DESIGN.md` ahead of the canonical token update; this divergence is documented in root `DESIGN.md` §9.1. Until the token migration is executed, token-level enforcement should reference both the canonical DESIGN.md vocabulary and the current CSS token sheet.
+- Component styling may be reworked independently as long as contract-relevant state remains visible, traceable, and not color-only.
 
 ---
 

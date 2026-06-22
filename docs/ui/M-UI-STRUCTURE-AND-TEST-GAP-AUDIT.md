@@ -281,10 +281,8 @@ or unused surface.
 ## 7. Test Coverage Summary
 
 > Historical note: this section was originally a pre-foundation audit snapshot.
-> The current authoritative landed-state test map now lives in
-> [`M-UI-STRUCTURE-MAPPING.md`](./M-UI-STRUCTURE-MAPPING.md) §4–§5. The summary
-> below has been updated to reflect the current runner split so this audit does
-> not contradict the implemented test setup.
+> The summary below reflects the runner split at the time this reference was
+> retained, but current task requirements and active tests are authoritative.
 
 Source: `tests/` and `apps/m-ui/`. M-UI-related testing now spans repo-root Bun
 contract/ui-contract suites plus `apps/m-ui` Vitest runtime/component suites.
@@ -342,12 +340,9 @@ here so the structure-mapping task has a concrete gate.
    component. Priority routes: `control-room.overview`, `policy.approvals.detail`,
    `network.profiles.detail`, `mnet.break-glass` (the highest-risk surfaces).
 
-2. **Token-presence checks.** A test that renders representative components and
-   asserts styles resolve to CSS custom properties from the canonical root
-   `DESIGN.md` token vocabulary and the current CSS token sheet (no raw color
-   values) at render time — extending the current static scan into a
-   rendered-DOM assertion. This locks the visual contract before any
-   component restructure.
+2. **State-visibility checks.** A test that renders representative components and
+   asserts contract-relevant state remains visible, traceable, and not color-only
+   after visual refactors.
 
 3. **CommandWell behavior tests.** Component-level tests for the shared
    `CommandWell.svelte` covering: disabled-reason visibility, confirmation step
@@ -370,9 +365,8 @@ here so the structure-mapping task has a concrete gate.
    accompany any drift reconciliation.
 
 These prerequisites align with the Meristem testing gates: route-render smoke
-and token checks map to UI contract tests; CommandWell behavior and degraded-BFF
-map to failure-mode tests; reconciliation maps to contract tests. The
-structure-mapping task must not move files until at least items 1–4 are green.
+and state-visibility checks map to UI contract tests; CommandWell behavior and
+degraded-BFF map to failure-mode tests; reconciliation maps to contract tests.
 
 ---
 
@@ -390,7 +384,7 @@ structure-mapping task):
 - No inline CommandWell (D4) is converged onto the shared component.
 - No `GlobalProfileControls`/`JoinTicketPanel` registration (D5) is changed.
 - No test is added; the §8 list is a gate for a future task, not this one.
-- No dependency (Bits UI, Tailwind, state/chart/motion libraries) was adopted at the time this audit was written; a single AlertDialog Bits UI pilot was later approved under the criteria in `M-UI-PRIMITIVE-ADOPTION-CRITERIA.md`.
+- No dependency (Bits UI, Tailwind, state/chart/motion libraries) was adopted at the time this audit was written. Later primitive or styling choices should be evaluated under the current task's requirements.
 
 The audit's sole tracked-file output is this document. All findings are
 recorded to inform the convergence decision and structure-mapping task; they do
