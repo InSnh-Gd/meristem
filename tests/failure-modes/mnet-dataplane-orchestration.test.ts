@@ -273,7 +273,8 @@ describe('M-Net dataplane orchestration failure modes', () => {
       status: 503,
       error: {
         code: 'dataplane.store_failed',
-        message: 'network_maps save failed for network-dataplane-orchestration-failure: pg write failed'
+        message:
+          'network_maps save failed for network-dataplane-orchestration-failure: pg write failed'
       }
     })
   })

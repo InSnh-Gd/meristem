@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
-import { internalServicePorts, internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
+import {
+  internalServicePorts,
+  internalTokenHeaderName
+} from '../../packages/internal-http/src/index.ts'
 import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../services/m-net/src/network-map-renderer.ts'
 import { evaluateNetworkMap } from '../../services/node-agent/src/node-agent-map-enforcement.ts'
@@ -67,7 +70,9 @@ async function runHarnessJson<T>(args: readonly string[]): Promise<T> {
 async function fetchJson<T>(input: string | URL | Request, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   if (!response.ok) {
-    throw new Error(`request failed ${response.status} ${response.statusText}: ${await response.text()}`)
+    throw new Error(
+      `request failed ${response.status} ${response.statusText}: ${await response.text()}`
+    )
   }
   return (await response.json()) as T
 }
@@ -80,9 +85,12 @@ async function fetchHarnessStatus(): Promise<HarnessStatus> {
 }
 
 async function fetchPrimaryNetworkId(joinedLeafIds: readonly string[]): Promise<string> {
-  const body = await fetchJson<{ networks: NetworkSummary[] }>(`${mNetBaseUrl}/internal/v0/networks`, {
-    headers: { [internalTokenHeaderName]: harnessInternalToken }
-  })
+  const body = await fetchJson<{ networks: NetworkSummary[] }>(
+    `${mNetBaseUrl}/internal/v0/networks`,
+    {
+      headers: { [internalTokenHeaderName]: harnessInternalToken }
+    }
+  )
 
   for (const network of body.networks) {
     const members = await fetchJson<{ members: NetworkMember[] }>(
@@ -142,7 +150,9 @@ describe('M-Net multi-host failure and recovery e2e', () => {
         expectedSigningKeyId: mapBody.map.signatureMetadata.keyId,
         expectedSigningPublicKey: mapBody.map.signatureMetadata.publicKey,
         nowMs: mapBody.map.expiresAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS + 1,
-        serverTime: new Date(mapBody.map.expiresAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS + 1).toISOString()
+        serverTime: new Date(
+          mapBody.map.expiresAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS + 1
+        ).toISOString()
       })
       expect(staleDecision.decision).toBe('fail_closed')
       if (staleDecision.decision === 'fail_closed') {

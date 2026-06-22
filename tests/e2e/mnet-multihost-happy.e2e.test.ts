@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { internalServicePorts, internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
+import {
+  internalServicePorts,
+  internalTokenHeaderName
+} from '../../packages/internal-http/src/index.ts'
 import { loadState } from '../../scripts/mnet-multihost-harness-support.ts'
 import { startProcess } from '../helpers/process.ts'
 
@@ -78,7 +81,9 @@ async function runHarnessJson<T>(args: readonly string[]): Promise<T> {
 async function fetchJson<T>(input: string | URL | Request, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init)
   if (!response.ok) {
-    throw new Error(`request failed ${response.status} ${response.statusText}: ${await response.text()}`)
+    throw new Error(
+      `request failed ${response.status} ${response.statusText}: ${await response.text()}`
+    )
   }
   return (await response.json()) as T
 }
@@ -100,9 +105,12 @@ async function fetchActiveHarnessStatus(): Promise<HarnessStatus> {
 }
 
 async function fetchPrimaryNetworkId(joinedLeafIds: readonly string[]): Promise<string> {
-  const body = await fetchJson<{ networks: NetworkSummary[] }>(`${mNetBaseUrl}/internal/v0/networks`, {
-    headers: { [internalTokenHeaderName]: harnessInternalToken }
-  })
+  const body = await fetchJson<{ networks: NetworkSummary[] }>(
+    `${mNetBaseUrl}/internal/v0/networks`,
+    {
+      headers: { [internalTokenHeaderName]: harnessInternalToken }
+    }
+  )
 
   for (const network of body.networks) {
     const members = await fetchJson<{ members: NetworkMember[] }>(
