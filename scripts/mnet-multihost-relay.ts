@@ -39,8 +39,7 @@ const relay = Bun.spawn(
     '--tls-private-key',
     keyFile,
     '--log-lvl',
-    'INFO',
-    '--no-color'
+    'INFO'
   ],
   {
     env: process.env,
