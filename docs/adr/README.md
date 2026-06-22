@@ -16,6 +16,8 @@
 | [ADR-N02](ADR-N02-m-net-cn-profile.md) | M-Net CN 区域网络 Profile | Accepted (data-plane scope superseded by ADR-N03) | 区域网络 Profile（当前接受范围：control-plane profile lifecycle） |
 | [ADR-N03](ADR-N03-m-net-production-data-plane.md) | M-Net Production Data-Plane | Accepted | M-Net 数据面范围授权和 Sidecar 代理定义 |
 | [ADR-T01](ADR-T01-m-task-canonical-service.md) | M-Task 规范任务服务 | Accepted | 任务服务边界 |
+| [ADR-U01](ADR-U01-sdui-runtime-renderer-migration.md) | SDUI Runtime Renderer Migration Path | Proposed | SDUI v0.3 runtime rendering contract migration path（不授权实现） |
+| [ADR-U02](ADR-U02-plugin-ui-sandbox-security-model.md) | Plugin UI Sandbox And Security Model | Proposed | plugin UI sandbox / security / contract model（不授权实现） |
 
 ---
 
