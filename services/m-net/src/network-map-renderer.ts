@@ -151,7 +151,8 @@ function buildNetworkMap(
     members: members.map(member => ({
       nodeId: member.nodeId,
       tunnelIp: member.tunnelIp,
-      publicKey: member.publicKey
+      publicKey: member.publicKey,
+      ...(member.endpoint ? { endpoint: member.endpoint } : {})
     })),
     aclRules: [...aclRules],
     expiresAt: calculateNetworkMapExpiresAt(input.issuedAt, staleTtlMs),

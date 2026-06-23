@@ -24,7 +24,8 @@ function toLatestNetworkMapResponse(map: NetworkMapFromSchema) {
       members: map.members.map(member => ({
         nodeId: member.nodeId,
         tunnelIp: member.tunnelIp,
-        publicKey: member.publicKey
+        publicKey: member.publicKey,
+        ...(member.endpoint ? { endpoint: member.endpoint } : {})
       })),
       aclRules: map.aclRules.map(rule => ({
         ruleId: rule.ruleId,

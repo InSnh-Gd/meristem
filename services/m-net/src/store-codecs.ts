@@ -101,6 +101,7 @@ export function buildStoredNodePublicKey(input: {
   rotationCounter: number
   rotationDueAt: Date | null
   status: string
+  endpoint?: string | null
 }): StoredNodePublicKey | null {
   if (input.algorithm !== 'wireguard-x25519') return null
   return {
@@ -113,7 +114,8 @@ export function buildStoredNodePublicKey(input: {
     ...(input.rotatedAt ? { rotatedAt: input.rotatedAt.toISOString() } : {}),
     rotationCounter: input.rotationCounter,
     ...(input.rotationDueAt ? { rotationDueAt: input.rotationDueAt.toISOString() } : {}),
-    status: input.status
+    status: input.status,
+    ...(input.endpoint ? { endpoint: input.endpoint } : {})
   }
 }
 

@@ -178,7 +178,8 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
             rotatedAt: record.rotatedAt ? new Date(record.rotatedAt) : null,
             rotationDueAt: record.rotationDueAt ? new Date(record.rotationDueAt) : null,
             rotationCounter: record.rotationCounter,
-            status: record.status
+            status: record.status,
+            endpoint: record.endpoint ?? null
           })
           .onConflictDoUpdate({
             target: [mnetNodePublicKeys.nodeId, mnetNodePublicKeys.keyId],
@@ -190,7 +191,8 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
               rotatedAt: record.rotatedAt ? new Date(record.rotatedAt) : null,
               rotationDueAt: record.rotationDueAt ? new Date(record.rotationDueAt) : null,
               rotationCounter: record.rotationCounter,
-              status: record.status
+              status: record.status,
+              endpoint: record.endpoint ?? null
             }
           })
       },
@@ -241,7 +243,8 @@ function hydrateStoredKey(row: typeof mnetNodePublicKeys.$inferSelect | undefine
     rotatedAt: row.rotatedAt,
     rotationCounter: row.rotationCounter,
     rotationDueAt: row.rotationDueAt,
-    status: row.status
+    status: row.status,
+    endpoint: row.endpoint ?? null
   })
   return metadata
 }

@@ -111,7 +111,8 @@ export const latestNetworkMapSchema = t.Object({
     t.Object({
       nodeId: t.String(),
       tunnelIp: t.String(),
-      publicKey: t.String()
+      publicKey: t.String(),
+      endpoint: t.Optional(t.String())
     })
   ),
   aclRules: t.Array(
