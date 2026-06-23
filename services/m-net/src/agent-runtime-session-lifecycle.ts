@@ -301,12 +301,16 @@ export async function forwardLog(
   nodeId: string,
   message: SessionLogForwardMessage
 ): Promise<void> {
-  await context.writeFull(message.level, message.message, message.correlationId, message.traceId, {
-    nodeId,
-    channel: 'session.log.forward',
-    timestamp: message.timestamp,
-    ...(message.payload === undefined ? {} : { payload: message.payload })
-  })
+  try {
+    await context.writeFull(message.level, message.message, message.correlationId, message.traceId, {
+      nodeId,
+      channel: 'session.log.forward',
+      timestamp: message.timestamp,
+      ...(message.payload === undefined ? {} : { payload: message.payload })
+    })
+  } catch {
+    // m-log 不可用时日志转发失败不应导致 M-Net 崩溃，特别是启动阶段竞态
+  }
 }
 
 /**
@@ -333,26 +337,42 @@ export async function transitionNodeOffline(
     .where(eq(nodes.id, row.id))
 
   if (row.reachability !== 'unreachable') {
-    await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
-      nodeId: row.id,
-      previousReachability: row.reachability,
-      nextReachability: 'unreachable'
-    })
+    try {
+      await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
+        nodeId: row.id,
+        previousReachability: row.reachability,
+        nextReachability: 'unreachable'
+      })
+    } catch {
+      // m-eventbus 不可用时事件发布失败不应导致 M-Net 崩溃
+    }
   }
 
   if (row.status !== 'offline') {
-    await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
-      nodeId: row.id,
-      previousStatus: row.status,
-      nextStatus: 'offline',
-      reason
-    })
+    try {
+      await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
+        nodeId: row.id,
+        previousStatus: row.status,
+        nextStatus: 'offline',
+        reason
+      })
+    } catch {
+      // m-eventbus 不可用时事件发布失败不应导致 M-Net 崩溃
+    }
   }
 
-  await context.writeTimeline(`node became offline ${row.id}`, row.id)
-  await context.writeFull('warn', `${reason} for ${row.id}`, undefined, undefined, {
-    nodeId: row.id
-  })
+  try {
+    await context.writeTimeline(`node became offline ${row.id}`, row.id)
+  } catch {
+    // m-log 不可用时日志写入失败不应导致 M-Net 崩溃
+  }
+  try {
+    await context.writeFull('warn', `${reason} for ${row.id}`, undefined, undefined, {
+      nodeId: row.id
+    })
+  } catch {
+    // m-log 不可用时日志写入失败不应导致 M-Net 崩溃
+  }
 }
 
 /**
