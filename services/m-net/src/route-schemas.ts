@@ -143,7 +143,8 @@ export const latestNetworkMapSchema = t.Object({
 export const nodeKeyRegistrationBodySchema = t.Object({
   keyId: t.String({ minLength: 1 }),
   publicKey: t.String({ minLength: 1 }),
-  createdAt: t.String({ minLength: 1 })
+  createdAt: t.String({ minLength: 1 }),
+  endpoint: t.Optional(t.String({ minLength: 1 }))
 })
 
 export const nodeKeyRegistrationResponseSchema = t.Object({

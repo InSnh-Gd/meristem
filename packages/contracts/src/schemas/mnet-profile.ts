@@ -257,7 +257,12 @@ export type AclRuleFromSchema = typeof AclRuleSchema.Type
 export const NetworkMapMemberSchema = Schema.Struct({
   nodeId: Schema.String,
   tunnelIp: Schema.String,
-  publicKey: Schema.String
+  publicKey: Schema.String,
+  /**
+   * 节点的公网 WireGuard 端点（如 `203.0.113.5:51820`），用于直接 P2P 连接。
+   * 缺省时 node-agent 回退到 wstunnel relay。
+   */
+  endpoint: Schema.optional(Schema.String)
 })
 export type NetworkMapMemberFromSchema = typeof NetworkMapMemberSchema.Type
 

@@ -151,7 +151,15 @@ export async function enableDataPlaneProfile(
 /** 注册节点公钥并重新发布最新签名地图。 */
 export async function registerNodePublicKey(
   deps: DataPlaneDeps,
-  input: { networkId: string; nodeId: string; keyId: string; publicKey: string; createdAt: string }
+  input: {
+    networkId: string
+    nodeId: string
+    keyId: string
+    publicKey: string
+    createdAt: string
+    /** 节点的公网 WireGuard 端点（STUN 发现），用于直接 P2P 连接。 */
+    endpoint?: string
+  }
 ): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure> {
   try {
     const existingKeys = await deps.dataPlane.nodePublicKeys.listByNode(input.nodeId)
@@ -190,7 +198,8 @@ export async function registerNodePublicKey(
     const rotationMetadata: NodePublicKeyMetadata = validated.value
     await deps.dataPlane.nodePublicKeys.upsert({
       ...rotationMetadata,
-      status: 'active'
+      status: 'active',
+      ...(input.endpoint ? { endpoint: input.endpoint } : {})
     })
 
     const materialized = await materializeMembers(

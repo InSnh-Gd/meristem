@@ -48,6 +48,7 @@ export async function materializeMembers(
       nodeKind: 'stem' | 'leaf'
       tunnelIp: string
       publicKey: string
+      endpoint?: string
     }> = []
 
     for (const member of members) {
@@ -131,7 +132,8 @@ export async function materializeMembers(
         nodeId: member.nodeId,
         nodeKind: member.nodeKind,
         tunnelIp: resolved.tunnelIp,
-        publicKey: publicKey ?? bootstrapNodePublicKey(member.nodeId)
+        publicKey: publicKey ?? bootstrapNodePublicKey(member.nodeId),
+        ...(existingKey?.endpoint ? { endpoint: existingKey.endpoint } : {})
       })
     }
 

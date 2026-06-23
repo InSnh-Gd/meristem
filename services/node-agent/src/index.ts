@@ -29,6 +29,7 @@ import {
   loadOrCreateWireGuardKeyMaterial,
   type WireGuardKeyMaterial
 } from './node-agent-wireguard-keys.ts'
+import { discoverPublicEndpoint } from './node-agent-stun.ts'
 import {
   DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH,
   loadRuntimeCredentials,
@@ -48,6 +49,8 @@ let runtimeToken = process.env.MERISTEM_NODE_TOKEN ?? persistedRuntimeCredential
 let currentSessionId: string | null = null
 let currentControlUrl: string | null = null
 let currentWireGuardKey: WireGuardKeyMaterial | null = null
+let currentPublicEndpoint: string | null = null
+let stunDiscoveryAttempted = false
 let currentEnforcementState = createInitialEnforcementState('network-pending')
 const localOverlayEnv: LocalOverlayEnv = loadLocalOverlayEnv()
 let socket: WebSocket | null = null
@@ -170,10 +173,25 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
   const keyMaterial = currentWireGuardKey ?? (await loadOrCreateWireGuardKeyMaterial())
   currentWireGuardKey = keyMaterial
 
+  // STUN 发现公网 endpoint（仅尝试一次，缓存后续复用）
+  if (!stunDiscoveryAttempted && !currentPublicEndpoint) {
+    stunDiscoveryAttempted = true
+    const stunResult = await discoverPublicEndpoint()
+    if (stunResult.ok) {
+      currentPublicEndpoint = `${stunResult.endpoint.ip}:${stunResult.endpoint.port}`
+      process.stdout.write(
+        `node public endpoint discovered via STUN: ${currentPublicEndpoint}\n`
+      )
+    } else {
+      process.stderr.write(`STUN discovery failed: ${stunResult.reason}\n`)
+    }
+  }
+
   const registration = await registerNodeRuntimeKey(controlUrl, nodeId, runtimeToken, {
     keyId: keyMaterial.keyId,
     publicKey: keyMaterial.publicKey,
-    createdAt: keyMaterial.createdAt
+    createdAt: keyMaterial.createdAt,
+    ...(currentPublicEndpoint ? { endpoint: currentPublicEndpoint } : {})
   })
   const keyCorrelationId =
     registration.kind === 'runtime.key.registered' ? registration.correlationId : undefined

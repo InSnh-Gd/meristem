@@ -189,6 +189,10 @@ function parseVersion(output: string, binary: 'wg' | 'wireguard-go'): string | n
 /**
  * 从签名 network-map 渲染确定性的 WireGuard 配置文本；私钥以 base64 内容内联，
  * 供 `wg setconf` 直接消费（`wg setconf` 不支持 wg-quick 的 Address 指令和文件路径引用）。
+ *
+ * 对等节点 Endpoint 选择策略：
+ * 1. 若对等节点在 network-map 中声明了 `endpoint`（STUN 发现的公网地址），使用直接 P2P 连接。
+ * 2. 否则回退到 wstunnel relay 本地 UDP 绑定地址（`localRelayEndpoint`）。
  */
 export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const listenPort = input.listenPort ?? DEFAULT_WG_LISTEN_PORT
@@ -212,11 +216,24 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const lines = buildInterfaceLines(localMember, input.privateKey, listenPort)
 
   if (peers.length > 0) {
-    const normalizedEndpoint = resolveRelayEndpoint(input)
-    if (!normalizedEndpoint.ok) return normalizedEndpoint
+    // 预解析 relay fallback endpoint（仅在有 peer 缺少 direct endpoint 时使用）
+    let relayFallback: string | null = null
+    const needsRelay = peers.some(peer => !isNonEmpty(peer.endpoint))
+    if (needsRelay) {
+      const relayResult = resolveRelayEndpoint(input)
+      if (!relayResult.ok) return relayResult
+      relayFallback = relayResult.value
+    }
 
     for (const peer of peers) {
-      lines.push('', ...buildPeerLines(peer, normalizedEndpoint.value))
+      const peerEndpoint = isNonEmpty(peer.endpoint)
+        ? normalizePeerEndpoint(peer.endpoint)
+        : null
+      const endpoint = peerEndpoint?.ok ? peerEndpoint.value : relayFallback
+      if (!endpoint) {
+        return { ok: false, error: { kind: 'wg.endpoint_missing', nodeId: peer.nodeId } }
+      }
+      lines.push('', ...buildPeerLines(peer, endpoint))
     }
   }
 

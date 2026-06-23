@@ -18,6 +18,7 @@ type NodeRuntimeFacade = {
     keyId: string
     publicKey: string
     createdAt: string
+    endpoint?: string
   }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
 }
 
@@ -61,7 +62,8 @@ export function createNodeRuntimeFacade(input: {
         nodeId: payload.nodeId,
         keyId: payload.keyId,
         publicKey: payload.publicKey,
-        createdAt: payload.createdAt
+        createdAt: payload.createdAt,
+        ...(payload.endpoint ? { endpoint: payload.endpoint } : {})
       })
     }
   }

@@ -12,6 +12,8 @@ export type NetworkMapMemberInput = {
   readonly nodeKind: NodeKind
   readonly tunnelIp: string
   readonly publicKey: string
+  /** 节点的公网 WireGuard 端点（如 `203.0.113.5:51820`），用于直接 P2P 连接。 */
+  readonly endpoint?: string
 }
 
 export type RequestedAclRule = {

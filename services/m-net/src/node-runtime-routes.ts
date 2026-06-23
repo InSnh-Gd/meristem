@@ -133,7 +133,8 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
           nodeId: params.nodeId,
           keyId: body.keyId,
           publicKey: body.publicKey,
-          createdAt: body.createdAt
+          createdAt: body.createdAt,
+          ...(body.endpoint ? { endpoint: body.endpoint } : {})
         })
         if (isProfileWorkflowFailure(result)) {
           return externalApiError(set, result.status, result.error.code, result.error.message)

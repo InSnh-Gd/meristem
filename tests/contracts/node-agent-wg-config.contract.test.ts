@@ -107,6 +107,81 @@ describe('node-agent WireGuard config contract', () => {
     expect(rendered.value.config).toContain('Endpoint = direct-peer.example:51820')
   })
 
+  it('prefers per-member direct P2P endpoint over wstunnel relay when available', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // Each peer should use its own direct endpoint, NOT the relay
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.30:51820')
+    expect(rendered.value.config).not.toContain('127.0.0.1:51821')
+  })
+
+  it('falls back to wstunnel relay for peers missing direct endpoint', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC='
+          // no endpoint — should fall back to relay
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // peer-2 has direct endpoint
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    // peer-3 falls back to relay
+    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+  })
+
   it('inlines the private key content into the config for wg setconf consumption', () => {
     const rendered = renderWireGuardConfig({
       map: createNetworkMap(),

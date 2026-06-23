@@ -47,6 +47,8 @@ export type RuntimeKeyRegistrationInput = {
   keyId: string
   publicKey: string
   createdAt: string
+  /** 节点的公网 WireGuard 端点（STUN 发现），用于直接 P2P 连接。 */
+  endpoint?: string
 }
 
 export type RuntimeKeyRegistrationResult =
