@@ -156,12 +156,35 @@ export async function registerNodePublicKey(
   try {
     const existingKeys = await deps.dataPlane.nodePublicKeys.listByNode(input.nodeId)
     const validated = rejectDuplicatePublicKey({ ...input, existingKeys })
+    const correlationId = crypto.randomUUID()
+
+    // 无效公钥（格式错误等）仍返回 409 拒绝。
+    // 重复公钥视为幂等注册，仍触发 materializeMembers 刷新地图，避免地图过期后 node-agent 无法恢复。
     if (!validated.ok) {
-      return profileWorkflowFailure(
-        409,
-        validated.error.kind,
-        'duplicate or invalid public key rejected'
+      if (validated.error.kind !== 'key.duplicate') {
+        return profileWorkflowFailure(
+          409,
+          validated.error.kind,
+          'duplicate or invalid public key rejected'
+        )
+      }
+
+      const materialized = await materializeMembers(
+        deps,
+        input.networkId,
+        CHINA_DATA_PLANE_PROFILE_VERSION,
+        correlationId
       )
+      if (isProfileWorkflowFailure(materialized)) return materialized
+
+      const existingKey = existingKeys.find(key => key.publicKey === input.publicKey)
+      return {
+        nodeId: input.nodeId,
+        keyId: existingKey?.keyId ?? input.keyId,
+        fingerprint: existingKey?.fingerprint ?? '',
+        mapVersion: materialized.mapVersion,
+        correlationId
+      }
     }
 
     const rotationMetadata: NodePublicKeyMetadata = validated.value
@@ -170,7 +193,6 @@ export async function registerNodePublicKey(
       status: 'active'
     })
 
-    const correlationId = crypto.randomUUID()
     const materialized = await materializeMembers(
       deps,
       input.networkId,
