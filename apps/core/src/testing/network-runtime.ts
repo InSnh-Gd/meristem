@@ -7,6 +7,8 @@ import type {
   MNetworkMember,
   NetworkSummary,
   NodeAgentTaskExecuteResponse,
+  NodeKind,
+  NodeStatus,
   ProjectionHealth,
   ServiceSummary
 } from '../../../../packages/contracts/src/index.ts'
@@ -98,6 +100,60 @@ export function createMNetPort(
       const network = state.networks.find(candidate => candidate.id === networkId)
       if (!network) return err({ code: 'network.not_found', message: 'network not found' })
       return ok(state.memberships.filter(membership => membership.networkId === networkId))
+    },
+    async controlNode(input) {
+      if (helpers.options.mNetAvailable === false) {
+        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
+      }
+
+      const node = state.nodes.find(candidate => candidate.id === input.nodeId)
+      if (!node) return err({ code: 'node.not_found', message: 'node not found' })
+      if (input.action === 'switch-role') {
+        if (!input.targetKind) {
+          return err({
+            code: 'node.control.target_kind_required',
+            message: 'target kind is required for role switch'
+          })
+        }
+        if (node.kind === input.targetKind) {
+          return err({
+            code: 'node.control.role_unchanged',
+            message: 'node already has requested role'
+          })
+        }
+        const joinedStemCount = state.memberships.filter(
+          membership => membership.networkId && membership.nodeKind === 'stem'
+        ).length
+        if (node.kind === 'stem' && input.targetKind === 'leaf' && joinedStemCount <= 1) {
+          return err({
+            code: 'node.control.last_stem_required',
+            message: 'network requires at least one stem member'
+          })
+        }
+        const nextKind: NodeKind = input.targetKind
+        const updated: typeof node = { ...node, kind: nextKind }
+        state.nodes = state.nodes.map(candidate =>
+          candidate.id === input.nodeId ? updated : candidate
+        )
+        state.memberships = state.memberships.map(membership =>
+          membership.nodeId === input.nodeId
+            ? {
+                ...membership,
+                nodeKind: nextKind,
+                membershipMode: nextKind === 'stem' ? 'full' : 'restricted'
+              }
+            : membership
+        )
+        return ok({
+          node: updated,
+          policyDecisionId: 'mnet-decision-test',
+          correlationId: 'mnet-correlation-test'
+        })
+      }
+      const nextStatus: NodeStatus = input.action === 'recover' ? 'recovering' : input.action === 'isolate' ? 'isolated' : 'disabled'
+      const updated: typeof node = { ...node, status: nextStatus }
+      state.nodes = state.nodes.map(candidate => candidate.id === input.nodeId ? updated : candidate)
+      return ok({ node: updated, policyDecisionId: 'mnet-decision-test', correlationId: 'mnet-correlation-test' })
     }
   }
 }
