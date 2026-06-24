@@ -3,7 +3,8 @@ import type {
   CreateNodeTicketResponse,
   IssueNodeCredentialResponse,
   JoinNetworkResponse,
-  RegisterNodeResponse
+  RegisterNodeResponse,
+  RevokeNodeCredentialResponse
 } from '../../../../packages/contracts/src/index.ts'
 import type { CliClient } from '../commands/types.ts'
 import type { CliRuntime } from './runtime.ts'
@@ -19,6 +20,7 @@ export function createNodeNetworkClient(
   | 'registerNode'
   | 'createNodeTicket'
   | 'issueNodeToken'
+  | 'revokeNodeToken'
   | 'listNodes'
   | 'createNetwork'
   | 'listNetworks'
@@ -38,6 +40,13 @@ export function createNodeNetworkClient(
       const route = nodeRoutes[nodeId]
       if (!route) throw new Error('node route unavailable')
       return unwrap<IssueNodeCredentialResponse>(route.credentials.post({ $headers: headers }))
+    },
+    revokeNodeToken: async nodeId => {
+      const route = nodeRoutes[nodeId]
+      if (!route) throw new Error('node route unavailable')
+      return unwrap<RevokeNodeCredentialResponse>(
+        route.credentials.revoke.post({ $headers: headers })
+      )
     },
     listNodes: async (): Promise<unknown> => unwrap(client.api.v0.nodes.get({ $headers: headers })),
     createNetwork: async input =>

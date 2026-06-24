@@ -148,6 +148,43 @@ describe('meristem CLI', () => {
     expect(calls).toEqual(['node:register:leaf:sim-leaf:missing', 'node:ticket:leaf:agent-leaf:90'])
   })
 
+  it('rotates and revokes node runtime tokens through the typed Core client', async () => {
+    const calls: string[] = []
+    const cli = createCliRunner({
+      async status() {
+        throw new Error('should not be called')
+      },
+      async issueNodeToken(nodeId) {
+        calls.push(`node:issue-token:${nodeId}`)
+        return {
+          nodeId,
+          token: 'mnt_runtime_token',
+          issuedAt: '2026-05-05T00:00:00.000Z',
+          policyDecisionId: 'decision-3',
+          correlationId: 'corr-3'
+        }
+      },
+      async revokeNodeToken(nodeId) {
+        calls.push(`node:revoke-token:${nodeId}`)
+        return {
+          nodeId,
+          revokedAt: '2026-05-05T00:05:00.000Z',
+          policyDecisionId: 'decision-4',
+          correlationId: 'corr-4'
+        }
+      }
+    })
+
+    const issue = await cli.run(['node', 'issue-token', '--node', 'node-1'])
+    const revoke = await cli.run(['node', 'revoke-token', '--node', 'node-1'])
+
+    expect(issue.exitCode).toBe(0)
+    expect(issue.stdout).toContain('"nodeId": "node-1"')
+    expect(revoke.exitCode).toBe(0)
+    expect(revoke.stdout).toContain('"revokedAt": "2026-05-05T00:05:00.000Z"')
+    expect(calls).toEqual(['node:issue-token:node-1', 'node:revoke-token:node-1'])
+  })
+
   it('uses lifecycle-oriented M-Task commands', async () => {
     const calls: string[] = []
     const cli = createCliRunner({

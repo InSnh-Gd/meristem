@@ -32,6 +32,9 @@ type ServiceRoute = {
 type NodeRoute = {
   credentials: {
     post(params: { $headers: Record<string, string> }): Promise<EdenResponse<unknown>>
+    revoke: {
+      post(params: { $headers: Record<string, string> }): Promise<EdenResponse<unknown>>
+    }
   }
 }
 
