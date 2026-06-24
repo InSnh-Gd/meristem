@@ -68,7 +68,7 @@ export function createCommandWellExecuteRoutes({ cf, tf, cfRaw, mfRaw }: MUiBffR
         commandId,
         body,
         token,
-        deps: { cf, mfRaw }
+        deps: { cf, cfRaw, mfRaw }
       })
       if (mnetExecuteResponse !== null) {
         return mnetExecuteResponse
