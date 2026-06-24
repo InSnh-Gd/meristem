@@ -155,15 +155,22 @@ export async function materializeMembers(
       staleTtlMs: resolveNetworkMapStaleTtlMs(process.env)
     })
 
-    await deps.dataPlane.networkMaps.save({
-      networkId,
-      mapVersion: map.mapVersion,
-      profileVersion,
-      map,
-      signatureMetadata: map.signatureMetadata,
-      expiresAt: new Date(map.expiresAt).toISOString(),
-      publishedAt: new Date(issuedAt).toISOString()
-    })
+    try {
+      await deps.dataPlane.networkMaps.save({
+        networkId,
+        mapVersion: map.mapVersion,
+        profileVersion,
+        map,
+        signatureMetadata: map.signatureMetadata,
+        expiresAt: new Date(map.expiresAt).toISOString(),
+        publishedAt: new Date(issuedAt).toISOString()
+      })
+    } catch (error) {
+      throw new Error(
+        `network_maps save failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      )
+    }
 
     const currentPartition = (await deps.dataPlane.partitionStates.get(networkId)) ?? {
       networkId,
