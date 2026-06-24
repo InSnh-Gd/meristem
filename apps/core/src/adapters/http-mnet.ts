@@ -2,7 +2,11 @@ import { edenTreaty } from '@elysiajs/eden'
 import { Effect } from 'effect'
 import type {
   CreateNetworkRequest,
-  MNetworkMember
+  MNetworkMember,
+  MNode,
+  NodeControlAction,
+  NodeControlResponse,
+  NodeControlResponseFromSchema
 } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import type { MNetApp } from '../../../../services/m-net/src/public-types.ts'
@@ -16,14 +20,41 @@ import {
 import {
   decodeMNetCreateNetworkResponse as decodeCreateNetworkResponse,
   decodeMNetJoinNetworkResponse as decodeJoinNetworkResponse,
+  decodeMNetNodeControlResponse as decodeNodeControlResponse,
   decodeMNetNetworkListResponse as decodeNetworkListResponse,
   decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse
 } from './mnet-response-decode.ts'
+
+function normalizeMNetNode(node: NodeControlResponseFromSchema['node']): MNode {
+  return {
+    id: node.id,
+    kind: node.kind,
+    name: node.name,
+    mode: node.mode,
+    status: node.status,
+    reachability: node.reachability,
+    capabilities: [...node.capabilities],
+    createdAt: node.createdAt,
+    ...(node.lastSeenAt !== undefined ? { lastSeenAt: node.lastSeenAt } : {}),
+    ...(node.agentVersion !== undefined ? { agentVersion: node.agentVersion } : {})
+  }
+}
+
+function normalizeNodeControlResponse(
+  response: NodeControlResponseFromSchema
+): NodeControlResponse {
+  return {
+    node: normalizeMNetNode(response.node),
+    policyDecisionId: response.policyDecisionId,
+    correlationId: response.correlationId
+  }
+}
 
 /**
  * Core 到 M-Net 的同步网络调用改走 loopback HTTP + Eden，避免继续把业务边界压在 NATS RPC 上。
  */
 export function createHttpMNetPort() {
+  const baseUrl = serviceUrl('m-net')
   const client = edenTreaty<MNetApp>(serviceUrl('m-net'), { fetcher: createInternalFetcher() })
   const networkRoutes = client.internal.v0.networks as Record<
     string,
@@ -137,6 +168,51 @@ export function createHttpMNetPort() {
               : decodeNetworkMembersResponse(response.data)
           ),
           Effect.map(response => response.members.map(member => ({ ...member })))
+        )
+      )
+    },
+    async controlNode(input: {
+      nodeId: string
+      action: NodeControlAction
+      reason: string
+      targetKind?: 'stem' | 'leaf'
+      bearerToken: string
+    }) {
+      return runServiceEffect(
+        tryServiceCall(
+          async () => {
+            const response = await fetch(
+              `${baseUrl}/api/v0/nodes/${encodeURIComponent(input.nodeId)}/control`,
+              {
+                method: 'POST',
+                headers: {
+                  authorization: `Bearer ${input.bearerToken}`,
+                  'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                  action: input.action,
+                  reason: input.reason,
+                  ...(input.targetKind ? { targetKind: input.targetKind } : {})
+                })
+              }
+            )
+            const data = await response.json()
+            return { ok: response.ok, data }
+          },
+          { code: 'mnet.unavailable', message: 'M-Net unavailable' }
+        ).pipe(
+          Effect.flatMap(response =>
+            response.ok
+              ? decodeNodeControlResponse(response.data)
+              : Effect.fail(
+                  serviceErrorFromHttpResponse(
+                    response.data,
+                    'mnet.unavailable',
+                    'M-Net unavailable'
+                  )
+                )
+          ),
+          Effect.map(normalizeNodeControlResponse)
         )
       )
     }

@@ -9,6 +9,8 @@ import {
   NetworkMembersResponseSchema,
   type NetworkRecordResponseFromSchema,
   NetworkRecordResponseSchema,
+  type NodeControlResponseFromSchema,
+  NodeControlResponseSchema,
   type NodeAgentTaskExecuteEnvelopeResponseFromSchema,
   NodeAgentTaskExecuteEnvelopeResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
@@ -77,6 +79,15 @@ export function decodeMNetNetworkMembersResponse(
   value: unknown
 ): Effect.Effect<NetworkMembersResponseFromSchema, DecodeFailure> {
   return decodeBoundaryPayload(NetworkMembersResponseSchema, value, invalidMNetResponseFailure)
+}
+
+/**
+ * 解码 Core facade -> M-Net 节点控制响应。
+ */
+export function decodeMNetNodeControlResponse(
+  value: unknown
+): Effect.Effect<NodeControlResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(NodeControlResponseSchema, value, invalidMNetResponseFailure)
 }
 
 /**

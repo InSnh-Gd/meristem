@@ -3,6 +3,8 @@ import type {
   CreateNetworkRequest,
   MNetwork,
   MNetworkMember,
+  NodeControlAction,
+  NodeControlResponse,
   NetworkSummary
 } from '../../../../packages/contracts/src/index.ts'
 import type { ServiceError } from './common.ts'
@@ -18,4 +20,11 @@ export type MNetPort = {
     nodeId: string
   }): Promise<Result<MNetworkMember, ServiceError>>
   listNetworkMembers(networkId: string): Promise<Result<MNetworkMember[], ServiceError>>
+  controlNode(input: {
+    nodeId: string
+    action: NodeControlAction
+    reason: string
+    targetKind?: 'stem' | 'leaf'
+    bearerToken: string
+  }): Promise<Result<NodeControlResponse, ServiceError>>
 }
