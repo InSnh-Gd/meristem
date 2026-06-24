@@ -4,6 +4,10 @@ import type {
   NodeStatus,
   SessionHeartbeatMessage
 } from '../../../packages/contracts/src/index.ts'
+import {
+  isHeartbeatSuppressedByNodeControl,
+  isOfflineTransitionSuppressedByNodeControl
+} from './node-control-state-machine.ts'
 
 export type RuntimeNodeSnapshot = {
   id: string
@@ -21,6 +25,14 @@ export type HeartbeatTransition = {
   nextAgentVersion: string
   statusChanged: boolean
   reachabilityChanged: boolean
+}
+
+export type RecoveryCompletionEvidence = {
+  nodeId: string
+  previousStatus: 'recovering'
+  nextStatus: Extract<NodeStatus, 'healthy' | 'degraded'>
+  heartbeatTimestamp: string
+  agentVersion: string
 }
 
 export type JoinTicketSnapshot = {
@@ -54,6 +66,25 @@ export function deriveHeartbeatTransition(
 }
 
 /**
+ * recover 是操作者动作，但完成条件来自 agent heartbeat；这里只提取可审计事实，
+ * 副作用仍由 session lifecycle 统一写入 Timeline/Audit/Event。
+ */
+export function deriveRecoveryCompletionEvidence(
+  node: RuntimeNodeSnapshot,
+  heartbeat: SessionHeartbeatMessage,
+  transition: HeartbeatTransition
+): RecoveryCompletionEvidence | null {
+  if (node.status !== 'recovering' || !transition.statusChanged) return null
+  return {
+    nodeId: node.id,
+    previousStatus: 'recovering',
+    nextStatus: transition.nextStatus,
+    heartbeatTimestamp: heartbeat.timestamp,
+    agentVersion: heartbeat.agentVersion
+  }
+}
+
+/**
  * offline 回收同样保持纯函数判断：只依赖快照、当前时间和超时阈值，
  * 不把数据库或总线副作用混进状态规则里。
  */
@@ -64,7 +95,13 @@ export function shouldTransitionOffline(
 ): boolean {
   if (node.mode !== 'agent') return false
   if (node.reachability !== 'reachable') return false
-  if (node.status === 'offline' || node.status === 'revoked') return false
+  if (
+    node.status === 'offline' ||
+    node.status === 'revoked' ||
+    isOfflineTransitionSuppressedByNodeControl(node.status)
+  ) {
+    return false
+  }
   if (!node.lastSeenAt) return false
   const lastSeenAt = Date.parse(node.lastSeenAt)
   if (Number.isNaN(lastSeenAt)) return false
@@ -131,6 +168,19 @@ export function authorizeSessionMessage<_TSession>(
  */
 export function shouldTransitionOfflineOnDisconnect(node: RuntimeNodeSnapshot): boolean {
   if (node.mode !== 'agent') return false
-  if (node.status === 'offline' || node.status === 'revoked') return false
+  if (
+    node.status === 'offline' ||
+    node.status === 'revoked' ||
+    isOfflineTransitionSuppressedByNodeControl(node.status)
+  ) {
+    return false
+  }
   return true
+}
+
+/**
+ * 节点被操作者显式 disable / isolate 后，heartbeat 只能更新观测事实，不能恢复运行态状态。
+ */
+export function isHeartbeatStatusSuppressed(node: RuntimeNodeSnapshot): boolean {
+  return isHeartbeatSuppressedByNodeControl(node.status)
 }

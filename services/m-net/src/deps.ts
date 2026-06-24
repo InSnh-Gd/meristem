@@ -2,6 +2,8 @@ import type {
   CreateNetworkRequest,
   MNetwork,
   MNetworkMember,
+  NodeControlAction,
+  NodeControlResponse,
   NetworkSummary,
   NodeAgentTaskExecuteResponse
 } from '../../../packages/contracts/src/index.ts'
@@ -32,6 +34,20 @@ export type MNetAppDeps = {
     taskId: string
     correlationId: string
   }): Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>>
+  controlNode?: (input: {
+    actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+    nodeId: string
+    action: NodeControlAction
+    reason: string
+    targetKind?: 'stem' | 'leaf'
+  }) => Promise<
+    | NodeControlResponse
+    | {
+        kind: 'failure'
+        status: 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
   profileStore?: {
     getDefinitions(): Promise<MNetRegionalProfile[]>
     getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>
