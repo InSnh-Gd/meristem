@@ -1,4 +1,4 @@
-import type { MNode, PolicyDecision } from '../../../../packages/contracts/src/index.ts'
+import type { MNode, Permission, PolicyDecision } from '../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../core-error.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
 import { joinSessionUrl, tracedEvent } from '../middleware/route-support.ts'
@@ -10,7 +10,10 @@ export async function requireNodeMutationAccess(
   deps: CoreDeps,
   input: {
     headers: Record<string, string | undefined>
-    action: 'node:register' | 'node:issue-token'
+    action: Extract<
+      Permission,
+      'node:register' | 'node:issue-token' | 'node:switch-role' | 'node:disable' | 'node:isolate' | 'node:recover'
+    >
     resource: string
   }
 ): Promise<NodeMutationAuth> {
@@ -21,6 +24,60 @@ export async function requireNodeMutationAccess(
     resource: input.resource,
     correlationId: auth.correlationId
   })
+  return { ...auth, permission }
+}
+
+export async function requireNodeControlAccess(
+  deps: CoreDeps,
+  input: {
+    headers: Record<string, string | undefined>
+    action: Extract<Permission, 'node:switch-role' | 'node:disable' | 'node:isolate' | 'node:recover'>
+    resource: string
+    requestedAction: 'disable' | 'isolate' | 'recover' | 'switch-role'
+    targetKind?: 'stem' | 'leaf'
+  }
+): Promise<NodeMutationAuth> {
+  const auth = await requireActor(deps, input.headers)
+  const decision = await deps.policy.authorize({
+    actor: auth.actor,
+    action: input.action,
+    resource: input.resource,
+    correlationId: auth.correlationId
+  })
+  if (!decision.ok) {
+    throw new CoreError(503, decision.error.code, decision.error.message, auth.correlationId)
+  }
+  const permission = decision.value
+  if (permission.result === 'deny') {
+    const audit = await deps.log.writeAudit({
+      actor: auth.actor,
+      action: input.action,
+      resource: input.resource,
+      decisionId: permission.id,
+      result: 'deny',
+      correlationId: auth.correlationId,
+      payload: {
+        requestedAction: input.requestedAction,
+        ...(input.targetKind ? { targetKind: input.targetKind } : {})
+      }
+    })
+    if (!audit.ok) {
+      throw new CoreError(503, audit.error.code, audit.error.message, auth.correlationId)
+    }
+    await deps.log.writeFull({
+      level: 'warn',
+      source: 'meristem-core',
+      message: `permission denied: ${input.action}`,
+      correlationId: auth.correlationId,
+      payload: {
+        actor: auth.actor,
+        action: input.action,
+        resource: input.resource,
+        decisionId: permission.id
+      }
+    })
+    throw new CoreError(403, 'policy.denied', 'permission denied', auth.correlationId)
+  }
   return { ...auth, permission }
 }
 
@@ -150,7 +207,7 @@ export async function publishNodeRegistrationArtifacts(
 }
 
 export function requireNodeCredential<
-  T extends { nodeId: string; token: string; issuedAt: string }
+  T extends { nodeId: string }
 >(credential: T | null, correlationId: string): T {
   if (!credential) {
     throw new CoreError(404, 'node.not_found', 'node not found', correlationId)
