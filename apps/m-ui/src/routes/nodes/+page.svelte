@@ -75,7 +75,7 @@
             >
               <span class="mono" role="cell">{node.name}</span>
               <span role="cell">{node.kind === 'stem' ? 'Stem' : 'Leaf'}</span>
-              <span role="cell">{node.status}</span>
+              <span class="mono" role="cell" data-testid="node-row-status-{node.id}">{node.status}</span>
               <span role="cell">{node.reachability}</span>
               <span role="cell">{node.mode}</span>
             </button>
