@@ -62,13 +62,7 @@ export async function enableDataPlaneProfile(
     if (lockResult.kind === 'failure') {
       return profileWorkflowFailure(409, lockResult.failure.code, lockResult.failure.message)
     }
-    try {
-      await deps.dataPlane.operationLocks.upsert(lockResult.lock)
-    } catch (error) {
-      throw new Error(
-        `operation_locks acquire upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.operationLocks.upsert(lockResult.lock)
 
     const materialized = await materializeMembers(
       deps,
@@ -93,23 +87,17 @@ export async function enableDataPlaneProfile(
       reason: input.reason,
       correlationId
     })
-    try {
-      await deps.dataPlane.profileMigrations.upsert({
-        networkId: input.networkId,
-        operationId: request.operationId,
-        fromVersion: 'm-net-cn@0.1.0',
-        toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-        status: 'applied',
-        idempotencyKey: request.idempotencyKey ?? request.operationId,
-        startedAt: request.requestedAt,
-        completedAt: new Date().toISOString(),
-        auditMetadata: { reason: input.reason }
-      })
-    } catch (error) {
-      throw new Error(
-        `profile_migrations upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.profileMigrations.upsert({
+      networkId: input.networkId,
+      operationId: request.operationId,
+      fromVersion: 'm-net-cn@0.1.0',
+      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      status: 'applied',
+      idempotencyKey: request.idempotencyKey ?? request.operationId,
+      startedAt: request.requestedAt,
+      completedAt: new Date().toISOString(),
+      auditMetadata: { reason: input.reason }
+    })
 
     const artifactsWritten = await writeOptionalArtifacts(deps, {
       correlationId,
@@ -126,13 +114,7 @@ export async function enableDataPlaneProfile(
       reason: { code: 'operation.completed', detail: 'data-plane profile enabled' }
     })
     if (released.kind === 'released') {
-      try {
-        await deps.dataPlane.operationLocks.upsert(released.lock)
-      } catch (error) {
-        throw new Error(
-          `operation_locks release upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
+      await deps.dataPlane.operationLocks.upsert(released.lock)
     }
 
     return {

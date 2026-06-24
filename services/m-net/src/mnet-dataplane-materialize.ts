@@ -71,23 +71,17 @@ export async function materializeMembers(
           )
         }
         resolved = { subnetCidr: assignment.value.cidr, tunnelIp: assignment.value.tunnelIp }
-        try {
-          const allocationRecord = {
-            networkId,
-            nodeId: member.nodeId,
-            subnetCidr: resolved.subnetCidr,
-            tunnelIp: resolved.tunnelIp,
-            allocatedAt: new Date().toISOString()
-          }
-          await deps.dataPlane.tunnelAllocations.upsert({
-            ...allocationRecord
-          })
-          existingAllocations.push(allocationRecord)
-        } catch (error) {
-          throw new Error(
-            `tunnel_allocations upsert failed for ${member.nodeId}: ${error instanceof Error ? error.message : String(error)}`
-          )
+        const allocationRecord = {
+          networkId,
+          nodeId: member.nodeId,
+          subnetCidr: resolved.subnetCidr,
+          tunnelIp: resolved.tunnelIp,
+          allocatedAt: new Date().toISOString()
         }
+        await deps.dataPlane.tunnelAllocations.upsert({
+          ...allocationRecord
+        })
+        existingAllocations.push(allocationRecord)
       }
 
       const existingKeys = await deps.dataPlane.nodePublicKeys.listByNode(member.nodeId)
@@ -103,30 +97,18 @@ export async function materializeMembers(
         if (!bootstrappedKey.ok) {
           return profileWorkflowFailure(503, 'key.bootstrap_failed', 'failed to derive node key')
         }
-        try {
-          await deps.dataPlane.nodePublicKeys.upsert({
-            ...bootstrappedKey.value,
-            status: 'active'
-          })
-        } catch (error) {
-          throw new Error(
-            `node_public_keys upsert failed for ${member.nodeId}: ${error instanceof Error ? error.message : String(error)}`
-          )
-        }
+        await deps.dataPlane.nodePublicKeys.upsert({
+          ...bootstrappedKey.value,
+          status: 'active'
+        })
         publicKey = bootstrappedKey.value.publicKey
       }
 
-      try {
-        await deps.dataPlane.sidecarDesiredConfigs.upsert({
-          nodeId: member.nodeId,
-          configHash: `${networkId}:${profileVersion}:${resolved.tunnelIp}`,
-          desiredAt: new Date().toISOString()
-        })
-      } catch (error) {
-        throw new Error(
-          `sidecar_desired upsert failed for ${member.nodeId}: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
+      await deps.dataPlane.sidecarDesiredConfigs.upsert({
+        nodeId: member.nodeId,
+        configHash: `${networkId}:${profileVersion}:${resolved.tunnelIp}`,
+        desiredAt: new Date().toISOString()
+      })
 
       renderedMembers.push({
         nodeId: member.nodeId,
@@ -137,19 +119,13 @@ export async function materializeMembers(
       })
     }
 
-    try {
-      await deps.dataPlane.relayAssignments.upsert({
-        networkId,
-        relayId: relayAssignment.nodeId,
-        relayType: relayAssignment.relayType,
-        endpoint: relayAssignment.relayEndpoint,
-        assignedAt: new Date().toISOString()
-      })
-    } catch (error) {
-      throw new Error(
-        `relay_assignments upsert failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.relayAssignments.upsert({
+      networkId,
+      relayId: relayAssignment.nodeId,
+      relayType: relayAssignment.relayType,
+      endpoint: relayAssignment.relayEndpoint,
+      assignedAt: new Date().toISOString()
+    })
 
     const issuedAt = Date.now()
     let signingKey: ReturnType<typeof resolveNetworkMapSigningKeyMaterial>
@@ -179,21 +155,15 @@ export async function materializeMembers(
       staleTtlMs: resolveNetworkMapStaleTtlMs(process.env)
     })
 
-    try {
-      await deps.dataPlane.networkMaps.save({
-        networkId,
-        mapVersion: map.mapVersion,
-        profileVersion,
-        map,
-        signatureMetadata: map.signatureMetadata,
-        expiresAt: new Date(map.expiresAt).toISOString(),
-        publishedAt: new Date(issuedAt).toISOString()
-      })
-    } catch (error) {
-      throw new Error(
-        `network_maps save failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.networkMaps.save({
+      networkId,
+      mapVersion: map.mapVersion,
+      profileVersion,
+      map,
+      signatureMetadata: map.signatureMetadata,
+      expiresAt: new Date(map.expiresAt).toISOString(),
+      publishedAt: new Date(issuedAt).toISOString()
+    })
 
     const currentPartition = (await deps.dataPlane.partitionStates.get(networkId)) ?? {
       networkId,
@@ -210,22 +180,10 @@ export async function materializeMembers(
         transitionedAt: new Date(issuedAt).toISOString()
       })
       if (transition.kind === 'transitioned') {
-        try {
-          await deps.dataPlane.partitionStates.upsert(transition.state)
-        } catch (error) {
-          throw new Error(
-            `partition_states upsert failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`
-          )
-        }
+        await deps.dataPlane.partitionStates.upsert(transition.state)
       }
     } else {
-      try {
-        await deps.dataPlane.partitionStates.upsert(currentPartition)
-      } catch (error) {
-        throw new Error(
-          `partition_states bootstrap failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
+      await deps.dataPlane.partitionStates.upsert(currentPartition)
     }
 
     return { relayAssignment, mapVersion: map.mapVersion }
