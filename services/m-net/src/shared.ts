@@ -6,7 +6,8 @@ import type {
   MNetworkMember,
   MNode,
   NodeAgentTaskExecuteResponse,
-  NodeKind
+  NodeKind,
+  NodeStatus
 } from '../../../packages/contracts/src/index.ts'
 import { err as resultErr, ok } from '../../../packages/common/src/result.ts'
 import type { networks, nodes } from '../../../packages/db/src/schema.ts'
@@ -37,6 +38,22 @@ export function err(code: string, message: string): MNetServiceResult<never> {
 
 export function asNodeKind(value: string): NodeKind | null {
   return value === 'stem' || value === 'leaf' ? value : null
+}
+
+export function asNodeStatus(value: string): NodeStatus | null {
+  return [
+    'ready',
+    'joining',
+    'healthy',
+    'degraded',
+    'offline',
+    'disabled',
+    'isolated',
+    'recovering',
+    'revoked'
+  ].includes(value)
+    ? (value as NodeStatus)
+    : null
 }
 
 export function membershipModeFor(kind: NodeKind): MNetworkMember['membershipMode'] {
