@@ -122,10 +122,123 @@ describe('M-Net data-plane redaction scanner', () => {
             }
           }
         }
+      },
+      {
+        name: 'event.path-changed-relay-failover',
+        surface: 'event',
+        payload: {
+          subject: 'mnet.path.changed.v0',
+          payload: {
+            networkId: 'network-prod-cn',
+            nodeId: 'leaf-cn-1',
+            pathType: 'relay',
+            previousPathType: 'direct',
+            relayEndpoint: 'wss://relay.cn.example/mnet',
+            correlationId: 'corr-path-2'
+          }
+        }
+      },
+      {
+        name: 'event.relay-assigned-production-rollout',
+        surface: 'event',
+        payload: {
+          subject: 'mnet.relay.assigned.v0',
+          payload: {
+            networkId: 'network-prod-cn',
+            nodeId: 'leaf-cn-1',
+            relayEndpoint: 'wss://relay.cn.example/mnet',
+            relayType: 'wstunnel',
+            correlationId: 'corr-relay-2'
+          }
+        }
+      },
+      {
+        name: 'event.dataplane-tunnel-lifecycle',
+        surface: 'event',
+        payload: {
+          subject: 'mnet.dataplane.tunnel.changed.v0',
+          payload: {
+            networkId: 'network-prod-cn',
+            nodeId: 'leaf-cn-1',
+            tunnelStatus: 'degraded',
+            previousStatus: 'up',
+            reason: 'relay handshake timeout',
+            correlationId: 'corr-tunnel-2'
+          }
+        }
+      },
+      {
+        name: 'event.node-key-rotated-audit-fact',
+        surface: 'event',
+        payload: {
+          subject: 'mnet.node_key.rotated.v0',
+          payload: {
+            nodeId: 'leaf-cn-1',
+            oldKeyFingerprint: 'wg-fp-old-leaf-cn-1',
+            newKeyFingerprint: 'wg-fp-new-leaf-cn-1',
+            rotationReason: 'scheduled rotation',
+            actor: 'security-admin',
+            correlationId: 'corr-key-2',
+            auditId: 'audit-key-2'
+          }
+        }
+      },
+      {
+        name: 'log.route-apply-safe-summary',
+        surface: 'log',
+        payload: {
+          level: 'info',
+          message: 'route apply acknowledged with control-plane facts only',
+          code: 'mnet.route_apply.observed',
+          observability: {
+            networkId: 'network-prod-cn',
+            nodeId: 'leaf-cn-1',
+            mapVersion: 'map-20260624-1',
+            routeIntentCount: 3,
+            pathType: 'relay',
+            hostLocalMutationOwnedBy: 'node-agent',
+            hostRuleSnapshotIncluded: false
+          }
+        }
+      },
+      {
+        name: 'log.forward-sidecar-lifecycle-safe-fact',
+        surface: 'log',
+        payload: {
+          type: 'log.forward',
+          sessionId: 'session-cn-1',
+          level: 'info',
+          message: 'wstunnel relay restarted after health-check timeout',
+          component: 'wstunnel',
+          lifecycle: {
+            transition: 'restarted',
+            restartCount: 1,
+            reason: 'healthcheck timeout'
+          },
+          safeFields: {
+            networkId: 'network-prod-cn',
+            nodeId: 'leaf-cn-1',
+            relayEndpoint: 'wss://relay.cn.example/mnet'
+          }
+        }
+      },
+      {
+        name: 'ui.node-key-rotation-audit-row',
+        surface: 'ui',
+        payload: {
+          audit: {
+            action: 'mnet.node_key.rotated',
+            nodeId: 'leaf-cn-1',
+            oldKeyFingerprint: 'wg-fp-old-leaf-cn-1',
+            newKeyFingerprint: 'wg-fp-new-leaf-cn-1',
+            actor: 'security-admin',
+            at: '2026-06-24T10:00:00.000Z'
+          }
+        }
       }
     ]
 
     fixtures.forEach(assertRedacted)
-    expect(fixtures).toHaveLength(5)
+    expect(fixtures).toHaveLength(12)
   })
 })
