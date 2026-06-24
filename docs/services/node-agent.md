@@ -67,6 +67,10 @@ Frame rules:
 - noop task execution returns `completed` with `taskId` and `nodeId`.
 - forwarded logs enter M-Net first, then land in M-Log Full Log.
 - signed network maps carry a TTL. Node-agent tears down all Meristem-managed tunnels when the map is stale past `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` (default 900000 ms / 15 minutes).
+- operator/API runtime token rotation revokes the prior active token before returning a replacement token once.
+- operator/API runtime token revoke removes the current active token without issuing a replacement.
+- until a future automation slice exists, node-agent does not auto-refresh runtime tokens; operators must restart or reconfigure it with the new token after rotation.
+- once a token has been rotated or revoked, later `session.resume` attempts with the old token must fail closed.
 
 ---
 
@@ -119,9 +123,11 @@ The node-agent process must run with the minimum set of Linux capabilities. It m
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | number | no | no | no | `5000` | heartbeat interval in milliseconds |
 | `MERISTEM_AGENT_VERSION` | string | no | no | no | `0.1.0` | agent version string reported in heartbeats |
 | `MERISTEM_MNET_CONTROL_URL` | URL | no | no | no | derived from join URL host on port `3104` | M-Net control plane URL for network-map pull and key metadata reporting |
+| `MERISTEM_NODE_AGENT_FORCE_RELAY` | boolean | no | no | no | `false` | when `true` or `1`, node-agent renders every WireGuard peer `Endpoint` as the declared local wstunnel UDP sidecar endpoint, ignoring API-visible member `endpoint` values; used for cloud topologies where direct leaf-to-leaf UDP is blocked, while committed node-agent apply logic still avoids host firewall/netfilter redirect commands |
 | `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` | number | no | yes | no | `900000` | stale map TTL in milliseconds (15 minutes); after this duration without a fresh signed map, node-agent enters fail-closed by tearing down tunnels |
 | `MERISTEM_WG_BINARY_PATH` | string | no | no | no | `wg` (PATH lookup) | WireGuard binary path for interface configuration |
 | `MERISTEM_WSTUNNEL_BINARY_PATH` | string | no | no | no | `wstunnel` (PATH lookup) | wstunnel binary path for relay sidecar |
+| `MERISTEM_WSTUNNEL_LOCAL_ENDPOINT` | host:port | no | no | no | `127.0.0.1:51821` | local UDP listener exposed by the wstunnel sidecar; used as the rendered WireGuard peer endpoint when `MERISTEM_NODE_AGENT_FORCE_RELAY=true` |
 | `MERISTEM_ACME_DIRECTORY` | URL | no | no | no | Let's Encrypt production directory | ACME directory URL for TLS certificate provisioning |
 | `MERISTEM_ACME_ACCOUNT_KEY` | string | no | no | yes | none | ACME account private key (PEM); used to sign certificate requests |
 | `MERISTEM_HOST_PRIVATE_KEY_PATH` | string | no | no | yes | none | path to host WireGuard private key file; must be host-local only, never transmitted |
@@ -237,6 +243,8 @@ Sidecar boundary rules:
 - the node-agent must not embed or reimplement wstunnel protocol logic.
 - the node-agent must not share its runtime token or session credentials with the wstunnel process.
 - wstunnel configuration must not contain plaintext secrets beyond the ACME certificate paths.
+- force-relay support is limited to the declared local UDP sidecar endpoint (`MERISTEM_WSTUNNEL_LOCAL_ENDPOINT`, default `127.0.0.1:51821`) that WireGuard peers reference directly.
+- unsupported workaround patterns include ad hoc host firewall or netfilter redirect rules (for example `iptables`, `nft`, `OUTPUT`, `SNAT`, or `MASQUERADE`) that try to rewrite WireGuard traffic outside the node-agent-owned sidecar and `ip`/WireGuard command boundary.
 - if wstunnel fails to start after maximum retries, the node-agent enters relay-only degraded mode and reports the failure upstream.
 
 ---

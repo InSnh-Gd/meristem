@@ -80,6 +80,10 @@ MVP uses a narrower permission set than the long-term baseline:
 | `network:profile-read` | no | yes | yes | yes |
 | `network:profile-enable` | no | no | yes | yes |
 | `network:profile-disable` | no | no | yes | yes |
+| `node:switch-role` | no | yes | no | no |
+| `node:disable` | no | no | yes | yes |
+| `node:isolate` | no | no | yes | yes |
+| `node:recover` | no | no | yes | yes |
 
 MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
 
@@ -183,6 +187,9 @@ Rules:
 | expand Leaf Node permissions | M-Policy, Audit Log, limited scope |
 | publish M-Net policy | M-Policy, config lifecycle, Audit Log |
 | enable M-Net CN | M-Policy, Audit Log, rollback path |
+| disable a node | M-Policy, Audit Log |
+| isolate a node | M-Policy, Audit Log |
+| recover a node from administrative state | M-Policy, Audit Log |
 | rotate secretRef | M-Policy, Audit Log |
 | register M-Extension | M-Policy, service definition, low default permission |
 | disable Audit Log | must be blocked unless in documented emergency recovery |
@@ -217,6 +224,9 @@ MVP protected operations:
 | list / view network profile definitions | operator | none |
 | enable M-Net CN on a network | admin / security-admin | required (suspended operation + approval) |
 | disable M-Net CN on a network | admin / security-admin | required before execution |
+| disable a node | admin / security-admin | required before state change |
+| isolate a node | admin / security-admin | required before state change |
+| recover a node from administrative state | admin / security-admin | required before state change |
 
 ### 3.1 Approval Security
 
@@ -260,7 +270,7 @@ M-Net CN data-plane security is fail-closed by default and must preserve the bou
 
 Rules:
 
-- Core and M-Net publish signed topology, ACL intent, relay selection, ticket state, and key metadata only. They must not store, return, log, or emit plaintext WireGuard private keys, node runtime tokens, ACME account keys, or sidecar secret fields.
+- Core and M-Net publish signed topology, ACL intent, relay selection, ticket state, and key metadata only. They must not store, return, log, emit, project, or surface through UI / evidence payloads plaintext WireGuard private keys, node runtime tokens, ACME account keys, or sidecar secret fields.
 - Duplicate public keys across nodes are rejected as `key.duplicate` before the network-map is refreshed.
 - Join ticket redemption and key registration reject control-plane clock skew above five minutes with `clock.skew_exceeded`.
 - Expired or revoked join tickets must not issue credentials, session state, or replacement secrets.

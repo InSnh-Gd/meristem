@@ -137,12 +137,14 @@ Public exposure rule:
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
 | `MERISTEM_MNET_CONTROL_URL` | node-agent M-Net control plane URL | derived from join URL host on port `3104` |
+| `MERISTEM_NODE_AGENT_FORCE_RELAY` | force node-agent WireGuard peers to the declared local wstunnel UDP sidecar endpoint when direct UDP is blocked | `false` |
 | `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` | node-agent stale map TTL (ms) | `900000` |
 | `MERISTEM_WG_BINARY_PATH` | WireGuard binary path | `wg` (PATH lookup) |
 | `MERISTEM_WSTUNNEL_BINARY_PATH` | wstunnel binary path | `wstunnel` (PATH lookup) |
+| `MERISTEM_WSTUNNEL_LOCAL_ENDPOINT` | node-agent local UDP sidecar endpoint used for forced relay WireGuard peers | `127.0.0.1:51821` |
 | `MERISTEM_ACME_DIRECTORY` | ACME directory URL | Let's Encrypt production directory |
-| `MERISTEM_ACME_ACCOUNT_KEY` | ACME account key (secret, host-local) | none |
-| `MERISTEM_HOST_PRIVATE_KEY_PATH` | host WireGuard private key path (secret, host-local only) | `.local/wg/private.key` |
+| `MERISTEM_ACME_ACCOUNT_KEY` | ACME account key (secret, host-local) | `/etc/meristem/node-agent/tls/account.key` in the NixOS/systemd node-agent path |
+| `MERISTEM_HOST_PRIVATE_KEY_PATH` | host WireGuard private key path (secret, host-local only) | `/etc/meristem/node-agent/wg/private.key` in the NixOS/systemd node-agent path |
 | `MERISTEM_RELAY_ENDPOINT` | wstunnel relay endpoint for fallback | none |
 | `MERISTEM_RELAY_PUBLIC_HOSTNAME` | public fallback relay hostname | `localhost` in local development |
 | `MERISTEM_RELAY_PUBLIC_PORT` | public fallback relay port | `443` |
@@ -179,7 +181,7 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal fr
 - even with the gate on, no real transport is exposed (skeleton returns noop status).
 - operators should not expect network routing changes when enabling `0.1.x` CN profile.
 
-For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This activates the production data-plane (ADR-N03) using WireGuard + wstunnel relay sidecars. Operators should expect actual host-level interface orchestration and network traffic routing when enabling `0.2.0`.
+For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental data-plane track (ADR-N03) using WireGuard + wstunnel relay sidecars where that path has been deployed and verified. Operators should require current evidence for host-level interface orchestration and traffic routing before treating a deployment as production-ready.
 
 ---
 
@@ -275,8 +277,8 @@ Leaf host runtime shape:
 Current proof boundary:
 
 - automated E2E covers signed map publication, noop management dispatch, stale-map fail-closed, and invalid target rejection
-- the latest operator proof also verified in-tunnel overlay TCP from leaf `100.96.0.1` to stem `100.96.0.2`
-- this is sufficient to claim the first harness topology is **real virtual networking**, not just control-plane health
+- the latest operator proof also verified in-tunnel overlay traffic for the first `1 stem + 1 leaf` topology
+- this is evidence that the first harness topology can exercise a real overlay path, but it is not a blanket production-readiness claim for all relay, recovery, or N-host scenarios
 
 ---
 
