@@ -15,6 +15,8 @@ import type {
   LogSearchResult,
   MNetwork,
   MNetworkMember,
+  NodeControlAction,
+  NodeControlResponse,
   MTask,
   MTaskPolicyDecision,
   NetworkSummary,
@@ -186,6 +188,20 @@ type ExpectedMNetAppDeps = {
     taskId: string
     correlationId: string
   }): Promise<ExpectedMNetServiceResult<NodeAgentTaskExecuteResponse>>
+  controlNode?: (input: {
+    actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+    nodeId: string
+    action: NodeControlAction
+    reason: string
+    targetKind?: 'stem' | 'leaf'
+  }) => Promise<
+    | NodeControlResponse
+    | {
+        kind: 'failure'
+        status: 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
   profileStore?: {
     getDefinitions(): Promise<MNetRegionalProfile[]>
     getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>

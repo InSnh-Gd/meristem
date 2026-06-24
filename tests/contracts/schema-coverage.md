@@ -20,6 +20,7 @@
 | `node.registration.requested.v0` | `apps/core/src/routes/nodes.ts` | `NodeRegistrationRequestedPayloadSchema` |
 | `node.join-ticket.created.v0` | `apps/core/src/routes/nodes.ts` | `NodeJoinTicketCreatedPayloadSchema` |
 | `node.registration.accepted.v0` | `apps/core/src/routes/nodes.ts` | `NodeRegistrationAcceptedPayloadSchema` |
+| `node.role.changed.v0` | `services/m-net/src/node-control-workflow.ts` | `NodeRoleChangedPayloadSchema` |
 | `node.status.changed.v0` | `apps/core/src/routes/nodes.ts` | `NodeStatusChangedPayloadSchema` |
 | `mnet.network.created.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
 | `mnet.membership.joined.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
@@ -71,7 +72,7 @@
 | --- | --- |
 | Core health/session/ready/status | `HealthResponseSchema`, `SessionResponseSchema`, `ReadyResponseSchema`, `StatusResponseSchema` |
 | Core service routes | `ServiceRegisterResponseSchema`, `ServiceListResponseSchema`, `ServiceReloadResponseSchema` |
-| Core node routes | `CreateNodeTicketResponseSchema`, `RegisterNodeResponseSchema`, `IssueNodeCredentialResponseSchema`, `NodeListResponseSchema`, `NodeDetailResponseSchema` |
+| Core node routes | `CreateNodeTicketResponseSchema`, `RegisterNodeResponseSchema`, `IssueNodeCredentialResponseSchema`, `RevokeNodeCredentialResponseSchema`, `NodeListResponseSchema`, `NodeDetailResponseSchema`, `NodeControlResponseSchema` |
 | Core network routes | `CreateNetworkResponseSchema`, `NetworkListResponseSchema`, `JoinNetworkResponseSchema`, `NetworkMembersResponseSchema` |
 | Core policy/log/projection routes | `PolicyDecisionResponseSchema`, `TimelineLogListResponseSchema`, `FullLogListResponseSchema`, `AuditLogListResponseSchema`, `TimelineLogSearchResponseSchema`, `FullLogSearchResponseSchema`, `AuditLogSearchResponseSchema`, `ProjectionHealthResponseSchema`, `BackfillResultSchema`, `ProjectionDLQResponseSchema`, `ProjectionReplayResponseSchema`, `ProjectionSkipResponseSchema` |
 | Identity routes | `IdentityActorListResponseSchema`, `IdentityActorDetailResponseSchema`, `IssueActorTokenRouteResponseSchema`, `InspectActorTokenResponseSchema`, `RevokeActorTokenCompatResponseSchema`, `InternalTokenIntrospectionResponseSchema` |
