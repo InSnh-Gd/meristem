@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_NETWORK_MAP_SIGNING_KEY_ID } from '../../m-net/src/network-map-signing.ts'
@@ -33,6 +33,8 @@ export type LocalOverlayEnv = {
   interfaceName: string
   listenPort: number
   localRelayEndpoint: string
+  /** 当为 true 时，强制所有 peer 使用 relay endpoint，忽略成员自身的 endpoint。 */
+  forceRelayEndpoint: boolean
   expectedSigningKeyId: string
   expectedSigningPublicKey?: string
   ipBinaryPath: string
@@ -88,6 +90,9 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
     localRelayEndpoint:
       env.MERISTEM_WSTUNNEL_LOCAL_ENDPOINT ??
       `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${parseNumberEnv(env.MERISTEM_WSTUNNEL_UDP_BIND_PORT, DEFAULT_WSTUNNEL_UDP_BIND_PORT)}`,
+    forceRelayEndpoint:
+      env.MERISTEM_NODE_AGENT_FORCE_RELAY === 'true' ||
+      env.MERISTEM_NODE_AGENT_FORCE_RELAY === '1',
     expectedSigningKeyId: env.MERISTEM_MNET_SIGNING_KEY_ID ?? DEFAULT_NETWORK_MAP_SIGNING_KEY_ID,
     ...(env.MERISTEM_MNET_SIGNING_PUBLIC_KEY
       ? { expectedSigningPublicKey: env.MERISTEM_MNET_SIGNING_PUBLIC_KEY }
@@ -111,38 +116,44 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
 
 async function writeOverlayState(
   paths: LocalOverlayPaths,
-  keyMaterial: WireGuardKeyMaterial,
-  config: string,
   state: AgentEnforcementState,
-  configHash: string
+  configHash: string,
+  keyId: string
+): Promise<void> {
+  await mkdir(dirname(paths.statePath), { recursive: true })
+  await writeFile(
+    paths.statePath,
+    `${JSON.stringify(
+      {
+        currentMapVersion: state.currentMapVersion ?? null,
+        currentSigningKeyId: state.currentSigningKeyId ?? null,
+        localTunnelIp: state.localTunnelIp ?? null,
+        knownPeers: state.knownPeers,
+        allowedPeers: state.allowedPeers,
+        relayAssignment: state.relayAssignment ?? null,
+        status: state.status,
+        partition: state.partition,
+        configHash,
+        keyId,
+        updatedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )}\n`,
+    { mode: 0o600 }
+  )
+}
+
+async function writeOverlayConfig(
+  paths: LocalOverlayPaths,
+  keyMaterial: WireGuardKeyMaterial,
+  config: string
 ): Promise<void> {
   await mkdir(dirname(paths.privateKeyPath), { recursive: true })
   await mkdir(dirname(paths.configPath), { recursive: true })
-  await mkdir(dirname(paths.statePath), { recursive: true })
   await Promise.all([
     writeFile(paths.privateKeyPath, `${keyMaterial.privateKey}\n`, { mode: 0o600 }),
-    writeFile(paths.configPath, `${config}\n`, { mode: 0o600 }),
-    writeFile(
-      paths.statePath,
-      `${JSON.stringify(
-        {
-          currentMapVersion: state.currentMapVersion ?? null,
-          currentSigningKeyId: state.currentSigningKeyId ?? null,
-          localTunnelIp: state.localTunnelIp ?? null,
-          knownPeers: state.knownPeers,
-          allowedPeers: state.allowedPeers,
-          relayAssignment: state.relayAssignment ?? null,
-          status: state.status,
-          partition: state.partition,
-          configHash,
-          keyId: keyMaterial.keyId,
-          updatedAt: new Date().toISOString()
-        },
-        null,
-        2
-      )}\n`,
-      { mode: 0o600 }
-    )
+    writeFile(paths.configPath, `${config}\n`, { mode: 0o600 })
   ])
 }
 
@@ -150,11 +161,14 @@ async function ensureWireGuardInterface(
   env: LocalOverlayEnv,
   localTunnelIp: string,
   configPath: string,
-  peerTunnelIps: readonly string[]
+  peerTunnelIps: readonly string[],
+  configAlreadyApplied: boolean
 ): Promise<void> {
+  let interfaceExisted = true
   try {
     await env.commandRunner([env.ipBinaryPath, 'link', 'show', 'dev', env.interfaceName])
   } catch {
+    interfaceExisted = false
     await env.commandRunner([
       env.ipBinaryPath,
       'link',
@@ -166,7 +180,9 @@ async function ensureWireGuardInterface(
     ])
   }
 
-  await env.commandRunner([env.wgBinaryPath, 'setconf', env.interfaceName, configPath])
+  if (!configAlreadyApplied || !interfaceExisted) {
+    await env.commandRunner([env.wgBinaryPath, 'setconf', env.interfaceName, configPath])
+  }
   await env.commandRunner([
     env.ipBinaryPath,
     'address',
@@ -185,6 +201,21 @@ async function ensureWireGuardInterface(
       'dev',
       env.interfaceName
     ])
+  }
+}
+
+async function readPreviousConfigHash(statePath: string): Promise<string | null> {
+  try {
+    const parsed = JSON.parse(await readFile(statePath, 'utf8'))
+    return typeof parsed === 'object' &&
+      parsed !== null &&
+      'configHash' in parsed &&
+      typeof parsed.configHash === 'string'
+      ? parsed.configHash
+      : null
+  } catch {
+    // state 文件不存在或损坏时按未应用处理，确保 WireGuard 配置被重新下发。
+    return null
   }
 }
 
@@ -240,7 +271,8 @@ export async function reconcileLocalOverlay(input: {
     agentNodeId: input.agentNodeId,
     listenPort: input.env.listenPort,
     privateKey: input.keyMaterial.privateKey,
-    localRelayEndpoint: input.env.localRelayEndpoint
+    localRelayEndpoint: input.env.localRelayEndpoint,
+    forceRelayEndpoint: input.env.forceRelayEndpoint
   })
   if (!rendered.ok) {
     await tearDownWireGuardInterface(input.env)
@@ -252,12 +284,11 @@ export async function reconcileLocalOverlay(input: {
   }
 
   const configHash = computeConfigHash(rendered.value.config)
-  await writeOverlayState(
+  const previousConfigHash = await readPreviousConfigHash(input.env.paths.statePath)
+  await writeOverlayConfig(
     input.env.paths,
     input.keyMaterial,
-    rendered.value.config,
-    nextState,
-    configHash
+    rendered.value.config
   )
   await ensureWireGuardInterface(
     input.env,
@@ -265,8 +296,10 @@ export async function reconcileLocalOverlay(input: {
     input.env.paths.configPath,
     input.map.members
       .filter(member => member.nodeId !== input.agentNodeId)
-      .map(member => member.tunnelIp)
+      .map(member => member.tunnelIp),
+    previousConfigHash === configHash
   )
+  await writeOverlayState(input.env.paths, nextState, configHash, input.keyMaterial.keyId)
 
   return {
     kind: 'applied',
