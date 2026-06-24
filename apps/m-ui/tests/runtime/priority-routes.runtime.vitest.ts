@@ -10,11 +10,11 @@ vi.mock('$app/state', () => ({
   }
 }))
 
+import { appState } from '../../src/lib/stores.svelte.ts'
 import ControlRoomPage from '../../src/routes/control-room/+page.svelte'
 import BreakGlassPage from '../../src/routes/mnet/break-glass/+page.svelte'
 import NetworkProfileDetailPage from '../../src/routes/network/profiles/[profileVersion]/+page.svelte'
 import ApprovalDetailPage from '../../src/routes/policy/approvals/[id]/+page.svelte'
-import { appState } from '../../src/lib/stores.svelte.ts'
 import { installAppStateReset } from './_specs/app-state'
 import {
   createApprovalDetailFixture,

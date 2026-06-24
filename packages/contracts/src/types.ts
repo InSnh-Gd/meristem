@@ -1,5 +1,4 @@
 import type { ActorId, Permission } from './literals.ts'
-export type { IssueNodeCredentialResponse, RevokeNodeCredentialResponse } from './types/core-node-credentials.ts'
 
 export type { ActorId, Permission } from './literals.ts'
 export type {
@@ -8,6 +7,10 @@ export type {
   ConfigTransitionV01,
   ConfigVersionV01
 } from './schemas/config.ts'
+export type {
+  IssueNodeCredentialResponse,
+  RevokeNodeCredentialResponse
+} from './types/core-node-credentials.ts'
 export type DependencyState = 'ready' | 'unavailable'
 
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。

@@ -74,7 +74,10 @@ export function requireNodeRole(value: string): NodeRole {
   return value
 }
 
-export function resolveLifecycleConfig(configDir: string, runtimeStatePath: string): LifecycleConfig {
+export function resolveLifecycleConfig(
+  configDir: string,
+  runtimeStatePath: string
+): LifecycleConfig {
   const normalizedConfigDir = configDir.replace(/\/$/, '') || '/'
   return {
     configDir: normalizedConfigDir,

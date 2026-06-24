@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from 'bun'
+import { ok, err as resultErr } from '../../../packages/common/src/result.ts'
 import type {
   MNetSessionClientMessage,
   MNetSessionServerMessage,
@@ -9,7 +10,6 @@ import type {
   NodeKind,
   NodeStatus
 } from '../../../packages/contracts/src/index.ts'
-import { err as resultErr, ok } from '../../../packages/common/src/result.ts'
 import type { networks, nodes } from '../../../packages/db/src/schema.ts'
 import type { RuntimeNodeSnapshot } from './runtime.ts'
 import type { MNetServiceError, MNetServiceResult } from './types.ts'

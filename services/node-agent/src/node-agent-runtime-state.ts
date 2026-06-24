@@ -7,8 +7,7 @@ export type NodeAgentRuntimeCredentials = {
   readonly savedAt: string
 }
 
-export const DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH =
-  '/var/lib/meristem/node-agent/runtime.json'
+export const DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH = '/var/lib/meristem/node-agent/runtime.json'
 
 function isRuntimeCredentialState(value: unknown): value is NodeAgentRuntimeCredentials {
   if (typeof value !== 'object' || value === null) return false

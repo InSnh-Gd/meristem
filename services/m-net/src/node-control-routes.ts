@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
+import { requireAuthorizedNodeControlContext } from './node-control-support.ts'
 import { isNodeControlFailure, type NodeControlFailure } from './node-control-workflow.ts'
 import { externalApiError } from './route-helpers.ts'
 import {
@@ -8,12 +9,8 @@ import {
   nodeControlResponseSchema,
   nodeIdParamsSchema
 } from './route-schemas.ts'
-import { requireAuthorizedNodeControlContext } from './node-control-support.ts'
 
-function applyNodeControlFailure(
-  set: { status?: unknown },
-  failure: NodeControlFailure
-): never {
+function applyNodeControlFailure(set: { status?: unknown }, failure: NodeControlFailure): never {
   return externalApiError(set, failure.status, failure.error.code, failure.error.message)
 }
 

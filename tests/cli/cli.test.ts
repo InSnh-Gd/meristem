@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
 import { createCliStatusMock } from '@meristem/testing'
+import { createCliRunner } from '../../apps/m-cli/src/cli.ts'
 
 describe('meristem CLI', () => {
   it('uses the typed Core client for status', async () => {

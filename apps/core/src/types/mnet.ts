@@ -3,9 +3,9 @@ import type {
   CreateNetworkRequest,
   MNetwork,
   MNetworkMember,
+  NetworkSummary,
   NodeControlAction,
-  NodeControlResponse,
-  NetworkSummary
+  NodeControlResponse
 } from '../../../../packages/contracts/src/index.ts'
 import type { ServiceError } from './common.ts'
 

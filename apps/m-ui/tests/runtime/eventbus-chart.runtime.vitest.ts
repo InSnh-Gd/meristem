@@ -1,6 +1,6 @@
-import process from 'node:process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import process from 'node:process'
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
 import EventBusSubjectHealthChart from '../../src/lib/components/modules/control-room/EventBusSubjectHealthChart.svelte'

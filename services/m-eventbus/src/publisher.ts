@@ -1,24 +1,24 @@
-import type { NatsConnection } from '@nats-io/nats-core'
 import {
   type JetStreamClient,
   type JetStreamManager,
   jetstream,
   jetstreamManager
 } from '@nats-io/jetstream'
+import type { NatsConnection } from '@nats-io/nats-core'
+import type {
+  EventBusLastFailedSnapshotFromSchema,
+  EventBusLastRejectedSnapshotFromSchema,
+  EventBusPublishFailedPayloadFromSchema,
+  EventBusPublishMetricsSummaryFromSchema,
+  EventBusPublishOutcomeFromSchema,
+  EventBusRejectedPayloadFromSchema
+} from '../../../packages/contracts/src/index.ts'
 import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
   allowedEventBusSubjectSet,
   documentedEventBusSubjects,
   eventBusOperationalSubjects
 } from '../../../packages/events/src/subject-catalog.ts'
-import type {
-  EventBusLastFailedSnapshotFromSchema,
-  EventBusLastRejectedSnapshotFromSchema,
-  EventBusPublishMetricsSummaryFromSchema,
-  EventBusPublishFailedPayloadFromSchema,
-  EventBusPublishOutcomeFromSchema,
-  EventBusRejectedPayloadFromSchema
-} from '../../../packages/contracts/src/index.ts'
 import { createLogger, recordCounter } from '../../../packages/telemetry/src/index.ts'
 
 const logger = createLogger('m-eventbus')

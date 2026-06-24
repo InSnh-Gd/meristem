@@ -137,11 +137,7 @@ function buildInterfaceLines(
 ) {
   // Address 由 ensureWireGuardInterface 通过 `ip address replace` 单独设置，
   // 不放入配置文件——`wg setconf` 不识别 wg-quick 专用的 Address 指令。
-  return [
-    '[Interface]',
-    `PrivateKey = ${privateKey}`,
-    `ListenPort = ${listenPort}`
-  ]
+  return ['[Interface]', `PrivateKey = ${privateKey}`, `ListenPort = ${listenPort}`]
 }
 
 function buildPeerLines(peer: NetworkMapMember, endpoint: string) {
@@ -225,7 +221,8 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   if (peers.length > 0) {
     // 预解析 relay fallback endpoint（当 forceRelayEndpoint 为 true 或存在缺少 endpoint 的 peer 时使用）
     let relayFallback: string | null = null
-    const needsRelay = input.forceRelayEndpoint === true || peers.some(peer => !isNonEmpty(peer.endpoint))
+    const needsRelay =
+      input.forceRelayEndpoint === true || peers.some(peer => !isNonEmpty(peer.endpoint))
     if (needsRelay) {
       const relayResult = resolveRelayEndpoint(input)
       if (!relayResult.ok) return relayResult
@@ -233,9 +230,10 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     }
 
     for (const peer of peers) {
-      const peerEndpoint = input.forceRelayEndpoint !== true && isNonEmpty(peer.endpoint)
-        ? normalizePeerEndpoint(peer.endpoint)
-        : null
+      const peerEndpoint =
+        input.forceRelayEndpoint !== true && isNonEmpty(peer.endpoint)
+          ? normalizePeerEndpoint(peer.endpoint)
+          : null
       const endpoint = peerEndpoint?.ok ? peerEndpoint.value : relayFallback
       if (!endpoint) {
         return { ok: false, error: { kind: 'wg.endpoint_missing', nodeId: peer.nodeId } }

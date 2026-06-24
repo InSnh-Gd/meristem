@@ -132,7 +132,9 @@ export type CoreStorage = {
   issueNodeCredential(
     nodeId: string
   ): Promise<{ nodeId: string; token: string; issuedAt: string } | null>
-  revokeNodeCredential(nodeId: string): Promise<
+  revokeNodeCredential(
+    nodeId: string
+  ): Promise<
     | { status: 'revoked'; nodeId: string; revokedAt: string }
     | { status: 'no-active-credential'; nodeId: string }
     | null

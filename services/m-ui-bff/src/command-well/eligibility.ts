@@ -144,11 +144,7 @@ export function deriveNodeControlCommandEligibility(
   if (!metadata.allowedStatuses.includes(node.status)) {
     const action = NODE_CONTROL_COMMAND_ACTIONS[commandId]
     let controlledStatus = `节点状态 ${node.status}`
-    if (
-      node.status === 'disabled' ||
-      node.status === 'isolated' ||
-      node.status === 'recovering'
-    ) {
+    if (node.status === 'disabled' || node.status === 'isolated' || node.status === 'recovering') {
       controlledStatus = `节点当前为 ${node.status}`
     }
     return disabledCommand('node_unreachable', `${controlledStatus}，不能执行 ${action}`)

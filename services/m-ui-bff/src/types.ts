@@ -1,8 +1,8 @@
 import type {
   CommandWellEligibilityFromSchema as CommandWellEligibility,
   NodeControlAction,
-  OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
   OperationalCommandPreviewFromSchema as OperationalCommandPreview,
+  OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
   Permission
 } from '../../../packages/contracts/src/index.ts'
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { type CliClient, createCliRunner } from '../../apps/m-cli/src/cli.ts'
 import { createCliStatusMock, createIdentityCliClient } from '@meristem/testing'
+import { type CliClient, createCliRunner } from '../../apps/m-cli/src/cli.ts'
 
 // ---------------------------------------------------------------------------
 // CLI identity tests exercise a focused mocked client surface.

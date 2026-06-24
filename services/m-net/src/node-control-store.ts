@@ -10,7 +10,10 @@ export type NodeControlStore = {
   get(nodeId: string): Promise<NodeControlRecord | null>
   updateStatus(nodeId: string, nextStatus: NodeStatus): Promise<NodeControlRecord | null>
   listMemberships(nodeId: string): Promise<readonly { networkId: string }[]>
-  listNetworksWithoutSiblingStem(input: { nodeId: string; networkIds: readonly string[] }): Promise<readonly string[]>
+  listNetworksWithoutSiblingStem(input: {
+    nodeId: string
+    networkIds: readonly string[]
+  }): Promise<readonly string[]>
   updateRole(nodeId: string, nextKind: NodeKind): Promise<NodeControlRecord | null>
 }
 
@@ -55,10 +58,7 @@ export function createDbNodeControlStore(db: MNetDb): NodeControlStore {
     },
     async updateRole(nodeId, nextKind) {
       const now = new Date()
-      await db
-        .update(nodes)
-        .set({ kind: nextKind, updatedAt: now })
-        .where(eq(nodes.id, nodeId))
+      await db.update(nodes).set({ kind: nextKind, updatedAt: now }).where(eq(nodes.id, nodeId))
       await db
         .update(networkMemberships)
         .set({ membershipMode: membershipModeFor(nextKind), updatedAt: now })
@@ -72,7 +72,9 @@ export function createDbNodeControlStore(db: MNetDb): NodeControlStore {
 /**
  * 内存节点控制存储，用于工作流与路由测试中的无副作用验证。
  */
-export function createInMemoryNodeControlStore(initialNodes: readonly NodeControlRecord[]): NodeControlStore & {
+export function createInMemoryNodeControlStore(
+  initialNodes: readonly NodeControlRecord[]
+): NodeControlStore & {
   __testing: {
     snapshot(nodeId: string): NodeControlRecord | null
     joinNetwork(input: { networkId: string; nodeId: string; nodeKind: NodeKind }): void

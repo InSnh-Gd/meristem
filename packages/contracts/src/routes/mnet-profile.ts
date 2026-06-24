@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema'
+import { NodeControlRequestSchema, NodeControlResponseSchema } from '../schemas/core.ts'
 import {
   DataPlaneStatusResponseSchema,
   InternalNetworkProfileRejectResponseSchema,
@@ -10,7 +11,6 @@ import {
   SetNetworkProfileRequestSchema,
   SetNetworkProfileResponseSchema
 } from '../schemas/mnet-profile.ts'
-import { NodeControlRequestSchema, NodeControlResponseSchema } from '../schemas/core.ts'
 
 export const mNetProfileApiRoutes = {
   collection: '/api/v0/network-profiles',

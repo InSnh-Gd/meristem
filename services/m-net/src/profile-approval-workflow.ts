@@ -1,11 +1,11 @@
 import {
   correlationId,
+  type DEFAULT_PROFILE_VERSION,
   expiresAtFromNow,
   type KnownNetworkState,
-  type ProfileWriteDeps,
   type ProfileWorkflowFailure,
-  profileWorkflowFailure,
-  type DEFAULT_PROFILE_VERSION
+  type ProfileWriteDeps,
+  profileWorkflowFailure
 } from './profile-workflow-types.ts'
 
 /**

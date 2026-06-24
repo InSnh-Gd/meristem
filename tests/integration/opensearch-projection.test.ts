@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { Effect, Exit } from 'effect'
 import { fromPartial } from '@total-typescript/shoehorn'
+import { Effect, Exit } from 'effect'
 import type { BackfillParams } from '../../packages/contracts/src/index.ts'
 import {
   auditLogs,

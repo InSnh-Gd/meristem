@@ -1,12 +1,4 @@
 import {
-  type CliCommandHandler,
-  hasFlag,
-  optionalOption,
-  parseArgs,
-  requireOption,
-  success
-} from './shared.ts'
-import {
   DEFAULT_ACME_DIRECTORY,
   DEFAULT_CONFIG_DIR,
   DEFAULT_JOIN_URL,
@@ -22,6 +14,14 @@ import {
   uninstallNodeAgent,
   upgradeNodeAgent
 } from './node-agent-lifecycle-support.ts'
+import {
+  type CliCommandHandler,
+  hasFlag,
+  optionalOption,
+  parseArgs,
+  requireOption,
+  success
+} from './shared.ts'
 
 const NODE_AGENT_USAGE =
   'usage: meristem node-agent install --kind <stem|leaf> --name <name> [--join-ticket <ticket>] [--join-url <url>] [--relay-endpoint <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-runtime-token] [--rotate-wireguard-key] [--rotate-acme-account-key] | node-agent upgrade [--join-ticket <ticket>] [--join-url <url>] [--relay-endpoint <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-runtime-token] [--rotate-wireguard-key] [--rotate-acme-account-key] | node-agent uninstall [--config-dir <path>] [--runtime-state <path>] [--purge-secrets]'

@@ -8,11 +8,11 @@ import {
 import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
   GENERIC_NOOP_COMMAND_ID,
+  type GenericNoopEligibility,
   NODE_CONTROL_COMMAND_ACTIONS,
   NODE_DISABLE_EXECUTE_COMMAND_ID,
   NODE_ISOLATE_EXECUTE_COMMAND_ID,
   NODE_RECOVER_EXECUTE_COMMAND_ID,
-  type GenericNoopEligibility,
   type StateSourceMetadata
 } from '../../../services/m-ui-bff/src/types.ts'
 

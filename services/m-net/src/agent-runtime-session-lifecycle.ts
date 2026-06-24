@@ -425,12 +425,18 @@ export async function forwardLog(
   message: SessionLogForwardMessage
 ): Promise<void> {
   try {
-    await context.writeFull(message.level, message.message, message.correlationId, message.traceId, {
-      nodeId,
-      channel: 'session.log.forward',
-      timestamp: message.timestamp,
-      ...(message.payload === undefined ? {} : { payload: message.payload })
-    })
+    await context.writeFull(
+      message.level,
+      message.message,
+      message.correlationId,
+      message.traceId,
+      {
+        nodeId,
+        channel: 'session.log.forward',
+        timestamp: message.timestamp,
+        ...(message.payload === undefined ? {} : { payload: message.payload })
+      }
+    )
   } catch {
     // m-log 不可用时日志转发失败不应导致 M-Net 崩溃，特别是启动阶段竞态
   }

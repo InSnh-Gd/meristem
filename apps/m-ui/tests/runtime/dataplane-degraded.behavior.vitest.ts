@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('$lib/bff.ts', () => ({
@@ -13,8 +13,8 @@ vi.mock('$lib/bff.ts', () => ({
   })
 }))
 
-import DataplaneStatusPage from '../../src/routes/mnet/dataplane-status/+page.svelte'
 import { appState } from '../../src/lib/stores.svelte.ts'
+import DataplaneStatusPage from '../../src/routes/mnet/dataplane-status/+page.svelte'
 import { installAppStateReset } from './_specs/app-state'
 
 installAppStateReset()

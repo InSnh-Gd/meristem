@@ -7,7 +7,7 @@ import {
   IssueNodeCredentialResponseSchema,
   ReadyResponseSchema,
   RegisterNodeResponseSchema,
-  RevokeNodeCredentialResponseSchema,
+  RevokeNodeCredentialResponseSchema
 } from '../../packages/contracts/src/index.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 
@@ -367,5 +367,4 @@ describe('Core REST MVP routes', () => {
     expect(denied.error.code).toBe('policy.denied')
     expect(await deps.storage.validateNodeCredential(registered.node.id, issued.token)).toBe(true)
   })
-
 })

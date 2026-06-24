@@ -20,9 +20,9 @@ import {
 import {
   decodeMNetCreateNetworkResponse as decodeCreateNetworkResponse,
   decodeMNetJoinNetworkResponse as decodeJoinNetworkResponse,
-  decodeMNetNodeControlResponse as decodeNodeControlResponse,
   decodeMNetNetworkListResponse as decodeNetworkListResponse,
-  decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse
+  decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse,
+  decodeMNetNodeControlResponse as decodeNodeControlResponse
 } from './mnet-response-decode.ts'
 
 function normalizeMNetNode(node: NodeControlResponseFromSchema['node']): MNode {

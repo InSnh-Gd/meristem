@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'bun:test'
 import { mkdtemp, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  createInitialEnforcementState,
-  reconcileLocalOverlay,
-  type LocalOverlayEnv
-} from '../../services/node-agent/src/node-agent-local-apply.ts'
-import { generateWireGuardKeyMaterial } from '../../services/node-agent/src/node-agent-wireguard-keys.ts'
+import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   buildNetworkMapSignatureMetadata,
   resolveNetworkMapSigningKeyMaterial
 } from '../../services/m-net/src/network-map-signing.ts'
-import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
+import {
+  createInitialEnforcementState,
+  type LocalOverlayEnv,
+  reconcileLocalOverlay
+} from '../../services/node-agent/src/node-agent-local-apply.ts'
+import { generateWireGuardKeyMaterial } from '../../services/node-agent/src/node-agent-wireguard-keys.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 const FORBIDDEN_HOST_REDIRECT_TOKENS = ['iptables', 'nft', 'OUTPUT', 'SNAT', 'MASQUERADE']

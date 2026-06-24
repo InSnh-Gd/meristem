@@ -150,10 +150,21 @@ export function createMNetPort(
           correlationId: 'mnet-correlation-test'
         })
       }
-      const nextStatus: NodeStatus = input.action === 'recover' ? 'recovering' : input.action === 'isolate' ? 'isolated' : 'disabled'
+      const nextStatus: NodeStatus =
+        input.action === 'recover'
+          ? 'recovering'
+          : input.action === 'isolate'
+            ? 'isolated'
+            : 'disabled'
       const updated: typeof node = { ...node, status: nextStatus }
-      state.nodes = state.nodes.map(candidate => candidate.id === input.nodeId ? updated : candidate)
-      return ok({ node: updated, policyDecisionId: 'mnet-decision-test', correlationId: 'mnet-correlation-test' })
+      state.nodes = state.nodes.map(candidate =>
+        candidate.id === input.nodeId ? updated : candidate
+      )
+      return ok({
+        node: updated,
+        policyDecisionId: 'mnet-decision-test',
+        correlationId: 'mnet-correlation-test'
+      })
     }
   }
 }

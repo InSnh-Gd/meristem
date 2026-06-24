@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  createApprovalClient,
-  createPolicyAuthorizeClient
-} from '../../services/m-net/src/external-client-factories.ts'
-import {
   createEventPublisher,
   createLogWriters,
   createProfileEventsClient,
   createProfileLogClient
 } from '../../services/m-net/src/event-log-factories.ts'
+import {
+  createApprovalClient,
+  createPolicyAuthorizeClient
+} from '../../services/m-net/src/external-client-factories.ts'
 
 function makeFetcher(handler: () => Promise<Response>): typeof fetch {
   return Object.assign(handler, { preconnect: fetch.preconnect })

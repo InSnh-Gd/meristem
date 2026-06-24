@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { MNode } from '../../packages/contracts/src/index.ts'
-import {
-  createInMemoryNodeControlStore
-} from '../../services/m-net/src/node-control-store.ts'
+import { createInMemoryNodeControlStore } from '../../services/m-net/src/node-control-store.ts'
 import { executeNodeControl } from '../../services/m-net/src/node-control-workflow.ts'
 
 const baseNode: MNode = {
@@ -264,7 +262,15 @@ describe('M-Net node control workflow', () => {
             logs.push({ kind: 'full', level, message, correlationId, payload })
           },
           async writeAudit(actor, action, resource, resultValue, correlationId, payload) {
-            logs.push({ kind: 'audit', actor, action, resource, result: resultValue, correlationId, payload })
+            logs.push({
+              kind: 'audit',
+              actor,
+              action,
+              resource,
+              result: resultValue,
+              correlationId,
+              payload
+            })
           }
         }
       },
@@ -351,11 +357,28 @@ describe('M-Net node control workflow', () => {
 
   it('fails closed when demotion would orphan any joined network even if another network has a stem', async () => {
     const stemNode: MNode = { ...baseNode, id: 'stem-node', kind: 'stem', name: 'stem-control' }
-    const siblingStem: MNode = { ...baseNode, id: 'sibling-stem', kind: 'stem', name: 'sibling-stem' }
+    const siblingStem: MNode = {
+      ...baseNode,
+      id: 'sibling-stem',
+      kind: 'stem',
+      name: 'sibling-stem'
+    }
     const store = createInMemoryNodeControlStore([stemNode, siblingStem])
-    store.__testing.joinNetwork({ networkId: 'network-with-peer', nodeId: stemNode.id, nodeKind: 'stem' })
-    store.__testing.joinNetwork({ networkId: 'network-with-peer', nodeId: siblingStem.id, nodeKind: 'stem' })
-    store.__testing.joinNetwork({ networkId: 'network-orphan-risk', nodeId: stemNode.id, nodeKind: 'stem' })
+    store.__testing.joinNetwork({
+      networkId: 'network-with-peer',
+      nodeId: stemNode.id,
+      nodeKind: 'stem'
+    })
+    store.__testing.joinNetwork({
+      networkId: 'network-with-peer',
+      nodeId: siblingStem.id,
+      nodeKind: 'stem'
+    })
+    store.__testing.joinNetwork({
+      networkId: 'network-orphan-risk',
+      nodeId: stemNode.id,
+      nodeKind: 'stem'
+    })
 
     const result = await executeNodeControl(
       {
@@ -390,8 +413,16 @@ describe('M-Net node control workflow', () => {
     })
     expect(store.__testing.snapshot(stemNode.id)?.kind).toBe('stem')
     expect(store.__testing.memberships(stemNode.id)).toEqual([
-      expect.objectContaining({ networkId: 'network-with-peer', nodeKind: 'stem', membershipMode: 'full' }),
-      expect.objectContaining({ networkId: 'network-orphan-risk', nodeKind: 'stem', membershipMode: 'full' })
+      expect.objectContaining({
+        networkId: 'network-with-peer',
+        nodeKind: 'stem',
+        membershipMode: 'full'
+      }),
+      expect.objectContaining({
+        networkId: 'network-orphan-risk',
+        nodeKind: 'stem',
+        membershipMode: 'full'
+      })
     ])
   })
 })

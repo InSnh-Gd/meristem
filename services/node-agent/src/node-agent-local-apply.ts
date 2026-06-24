@@ -2,20 +2,20 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_NETWORK_MAP_SIGNING_KEY_ID } from '../../m-net/src/network-map-signing.ts'
-import type { WireGuardKeyMaterial } from './node-agent-wireguard-keys.ts'
 import {
-  applyEnforcementDecision,
   type AgentEnforcementState,
+  applyEnforcementDecision,
   evaluateNetworkMap
 } from './node-agent-map-enforcement.ts'
 import {
+  computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
   DEFAULT_WG_PRIVATE_KEY_PATH,
   DEFAULT_WSTUNNEL_UDP_BIND_HOST,
   DEFAULT_WSTUNNEL_UDP_BIND_PORT,
-  computeConfigHash,
   renderWireGuardConfig
 } from './node-agent-wg-config.ts'
+import type { WireGuardKeyMaterial } from './node-agent-wireguard-keys.ts'
 
 export const DEFAULT_WG_INTERFACE_NAME = 'meristem-wg0'
 export const DEFAULT_WG_CONFIG_PATH = '/run/meristem/wireguard/meristem-wg0.conf'
@@ -91,8 +91,7 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
       env.MERISTEM_WSTUNNEL_LOCAL_ENDPOINT ??
       `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${parseNumberEnv(env.MERISTEM_WSTUNNEL_UDP_BIND_PORT, DEFAULT_WSTUNNEL_UDP_BIND_PORT)}`,
     forceRelayEndpoint:
-      env.MERISTEM_NODE_AGENT_FORCE_RELAY === 'true' ||
-      env.MERISTEM_NODE_AGENT_FORCE_RELAY === '1',
+      env.MERISTEM_NODE_AGENT_FORCE_RELAY === 'true' || env.MERISTEM_NODE_AGENT_FORCE_RELAY === '1',
     expectedSigningKeyId: env.MERISTEM_MNET_SIGNING_KEY_ID ?? DEFAULT_NETWORK_MAP_SIGNING_KEY_ID,
     ...(env.MERISTEM_MNET_SIGNING_PUBLIC_KEY
       ? { expectedSigningPublicKey: env.MERISTEM_MNET_SIGNING_PUBLIC_KEY }
@@ -285,11 +284,7 @@ export async function reconcileLocalOverlay(input: {
 
   const configHash = computeConfigHash(rendered.value.config)
   const previousConfigHash = await readPreviousConfigHash(input.env.paths.statePath)
-  await writeOverlayConfig(
-    input.env.paths,
-    input.keyMaterial,
-    rendered.value.config
-  )
+  await writeOverlayConfig(input.env.paths, input.keyMaterial, rendered.value.config)
   await ensureWireGuardInterface(
     input.env,
     nextState.localTunnelIp,

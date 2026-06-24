@@ -53,7 +53,10 @@ async function assertNoExistingSymlinkInPath(path: string): Promise<void> {
         throw new Error(`node-agent lifecycle path uses symlink: ${current}`)
       }
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('node-agent lifecycle path uses symlink')) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith('node-agent lifecycle path uses symlink')
+      ) {
         throw error
       }
       return

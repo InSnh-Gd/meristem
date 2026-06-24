@@ -1,5 +1,5 @@
-import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import { Elysia, t } from 'elysia'
+import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MNetAppDeps } from './deps.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'

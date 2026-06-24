@@ -15,12 +15,12 @@ import type {
   LogSearchResult,
   MNetwork,
   MNetworkMember,
-  NodeControlAction,
-  NodeControlResponse,
   MTask,
   MTaskPolicyDecision,
   NetworkSummary,
   NodeAgentTaskExecuteResponse,
+  NodeControlAction,
+  NodeControlResponse,
   Permission,
   ProjectionHealth,
   SubmitTaskRequest,
@@ -29,11 +29,11 @@ import type {
   TimelineLog,
   TimelineSearchQuery
 } from '../../packages/contracts/src/index.ts'
+import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
-import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'

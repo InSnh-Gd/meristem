@@ -49,9 +49,9 @@ describe('meristem CLI node-agent lifecycle', () => {
     expect((await readFile(join(configDir, 'wg/private.key'), 'utf8')).startsWith('wg_priv_')).toBe(
       false
     )
-    expect((await readFile(join(configDir, 'wg/private.key.pub'), 'utf8')).startsWith('wg_pub_')).toBe(
-      false
-    )
+    expect(
+      (await readFile(join(configDir, 'wg/private.key.pub'), 'utf8')).startsWith('wg_pub_')
+    ).toBe(false)
     expect(await readFile(join(configDir, 'tls/account.key'), 'utf8')).toBe('\n')
   })
 

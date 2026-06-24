@@ -228,17 +228,25 @@ if (!infraOk) {
         )
         expect(deniedRes.status).toBe(403)
 
-        const disableRes = await coreFetch(`/api/v0/nodes/${disabledLeaf.node.id}/control`, adminToken, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'disable', reason: 'e2e maintenance window' })
-        })
+        const disableRes = await coreFetch(
+          `/api/v0/nodes/${disabledLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'disable', reason: 'e2e maintenance window' })
+          }
+        )
         expect(disableRes.ok).toBe(true)
         expect((disableRes.data as { node: { status: string } }).node.status).toBe('disabled')
 
-        const recoverRes = await coreFetch(`/api/v0/nodes/${disabledLeaf.node.id}/control`, adminToken, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'recover', reason: 'e2e recovery check' })
-        })
+        const recoverRes = await coreFetch(
+          `/api/v0/nodes/${disabledLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'recover', reason: 'e2e recovery check' })
+          }
+        )
         expect(recoverRes.ok).toBe(true)
         expect((recoverRes.data as { node: { status: string } }).node.status).toBe('recovering')
 
@@ -249,10 +257,14 @@ if (!infraOk) {
         expect(isolatedLeafRes.ok).toBe(true)
         const isolatedLeaf = isolatedLeafRes.data as { node: { id: string; status: string } }
 
-        const isolateRes = await coreFetch(`/api/v0/nodes/${isolatedLeaf.node.id}/control`, adminToken, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'isolate', reason: 'e2e isolate check' })
-        })
+        const isolateRes = await coreFetch(
+          `/api/v0/nodes/${isolatedLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'isolate', reason: 'e2e isolate check' })
+          }
+        )
         expect(isolateRes.ok).toBe(true)
         expect((isolateRes.data as { node: { status: string } }).node.status).toBe('isolated')
       })

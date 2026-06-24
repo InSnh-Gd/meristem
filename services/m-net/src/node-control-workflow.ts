@@ -1,8 +1,8 @@
 import type {
   ActorId,
   NodeControlAction,
-  NodeKind,
   NodeControlResponse,
+  NodeKind,
   Permission
 } from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
@@ -186,12 +186,17 @@ export async function executeNodeControl(
       'node.status.changed',
       controlCorrelationId
     )
-    await deps.log.writeFull('info', fullMessage(input.action, input.nodeId), controlCorrelationId, {
-      previousStatus: node.status,
-      nextStatus: transition.nextStatus,
-      policyDecisionId: policyResult.id,
-      reason: input.reason
-    })
+    await deps.log.writeFull(
+      'info',
+      fullMessage(input.action, input.nodeId),
+      controlCorrelationId,
+      {
+        previousStatus: node.status,
+        nextStatus: transition.nextStatus,
+        policyDecisionId: policyResult.id,
+        reason: input.reason
+      }
+    )
     await deps.log.writeAudit(
       input.actor,
       auditActionForStage(input.action, 'success'),
@@ -331,12 +336,17 @@ async function executeNodeRoleSwitch(
       'node.role.changed',
       controlCorrelationId
     )
-    await deps.log.writeFull('info', `node role switch completed for ${input.nodeId}`, controlCorrelationId, {
-      previousKind: node.kind,
-      nextKind: roleSwitch.nextKind,
-      policyDecisionId: policyResult.id,
-      reason: input.reason
-    })
+    await deps.log.writeFull(
+      'info',
+      `node role switch completed for ${input.nodeId}`,
+      controlCorrelationId,
+      {
+        previousKind: node.kind,
+        nextKind: roleSwitch.nextKind,
+        policyDecisionId: policyResult.id,
+        reason: input.reason
+      }
+    )
     await deps.log.writeAudit(
       input.actor,
       'node.switch-role.success',

@@ -12,7 +12,12 @@ export async function requireNodeMutationAccess(
     headers: Record<string, string | undefined>
     action: Extract<
       Permission,
-      'node:register' | 'node:issue-token' | 'node:switch-role' | 'node:disable' | 'node:isolate' | 'node:recover'
+      | 'node:register'
+      | 'node:issue-token'
+      | 'node:switch-role'
+      | 'node:disable'
+      | 'node:isolate'
+      | 'node:recover'
     >
     resource: string
   }
@@ -31,7 +36,10 @@ export async function requireNodeControlAccess(
   deps: CoreDeps,
   input: {
     headers: Record<string, string | undefined>
-    action: Extract<Permission, 'node:switch-role' | 'node:disable' | 'node:isolate' | 'node:recover'>
+    action: Extract<
+      Permission,
+      'node:switch-role' | 'node:disable' | 'node:isolate' | 'node:recover'
+    >
     resource: string
     requestedAction: 'disable' | 'isolate' | 'recover' | 'switch-role'
     targetKind?: 'stem' | 'leaf'
@@ -206,9 +214,10 @@ export async function publishNodeRegistrationArtifacts(
   })
 }
 
-export function requireNodeCredential<
-  T extends { nodeId: string }
->(credential: T | null, correlationId: string): T {
+export function requireNodeCredential<T extends { nodeId: string }>(
+  credential: T | null,
+  correlationId: string
+): T {
   if (!credential) {
     throw new CoreError(404, 'node.not_found', 'node not found', correlationId)
   }

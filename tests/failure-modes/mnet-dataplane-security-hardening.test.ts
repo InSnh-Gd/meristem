@@ -9,6 +9,10 @@ import {
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import { gateClockSkew, rejectDuplicatePublicKey } from '../../services/m-net/src/key-lifecycle.ts'
 import { registerNodePublicKey } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
 import { assignNodeTunnelIp } from '../../services/m-net/src/overlay-cidr.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import {
@@ -21,10 +25,6 @@ import {
   createLogBuffer,
   formatTaskResult
 } from '../../services/node-agent/src/node-agent-task-log.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 const signingPublicKey =

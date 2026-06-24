@@ -3,10 +3,10 @@ import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schem
 import { networkMemberships } from '../../../packages/db/src/schema.ts'
 import { validateNodeCredential } from './agent-runtime-session-lifecycle.ts'
 import type { MNetDb } from './clients.ts'
-import type { DataPlaneDeps, NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import { fetchLatestNetworkMap } from './mnet-dataplane-materialize.ts'
+import type { DataPlaneDeps, NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import { registerNodePublicKey } from './mnet-dataplane-workflows.ts'
-import { profileWorkflowFailure, type ProfileWorkflowFailure } from './profile-workflow-types.ts'
+import { type ProfileWorkflowFailure, profileWorkflowFailure } from './profile-workflow-types.ts'
 
 type NodeRuntimeFacade = {
   authorize(nodeId: string, token: string): Promise<boolean>

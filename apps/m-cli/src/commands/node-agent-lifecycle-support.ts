@@ -2,21 +2,24 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
-  type FileUpdate,
-  type InstallInput,
-  type LifecycleConfig,
-  type NodeRole,
-  type UpgradeInput,
+  DEFAULT_ACME_DIRECTORY,
   DEFAULT_AGENT_VERSION,
+  DEFAULT_CONFIG_DIR,
   DEFAULT_JOIN_URL,
   DEFAULT_RELAY_ENDPOINT,
   DEFAULT_WG_BINARY_PATH,
   DEFAULT_WSTUNNEL_BINARY_PATH,
-  DEFAULT_ACME_DIRECTORY,
-  DEFAULT_CONFIG_DIR
+  type FileUpdate,
+  type InstallInput,
+  type LifecycleConfig,
+  type NodeRole,
+  type UpgradeInput
 } from './node-agent-lifecycle-definitions.ts'
 import { generateLocalWireGuardKeyMaterial } from './node-agent-lifecycle-keys.ts'
-import { assertSafeLifecycleFilePath, assertSafeLifecyclePaths } from './node-agent-lifecycle-paths.ts'
+import {
+  assertSafeLifecycleFilePath,
+  assertSafeLifecyclePaths
+} from './node-agent-lifecycle-paths.ts'
 
 type RuntimeState = {
   readonly nodeId?: string | undefined
@@ -50,7 +53,10 @@ export async function installNodeAgent(lifecycle: LifecycleConfig, input: Instal
 
   const fileUpdates: FileUpdate[] = []
   const runtimeState = await readRuntimeState(lifecycle.runtimeStatePath)
-  const runtimeTokenState = await stageRuntimeTokenFile(lifecycle.runtimeTokenPath, runtimeState.runtimeToken)
+  const runtimeTokenState = await stageRuntimeTokenFile(
+    lifecycle.runtimeTokenPath,
+    runtimeState.runtimeToken
+  )
 
   const wireGuardMaterial = await ensureWireGuardMaterial(lifecycle, input.rotateWireGuardKey)
   fileUpdates.push(...wireGuardMaterial.updates)
@@ -221,7 +227,10 @@ async function readRuntimeState(path: string): Promise<RuntimeState> {
   try {
     const decoded = JSON.parse(payload) as Record<string, unknown>
     return {
-      nodeId: typeof decoded.nodeId === 'string' && decoded.nodeId.length > 0 ? decoded.nodeId : undefined,
+      nodeId:
+        typeof decoded.nodeId === 'string' && decoded.nodeId.length > 0
+          ? decoded.nodeId
+          : undefined,
       runtimeToken:
         typeof decoded.runtimeToken === 'string' && decoded.runtimeToken.length > 0
           ? decoded.runtimeToken
@@ -249,7 +258,8 @@ async function readPersistedEnv(path: string): Promise<PersistedEnv | null> {
     wgBinaryPath: values.MERISTEM_WG_BINARY_PATH ?? DEFAULT_WG_BINARY_PATH,
     wstunnelBinaryPath: values.MERISTEM_WSTUNNEL_BINARY_PATH ?? DEFAULT_WSTUNNEL_BINARY_PATH,
     acmeDirectory: values.MERISTEM_ACME_DIRECTORY ?? DEFAULT_ACME_DIRECTORY,
-    acmeAccountKeyPath: values.MERISTEM_ACME_ACCOUNT_KEY ?? join(DEFAULT_CONFIG_DIR, 'tls/account.key'),
+    acmeAccountKeyPath:
+      values.MERISTEM_ACME_ACCOUNT_KEY ?? join(DEFAULT_CONFIG_DIR, 'tls/account.key'),
     wireGuardPrivateKeyPath:
       values.MERISTEM_HOST_PRIVATE_KEY_PATH ?? join(DEFAULT_CONFIG_DIR, 'wg/private.key'),
     agentVersion: values.MERISTEM_AGENT_VERSION ?? DEFAULT_AGENT_VERSION
@@ -259,8 +269,8 @@ async function readPersistedEnv(path: string): Promise<PersistedEnv | null> {
 function parseEnvFile(text: string): Record<string, string> {
   return text
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('#'))
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith('#'))
     .reduce<Record<string, string>>((acc, line) => {
       const separator = line.indexOf('=')
       if (separator <= 0) return acc
@@ -314,7 +324,10 @@ async function writeTextFile(
   return { path, action }
 }
 
-async function writeOptionalSecretFile(path: string, value: string | undefined): Promise<FileUpdate> {
+async function writeOptionalSecretFile(
+  path: string,
+  value: string | undefined
+): Promise<FileUpdate> {
   return writeTextFile(path, `${value ?? ''}\n`, { mode: 0o600 })
 }
 
@@ -378,8 +391,12 @@ async function ensureWireGuardMaterial(
   return {
     privateKey: generated.privateKey,
     updates: [
-      await writeTextFile(lifecycle.wireGuardPrivateKeyPath, `${generated.privateKey}\n`, { mode: 0o600 }),
-      await writeTextFile(lifecycle.wireGuardPublicKeyPath, `${generated.publicKey}\n`, { mode: 0o644 }),
+      await writeTextFile(lifecycle.wireGuardPrivateKeyPath, `${generated.privateKey}\n`, {
+        mode: 0o600
+      }),
+      await writeTextFile(lifecycle.wireGuardPublicKeyPath, `${generated.publicKey}\n`, {
+        mode: 0o644
+      }),
       await writeTextFile(lifecycle.wireGuardMetadataPath, metadataPayload, { mode: 0o600 })
     ]
   }

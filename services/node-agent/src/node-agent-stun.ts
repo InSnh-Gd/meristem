@@ -113,7 +113,7 @@ function parseStunResponse(data: Uint8Array): StunResult {
       if (result.ok) return result
     }
 
-    offset += attrLength + (4 - (attrLength % 4)) % 4
+    offset += attrLength + ((4 - (attrLength % 4)) % 4)
   }
 
   return { ok: false, reason: 'no MAPPED-ADDRESS attribute in STUN response' }

@@ -1,27 +1,30 @@
 import { describe, expect, it } from 'bun:test'
+import { hashNodeToken } from '../../packages/auth/src/index.ts'
+import { err, ok } from '../../packages/common/src/result.ts'
+import { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
 import {
   applyHeartbeat,
   type HeartbeatRuntimeContext,
   type RuntimeCredentialContext,
   validateNodeCredential
 } from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
-import { hashNodeToken } from '../../packages/auth/src/index.ts'
-import { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
 import {
   buildJoinSessionUrl,
-  deriveRecoveryCompletionEvidence,
   deriveHeartbeatTransition,
+  deriveRecoveryCompletionEvidence,
   joinTicketRedeemability,
   shouldTransitionOffline
 } from '../../services/m-net/src/runtime.ts'
-import { err, ok } from '../../packages/common/src/result.ts'
 
 type NodeRow = typeof nodes.$inferSelect
 type NodeCredentialRow = typeof nodeCredentials.$inferSelect
 
-function createHeartbeatContext(initialNode: NodeRow, overrides?: {
-  writeAudit?(): Promise<void>
-}): {
+function createHeartbeatContext(
+  initialNode: NodeRow,
+  overrides?: {
+    writeAudit?(): Promise<void>
+  }
+): {
   context: HeartbeatRuntimeContext
   snapshot(): NodeRow
   events: unknown[]
@@ -245,10 +248,7 @@ describe('M-Net node-agent runtime helpers', () => {
       reportedStatus: 'healthy' as const,
       timestamp: '2026-05-05T12:00:00.000Z'
     }
-    const healthyTransition = deriveHeartbeatTransition(
-      recoveringNode,
-      heartbeat
-    )
+    const healthyTransition = deriveHeartbeatTransition(recoveringNode, heartbeat)
 
     const degradedTransition = deriveHeartbeatTransition(
       {
@@ -284,17 +284,13 @@ describe('M-Net node-agent runtime helpers', () => {
   it('persists recovery heartbeat and writes completion evidence through applyHeartbeat', async () => {
     const harness = createHeartbeatContext(recoveringNodeRow())
 
-    const result = await applyHeartbeat(
-      harness.context,
-      'node-recovering-apply-heartbeat',
-      {
-        type: 'heartbeat',
-        sessionId: 'session-recovering-apply-heartbeat',
-        agentVersion: '0.2.0',
-        reportedStatus: 'healthy',
-        timestamp: '2026-05-05T12:00:00.000Z'
-      }
-    )
+    const result = await applyHeartbeat(harness.context, 'node-recovering-apply-heartbeat', {
+      type: 'heartbeat',
+      sessionId: 'session-recovering-apply-heartbeat',
+      agentVersion: '0.2.0',
+      reportedStatus: 'healthy',
+      timestamp: '2026-05-05T12:00:00.000Z'
+    })
 
     expect(result).toEqual(ok(undefined))
     expect(harness.snapshot().status).toBe('healthy')

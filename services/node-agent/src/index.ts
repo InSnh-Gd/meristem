@@ -9,32 +9,32 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import {
+  createInitialEnforcementState,
+  type LocalOverlayEnv,
+  loadLocalOverlayEnv,
+  reconcileLocalOverlay
+} from './node-agent-local-apply.ts'
+import {
   decodeMessage,
   heartbeatIntervalMs,
   parseServerMessage,
   requiredOneOf
 } from './node-agent-runtime.ts'
 import {
-  deriveControlUrl,
-  fetchLatestNodeRuntimeNetworkMap,
-  registerNodeRuntimeKey
-} from './node-agent-session.ts'
-import {
-  createInitialEnforcementState,
-  loadLocalOverlayEnv,
-  reconcileLocalOverlay,
-  type LocalOverlayEnv
-} from './node-agent-local-apply.ts'
-import {
-  loadOrCreateWireGuardKeyMaterial,
-  type WireGuardKeyMaterial
-} from './node-agent-wireguard-keys.ts'
-import { discoverPublicEndpoint } from './node-agent-stun.ts'
-import {
   DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH,
   loadRuntimeCredentials,
   saveRuntimeCredentials
 } from './node-agent-runtime-state.ts'
+import {
+  deriveControlUrl,
+  fetchLatestNodeRuntimeNetworkMap,
+  registerNodeRuntimeKey
+} from './node-agent-session.ts'
+import { discoverPublicEndpoint } from './node-agent-stun.ts'
+import {
+  loadOrCreateWireGuardKeyMaterial,
+  type WireGuardKeyMaterial
+} from './node-agent-wireguard-keys.ts'
 
 const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
@@ -179,9 +179,7 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     const stunResult = await discoverPublicEndpoint()
     if (stunResult.ok) {
       currentPublicEndpoint = `${stunResult.endpoint.ip}:${stunResult.endpoint.port}`
-      process.stdout.write(
-        `node public endpoint discovered via STUN: ${currentPublicEndpoint}\n`
-      )
+      process.stdout.write(`node public endpoint discovered via STUN: ${currentPublicEndpoint}\n`)
     } else {
       process.stderr.write(`STUN discovery failed: ${stunResult.reason}\n`)
     }

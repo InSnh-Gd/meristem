@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import path from 'node:path'
 import { execSync } from 'node:child_process'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
 
 describe('Bits UI Boundary', () => {
   it('ensures bits-ui is only imported in apps/m-ui/src/lib/components/ui/ (Gate 4)', () => {

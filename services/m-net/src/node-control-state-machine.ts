@@ -1,4 +1,8 @@
-import type { NodeControlAction, NodeKind, NodeStatus } from '../../../packages/contracts/src/index.ts'
+import type {
+  NodeControlAction,
+  NodeKind,
+  NodeStatus
+} from '../../../packages/contracts/src/index.ts'
 
 export type NodeControlTransition =
   | { ok: true; nextStatus: Extract<NodeStatus, 'disabled' | 'isolated' | 'recovering'> }
@@ -24,7 +28,11 @@ export function deriveNodeControlTransition(
   action: NodeControlAction
 ): NodeControlTransition {
   if (action === 'disable') {
-    if (currentStatus === 'healthy' || currentStatus === 'degraded' || currentStatus === 'offline') {
+    if (
+      currentStatus === 'healthy' ||
+      currentStatus === 'degraded' ||
+      currentStatus === 'offline'
+    ) {
       return { ok: true, nextStatus: 'disabled' }
     }
     return {
@@ -35,7 +43,11 @@ export function deriveNodeControlTransition(
   }
 
   if (action === 'isolate') {
-    if (currentStatus === 'healthy' || currentStatus === 'degraded' || currentStatus === 'offline') {
+    if (
+      currentStatus === 'healthy' ||
+      currentStatus === 'degraded' ||
+      currentStatus === 'offline'
+    ) {
       return { ok: true, nextStatus: 'isolated' }
     }
     return {

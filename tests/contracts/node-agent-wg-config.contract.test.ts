@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
+import {
   checkWgTooling,
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
@@ -8,10 +12,6 @@ import {
   DEFAULT_WSTUNNEL_UDP_BIND_PORT,
   renderWireGuardConfig
 } from '../../services/node-agent/src/node-agent-wg-config.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 const TEST_PRIVATE_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
@@ -386,11 +386,7 @@ describe('node-agent WireGuard config contract', () => {
 
     expect(rendered.value.peerCount).toBe(0)
     expect(rendered.value.config).toBe(
-      [
-        '[Interface]',
-        `PrivateKey = ${TEST_PRIVATE_KEY}`,
-        'ListenPort = 51821'
-      ].join('\n')
+      ['[Interface]', `PrivateKey = ${TEST_PRIVATE_KEY}`, 'ListenPort = 51821'].join('\n')
     )
   })
 })

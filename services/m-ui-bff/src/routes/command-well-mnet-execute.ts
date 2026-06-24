@@ -1,4 +1,5 @@
 import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
+import { isNodeControlExecuteCommandId } from '../command-well/eligibility.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
@@ -19,7 +20,6 @@ import {
   NODE_ISOLATE_EXECUTE_COMMAND_ID,
   NODE_RECOVER_EXECUTE_COMMAND_ID
 } from '../types.ts'
-import { isNodeControlExecuteCommandId } from '../command-well/eligibility.ts'
 import {
   bffIdempotencyKey,
   forwardCoreExecute,
@@ -119,7 +119,8 @@ export async function handleMNetExecuteCommand(input: {
 
   if (isNodeControlExecuteCommandId(commandId)) {
     const target = readNodeControlBody(body)
-    if (!target) return invalidExecuteBody('nodeId is required; reason must be non-empty when provided')
+    if (!target)
+      return invalidExecuteBody('nodeId is required; reason must be non-empty when provided')
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     const action = NODE_CONTROL_COMMAND_ACTIONS[commandId]

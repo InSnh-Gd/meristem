@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-import ControlRoomPage from '../../../src/routes/control-room/+page.svelte'
 import { appState } from '../../../src/lib/stores.svelte.ts'
+import ControlRoomPage from '../../../src/routes/control-room/+page.svelte'
 import { installAppStateReset } from './app-state'
 import { createControlRoomCommandState, createOverviewFixture } from './fixtures'
 

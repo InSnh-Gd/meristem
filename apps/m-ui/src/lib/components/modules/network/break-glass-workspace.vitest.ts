@@ -1,10 +1,9 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-
-import BreakGlassWorkspace from './BreakGlassWorkspace.svelte'
 import { appState } from '$lib/stores.svelte.ts'
 import { installAppStateReset } from '../../../../../tests/runtime/_specs/app-state'
 import { createBreakGlassCommandState } from '../../../../../tests/runtime/_specs/fixtures'
+import BreakGlassWorkspace from './BreakGlassWorkspace.svelte'
 
 installAppStateReset()
 
