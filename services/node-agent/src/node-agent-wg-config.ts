@@ -17,6 +17,12 @@ export type WgConfigInput = {
   /** WireGuard 私钥的 base64 内容，直接内联到配置中供 `wg setconf` 消费。 */
   readonly privateKey: string
   readonly localRelayEndpoint?: string
+  /**
+   * 当为 true 时，所有对等节点强制使用 relay endpoint 作为 WireGuard peer Endpoint，
+   * 忽略成员自身的 endpoint 字段。用于 cloud security group 禁止 leaf-to-leaf UDP 的拓扑。
+   * 默认 false 保留现有直接 P2P 行为。
+   */
+  readonly forceRelayEndpoint?: boolean
 }
 
 export type WgConfigOutput = {
@@ -191,8 +197,9 @@ function parseVersion(output: string, binary: 'wg' | 'wireguard-go'): string | n
  * 供 `wg setconf` 直接消费（`wg setconf` 不支持 wg-quick 的 Address 指令和文件路径引用）。
  *
  * 对等节点 Endpoint 选择策略：
- * 1. 若对等节点在 network-map 中声明了 `endpoint`（STUN 发现的公网地址），使用直接 P2P 连接。
- * 2. 否则回退到 wstunnel relay 本地 UDP 绑定地址（`localRelayEndpoint`）。
+ * 1. 若 `forceRelayEndpoint` 为 true，所有对等节点使用 relay endpoint，忽略成员自身的 endpoint。
+ * 2. 若对等节点在 network-map 中声明了 `endpoint`（STUN 发现的公网地址），使用直接 P2P 连接。
+ * 3. 否则回退到 wstunnel relay 本地 UDP 绑定地址（`localRelayEndpoint`）。
  */
 export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const listenPort = input.listenPort ?? DEFAULT_WG_LISTEN_PORT
@@ -216,9 +223,9 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const lines = buildInterfaceLines(localMember, input.privateKey, listenPort)
 
   if (peers.length > 0) {
-    // 预解析 relay fallback endpoint（仅在有 peer 缺少 direct endpoint 时使用）
+    // 预解析 relay fallback endpoint（当 forceRelayEndpoint 为 true 或存在缺少 endpoint 的 peer 时使用）
     let relayFallback: string | null = null
-    const needsRelay = peers.some(peer => !isNonEmpty(peer.endpoint))
+    const needsRelay = input.forceRelayEndpoint === true || peers.some(peer => !isNonEmpty(peer.endpoint))
     if (needsRelay) {
       const relayResult = resolveRelayEndpoint(input)
       if (!relayResult.ok) return relayResult
@@ -226,7 +233,7 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     }
 
     for (const peer of peers) {
-      const peerEndpoint = isNonEmpty(peer.endpoint)
+      const peerEndpoint = input.forceRelayEndpoint !== true && isNonEmpty(peer.endpoint)
         ? normalizePeerEndpoint(peer.endpoint)
         : null
       const endpoint = peerEndpoint?.ok ? peerEndpoint.value : relayFallback

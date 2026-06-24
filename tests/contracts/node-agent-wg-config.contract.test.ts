@@ -145,6 +145,85 @@ describe('node-agent WireGuard config contract', () => {
     expect(rendered.value.config).not.toContain('127.0.0.1:51821')
   })
 
+  it('default (forceRelayEndpoint undefined) prefers direct P2P endpoint for all peers with endpoint', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+      // forceRelayEndpoint 未设置，默认 false 行为
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // 所有对等节点应使用各自 direct endpoint，而非 relay
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.30:51820')
+    expect(rendered.value.config).not.toContain('127.0.0.1:51821')
+  })
+
+  it('forceRelayEndpoint: true forces all peers to use relay endpoint even when member.endpoint is present', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821',
+      forceRelayEndpoint: true
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // 所有对等节点都强制使用 relay endpoint
+    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+    // 不应出现任何 direct endpoint
+    expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.30:51820')
+  })
+
   it('falls back to wstunnel relay for peers missing direct endpoint', () => {
     const map = createNetworkMap({
       members: [
