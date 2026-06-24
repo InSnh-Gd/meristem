@@ -1,0 +1,126 @@
+M-Net real three-host overlay validation
+Date: 2026-06-23
+
+Scope
+- Node0 is control plane and relay only; it does not join the WireGuard overlay.
+- Stem overlay address: 100.96.0.1.
+- Leaf overlay address: 100.96.0.2.
+- Stem and Leaf node-agents run with forced relay endpoint selection so API-visible STUN endpoints may remain present while WireGuard uses the local relay path.
+
+Acceptance scenarios
+1. Node0 remains control/relay only.
+2. Stem and Leaf retain stable overlay identities after dwell time.
+3. WireGuard data-plane egress uses local wstunnel client plumbing instead of public UDP leaf-to-leaf routing.
+4. Bidirectional overlay ICMP succeeds over the real hosts.
+5. Local repository gates remain green after the node-agent fix.
+
+Sanitized live-host evidence
+
+Node0 role/status check
+- Host: InSnh-Gd-Node0.
+- Caddy: active.
+- Expected local service listeners present: 3000, 3101, 3102, 3103, 3104, 3105, 3106.
+- Relay/proxy listeners present: 18444 and 18445.
+- Public HTTP/TLS listeners present: 80 and 443.
+- meristem-wg0: absent, as expected for control/relay-only Node0.
+
+Stem role/status check
+- Host: InSnh-Gd-Node1.
+- meristem-node-agent: active.
+- wstunnel-client: active.
+- wstunnel-server: active.
+- meristem-wg0: 100.96.0.1/32.
+- WireGuard peer endpoint after guarded node-agent restart: 127.0.0.1:51821.
+
+Leaf role/status check
+- Host: cachyos.
+- meristem-node-agent: active.
+- wstunnel-client: active.
+- wstunnel-server: active.
+- meristem-wg0: 100.96.0.2/32.
+- WireGuard peer endpoint after guarded node-agent restart: 127.0.0.1:51821.
+
+Network-map API check
+- mapVersion observed: 3829.
+- members: Stem 100.96.0.1 and Leaf 100.96.0.2.
+- endpointPresent: true for both members; this is accepted metadata and not the runtime WireGuard path.
+- relayType: wstunnel.
+- relayNodeCount: 2.
+
+Issue found during validation
+- Before the final fix, repeated node-agent reconciliation ran `wg setconf` even when the rendered config hash did not change.
+- In the real relay topology this interacted with WireGuard endpoint roaming and caused unstable overlay ICMP:
+  - Stem -> Leaf: 100 packets transmitted, 82 received, 18% packet loss after the first temporary OUTPUT redirect.
+  - Leaf -> Stem: 100 packets transmitted, 87 received, 13% packet loss after the first temporary OUTPUT redirect.
+  - A tried POSTROUTING SNAT stabilization broke traffic and was reverted immediately.
+
+Fix loaded on Stem and Leaf
+- services/node-agent/src/node-agent-local-apply.ts now reads the previous local overlay state configHash.
+- If the rendered config hash is unchanged and the WireGuard interface already exists, reconciliation skips `wg setconf` while still refreshing address, link state, and routes.
+- The state `configHash` is persisted only after WireGuard apply succeeds, so a partial failure after interface creation cannot make the next reconciliation falsely skip `wg setconf`.
+- Regression test added: `node-agent local overlay apply > does not reset WireGuard when the rendered config hash is unchanged`.
+- Regression test added: `node-agent local overlay apply > retries WireGuard setconf after a partial apply failure`.
+- Stem and Leaf were synced with the guarded local apply code and node-agents restarted.
+
+Temporary live-host validation limitation
+- This run used reversible host-local netfilter plumbing while validating the real-host tunnel path.
+- The exact host rule is intentionally omitted from repo evidence because it is not a supported M-Net production mechanism.
+- Slice A follow-up evidence (`tests/evidence/mnet-routing-no-host-redirect.txt`) defines the product boundary: node-agent renders the declared local wstunnel UDP sidecar endpoint and committed node-agent apply logic must not depend on ad hoc host firewall/netfilter redirect commands.
+
+Final bidirectional traffic evidence after guarded apply
+
+Stem -> Leaf
+- Command target: ping 100.96.0.2 from Stem.
+- Result: 100 packets transmitted, 100 received, 0% packet loss.
+- RTT: min/avg/max/mdev = 78.087/94.531/316.670/33.431 ms.
+- WireGuard peer endpoint after test: 127.0.0.1:51821.
+- WireGuard transfer after test: rx 20956 bytes, tx 21012 bytes.
+
+Leaf -> Stem
+- Command target: ping 100.96.0.1 from Leaf.
+- Result: 100 packets transmitted, 100 received, 0% packet loss.
+- RTT: min/avg/max/mdev = 77.906/96.636/162.540/27.322 ms.
+- WireGuard peer endpoint after test: 127.0.0.1:39441; see the temporary validation limitation above.
+- WireGuard transfer after test: rx 25748 bytes, tx 25692 bytes.
+
+Final bidirectional traffic evidence after partial-apply ordering fix
+
+Stem -> Leaf
+- Command target: ping 100.96.0.2 from Stem.
+- Result: 100 packets transmitted, 100 received, 0% packet loss.
+- RTT: min/avg/max/mdev = 81.896/87.164/374.757/30.184 ms.
+- WireGuard peer endpoint after test: 127.0.0.1:51821.
+- WireGuard transfer after test: rx 48856 bytes, tx 48936 bytes.
+
+Leaf -> Stem
+- Command target: ping 100.96.0.1 from Leaf.
+- Result: 100 packets transmitted, 100 received, 0% packet loss.
+- RTT: min/avg/max/mdev = 82.126/112.299/158.562/16.685 ms.
+- WireGuard peer endpoint after test: 127.0.0.1:55353; see the temporary validation limitation above.
+- WireGuard transfer after test: rx 51496 bytes, tx 51416 bytes.
+
+Repo-visible multihost E2E check
+- Raw `bun test --timeout=30000 tests/e2e/mnet-multihost-happy.e2e.test.ts` and `...failures.e2e.test.ts` initially failed because a stale local harness state made the suites attempt to reuse an inactive harness.
+- After `bun run mnet:harness:reset`, the raw Bun E2E commands skipped their real cases because the current shell lacks `CAP_NET_ADMIN`.
+- Wrapped local preflight passed with `meristem-mnet-harness preflight` (`ok: true`, docker-bridge mode, wg and wstunnel paths present).
+- Wrapped local `meristem-mnet-harness start` failed while enabling the data-plane profile with `dataplane.store_failed` during the local harness control-plane bootstrap, so these local container E2E suites were not used as the completion signal for the real-host validation.
+- The completion signal for this run is the real three-host evidence above: Node0 control/relay-only plus 100-packet bidirectional tunnel-IP proof between Stem and Leaf on real hosts.
+
+Local gate evidence
+- `bun test tests/contracts/node-agent-local-apply.contract.test.ts tests/contracts/node-agent-wg-config.contract.test.ts`
+  - 15 pass, 0 fail.
+- `bun run test:agent-submit`
+  - 7 pass, 0 fail.
+- `bun run typecheck`
+  - passed.
+- `bun run typecheck:e2e`
+  - passed.
+- `bun run typecheck:m-ui`
+  - passed with 0 errors and 0 warnings.
+
+Stop-condition review
+- No secrets, tokens, private keys, or passwords were captured in this evidence.
+- Node0 did not join the WireGuard overlay.
+- Stem and Leaf kept expected overlay addresses.
+- The failed SNAT mitigation was reverted.
+- Final bidirectional overlay traffic passed with 0% packet loss in both directions after the guarded node-agent apply fix and after the partial-apply ordering fix.
