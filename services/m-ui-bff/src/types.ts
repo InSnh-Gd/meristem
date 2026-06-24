@@ -1,5 +1,6 @@
 import type {
   CommandWellEligibilityFromSchema as CommandWellEligibility,
+  NodeControlAction,
   OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
   OperationalCommandPreviewFromSchema as OperationalCommandPreview,
   Permission
@@ -84,6 +85,11 @@ export type MNetCredentialRevokeBody = MNetCredentialTargetBody & {
   reason?: string
 }
 
+export type MNetNodeControlBody = {
+  nodeId: string
+  reason?: string
+}
+
 export type MNetProfileToggleBody = {
   networkId: string
   profileVersion: string
@@ -132,6 +138,7 @@ export type GenericCommandEligibilityBody =
   | { networkId: string }
   | { scope?: string }
   | MNetCredentialTargetBody
+  | MNetNodeControlBody
 
 export type CommandPreviewDefinition = Pick<
   OperationalCommandPreview,
@@ -240,6 +247,21 @@ export const MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID = 'network.migration.apply.
 export const MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID = 'network.migration.resume.execute'
 /** M-Net 迁移回滚执行命令 ID */
 export const MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID = 'network.migration.rollback.execute'
+/** 节点禁用执行命令 ID */
+export const NODE_DISABLE_EXECUTE_COMMAND_ID = 'node.disable.execute'
+/** 节点隔离执行命令 ID */
+export const NODE_ISOLATE_EXECUTE_COMMAND_ID = 'node.isolate.execute'
+/** 节点恢复执行命令 ID */
+export const NODE_RECOVER_EXECUTE_COMMAND_ID = 'node.recover.execute'
+
+/** 节点控制命令 ID 与后端 action 的显式映射，避免 UI/BFF 拼接契约字符串。 */
+export const NODE_CONTROL_COMMAND_ACTIONS = {
+  [NODE_DISABLE_EXECUTE_COMMAND_ID]: 'disable',
+  [NODE_ISOLATE_EXECUTE_COMMAND_ID]: 'isolate',
+  [NODE_RECOVER_EXECUTE_COMMAND_ID]: 'recover'
+} as const satisfies Record<string, NodeControlAction>
+
+export type NodeControlExecuteCommandId = keyof typeof NODE_CONTROL_COMMAND_ACTIONS
 
 /** 所有可执行 CommandWell 命令 ID 列表 */
 export const EXECUTE_COMMAND_IDS = [
@@ -263,7 +285,10 @@ export const EXECUTE_COMMAND_IDS = [
   MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
-  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID
+  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID,
+  NODE_DISABLE_EXECUTE_COMMAND_ID,
+  NODE_ISOLATE_EXECUTE_COMMAND_ID,
+  NODE_RECOVER_EXECUTE_COMMAND_ID
 ] as const
 
 /** 可执行命令 ID 联合类型 */
@@ -291,7 +316,10 @@ export const EXECUTE_COMMAND_REQUIRED_PERMISSIONS: Record<ExecuteCommandId, Perm
   [MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID]: 'network:profile-enable',
-  [MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID]: 'network:profile-enable'
+  [MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [NODE_DISABLE_EXECUTE_COMMAND_ID]: 'node:disable',
+  [NODE_ISOLATE_EXECUTE_COMMAND_ID]: 'node:isolate',
+  [NODE_RECOVER_EXECUTE_COMMAND_ID]: 'node:recover'
 }
 
 // ── Execute body types ─────────────────────────────────────────────────────
