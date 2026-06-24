@@ -1,5 +1,19 @@
 import * as Schema from 'effect/Schema'
 import { actorIds, permissions } from '../literals.ts'
+export {
+  CoreLifecycleStartedPayloadSchema,
+  ServiceLifecycleRegisteredPayloadSchema,
+  ServiceLifecycleReloadRequestedPayloadSchema,
+  type CoreLifecycleStartedPayloadFromSchema,
+  type ServiceLifecycleRegisteredPayloadFromSchema,
+  type ServiceLifecycleReloadRequestedPayloadFromSchema
+} from './core-events.ts'
+export {
+  IssueNodeCredentialResponseSchema,
+  RevokeNodeCredentialResponseSchema,
+  type IssueNodeCredentialResponseFromSchema,
+  type RevokeNodeCredentialResponseFromSchema
+} from './core-node-credentials.ts'
 
 export const ApiErrorDetailSchema = Schema.Struct({
   code: Schema.String,
@@ -140,9 +154,15 @@ export const NodeStatusSchema = Schema.Literal(
   'healthy',
   'degraded',
   'offline',
+  'disabled',
+  'isolated',
+  'recovering',
   'revoked'
 )
 export type NodeStatusFromSchema = typeof NodeStatusSchema.Type
+
+export const NodeControlActionSchema = Schema.Literal('disable', 'isolate', 'recover', 'switch-role')
+export type NodeControlActionFromSchema = typeof NodeControlActionSchema.Type
 
 export const MNodeSchema = Schema.Struct({
   id: Schema.String,
@@ -175,15 +195,6 @@ export const RegisterNodeResponseSchema = Schema.Struct({
 })
 export type RegisterNodeResponseFromSchema = typeof RegisterNodeResponseSchema.Type
 
-export const IssueNodeCredentialResponseSchema = Schema.Struct({
-  nodeId: Schema.String,
-  token: Schema.String,
-  issuedAt: Schema.String,
-  policyDecisionId: Schema.String,
-  correlationId: Schema.String
-})
-export type IssueNodeCredentialResponseFromSchema = typeof IssueNodeCredentialResponseSchema.Type
-
 export const NodeListResponseSchema = Schema.Struct({
   nodes: Schema.Array(MNodeSchema)
 })
@@ -193,6 +204,20 @@ export const NodeDetailResponseSchema = Schema.Struct({
   node: MNodeSchema
 })
 export type NodeDetailResponseFromSchema = typeof NodeDetailResponseSchema.Type
+
+export const NodeControlRequestSchema = Schema.Struct({
+  action: NodeControlActionSchema,
+  reason: Schema.String.pipe(Schema.minLength(1)),
+  targetKind: Schema.optional(NodeKindSchema)
+})
+export type NodeControlRequestFromSchema = typeof NodeControlRequestSchema.Type
+
+export const NodeControlResponseSchema = Schema.Struct({
+  node: MNodeSchema,
+  policyDecisionId: Schema.String,
+  correlationId: Schema.String
+})
+export type NodeControlResponseFromSchema = typeof NodeControlResponseSchema.Type
 
 export const NetworkStatusSchema = Schema.Literal('active')
 export type NetworkStatusFromSchema = typeof NetworkStatusSchema.Type
@@ -402,33 +427,10 @@ export const ServiceReloadResponseSchema = Schema.Struct({
 })
 export type ServiceReloadResponseFromSchema = typeof ServiceReloadResponseSchema.Type
 
-export const CoreLifecycleStartedPayloadSchema = Schema.Struct({
-  nodeId: Schema.String,
-  startedAt: Schema.String,
-  version: Schema.String
-})
-export type CoreLifecycleStartedPayloadFromSchema = typeof CoreLifecycleStartedPayloadSchema.Type
-
 export const CoreLifecycleDegradedPayloadSchema = Schema.Struct({
   dependencies: CoreDependenciesSchema
 })
 export type CoreLifecycleDegradedPayloadFromSchema = typeof CoreLifecycleDegradedPayloadSchema.Type
-
-export const ServiceLifecycleRegisteredPayloadSchema = Schema.Struct({
-  id: Schema.String,
-  version: Schema.String,
-  domain: Schema.String,
-  kind: Schema.String
-})
-export type ServiceLifecycleRegisteredPayloadFromSchema =
-  typeof ServiceLifecycleRegisteredPayloadSchema.Type
-
-export const ServiceLifecycleReloadRequestedPayloadSchema = Schema.Struct({
-  serviceId: Schema.String,
-  reason: Schema.optional(Schema.String)
-})
-export type ServiceLifecycleReloadRequestedPayloadFromSchema =
-  typeof ServiceLifecycleReloadRequestedPayloadSchema.Type
 
 export const NodeRegistrationRequestedPayloadSchema = Schema.Struct({
   kind: NodeKindSchema,
@@ -457,9 +459,18 @@ export type NodeRegistrationAcceptedPayloadFromSchema =
 export const NodeStatusChangedPayloadSchema = Schema.Struct({
   nodeId: Schema.String,
   previousStatus: NodeStatusSchema,
-  nextStatus: NodeStatusSchema
+  nextStatus: NodeStatusSchema,
+  reason: Schema.optional(Schema.String)
 })
 export type NodeStatusChangedPayloadFromSchema = typeof NodeStatusChangedPayloadSchema.Type
+
+export const NodeRoleChangedPayloadSchema = Schema.Struct({
+  nodeId: Schema.String,
+  previousKind: NodeKindSchema,
+  nextKind: NodeKindSchema,
+  reason: Schema.String
+})
+export type NodeRoleChangedPayloadFromSchema = typeof NodeRoleChangedPayloadSchema.Type
 
 export const MNetNetworkCreatedPayloadSchema = Schema.Struct({
   networkId: Schema.String,
