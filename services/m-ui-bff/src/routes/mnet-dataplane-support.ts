@@ -13,6 +13,7 @@ import type {
   MNetMigrationDryRunBody,
   MNetMigrationOperationBody,
   MNetMigrationRollbackBody,
+  MNetNodeControlBody,
   MNetProfileToggleBody
 } from '../types.ts'
 
@@ -230,6 +231,16 @@ export function readCredentialTargetBody(body: unknown): MNetCredentialTargetBod
   const networkId = stringField(objectBody, 'networkId')
   const nodeId = stringField(objectBody, 'nodeId')
   return networkId && nodeId ? { networkId, nodeId } : null
+}
+
+/** 读取节点控制目标请求体；reason 可由 BFF execute 包装层补默认值。 */
+export function readNodeControlBody(body: unknown): MNetNodeControlBody | null {
+  const objectBody = asObject(body)
+  if (!objectBody) return null
+  const nodeId = stringField(objectBody, 'nodeId')
+  const reason = optionalStringField(objectBody, 'reason')
+  if (!nodeId || reason === null) return null
+  return reason === undefined ? { nodeId } : { nodeId, reason }
 }
 
 /** 读取节点凭证吊销请求体。 */

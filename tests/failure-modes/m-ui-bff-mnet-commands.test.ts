@@ -106,7 +106,7 @@ describe('M-UI BFF M-Net command failure modes', () => {
     }
   })
 
-  it('upstream M-Net errors are returned as typed error envelopes', async () => {
+  it('Core facade errors are returned as typed error envelopes', async () => {
     const app = createBffWithServices({
       coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })),
       mnetApp: createFailureModeMNetApp()
@@ -121,6 +121,6 @@ describe('M-UI BFF M-Net command failure modes', () => {
     )
 
     expect(res.status).toBe(503)
-    expect(await res.json()).toMatchObject({ error: { code: 'mnet.unavailable' } })
+    expect(await res.json()).toMatchObject({ error: { code: 'feature.unavailable' } })
   })
 })
