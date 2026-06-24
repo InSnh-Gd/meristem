@@ -80,4 +80,17 @@ describe('rolePermissions', () => {
   it('gives security-admin audit read permission', () => {
     expect(rolePermissions['security-admin']).toContain('audit:read')
   })
+
+  it('limits high-risk node control permissions to admin roles', () => {
+    expect(rolePermissions.operator).not.toContain('node:disable')
+    expect(rolePermissions.operator).not.toContain('node:isolate')
+    expect(rolePermissions.operator).not.toContain('node:recover')
+    expect(rolePermissions.operator).toContain('node:switch-role')
+    for (const actor of ['admin', 'security-admin'] as const) {
+      expect(rolePermissions[actor]).not.toContain('node:switch-role')
+      expect(rolePermissions[actor]).toContain('node:disable')
+      expect(rolePermissions[actor]).toContain('node:isolate')
+      expect(rolePermissions[actor]).toContain('node:recover')
+    }
+  })
 })
