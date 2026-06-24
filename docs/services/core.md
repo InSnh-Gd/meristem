@@ -73,7 +73,7 @@ Implementation notes:
 |------------|--------------|------|
 | `core:read` | read Core status | low |
 | `node:register` | register simulated nodes or create agent Join Tickets | high |
-| `node:issue-token` | issue or rotate per-node runtime token | high |
+| `node:issue-token` | issue, rotate, or revoke per-node runtime token | high |
 | `service:register` | register service definition | high |
 | `service:reload` | request reload for a reloadable internal service | high |
 | `identity:token-issue` | issue local actor token | high |
@@ -140,6 +140,7 @@ Current ownership additions:
 - Core owns local-mode Identity v0.2 actor records, actor token lifecycle, `jti` revocation, and internal token introspection.
 - Core owns SecretRef v0.1 management entrypoints.
 - Core owns Config Lifecycle v0.1 orchestration entrypoints.
+- Core owns explicit runtime node token rotate/revoke entrypoints; revoke returns metadata only and replacement token adoption remains operator-managed in this slice.
 
 Task ownership note:
 
