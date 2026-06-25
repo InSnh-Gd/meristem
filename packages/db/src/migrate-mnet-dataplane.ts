@@ -42,8 +42,13 @@ export async function migrateMNetDataPlane(tx: postgres.TransactionSql) {
       rotation_due_at timestamptz,
       rotation_counter integer not null,
       status text not null,
+      endpoint text,
       primary key (node_id, key_id)
     )
+  `
+  // 幂等升级：已存在的表需要补 endpoint 列以匹配 Drizzle schema。
+  await tx`
+    alter table mnet_node_public_keys add column if not exists endpoint text
   `
   await tx`
     create unique index if not exists mnet_node_public_keys_fingerprint_unique

@@ -225,6 +225,8 @@ async function readRuntimeState(path: string): Promise<RuntimeState> {
   const payload = await readFileIfExists(path)
   if (!payload) return {}
   try {
+    // 本地文件 I/O 运行时校验：JSON.parse 返回 unknown，先断言为 Record 再逐字段 typeof 校验。
+    // 此处不引入 Effect Schema，因为只读本地 runtime state 文件，手动校验已覆盖所有字段。
     const decoded = JSON.parse(payload) as Record<string, unknown>
     return {
       nodeId:

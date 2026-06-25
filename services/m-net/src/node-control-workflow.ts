@@ -35,6 +35,7 @@ export function isNodeControlFailure(value: unknown): value is NodeControlFailur
     typeof value === 'object' &&
     value !== null &&
     'kind' in value &&
+    // 运行时类型守卫：'kind' in value 之后 TS 仍无法收窄属性类型，需要显式断言读取字段。
     (value as { kind?: string }).kind === 'failure'
   )
 }
