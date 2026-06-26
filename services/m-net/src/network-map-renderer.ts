@@ -3,6 +3,7 @@ import type {
   NetworkMapFromSchema as NetworkMap,
   NetworkMapSigningMetadataFromSchema as NetworkMapSigningMetadata
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import { buildNetworkMapSignatureMetadata } from './network-map-signing.ts'
 import type {
   EnforcementDecision,
   NetworkMapEnforcementInput,
@@ -11,7 +12,6 @@ import type {
   RenderedNetworkMap,
   RequestedAclRule
 } from './network-map-types.ts'
-import { buildNetworkMapSignatureMetadata } from './network-map-signing.ts'
 
 export const NETWORK_MAP_STALE_TTL_ENV_KEY = 'MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS'
 export const DEFAULT_NETWORK_MAP_STALE_TTL_MS = 900_000
@@ -151,7 +151,8 @@ function buildNetworkMap(
     members: members.map(member => ({
       nodeId: member.nodeId,
       tunnelIp: member.tunnelIp,
-      publicKey: member.publicKey
+      publicKey: member.publicKey,
+      ...(member.endpoint ? { endpoint: member.endpoint } : {})
     })),
     aclRules: [...aclRules],
     expiresAt: calculateNetworkMapExpiresAt(input.issuedAt, staleTtlMs),

@@ -11,6 +11,13 @@ import type {
 export type { NetworkProfileMigrationResult, SwitchBatch, SwitchOperationStatus }
 
 import {
+  isCandidate,
+  migrationResult,
+  type NetworkSnapshot,
+  readReason
+} from './migration-engine-helpers.ts'
+import { toStoredProfileMigrationRecord } from './migration-storage-utils.ts'
+import {
   acquireOperationLock,
   type NetworkOperationLock,
   type OperationTransitionReason,
@@ -23,13 +30,6 @@ import {
   migrateMNetProfile
 } from './profile-migration.ts'
 import type { ProfileStore } from './profile-store.ts'
-import {
-  type NetworkSnapshot,
-  isCandidate,
-  migrationResult,
-  readReason
-} from './migration-engine-helpers.ts'
-import { toStoredProfileMigrationRecord } from './migration-storage-utils.ts'
 
 export type MigrationEngineDeps = {
   globalDefaultsStore: GlobalDefaultsStore

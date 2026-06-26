@@ -1,8 +1,11 @@
 import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 export const NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY = 'MERISTEM_MNET_MAP_SIGNING_KEY_ID'
 export const NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY = 'MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_PEM'
+export const NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY =
+  'MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_FILE'
 export const NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY = 'MERISTEM_MNET_MAP_SIGNING_PUBLIC_KEY'
 
 export const DEFAULT_NETWORK_MAP_SIGNING_KEY_ID = 'mnet-signing-key-v1'
@@ -57,9 +60,14 @@ function resolvePrivateKeyPem(
 ): string {
   const configured = env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]
   if (configured) return normalizePem(configured)
+  const keyFile = env[NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY]
+  if (keyFile) {
+    const fileContent = readFileSync(keyFile, 'utf8')
+    return normalizePem(fileContent)
+  }
   if (allowTestDefaults(env, options)) return normalizePem(TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM)
   throw new Error(
-    `${NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY} is required for M-Net network-map signing`
+    `${NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY} or ${NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY} is required for M-Net network-map signing`
   )
 }
 

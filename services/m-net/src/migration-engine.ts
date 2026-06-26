@@ -1,5 +1,6 @@
 export type { PlanMigrationResult } from './migration-engine-pure.ts'
 
+import { isCandidate } from './migration-engine-helpers.ts'
 import {
   applyNetwork,
   fail,
@@ -7,7 +8,6 @@ import {
   ok,
   TARGET_CN_PROFILE_VERSION
 } from './migration-engine-pure.ts'
-import { isCandidate } from './migration-engine-helpers.ts'
 import { rollbackNetwork } from './migration-engine-rollback.ts'
 
 export type { MigrationEngineDeps, SwitchOperationStatus } from './migration-engine-pure.ts'

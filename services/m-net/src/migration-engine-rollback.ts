@@ -1,11 +1,11 @@
 import type { NetworkProfileMigrationResult } from './global-defaults-store.ts'
-import { rollbackMNetProfile } from './profile-migration.ts'
+import { migrationResult } from './migration-engine-helpers.ts'
 import {
   getStoredMigration,
-  storeMigration,
-  type MigrationEngineDeps
+  type MigrationEngineDeps,
+  storeMigration
 } from './migration-engine-pure.ts'
-import { migrationResult } from './migration-engine-helpers.ts'
+import { rollbackMNetProfile } from './profile-migration.ts'
 
 export async function rollbackNetwork(
   deps: MigrationEngineDeps,

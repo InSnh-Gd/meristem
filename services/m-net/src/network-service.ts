@@ -3,14 +3,14 @@ import type {
   CreateNetworkRequest,
   MNetwork,
   MNetworkMember,
-  NetworkSummary,
-  NodeStatus
+  NetworkSummary
 } from '../../../packages/contracts/src/index.ts'
 import { networkMemberships, networks, nodes } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
+import { isNodeExcludedFromPeerPaths } from './node-control-state-machine.ts'
 import type { ProfileStore } from './profile-store.ts'
-import { asNodeKind, err, mapNetwork, membershipModeFor, ok } from './shared.ts'
+import { asNodeKind, asNodeStatus, err, mapNetwork, membershipModeFor, ok } from './shared.ts'
 import type { MNetServiceResult } from './types.ts'
 
 type NetworkServiceDeps = {
@@ -84,7 +84,7 @@ export function createNetworkService({
 
     const nodeKind = asNodeKind(nodeRow.kind)
     if (!nodeKind) return err('node.invalid_kind', 'node kind cannot join logical networks')
-    if ((nodeRow.status as NodeStatus) !== 'healthy') {
+    if (nodeRow.status !== 'healthy') {
       return err('node.invalid_status', 'node must be healthy')
     }
 
@@ -104,7 +104,7 @@ export function createNetworkService({
         networkId: existingMembership.networkId,
         nodeId: existingMembership.nodeId,
         nodeKind,
-        membershipMode: existingMembership.membershipMode as MNetworkMember['membershipMode'],
+        membershipMode: membershipModeFor(nodeKind),
         status: existingMembership.status as MNetworkMember['status'],
         joinedAt: existingMembership.joinedAt.toISOString()
       })
@@ -157,7 +157,8 @@ export function createNetworkService({
         membershipMode: networkMemberships.membershipMode,
         status: networkMemberships.status,
         joinedAt: networkMemberships.joinedAt,
-        nodeKind: nodes.kind
+        nodeKind: nodes.kind,
+        nodeStatus: nodes.status
       })
       .from(networkMemberships)
       .innerJoin(nodes, eq(networkMemberships.nodeId, nodes.id))
@@ -166,13 +167,14 @@ export function createNetworkService({
     return ok(
       rows.flatMap(row => {
         const nodeKind = asNodeKind(row.nodeKind)
-        if (!nodeKind) return []
+        const nodeStatus = asNodeStatus(row.nodeStatus)
+        if (!nodeKind || !nodeStatus || isNodeExcludedFromPeerPaths(nodeStatus)) return []
         return [
           {
             networkId: row.networkId,
             nodeId: row.nodeId,
             nodeKind,
-            membershipMode: row.membershipMode as MNetworkMember['membershipMode'],
+            membershipMode: membershipModeFor(nodeKind),
             status: row.status as MNetworkMember['status'],
             joinedAt: row.joinedAt.toISOString()
           }

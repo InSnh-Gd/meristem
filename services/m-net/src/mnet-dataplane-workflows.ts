@@ -62,13 +62,7 @@ export async function enableDataPlaneProfile(
     if (lockResult.kind === 'failure') {
       return profileWorkflowFailure(409, lockResult.failure.code, lockResult.failure.message)
     }
-    try {
-      await deps.dataPlane.operationLocks.upsert(lockResult.lock)
-    } catch (error) {
-      throw new Error(
-        `operation_locks acquire upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.operationLocks.upsert(lockResult.lock)
 
     const materialized = await materializeMembers(
       deps,
@@ -93,23 +87,17 @@ export async function enableDataPlaneProfile(
       reason: input.reason,
       correlationId
     })
-    try {
-      await deps.dataPlane.profileMigrations.upsert({
-        networkId: input.networkId,
-        operationId: request.operationId,
-        fromVersion: 'm-net-cn@0.1.0',
-        toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-        status: 'applied',
-        idempotencyKey: request.idempotencyKey ?? request.operationId,
-        startedAt: request.requestedAt,
-        completedAt: new Date().toISOString(),
-        auditMetadata: { reason: input.reason }
-      })
-    } catch (error) {
-      throw new Error(
-        `profile_migrations upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+    await deps.dataPlane.profileMigrations.upsert({
+      networkId: input.networkId,
+      operationId: request.operationId,
+      fromVersion: 'm-net-cn@0.1.0',
+      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      status: 'applied',
+      idempotencyKey: request.idempotencyKey ?? request.operationId,
+      startedAt: request.requestedAt,
+      completedAt: new Date().toISOString(),
+      auditMetadata: { reason: input.reason }
+    })
 
     const artifactsWritten = await writeOptionalArtifacts(deps, {
       correlationId,
@@ -126,13 +114,7 @@ export async function enableDataPlaneProfile(
       reason: { code: 'operation.completed', detail: 'data-plane profile enabled' }
     })
     if (released.kind === 'released') {
-      try {
-        await deps.dataPlane.operationLocks.upsert(released.lock)
-      } catch (error) {
-        throw new Error(
-          `operation_locks release upsert failed for ${input.networkId}: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
+      await deps.dataPlane.operationLocks.upsert(released.lock)
     }
 
     return {
@@ -151,26 +133,57 @@ export async function enableDataPlaneProfile(
 /** 注册节点公钥并重新发布最新签名地图。 */
 export async function registerNodePublicKey(
   deps: DataPlaneDeps,
-  input: { networkId: string; nodeId: string; keyId: string; publicKey: string; createdAt: string }
+  input: {
+    networkId: string
+    nodeId: string
+    keyId: string
+    publicKey: string
+    createdAt: string
+    /** 节点的公网 WireGuard 端点（STUN 发现），用于直接 P2P 连接。 */
+    endpoint?: string
+  }
 ): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure> {
   try {
     const existingKeys = await deps.dataPlane.nodePublicKeys.listByNode(input.nodeId)
     const validated = rejectDuplicatePublicKey({ ...input, existingKeys })
+    const correlationId = crypto.randomUUID()
+
+    // 无效公钥（格式错误等）仍返回 409 拒绝。
+    // 重复公钥视为幂等注册，仍触发 materializeMembers 刷新地图，避免地图过期后 node-agent 无法恢复。
     if (!validated.ok) {
-      return profileWorkflowFailure(
-        409,
-        validated.error.kind,
-        'duplicate or invalid public key rejected'
+      if (validated.error.kind !== 'key.duplicate') {
+        return profileWorkflowFailure(
+          409,
+          validated.error.kind,
+          'duplicate or invalid public key rejected'
+        )
+      }
+
+      const materialized = await materializeMembers(
+        deps,
+        input.networkId,
+        CHINA_DATA_PLANE_PROFILE_VERSION,
+        correlationId
       )
+      if (isProfileWorkflowFailure(materialized)) return materialized
+
+      const existingKey = existingKeys.find(key => key.publicKey === input.publicKey)
+      return {
+        nodeId: input.nodeId,
+        keyId: existingKey?.keyId ?? input.keyId,
+        fingerprint: existingKey?.fingerprint ?? '',
+        mapVersion: materialized.mapVersion,
+        correlationId
+      }
     }
 
     const rotationMetadata: NodePublicKeyMetadata = validated.value
     await deps.dataPlane.nodePublicKeys.upsert({
       ...rotationMetadata,
-      status: 'active'
+      status: 'active',
+      ...(input.endpoint ? { endpoint: input.endpoint } : {})
     })
 
-    const correlationId = crypto.randomUUID()
     const materialized = await materializeMembers(
       deps,
       input.networkId,
