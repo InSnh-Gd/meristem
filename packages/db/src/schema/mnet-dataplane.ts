@@ -62,7 +62,8 @@ export const mnetNodePublicKeys = pgTable(
     rotatedAt: timestamp('rotated_at', { withTimezone: true }),
     rotationDueAt: timestamp('rotation_due_at', { withTimezone: true }),
     rotationCounter: integer('rotation_counter').notNull(),
-    status: text('status').notNull()
+    status: text('status').notNull(),
+    endpoint: text('endpoint')
   },
   table => [
     primaryKey({ columns: [table.nodeId, table.keyId] }),
