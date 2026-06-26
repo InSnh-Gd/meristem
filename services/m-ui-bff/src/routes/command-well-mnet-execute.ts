@@ -1,4 +1,5 @@
 import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
+import { isNodeControlExecuteCommandId } from '../command-well/eligibility.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
@@ -13,7 +14,11 @@ import {
   MNET_NODE_CREDENTIAL_REVOKE_EXECUTE_COMMAND_ID,
   MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID,
   MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID,
-  MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID
+  MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID,
+  NODE_CONTROL_COMMAND_ACTIONS,
+  NODE_DISABLE_EXECUTE_COMMAND_ID,
+  NODE_ISOLATE_EXECUTE_COMMAND_ID,
+  NODE_RECOVER_EXECUTE_COMMAND_ID
 } from '../types.ts'
 import {
   bffIdempotencyKey,
@@ -29,6 +34,7 @@ import {
   readMigrationDryRunBody,
   readMigrationOperationBody,
   readMigrationRollbackBody,
+  readNodeControlBody,
   readProfileToggleBody
 } from './mnet-dataplane-support.ts'
 import { bffError, decodeUpstreamData, passthroughCoreError } from './route-helpers.ts'
@@ -46,7 +52,10 @@ const MNET_EXECUTE_COMMANDS = new Set([
   MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
-  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID
+  MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID,
+  NODE_DISABLE_EXECUTE_COMMAND_ID,
+  NODE_ISOLATE_EXECUTE_COMMAND_ID,
+  NODE_RECOVER_EXECUTE_COMMAND_ID
 ])
 
 /** 判断命令是否属于 M-Net 数据面执行集合。 */
@@ -86,7 +95,7 @@ export async function handleMNetExecuteCommand(input: {
   commandId: string
   body: unknown
   token: string
-  deps: Pick<MUiBffRouteDeps, 'cf' | 'mfRaw'>
+  deps: Pick<MUiBffRouteDeps, 'cf' | 'cfRaw' | 'mfRaw'>
 }) {
   const { commandId, body, token, deps } = input
   if (!isMNetExecuteCommand(commandId)) return null
@@ -101,9 +110,27 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw('/api/v0/networks/network-join/join-tickets', token, {
+      deps.cfRaw('/api/v0/networks/network-join/join-tickets', token, {
         method: 'POST',
         body: JSON.stringify(joinTicketBody)
+      })
+    )
+  }
+
+  if (isNodeControlExecuteCommandId(commandId)) {
+    const target = readNodeControlBody(body)
+    if (!target)
+      return invalidExecuteBody('nodeId is required; reason must be non-empty when provided')
+    const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
+    if (permissionCheck instanceof Response) return permissionCheck
+    const action = NODE_CONTROL_COMMAND_ACTIONS[commandId]
+    return forwardCoreExecute(
+      deps.cfRaw(`/api/v0/nodes/${encodeURIComponent(target.nodeId)}/control`, token, {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          reason: target.reason ?? `m-ui-bff ${action} request`
+        })
       })
     )
   }
@@ -114,7 +141,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials`,
         token,
         {
@@ -130,7 +157,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials/rotate`,
         token,
         {
@@ -150,7 +177,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials/revoke`,
         token,
         {
@@ -171,7 +198,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile/enable`,
         token,
         {
@@ -192,7 +219,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile/disable`,
         token,
         {
@@ -213,7 +240,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(breakGlassBody.networkId)}/break-glass`,
         token,
         {
@@ -239,7 +266,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw('/api/v0/networks/profile-defaults', token, {
+      deps.cfRaw('/api/v0/networks/profile-defaults', token, {
         method: 'PUT',
         body: JSON.stringify({
           profileVersion: defaultsBody.profileVersion,
@@ -260,7 +287,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw('/api/v0/networks/profile-switches/plan', token, {
+      deps.cfRaw('/api/v0/networks/profile-switches/plan', token, {
         method: 'POST',
         body: JSON.stringify({
           targetProfileVersion: migrationBody.targetProfileVersion,
@@ -278,7 +305,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/profile-switches/${encodeURIComponent(operationBody.operationId)}/apply`,
         token,
         {
@@ -294,7 +321,7 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.mfRaw(
+      deps.cfRaw(
         `/api/v0/networks/profile-switches/${encodeURIComponent(operationBody.operationId)}/resume`,
         token,
         {
@@ -313,7 +340,7 @@ export async function handleMNetExecuteCommand(input: {
   const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
   if (permissionCheck instanceof Response) return permissionCheck
   return forwardCoreExecute(
-    deps.mfRaw(
+    deps.cfRaw(
       `/api/v0/networks/profile-switches/${encodeURIComponent(rollbackBody.operationId)}/rollback`,
       token,
       {
