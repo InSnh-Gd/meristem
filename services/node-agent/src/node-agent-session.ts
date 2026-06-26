@@ -1,12 +1,12 @@
+import * as Either from 'effect/Either'
+import * as Schema from 'effect/Schema'
 import type {
   JoinAcceptedMessage,
   SessionErrorMessage
 } from '../../../packages/contracts/src/index.ts'
-import * as Either from 'effect/Either'
-import * as Schema from 'effect/Schema'
 import {
-  NetworkMapSchema,
-  type NetworkMapFromSchema
+  type NetworkMapFromSchema,
+  NetworkMapSchema
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 export type SessionAckMessage = {
@@ -47,6 +47,8 @@ export type RuntimeKeyRegistrationInput = {
   keyId: string
   publicKey: string
   createdAt: string
+  /** 节点的公网 WireGuard 端点（STUN 发现），用于直接 P2P 连接。 */
+  endpoint?: string
 }
 
 export type RuntimeKeyRegistrationResult =

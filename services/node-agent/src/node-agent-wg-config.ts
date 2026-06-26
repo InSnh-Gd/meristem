@@ -14,14 +14,20 @@ export type WgConfigInput = {
   readonly map: NetworkMap
   readonly agentNodeId: string
   readonly listenPort?: number
-  readonly privateKeyPath?: string
+  /** WireGuard 私钥的 base64 内容，直接内联到配置中供 `wg setconf` 消费。 */
+  readonly privateKey: string
   readonly localRelayEndpoint?: string
+  /**
+   * 当为 true 时，所有对等节点强制使用 relay endpoint 作为 WireGuard peer Endpoint，
+   * 忽略成员自身的 endpoint 字段。用于 cloud security group 禁止 leaf-to-leaf UDP 的拓扑。
+   * 默认 false 保留现有直接 P2P 行为。
+   */
+  readonly forceRelayEndpoint?: boolean
 }
 
 export type WgConfigOutput = {
   readonly config: string
   readonly listenPort: number
-  readonly privateKeyPath: string
   readonly peerCount: number
 }
 
@@ -126,15 +132,12 @@ function defaultPortForProtocol(protocol: string): string | null {
 
 function buildInterfaceLines(
   localMember: NetworkMapMember,
-  privateKeyPath: string,
+  privateKey: string,
   listenPort: number
 ) {
-  return [
-    '[Interface]',
-    `Address = ${localMember.tunnelIp}/32`,
-    `PrivateKey = ${privateKeyPath}`,
-    `ListenPort = ${listenPort}`
-  ]
+  // Address 由 ensureWireGuardInterface 通过 `ip address replace` 单独设置，
+  // 不放入配置文件——`wg setconf` 不识别 wg-quick 专用的 Address 指令。
+  return ['[Interface]', `PrivateKey = ${privateKey}`, `ListenPort = ${listenPort}`]
 }
 
 function buildPeerLines(peer: NetworkMapMember, endpoint: string) {
@@ -186,7 +189,13 @@ function parseVersion(output: string, binary: 'wg' | 'wireguard-go'): string | n
 }
 
 /**
- * 从签名 network-map 渲染确定性的 WireGuard 配置文本；私钥只允许以宿主机路径引用，绝不内联材料。
+ * 从签名 network-map 渲染确定性的 WireGuard 配置文本；私钥以 base64 内容内联，
+ * 供 `wg setconf` 直接消费（`wg setconf` 不支持 wg-quick 的 Address 指令和文件路径引用）。
+ *
+ * 对等节点 Endpoint 选择策略：
+ * 1. 若 `forceRelayEndpoint` 为 true，所有对等节点使用 relay endpoint，忽略成员自身的 endpoint。
+ * 2. 若对等节点在 network-map 中声明了 `endpoint`（STUN 发现的公网地址），使用直接 P2P 连接。
+ * 3. 否则回退到 wstunnel relay 本地 UDP 绑定地址（`localRelayEndpoint`）。
  */
 export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   const listenPort = input.listenPort ?? DEFAULT_WG_LISTEN_PORT
@@ -194,8 +203,7 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     return { ok: false, error: { kind: 'wg.listen_port_invalid', listenPort } }
   }
 
-  const privateKeyPath = input.privateKeyPath ?? DEFAULT_WG_PRIVATE_KEY_PATH
-  if (!isNonEmpty(privateKeyPath)) {
+  if (!isNonEmpty(input.privateKey)) {
     return { ok: false, error: { kind: 'wg.private_key_path_missing' } }
   }
 
@@ -208,14 +216,29 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
   }
 
   const peers = sortPeers(input.map.members.filter(member => member.nodeId !== input.agentNodeId))
-  const lines = buildInterfaceLines(localMember, privateKeyPath, listenPort)
+  const lines = buildInterfaceLines(localMember, input.privateKey, listenPort)
 
   if (peers.length > 0) {
-    const normalizedEndpoint = resolveRelayEndpoint(input)
-    if (!normalizedEndpoint.ok) return normalizedEndpoint
+    // 预解析 relay fallback endpoint（当 forceRelayEndpoint 为 true 或存在缺少 endpoint 的 peer 时使用）
+    let relayFallback: string | null = null
+    const needsRelay =
+      input.forceRelayEndpoint === true || peers.some(peer => !isNonEmpty(peer.endpoint))
+    if (needsRelay) {
+      const relayResult = resolveRelayEndpoint(input)
+      if (!relayResult.ok) return relayResult
+      relayFallback = relayResult.value
+    }
 
     for (const peer of peers) {
-      lines.push('', ...buildPeerLines(peer, normalizedEndpoint.value))
+      const peerEndpoint =
+        input.forceRelayEndpoint !== true && isNonEmpty(peer.endpoint)
+          ? normalizePeerEndpoint(peer.endpoint)
+          : null
+      const endpoint = peerEndpoint?.ok ? peerEndpoint.value : relayFallback
+      if (!endpoint) {
+        return { ok: false, error: { kind: 'wg.endpoint_missing', nodeId: peer.nodeId } }
+      }
+      lines.push('', ...buildPeerLines(peer, endpoint))
     }
   }
 
@@ -224,7 +247,6 @@ export function renderWireGuardConfig(input: WgConfigInput): WgConfigResult {
     value: {
       config: lines.join('\n'),
       listenPort,
-      privateKeyPath,
       peerCount: peers.length
     }
   }

@@ -4,11 +4,11 @@ import type {
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_CLOCK_SKEW_MS } from '../../m-net/src/key-lifecycle.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../m-net/src/network-map-renderer.ts'
-import type { EnforcementDecision } from '../../m-net/src/network-map-types.ts'
 import {
   resolveExpectedNetworkMapSigningPublicKey,
   verifyNetworkMapSignature
 } from '../../m-net/src/network-map-signing.ts'
+import type { EnforcementDecision } from '../../m-net/src/network-map-types.ts'
 import {
   type NetworkPartitionState,
   type PartitionTransitionReason,
