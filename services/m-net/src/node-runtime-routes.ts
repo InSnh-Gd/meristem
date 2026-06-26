@@ -1,5 +1,5 @@
-import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import { Elysia, t } from 'elysia'
+import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MNetAppDeps } from './deps.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
@@ -24,7 +24,8 @@ function toLatestNetworkMapResponse(map: NetworkMapFromSchema) {
       members: map.members.map(member => ({
         nodeId: member.nodeId,
         tunnelIp: member.tunnelIp,
-        publicKey: member.publicKey
+        publicKey: member.publicKey,
+        ...(member.endpoint ? { endpoint: member.endpoint } : {})
       })),
       aclRules: map.aclRules.map(rule => ({
         ruleId: rule.ruleId,
@@ -133,7 +134,8 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
           nodeId: params.nodeId,
           keyId: body.keyId,
           publicKey: body.publicKey,
-          createdAt: body.createdAt
+          createdAt: body.createdAt,
+          ...(body.endpoint ? { endpoint: body.endpoint } : {})
         })
         if (isProfileWorkflowFailure(result)) {
           return externalApiError(set, result.status, result.error.code, result.error.message)

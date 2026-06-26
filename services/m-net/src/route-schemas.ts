@@ -104,6 +104,50 @@ export const nodeIdParamsSchema = t.Object({
   nodeId: t.String({ minLength: 1 })
 })
 
+export const nodeControlBodySchema = t.Object({
+  action: t.Union([
+    t.Literal('disable'),
+    t.Literal('isolate'),
+    t.Literal('recover'),
+    t.Literal('switch-role')
+  ]),
+  reason: t.String({ minLength: 1 }),
+  targetKind: t.Optional(t.Union([t.Literal('stem'), t.Literal('leaf')]))
+})
+
+export const nodeControlResponseSchema = t.Object({
+  node: t.Object({
+    id: t.String(),
+    kind: t.Union([t.Literal('stem'), t.Literal('leaf')]),
+    name: t.String(),
+    mode: t.Union([t.Literal('agent'), t.Literal('managed'), t.Literal('simulated')]),
+    status: t.Union([
+      t.Literal('ready'),
+      t.Literal('joining'),
+      t.Literal('healthy'),
+      t.Literal('degraded'),
+      t.Literal('offline'),
+      t.Literal('disabled'),
+      t.Literal('isolated'),
+      t.Literal('recovering'),
+      t.Literal('revoked')
+    ]),
+    reachability: t.Union([
+      t.Literal('unknown'),
+      t.Literal('public'),
+      t.Literal('private'),
+      t.Literal('reachable'),
+      t.Literal('unreachable')
+    ]),
+    lastSeenAt: t.Optional(t.String()),
+    agentVersion: t.Optional(t.String()),
+    capabilities: t.Array(t.String()),
+    createdAt: t.String()
+  }),
+  policyDecisionId: t.String(),
+  correlationId: t.String()
+})
+
 export const latestNetworkMapSchema = t.Object({
   profileVersion: t.String(),
   networkId: t.String(),
@@ -111,7 +155,8 @@ export const latestNetworkMapSchema = t.Object({
     t.Object({
       nodeId: t.String(),
       tunnelIp: t.String(),
-      publicKey: t.String()
+      publicKey: t.String(),
+      endpoint: t.Optional(t.String())
     })
   ),
   aclRules: t.Array(
@@ -143,7 +188,8 @@ export const latestNetworkMapSchema = t.Object({
 export const nodeKeyRegistrationBodySchema = t.Object({
   keyId: t.String({ minLength: 1 }),
   publicKey: t.String({ minLength: 1 }),
-  createdAt: t.String({ minLength: 1 })
+  createdAt: t.String({ minLength: 1 }),
+  endpoint: t.Optional(t.String({ minLength: 1 }))
 })
 
 export const nodeKeyRegistrationResponseSchema = t.Object({

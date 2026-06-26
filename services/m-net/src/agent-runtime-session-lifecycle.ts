@@ -12,12 +12,75 @@ import { nodeCredentials, nodeJoinTickets, nodes } from '../../../packages/db/sr
 import type { AgentRuntimeContext, CredentialStore } from './agent-runtime-types.ts'
 import {
   deriveHeartbeatTransition,
+  deriveRecoveryCompletionEvidence,
+  isHeartbeatStatusSuppressed,
   joinTicketRedeemability,
   shouldTransitionOffline,
   shouldTransitionOfflineOnDisconnect
 } from './runtime.ts'
 import { asRuntimeNode, err, type JoinSessionData, mapNode, ok } from './shared.ts'
 import type { MNetServiceResult } from './types.ts'
+
+type NodeRow = typeof nodes.$inferSelect
+type NodeUpdate = Partial<typeof nodes.$inferInsert>
+type NodeCredentialRow = typeof nodeCredentials.$inferSelect
+type NodeCredentialUpdate = Partial<typeof nodeCredentials.$inferInsert>
+
+export type RuntimeCredentialContext = {
+  db: {
+    select(): {
+      from(table: typeof nodeCredentials): {
+        where(condition: unknown): {
+          limit(count: number): Promise<NodeCredentialRow[]>
+        }
+      }
+    }
+    update(table: typeof nodeCredentials): {
+      set(values: NodeCredentialUpdate): {
+        where(condition: unknown): Promise<unknown>
+      }
+    }
+  }
+}
+
+export type HeartbeatRuntimeContext = {
+  db: {
+    select(): {
+      from(table: typeof nodes): {
+        where(condition: unknown): {
+          limit(count: number): Promise<NodeRow[]>
+        }
+      }
+    }
+    update(table: typeof nodes): {
+      set(values: NodeUpdate): {
+        where(condition: unknown): Promise<unknown>
+      }
+    }
+  }
+  publishEvent(
+    subject: string,
+    type: string,
+    payload: unknown,
+    correlationId?: string,
+    traceId?: string
+  ): Promise<void>
+  writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void>
+  writeFull(
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    correlationId?: string,
+    traceId?: string,
+    payload?: unknown
+  ): Promise<void>
+  writeAudit(
+    resource: string,
+    action: string,
+    correlationId?: string,
+    traceId?: string,
+    payload?: unknown
+  ): Promise<void>
+}
 
 export function sessionNodeId(ws: ServerWebSocket<JoinSessionData>): string | null {
   return typeof ws.data.nodeId === 'string' ? ws.data.nodeId : null
@@ -54,7 +117,7 @@ export function bindSession<
  * 运行 token 校验只依赖 PostgreSQL 中的 active 哈希记录，不信任节点自报身份或活动 session 状态本身。
  */
 export async function validateNodeCredential(
-  context: Pick<AgentRuntimeContext, 'db'>,
+  context: RuntimeCredentialContext,
   nodeId: string,
   token: string
 ): Promise<boolean> {
@@ -253,14 +316,44 @@ export async function resumeSession(
  * session 存活不等于节点可达，节点状态必须由心跳和超时规则共同决定。
  */
 export async function applyHeartbeat(
-  context: Pick<AgentRuntimeContext, 'db' | 'publishEvent' | 'writeTimeline'>,
+  context: HeartbeatRuntimeContext,
   nodeId: string,
   heartbeat: SessionHeartbeatMessage
 ): Promise<MNetServiceResult<void>> {
   const [nodeRow] = await context.db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1)
   if (nodeRow?.mode !== 'agent') return err('node.not_found', 'node not found')
 
-  const transition = deriveHeartbeatTransition(asRuntimeNode(nodeRow), heartbeat)
+  const runtimeNode = asRuntimeNode(nodeRow)
+  if (isHeartbeatStatusSuppressed(runtimeNode)) {
+    await context.db
+      .update(nodes)
+      .set({
+        lastSeenAt: new Date(heartbeat.timestamp),
+        agentVersion: heartbeat.agentVersion,
+        updatedAt: new Date()
+      })
+      .where(eq(nodes.id, nodeId))
+
+    try {
+      await context.writeFull(
+        'info',
+        `suppressed heartbeat status update for administratively controlled node ${nodeId}`,
+        undefined,
+        undefined,
+        {
+          nodeId,
+          status: nodeRow.status,
+          reportedStatus: heartbeat.reportedStatus
+        }
+      )
+    } catch {
+      // m-log 不可用时 heartbeat 抑制日志失败不能影响运行态协议。
+    }
+    return ok(undefined)
+  }
+
+  const transition = deriveHeartbeatTransition(runtimeNode, heartbeat)
+  const recoveryCompletion = deriveRecoveryCompletionEvidence(runtimeNode, heartbeat, transition)
   await context.db
     .update(nodes)
     .set({
@@ -272,22 +365,52 @@ export async function applyHeartbeat(
     })
     .where(eq(nodes.id, nodeId))
 
-  if (transition.reachabilityChanged) {
-    await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
-      nodeId,
-      previousReachability: nodeRow.reachability,
-      nextReachability: transition.nextReachability
-    })
-    await context.writeTimeline(`node became reachable ${nodeId}`, nodeId)
-  }
+  try {
+    if (transition.reachabilityChanged) {
+      await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
+        nodeId,
+        previousReachability: nodeRow.reachability,
+        nextReachability: transition.nextReachability
+      })
+      await context.writeTimeline(`node became reachable ${nodeId}`, nodeId)
+    }
 
-  if (transition.statusChanged) {
-    await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
-      nodeId,
-      previousStatus: nodeRow.status,
-      nextStatus: transition.nextStatus,
-      reason: 'heartbeat_reported'
-    })
+    if (transition.statusChanged) {
+      if (recoveryCompletion) {
+        await context.writeAudit(`node:${nodeId}`, 'node:recover-completed', undefined, undefined, {
+          previousStatus: recoveryCompletion.previousStatus,
+          nextStatus: recoveryCompletion.nextStatus,
+          heartbeatTimestamp: recoveryCompletion.heartbeatTimestamp,
+          agentVersion: recoveryCompletion.agentVersion
+        })
+      }
+      await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
+        nodeId,
+        previousStatus: nodeRow.status,
+        nextStatus: transition.nextStatus,
+        reason: 'heartbeat_reported'
+      })
+      if (recoveryCompletion) {
+        await context.writeTimeline(
+          `node recovery completed as ${recoveryCompletion.nextStatus} ${nodeId}`,
+          nodeId
+        )
+      }
+    }
+  } catch (error) {
+    if (recoveryCompletion) {
+      await context.db
+        .update(nodes)
+        .set({
+          status: recoveryCompletion.previousStatus,
+          reachability: nodeRow.reachability,
+          lastSeenAt: nodeRow.lastSeenAt,
+          agentVersion: nodeRow.agentVersion,
+          updatedAt: new Date()
+        })
+        .where(eq(nodes.id, nodeId))
+    }
+    throw error
   }
 
   return ok(undefined)
@@ -301,12 +424,22 @@ export async function forwardLog(
   nodeId: string,
   message: SessionLogForwardMessage
 ): Promise<void> {
-  await context.writeFull(message.level, message.message, message.correlationId, message.traceId, {
-    nodeId,
-    channel: 'session.log.forward',
-    timestamp: message.timestamp,
-    ...(message.payload === undefined ? {} : { payload: message.payload })
-  })
+  try {
+    await context.writeFull(
+      message.level,
+      message.message,
+      message.correlationId,
+      message.traceId,
+      {
+        nodeId,
+        channel: 'session.log.forward',
+        timestamp: message.timestamp,
+        ...(message.payload === undefined ? {} : { payload: message.payload })
+      }
+    )
+  } catch {
+    // m-log 不可用时日志转发失败不应导致 M-Net 崩溃，特别是启动阶段竞态
+  }
 }
 
 /**
@@ -333,26 +466,42 @@ export async function transitionNodeOffline(
     .where(eq(nodes.id, row.id))
 
   if (row.reachability !== 'unreachable') {
-    await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
-      nodeId: row.id,
-      previousReachability: row.reachability,
-      nextReachability: 'unreachable'
-    })
+    try {
+      await context.publishEvent('mnet.reachability.changed.v0', 'mnet.reachability.changed', {
+        nodeId: row.id,
+        previousReachability: row.reachability,
+        nextReachability: 'unreachable'
+      })
+    } catch {
+      // m-eventbus 不可用时事件发布失败不应导致 M-Net 崩溃
+    }
   }
 
   if (row.status !== 'offline') {
-    await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
-      nodeId: row.id,
-      previousStatus: row.status,
-      nextStatus: 'offline',
-      reason
-    })
+    try {
+      await context.publishEvent('node.status.changed.v0', 'node.status.changed', {
+        nodeId: row.id,
+        previousStatus: row.status,
+        nextStatus: 'offline',
+        reason
+      })
+    } catch {
+      // m-eventbus 不可用时事件发布失败不应导致 M-Net 崩溃
+    }
   }
 
-  await context.writeTimeline(`node became offline ${row.id}`, row.id)
-  await context.writeFull('warn', `${reason} for ${row.id}`, undefined, undefined, {
-    nodeId: row.id
-  })
+  try {
+    await context.writeTimeline(`node became offline ${row.id}`, row.id)
+  } catch {
+    // m-log 不可用时日志写入失败不应导致 M-Net 崩溃
+  }
+  try {
+    await context.writeFull('warn', `${reason} for ${row.id}`, undefined, undefined, {
+      nodeId: row.id
+    })
+  } catch {
+    // m-log 不可用时日志写入失败不应导致 M-Net 崩溃
+  }
 }
 
 /**

@@ -7,6 +7,8 @@ import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
 import { createWiredMigrationEngine } from './migration-engine-factory.ts'
 import { requireDataPlaneDeps } from './mnet-dataplane-support.ts'
 import { createNetworkService } from './network-service.ts'
+import { createDbNodeControlStore } from './node-control-store.ts'
+import { executeNodeControl } from './node-control-workflow.ts'
 import { createReadinessProbe } from './readiness.ts'
 
 /**
@@ -37,6 +39,7 @@ export async function startMNetService(): Promise<void> {
     dataPlaneDeps: 'kind' in nodeRuntimeDataPlaneDeps ? null : nodeRuntimeDataPlaneDeps
   })
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
+  const nodeControlStore = createDbNodeControlStore(infrastructure.db)
   const migrationEngine = createWiredMigrationEngine({
     globalDefaultsStore: infrastructure.globalDefaultsStore,
     profileStore: infrastructure.profileStore,
@@ -68,6 +71,17 @@ export async function startMNetService(): Promise<void> {
     joinNetwork: networkService.joinNetwork,
     listMembers: networkService.listMembers,
     executeNoop: agentRuntime.executeNoop,
+    controlNode(input) {
+      return executeNodeControl(
+        {
+          store: nodeControlStore,
+          policyAuthorize: infrastructure.policyAuthorize,
+          events: infrastructure.profileEvents,
+          log: infrastructure.profileLog
+        },
+        input
+      )
+    },
     profileStore: infrastructure.profileStore,
     dataPlane: infrastructure.dataPlaneStores,
     suspendedOps: infrastructure.suspendedOps,
