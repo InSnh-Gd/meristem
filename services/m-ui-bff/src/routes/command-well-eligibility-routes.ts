@@ -6,7 +6,9 @@ import {
   SessionResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
 import {
+  deriveNodeControlCommandEligibility,
   deriveNoopCommandEligibility,
+  isNodeControlExecuteCommandId,
   missingPermissionCommandEligibility,
   targetMissingCommandEligibility
 } from '../command-well/eligibility.ts'
@@ -44,7 +46,8 @@ import {
   isNetworkAdminActor,
   isSecurityAdminActor,
   readCredentialTargetBody,
-  readMigrationOperationBody
+  readMigrationOperationBody,
+  readNodeControlBody
 } from './mnet-dataplane-support.ts'
 import {
   bearerTokenFromHeaders,
@@ -180,7 +183,8 @@ export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) 
             commandId === MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID ||
-            commandId === MNET_BREAK_GLASS_EXECUTE_COMMAND_ID
+            commandId === MNET_BREAK_GLASS_EXECUTE_COMMAND_ID ||
+            isNodeControlExecuteCommandId(commandId)
           ) {
             const token = bearerTokenFromHeaders(headers)
             if (!token) return bffError(401, 'auth.missing_token', 'Bearer token is required')
@@ -208,6 +212,29 @@ export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) 
                     '缺少权限：node:register',
                     'node:register'
                   )
+            }
+
+            if (isNodeControlExecuteCommandId(commandId)) {
+              const target = readNodeControlBody(body)
+              if (!target) return invalidExecuteBody('nodeId is required')
+
+              const nodeRes = await cf(`/api/v0/nodes/${target.nodeId}`, token)
+              if (!nodeRes.ok) {
+                if (nodeRes.status === 404) return targetMissingCommandEligibility()
+                return passthroughCoreError(nodeRes)
+              }
+              const decodedNode = decodeUpstreamData(
+                NodeDetailResponseSchema,
+                nodeRes.data,
+                'Core returned invalid node detail payload'
+              )
+              if (decodedNode instanceof Response) return decodedNode
+
+              return deriveNodeControlCommandEligibility(
+                session,
+                toMutableNode(decodedNode.node),
+                commandId
+              )
             }
 
             if (
