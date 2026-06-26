@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-import NetworkProfilesPage from '../../../src/routes/network/profiles/+page.svelte'
 import { appState } from '../../../src/lib/stores.svelte.ts'
+import NetworkProfilesPage from '../../../src/routes/network/profiles/+page.svelte'
 import { installAppStateReset } from './app-state'
 import { createNetworkProfilesFixture } from './fixtures'
 

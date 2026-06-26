@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-import PolicyPendingPage from '../../../src/routes/policy/approvals/+page.svelte'
 import { appState } from '../../../src/lib/stores.svelte.ts'
+import PolicyPendingPage from '../../../src/routes/policy/approvals/+page.svelte'
 import { installAppStateReset } from './app-state'
 import { createApprovalQueueFixture } from './fixtures'
 

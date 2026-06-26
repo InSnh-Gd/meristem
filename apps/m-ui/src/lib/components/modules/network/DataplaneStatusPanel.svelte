@@ -50,8 +50,8 @@
           {#each nodes as node}
             <tr>
               <td class="mono">{node.nodeId}</td>
-              <td class="mono">{node.tunnelStatus}</td>
-              <td class="mono">{node.partitionState}</td>
+              <td class="mono" data-testid="dataplane-tunnel-status-{node.nodeId}">{node.tunnelStatus}</td>
+              <td class="mono" data-testid="dataplane-partition-state-{node.nodeId}">{node.partitionState}</td>
               <td class="mono">{node.lastMapVersion}</td>
               <td><StateSourceBadge source={node.stateSource.sourceType} /></td>
             </tr>

@@ -14,6 +14,9 @@
     if (s === 'degraded') return 'var(--signal-warn)'
     if (s === 'offline') return 'var(--signal-block)'
     if (s === 'joining') return 'var(--signal-info)'
+    if (s === 'disabled') return 'var(--signal-block)'
+    if (s === 'isolated') return 'var(--signal-risk)'
+    if (s === 'recovering') return 'var(--signal-info)'
     if (s === 'revoked') return 'var(--signal-risk)'
     return 'var(--text-40)'
   }
@@ -27,6 +30,7 @@
       <button class="node-chip" data-testid="node-chip-{node.name}" class:selected={node.id === selectedNodeId} onclick={() => onSelect(node.id)}>
         <span class="node-status" style="background: {statusColor(node.status)}"></span>
         <span class="node-name">{node.name}</span>
+        <span class="node-state" data-testid="node-status-{node.id}">{node.status}</span>
         <span class="node-kind">{node.kind === 'stem' ? 'Stem' : 'Leaf'}</span>
         <span class="node-mode">{node.mode === 'agent' ? 'agent' : 'sim'}</span>
       </button>
@@ -42,5 +46,6 @@
   .node-chip.selected { border-color: var(--signal-info); background: var(--surface-raised); }
   .node-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .node-name { font-weight: var(--fw-medium); }
+  .node-state { color: var(--text-80); font-family: var(--font-mono); font-size: var(--text-xs); }
   .node-kind, .node-mode { font-size: var(--text-xs); color: var(--text-60); }
 </style>

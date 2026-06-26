@@ -18,9 +18,9 @@ import type {
   Permission,
   PolicyApproval,
   PolicyDecision,
-  ServiceInspectorResponseFromSchema as ServiceInspectorResponse,
   SduiV02RouteFromSchema as SduiV02Route,
   SduiV02RouteRegistryFromSchema as SduiV02RouteRegistry,
+  ServiceInspectorResponseFromSchema as ServiceInspectorResponse,
   ServiceSummary,
   SubmitTaskResponse,
   TimelineLog
