@@ -11,6 +11,9 @@ export const nodeSchema = t.Object({
     t.Literal('healthy'),
     t.Literal('degraded'),
     t.Literal('offline'),
+    t.Literal('disabled'),
+    t.Literal('isolated'),
+    t.Literal('recovering'),
     t.Literal('revoked')
   ]),
   reachability: t.Union([

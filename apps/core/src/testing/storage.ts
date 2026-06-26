@@ -65,6 +65,11 @@ export function createStoragePort(
       if (!node) return null
       const token = mintNodeToken()
       const issuedAt = new Date().toISOString()
+      const previous = state.nodeCredentials.get(nodeId)
+      if (previous?.status === 'active') {
+        previous.status = 'revoked'
+        previous.revokedAt = issuedAt
+      }
       state.nodeCredentials.set(nodeId, {
         token,
         tokenHash: await hashNodeToken(token),
@@ -72,6 +77,16 @@ export function createStoragePort(
         issuedAt
       })
       return { nodeId, token, issuedAt }
+    },
+    async revokeNodeCredential(nodeId: string) {
+      const node = state.nodes.find(candidate => candidate.id === nodeId)
+      if (!node) return null
+      const revokedAt = new Date().toISOString()
+      const credential = state.nodeCredentials.get(nodeId)
+      if (credential?.status !== 'active') return { status: 'no-active-credential', nodeId }
+      credential.status = 'revoked'
+      credential.revokedAt = revokedAt
+      return { status: 'revoked', nodeId, revokedAt }
     },
     async hasActiveNodeCredential(nodeId: string) {
       return state.nodeCredentials.get(nodeId)?.status === 'active'

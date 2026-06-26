@@ -31,6 +31,10 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'node.invalid_status':
     case 'node.unreachable':
     case 'node.credential_missing':
+    case 'node.control.invalid_transition':
+    case 'node.control.target_kind_required':
+    case 'node.control.role_unchanged':
+    case 'node.control.last_stem_required':
     case 'service.not_reloadable':
       return 409
     case 'service.not_found':
