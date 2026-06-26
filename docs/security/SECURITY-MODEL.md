@@ -80,7 +80,7 @@ MVP uses a narrower permission set than the long-term baseline:
 | `network:profile-read` | no | yes | yes | yes |
 | `network:profile-enable` | no | no | yes | yes |
 | `network:profile-disable` | no | no | yes | yes |
-| `node:switch-role` | no | yes | no | no |
+| `node:switch-role` | no | no | yes | yes |
 | `node:disable` | no | no | yes | yes |
 | `node:isolate` | no | no | yes | yes |
 | `node:recover` | no | no | yes | yes |

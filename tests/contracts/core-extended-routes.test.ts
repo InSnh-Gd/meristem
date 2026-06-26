@@ -107,15 +107,15 @@ describe('Core extended route coverage', () => {
     )
   })
 
-  it('allows operators to switch node roles through the Core facade', async () => {
-    const deps = createInMemoryCoreDeps({ actor: 'operator' })
+  it('allows admins to switch node roles through the Core facade', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'admin' })
     const app = createCoreApp(deps)
 
     const register = await app.handle(
       new Request('http://localhost/api/v0/nodes', {
         method: 'POST',
         headers: {
-          authorization: 'Bearer operator-token',
+          authorization: 'Bearer admin-token',
           'content-type': 'application/json'
         },
         body: JSON.stringify({ kind: 'leaf', name: 'promotable-leaf', mode: 'simulated' })
@@ -127,7 +127,7 @@ describe('Core extended route coverage', () => {
       new Request(`http://localhost/api/v0/nodes/${registered.node.id}/control`, {
         method: 'POST',
         headers: {
-          authorization: 'Bearer operator-token',
+          authorization: 'Bearer admin-token',
           'content-type': 'application/json'
         },
         body: JSON.stringify({
