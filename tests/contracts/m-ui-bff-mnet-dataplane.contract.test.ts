@@ -109,7 +109,7 @@ function createMockMNetApp() {
 }
 
 describe('M-UI BFF M-Net dataplane contracts', () => {
-  it('operator can create join ticket and viewer eligibility is disabled with visible reason', async () => {
+  it('does not mount legacy direct mutation routes and keeps viewer eligibility disabled with visible reason', async () => {
     const coreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
     const app = createBffWithServices({ coreApp, mnetApp: createMockMNetApp() })
 
@@ -123,10 +123,7 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
         name: 'leaf-cn-join'
       }
     )
-    expect(createRes.status).toBe(200)
-    const createBody = (await createRes.json()) as { ticketId: string; networkId: string }
-    expect(createBody.ticketId).toBe('jt-created')
-    expect(createBody.networkId).toBe('network-cn-001')
+    expect(createRes.status).toBe(404)
 
     const viewerApp = createBffWithServices({
       coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'viewer' })),
@@ -211,15 +208,9 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
     }
     const requiredPaths = [
       '/api/v0/networks/{id}',
-      '/api/v0/networks/{id}/join-tickets',
       '/api/v0/networks/{id}/dataplane/status',
       '/api/v0/networks/{id}/dataplane/relay',
-      '/api/v0/networks/{id}/dataplane/network-map',
-      '/api/v0/networks/defaults',
-      '/api/v0/networks/migration/dry-run',
-      '/api/v0/networks/migration/apply',
-      '/api/v0/networks/migration/resume',
-      '/api/v0/networks/migration/rollback'
+      '/api/v0/networks/{id}/dataplane/network-map'
     ]
     for (const path of requiredPaths) {
       const operation = Object.values(body.paths[path] ?? {})[0] as

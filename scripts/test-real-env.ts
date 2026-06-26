@@ -1,9 +1,9 @@
 import {
+  assertSuccess,
   prepareInfra,
   profileFlagsFromArgv,
   rootDir,
-  run,
-  assertSuccess
+  run
 } from './local-stack-runtime.ts'
 
 type TestCommand = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { fromAny, fromPartial } from '@total-typescript/shoehorn'
 import { createSessionAuthPort } from '../../../apps/core/src/adapters/auth.ts'
 import { mintLocalToken } from '../../../packages/auth/src/index.ts'
-import { fromAny, fromPartial } from '@total-typescript/shoehorn'
 import { ok } from '../../../packages/common/src/result.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 

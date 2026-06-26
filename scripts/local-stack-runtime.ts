@@ -1,3 +1,11 @@
+import {
+  NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY,
+  NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY,
+  NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY,
+  NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY,
+  resolveNetworkMapSigningKeyMaterial
+} from '../services/m-net/src/network-map-signing.ts'
+
 export const rootDir = import.meta.dir.replace(/\/scripts$/, '')
 
 export type InfraProfiles = {
@@ -164,6 +172,30 @@ export async function prepareWorkspace(): Promise<void> {
 
   if (!process.env.PUBLIC_MERISTEM_DEFAULT_TOKEN && process.env.MERISTEM_TOKEN) {
     process.env.PUBLIC_MERISTEM_DEFAULT_TOKEN = process.env.MERISTEM_TOKEN
+  }
+
+  // 确保 M-Net 使用 PostgreSQL 持久化数据面状态，而非内存存储（重启后丢失）
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'postgres://meristem:meristem@localhost:55432/meristem'
+  }
+
+  // 自动设置网络地图签名密钥环境变量（与 harness 保持一致）
+  // 优先使用已配置的环境变量；否则使用测试默认密钥
+  if (!process.env[NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY]) {
+    const signing = resolveNetworkMapSigningKeyMaterial(process.env, { allowTestDefaults: true })
+    process.env[NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY] = signing.keyId
+    process.env[NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY] = signing.publicKey ?? ''
+    // 优先使用文件路径方式（避免多行 PEM 在 bash export 中被截断）
+    if (!process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY]) {
+      process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY] = signing.privateKeyPem
+    }
+    // 同时设置 node-agent 侧使用的签名密钥 ID 和公钥（统一使用 MERISTEM_MNET_MAP_SIGNING_* 命名）
+    if (!process.env[NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY]) {
+      process.env[NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY] = signing.keyId
+    }
+    if (!process.env[NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY]) {
+      process.env[NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY] = signing.publicKey ?? ''
+    }
   }
 }
 

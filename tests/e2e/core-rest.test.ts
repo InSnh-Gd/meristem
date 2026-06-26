@@ -21,6 +21,7 @@ if (!infraOk) {
   let devAll: ManagedProcess
   let bffProcess: ManagedProcess
   let operatorToken = ''
+  let adminToken = ''
   let viewerToken = ''
   let securityAdminToken = ''
 
@@ -30,6 +31,7 @@ if (!infraOk) {
       devAll = stack.devAll
       bffProcess = stack.bffProcess
       operatorToken = stack.operatorToken
+      adminToken = stack.adminToken
       viewerToken = stack.viewerToken
       securityAdminToken = stack.securityAdminToken
     }, 60_000)
@@ -206,6 +208,65 @@ if (!infraOk) {
           method: 'POST'
         })
         expect(res.status).toBe(403)
+      })
+
+      it('controls nodes through Core facade with admin-only disable, isolate, and recover', async () => {
+        const disabledLeafRes = await coreFetch('/api/v0/nodes', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ kind: 'leaf', name: 'e2e-control-disabled', mode: 'simulated' })
+        })
+        expect(disabledLeafRes.ok).toBe(true)
+        const disabledLeaf = disabledLeafRes.data as { node: { id: string; status: string } }
+
+        const deniedRes = await coreFetch(
+          `/api/v0/nodes/${disabledLeaf.node.id}/control`,
+          operatorToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'disable', reason: 'operator should be denied' })
+          }
+        )
+        expect(deniedRes.status).toBe(403)
+
+        const disableRes = await coreFetch(
+          `/api/v0/nodes/${disabledLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'disable', reason: 'e2e maintenance window' })
+          }
+        )
+        expect(disableRes.ok).toBe(true)
+        expect((disableRes.data as { node: { status: string } }).node.status).toBe('disabled')
+
+        const recoverRes = await coreFetch(
+          `/api/v0/nodes/${disabledLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'recover', reason: 'e2e recovery check' })
+          }
+        )
+        expect(recoverRes.ok).toBe(true)
+        expect((recoverRes.data as { node: { status: string } }).node.status).toBe('recovering')
+
+        const isolatedLeafRes = await coreFetch('/api/v0/nodes', operatorToken, {
+          method: 'POST',
+          body: JSON.stringify({ kind: 'leaf', name: 'e2e-control-isolated', mode: 'simulated' })
+        })
+        expect(isolatedLeafRes.ok).toBe(true)
+        const isolatedLeaf = isolatedLeafRes.data as { node: { id: string; status: string } }
+
+        const isolateRes = await coreFetch(
+          `/api/v0/nodes/${isolatedLeaf.node.id}/control`,
+          adminToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'isolate', reason: 'e2e isolate check' })
+          }
+        )
+        expect(isolateRes.ok).toBe(true)
+        expect((isolateRes.data as { node: { status: string } }).node.status).toBe('isolated')
       })
     })
 

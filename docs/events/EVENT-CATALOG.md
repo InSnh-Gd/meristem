@@ -67,6 +67,7 @@ Rules:
 | `node.registration.requested.v0` | command | Core | M-Policy | `NodeRegistrationRequestedPayload` | at-least-once |
 | `node.registration.accepted.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeRegistrationAcceptedPayload` | at-least-once |
 | `node.join-ticket.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeJoinTicketCreatedPayload` | at-least-once |
+| `node.role.changed.v0` | event | M-Net | M-Log, M-UI BFF | `NodeRoleChangedPayload` | at-least-once |
 | `node.status.changed.v0` | event | Core / M-Net | M-Log, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
 | `mnet.network.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
 | `mnet.membership.joined.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
@@ -154,9 +155,32 @@ type ServiceReloadFailedPayload = {
 
 type NodeStatusChangedPayload = {
   nodeId: string;
-  previousStatus: "joining" | "healthy" | "degraded" | "offline" | "revoked";
-  nextStatus: "joining" | "healthy" | "degraded" | "offline" | "revoked";
+  previousStatus:
+    | "joining"
+    | "healthy"
+    | "degraded"
+    | "offline"
+    | "disabled"
+    | "isolated"
+    | "recovering"
+    | "revoked";
+  nextStatus:
+    | "joining"
+    | "healthy"
+    | "degraded"
+    | "offline"
+    | "disabled"
+    | "isolated"
+    | "recovering"
+    | "revoked";
   reason?: string;
+};
+
+type NodeRoleChangedPayload = {
+  nodeId: string;
+  previousKind: "stem" | "leaf";
+  nextKind: "stem" | "leaf";
+  reason: string;
 };
 
 type JoinRedeemMessage = {

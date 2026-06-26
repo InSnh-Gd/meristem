@@ -201,6 +201,16 @@ export const activePublisherSchemaContracts: EventSchemaContract[] = [
     }
   },
   {
+    subject: 'node.role.changed.v0',
+    schema: Contracts.NodeRoleChangedPayloadSchema,
+    fixture: {
+      nodeId: 'node-1',
+      previousKind: 'leaf',
+      nextKind: 'stem',
+      reason: 'operator_switch-role'
+    }
+  },
+  {
     subject: 'policy.approval.vote.approved.v0',
     schema: Contracts.PolicyApprovalVoteEventPayloadSchema,
     fixture: {

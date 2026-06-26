@@ -5,9 +5,9 @@ import {
   internalTokenHeaderName,
   requiredInternalToken,
   serviceErrorFromEnvelope,
-  warnDegradedAndReturn,
   serviceUrl,
-  validateInternalRequest
+  validateInternalRequest,
+  warnDegradedAndReturn
 } from '../../../packages/internal-http/src/index.ts'
 
 const originalToken = process.env.MERISTEM_INTERNAL_TOKEN

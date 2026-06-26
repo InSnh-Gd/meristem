@@ -14,8 +14,8 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import { createLogApp } from './app.ts'
-import { startEventBusOperationalConsumer } from './eventbus-operational-consumer.ts'
 import { createLogEventPublisher } from './event-publisher.ts'
+import { startEventBusOperationalConsumer } from './eventbus-operational-consumer.ts'
 import { createOpenSearchAdapter } from './opensearch.ts'
 import { createProjectionEngine } from './projection.ts'
 import { createLogQueryService } from './query-service.ts'

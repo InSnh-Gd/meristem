@@ -210,6 +210,7 @@ describe('m-net profile route contracts', () => {
       collection: '/api/v0/network-profiles',
       detail: '/api/v0/network-profiles/:profileVersion',
       setNetworkProfile: '/api/v0/networks/:id/profile',
+      nodeControl: '/api/v0/nodes/:nodeId/control',
       networkMap: '/api/v0/networks/:id/network-map',
       registerNodeKey: '/api/v0/networks/:id/nodes/:nodeId/key',
       dataPlaneStatus: '/api/v0/networks/:id/dataplane/status',

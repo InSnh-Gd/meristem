@@ -56,6 +56,16 @@ const productionCnProfile = {
 
 export const mnetEventContracts: EventContract[] = [
   {
+    subject: 'node.role.changed.v0',
+    schema: Contracts.NodeRoleChangedPayloadSchema,
+    fixture: {
+      nodeId: 'node-1',
+      previousKind: 'leaf',
+      nextKind: 'stem',
+      reason: 'operator_switch-role'
+    }
+  },
+  {
     subject: 'mnet.network.created.v0',
     schema: Contracts.MNetNetworkCreatedPayloadSchema,
     fixture: { networkId: 'net-1', name: 'primary', profileVersion: 'm-net-default@0.1.0' }

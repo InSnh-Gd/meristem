@@ -13,12 +13,12 @@ import {
   renderNetworkMaps,
   resolveNetworkMapStaleTtlMs
 } from '../../services/m-net/src/network-map-renderer.ts'
+import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
 import type {
   NetworkMapMemberInput,
   NetworkMapRenderInput,
   RequestedAclRule
 } from '../../services/m-net/src/network-map-types.ts'
-import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
 
 const issuedAt = 1_800_000
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
