@@ -1,6 +1,6 @@
-import type { SwitchBatch, NetworkProfileMigrationResult } from './global-defaults-store.ts'
+import type { NetworkProfileMigrationResult, SwitchBatch } from './global-defaults-store.ts'
 
-export type { SwitchBatch, NetworkProfileMigrationResult }
+export type { NetworkProfileMigrationResult, SwitchBatch }
 
 export type NetworkSnapshot = {
   networkId: string

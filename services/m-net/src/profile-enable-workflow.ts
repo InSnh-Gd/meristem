@@ -1,7 +1,8 @@
-import { enableDataPlaneProfile, requireDataPlaneDeps } from './mnet-dataplane-workflows.ts'
 import type { EnableDataPlaneSuccess } from './mnet-dataplane-support.ts'
+import { enableDataPlaneProfile, requireDataPlaneDeps } from './mnet-dataplane-workflows.ts'
 import { createPendingApprovalFlow } from './profile-approval-workflow.ts'
 import { migrateLegacyCnProfileBeforeEnable } from './profile-enable-migration.ts'
+import { canRequestEnable } from './profile-state-machine.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   type CHINA_PROFILE_VERSION,
@@ -11,7 +12,6 @@ import {
   type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
-import { canRequestEnable } from './profile-state-machine.ts'
 
 /** enable profile 的状态机检查；0.2.0 在 allow 时直接执行数据面编排，否则走审批恢复。 */
 export async function requestEnableProfile(

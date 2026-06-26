@@ -1,12 +1,12 @@
+import { edenTreaty } from '@elysiajs/eden'
 import { createDb } from '../../../packages/db/src/client.ts'
 import { createInternalFetcher, serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry } from '../../../packages/telemetry/src/index.ts'
-import {
-  createApprovalClient,
-  createPolicyAuthorizeClient,
-  type ApprovalClient,
-  type PolicyAuthorize
-} from './external-client-factories.ts'
+import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
+import type { LogApp } from '../../m-log/src/public-types.ts'
+import { createInMemoryDataPlaneStores } from './data-plane-store-memory.ts'
+import { createPgDataPlaneStores } from './data-plane-store-pg.ts'
+import type { DataPlaneStores } from './data-plane-store-types.ts'
 import {
   createEventPublisher,
   createLogWriters,
@@ -15,12 +15,12 @@ import {
   type ProfileEvents,
   type ProfileLog
 } from './event-log-factories.ts'
-import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
-import type { LogApp } from '../../m-log/src/public-types.ts'
-import { edenTreaty } from '@elysiajs/eden'
-import { createInMemoryDataPlaneStores } from './data-plane-store-memory.ts'
-import { createPgDataPlaneStores } from './data-plane-store-pg.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
+import {
+  type ApprovalClient,
+  createApprovalClient,
+  createPolicyAuthorizeClient,
+  type PolicyAuthorize
+} from './external-client-factories.ts'
 import {
   createInMemoryGlobalDefaultsStore,
   type GlobalDefaultsStore
@@ -48,8 +48,8 @@ import {
 export type MNetDb = ReturnType<typeof createDb>['db']
 export type MNetSqlClient = ReturnType<typeof createDb>['client']
 
-export type { ApprovalClient, PolicyAuthorize } from './external-client-factories.ts'
 export type { ProfileEvents, ProfileLog } from './event-log-factories.ts'
+export type { ApprovalClient, PolicyAuthorize } from './external-client-factories.ts'
 
 export type MNetInfrastructure = {
   db: MNetDb
