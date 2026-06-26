@@ -52,6 +52,12 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
     return success(await issueNodeToken(nodeId))
   }
 
+  if (command === 'node' && subcommand === 'revoke-token') {
+    const nodeId = requireArg(args, '--node')
+    const revokeNodeToken = requireMethod(client.revokeNodeToken, 'revokeNodeToken')
+    return success(await revokeNodeToken(nodeId))
+  }
+
   if (command === 'node' && subcommand === 'list') {
     const listNodes = requireMethod(client.listNodes, 'listNodes')
     return success(await listNodes())

@@ -20,6 +20,7 @@ import type {
   ReadyResponse,
   RegisterExtensionResponse,
   RegisterNodeResponse,
+  RevokeNodeCredentialResponse,
   ServiceListResponse,
   ServiceReloadResponse,
   StatusResponse,
@@ -45,6 +46,7 @@ export type CliClient = {
     expiresInSeconds?: number
   }): Promise<CreateNodeTicketResponse>
   issueNodeToken?(nodeId: string): Promise<IssueNodeCredentialResponse>
+  revokeNodeToken?(nodeId: string): Promise<RevokeNodeCredentialResponse>
   listNodes?(): Promise<unknown>
   createNetwork?(input: { name: string; profileVersion?: string }): Promise<CreateNetworkResponse>
   listNetworks?(): Promise<unknown>

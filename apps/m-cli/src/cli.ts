@@ -2,6 +2,7 @@ import cac from 'cac'
 import { handleBasicCommands } from './commands/basic-commands.ts'
 import { handleExtensionApprovalCommands } from './commands/extension-approval-commands.ts'
 import { handleIdentityCommands } from './commands/identity-commands.ts'
+import { handleNodeAgentCommands } from './commands/node-agent-commands.ts'
 import { handleNodeNetworkCommands } from './commands/node-network-commands.ts'
 import { handleSecretConfigCommands } from './commands/secret-config-commands.ts'
 import { handleTaskProjectionCommands } from './commands/task-projection-commands.ts'
@@ -11,6 +12,7 @@ export type { CliClient, CliRunResult } from './commands/types.ts'
 
 const handlers = [
   handleBasicCommands,
+  handleNodeAgentCommands,
   handleNodeNetworkCommands,
   handleTaskProjectionCommands,
   handleExtensionApprovalCommands,
@@ -24,6 +26,7 @@ const knownCommands = new Set([
   'health',
   'ready',
   'node',
+  'node-agent',
   'network',
   'mnet',
   'extension',
@@ -86,6 +89,7 @@ function generateHelp(): CliRunResult {
   cli.command('health', 'Show health check')
   cli.command('ready', 'Show readiness check')
   cli.command('node', 'Node: register, ticket, issue-token, list')
+  cli.command('node-agent', 'Node agent: install, upgrade, uninstall')
   cli.command('network', 'Network: create, list, join, members, profile')
   cli.command('mnet', 'M-Net: migration, health, relay, map, break-glass')
   cli.command('extension', 'Extension: list, show, register, enable, disable')
