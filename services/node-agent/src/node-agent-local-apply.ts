@@ -1,21 +1,21 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { DEFAULT_NETWORK_MAP_SIGNING_KEY_ID } from '../../m-net/src/network-map-signing.ts'
-import type { WireGuardKeyMaterial } from './node-agent-wireguard-keys.ts'
 import {
-  applyEnforcementDecision,
   type AgentEnforcementState,
+  applyEnforcementDecision,
   evaluateNetworkMap
 } from './node-agent-map-enforcement.ts'
 import {
+  computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
   DEFAULT_WG_PRIVATE_KEY_PATH,
   DEFAULT_WSTUNNEL_UDP_BIND_HOST,
   DEFAULT_WSTUNNEL_UDP_BIND_PORT,
-  computeConfigHash,
   renderWireGuardConfig
 } from './node-agent-wg-config.ts'
+import type { WireGuardKeyMaterial } from './node-agent-wireguard-keys.ts'
 
 export const DEFAULT_WG_INTERFACE_NAME = 'meristem-wg0'
 export const DEFAULT_WG_CONFIG_PATH = '/run/meristem/wireguard/meristem-wg0.conf'
@@ -33,8 +33,12 @@ export type LocalOverlayEnv = {
   interfaceName: string
   listenPort: number
   localRelayEndpoint: string
+  /** 当为 true 时，强制所有 peer 使用 relay endpoint，忽略成员自身的 endpoint。 */
+  forceRelayEndpoint: boolean
   expectedSigningKeyId: string
   expectedSigningPublicKey?: string
+  ipBinaryPath: string
+  wgBinaryPath: string
   paths: LocalOverlayPaths
   commandRunner: CommandRunner
 }
@@ -86,10 +90,15 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
     localRelayEndpoint:
       env.MERISTEM_WSTUNNEL_LOCAL_ENDPOINT ??
       `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${parseNumberEnv(env.MERISTEM_WSTUNNEL_UDP_BIND_PORT, DEFAULT_WSTUNNEL_UDP_BIND_PORT)}`,
-    expectedSigningKeyId: env.MERISTEM_MNET_SIGNING_KEY_ID ?? DEFAULT_NETWORK_MAP_SIGNING_KEY_ID,
-    ...(env.MERISTEM_MNET_SIGNING_PUBLIC_KEY
-      ? { expectedSigningPublicKey: env.MERISTEM_MNET_SIGNING_PUBLIC_KEY }
+    forceRelayEndpoint:
+      env.MERISTEM_NODE_AGENT_FORCE_RELAY === 'true' || env.MERISTEM_NODE_AGENT_FORCE_RELAY === '1',
+    expectedSigningKeyId:
+      env.MERISTEM_MNET_MAP_SIGNING_KEY_ID ?? DEFAULT_NETWORK_MAP_SIGNING_KEY_ID,
+    ...(env.MERISTEM_MNET_MAP_SIGNING_PUBLIC_KEY
+      ? { expectedSigningPublicKey: env.MERISTEM_MNET_MAP_SIGNING_PUBLIC_KEY }
       : {}),
+    ipBinaryPath: env.MERISTEM_IP_BINARY_PATH ?? 'ip',
+    wgBinaryPath: env.MERISTEM_WG_BINARY_PATH ?? 'wg',
     paths: {
       privateKeyPath,
       configPath: env.MERISTEM_WG_CONFIG_PATH ?? DEFAULT_WG_CONFIG_PATH,
@@ -107,67 +116,112 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
 
 async function writeOverlayState(
   paths: LocalOverlayPaths,
-  keyMaterial: WireGuardKeyMaterial,
-  config: string,
   state: AgentEnforcementState,
-  configHash: string
+  configHash: string,
+  keyId: string
+): Promise<void> {
+  await mkdir(dirname(paths.statePath), { recursive: true })
+  await writeFile(
+    paths.statePath,
+    `${JSON.stringify(
+      {
+        currentMapVersion: state.currentMapVersion ?? null,
+        currentSigningKeyId: state.currentSigningKeyId ?? null,
+        localTunnelIp: state.localTunnelIp ?? null,
+        knownPeers: state.knownPeers,
+        allowedPeers: state.allowedPeers,
+        relayAssignment: state.relayAssignment ?? null,
+        status: state.status,
+        partition: state.partition,
+        configHash,
+        keyId,
+        updatedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )}\n`,
+    { mode: 0o600 }
+  )
+}
+
+async function writeOverlayConfig(
+  paths: LocalOverlayPaths,
+  keyMaterial: WireGuardKeyMaterial,
+  config: string
 ): Promise<void> {
   await mkdir(dirname(paths.privateKeyPath), { recursive: true })
   await mkdir(dirname(paths.configPath), { recursive: true })
-  await mkdir(dirname(paths.statePath), { recursive: true })
   await Promise.all([
     writeFile(paths.privateKeyPath, `${keyMaterial.privateKey}\n`, { mode: 0o600 }),
-    writeFile(paths.configPath, `${config}\n`, { mode: 0o600 }),
-    writeFile(
-      paths.statePath,
-      `${JSON.stringify(
-        {
-          currentMapVersion: state.currentMapVersion ?? null,
-          currentSigningKeyId: state.currentSigningKeyId ?? null,
-          localTunnelIp: state.localTunnelIp ?? null,
-          knownPeers: state.knownPeers,
-          allowedPeers: state.allowedPeers,
-          relayAssignment: state.relayAssignment ?? null,
-          status: state.status,
-          partition: state.partition,
-          configHash,
-          keyId: keyMaterial.keyId,
-          updatedAt: new Date().toISOString()
-        },
-        null,
-        2
-      )}\n`,
-      { mode: 0o600 }
-    )
+    writeFile(paths.configPath, `${config}\n`, { mode: 0o600 })
   ])
 }
 
 async function ensureWireGuardInterface(
   env: LocalOverlayEnv,
   localTunnelIp: string,
-  configPath: string
+  configPath: string,
+  peerTunnelIps: readonly string[],
+  configAlreadyApplied: boolean
 ): Promise<void> {
+  let interfaceExisted = true
   try {
-    await env.commandRunner(['ip', 'link', 'show', 'dev', env.interfaceName])
+    await env.commandRunner([env.ipBinaryPath, 'link', 'show', 'dev', env.interfaceName])
   } catch {
-    await env.commandRunner(['ip', 'link', 'add', 'dev', env.interfaceName, 'type', 'wireguard'])
+    interfaceExisted = false
+    await env.commandRunner([
+      env.ipBinaryPath,
+      'link',
+      'add',
+      'dev',
+      env.interfaceName,
+      'type',
+      'wireguard'
+    ])
   }
 
-  await env.commandRunner(['wg', 'setconf', env.interfaceName, configPath])
+  if (!configAlreadyApplied || !interfaceExisted) {
+    await env.commandRunner([env.wgBinaryPath, 'setconf', env.interfaceName, configPath])
+  }
   await env.commandRunner([
-    'ip',
+    env.ipBinaryPath,
     'address',
     'replace',
     `${localTunnelIp}/32`,
     'dev',
     env.interfaceName
   ])
-  await env.commandRunner(['ip', 'link', 'set', 'up', 'dev', env.interfaceName])
+  await env.commandRunner([env.ipBinaryPath, 'link', 'set', 'up', 'dev', env.interfaceName])
+  for (const peerTunnelIp of peerTunnelIps) {
+    await env.commandRunner([
+      env.ipBinaryPath,
+      'route',
+      'replace',
+      `${peerTunnelIp}/32`,
+      'dev',
+      env.interfaceName
+    ])
+  }
+}
+
+async function readPreviousConfigHash(statePath: string): Promise<string | null> {
+  try {
+    const parsed = JSON.parse(await readFile(statePath, 'utf8'))
+    return typeof parsed === 'object' &&
+      parsed !== null &&
+      'configHash' in parsed &&
+      typeof parsed.configHash === 'string'
+      ? parsed.configHash
+      : null
+  } catch {
+    // state 文件不存在或损坏时按未应用处理，确保 WireGuard 配置被重新下发。
+    return null
+  }
 }
 
 async function tearDownWireGuardInterface(env: LocalOverlayEnv): Promise<void> {
   try {
-    await env.commandRunner(['ip', 'link', 'delete', 'dev', env.interfaceName])
+    await env.commandRunner([env.ipBinaryPath, 'link', 'delete', 'dev', env.interfaceName])
   } catch {
     // interface already absent: fail-closed teardown is satisfied
   }
@@ -216,8 +270,9 @@ export async function reconcileLocalOverlay(input: {
     map: input.map,
     agentNodeId: input.agentNodeId,
     listenPort: input.env.listenPort,
-    privateKeyPath: input.env.paths.privateKeyPath,
-    localRelayEndpoint: input.env.localRelayEndpoint
+    privateKey: input.keyMaterial.privateKey,
+    localRelayEndpoint: input.env.localRelayEndpoint,
+    forceRelayEndpoint: input.env.forceRelayEndpoint
   })
   if (!rendered.ok) {
     await tearDownWireGuardInterface(input.env)
@@ -229,14 +284,18 @@ export async function reconcileLocalOverlay(input: {
   }
 
   const configHash = computeConfigHash(rendered.value.config)
-  await writeOverlayState(
-    input.env.paths,
-    input.keyMaterial,
-    rendered.value.config,
-    nextState,
-    configHash
+  const previousConfigHash = await readPreviousConfigHash(input.env.paths.statePath)
+  await writeOverlayConfig(input.env.paths, input.keyMaterial, rendered.value.config)
+  await ensureWireGuardInterface(
+    input.env,
+    nextState.localTunnelIp,
+    input.env.paths.configPath,
+    input.map.members
+      .filter(member => member.nodeId !== input.agentNodeId)
+      .map(member => member.tunnelIp),
+    previousConfigHash === configHash
   )
-  await ensureWireGuardInterface(input.env, nextState.localTunnelIp, input.env.paths.configPath)
+  await writeOverlayState(input.env.paths, nextState, configHash, input.keyMaterial.keyId)
 
   return {
     kind: 'applied',

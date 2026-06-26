@@ -9,22 +9,28 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import {
+  createInitialEnforcementState,
+  type LocalOverlayEnv,
+  loadLocalOverlayEnv,
+  reconcileLocalOverlay
+} from './node-agent-local-apply.ts'
+import {
   decodeMessage,
   heartbeatIntervalMs,
   parseServerMessage,
   requiredOneOf
 } from './node-agent-runtime.ts'
 import {
+  DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH,
+  loadRuntimeCredentials,
+  saveRuntimeCredentials
+} from './node-agent-runtime-state.ts'
+import {
   deriveControlUrl,
   fetchLatestNodeRuntimeNetworkMap,
   registerNodeRuntimeKey
 } from './node-agent-session.ts'
-import {
-  createInitialEnforcementState,
-  loadLocalOverlayEnv,
-  reconcileLocalOverlay,
-  type LocalOverlayEnv
-} from './node-agent-local-apply.ts'
+import { discoverPublicEndpoint } from './node-agent-stun.ts'
 import {
   loadOrCreateWireGuardKeyMaterial,
   type WireGuardKeyMaterial
@@ -32,18 +38,31 @@ import {
 
 const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
+const configuredControlUrl = process.env.MERISTEM_MNET_CONTROL_URL
+const runtimeStatePath =
+  process.env.MERISTEM_NODE_RUNTIME_STATE_PATH ?? DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH
+const persistedRuntimeCredentials = loadRuntimeCredentials(runtimeStatePath)
 
-let joinTicket = requiredOneOf(['MERISTEM_JOIN_TICKET'])
-let nodeId = process.env.MERISTEM_NODE_ID
-let runtimeToken = process.env.MERISTEM_NODE_TOKEN
+let joinTicket = process.env.MERISTEM_JOIN_TICKET
+let nodeId = process.env.MERISTEM_NODE_ID ?? persistedRuntimeCredentials?.nodeId
+let runtimeToken = process.env.MERISTEM_NODE_TOKEN ?? persistedRuntimeCredentials?.runtimeToken
 let currentSessionId: string | null = null
 let currentControlUrl: string | null = null
 let currentWireGuardKey: WireGuardKeyMaterial | null = null
+let currentPublicEndpoint: string | null = null
+let stunDiscoveryAttempted = false
 let currentEnforcementState = createInitialEnforcementState('network-pending')
 const localOverlayEnv: LocalOverlayEnv = loadLocalOverlayEnv()
 let socket: WebSocket | null = null
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+let runtimeSyncTimer: ReturnType<typeof setInterval> | null = null
+let runtimeSyncInFlight = false
 let stopping = false
+
+function isIdempotentRuntimeKeyRegistrationFailure(reason: string): boolean {
+  const normalized = reason.toLowerCase()
+  return normalized.includes('duplicate') || normalized.includes('key.duplicate')
+}
 
 initTelemetry('node-agent')
 
@@ -98,18 +117,53 @@ function stopHeartbeat(): void {
   heartbeatTimer = null
 }
 
+function runtimeSyncIntervalMs(): number {
+  const value = Number(
+    process.env.MERISTEM_NODE_RUNTIME_SYNC_INTERVAL_MS ??
+      process.env.MERISTEM_NODE_AGENT_POLL_INTERVAL_MS ??
+      '5000'
+  )
+  return Number.isFinite(value) && value >= 1000 ? value : 5000
+}
+
+function stopRuntimeSyncLoop(): void {
+  if (!runtimeSyncTimer) return
+  clearInterval(runtimeSyncTimer)
+  runtimeSyncTimer = null
+}
+
+function triggerRuntimeSync(mode: 'join' | 'resume' | 'poll'): void {
+  if (runtimeSyncInFlight) return
+  runtimeSyncInFlight = true
+  void reconcileNodeRuntimeState(mode)
+    .catch(error => {
+      process.stderr.write(
+        `node runtime sync failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}\n`
+      )
+    })
+    .finally(() => {
+      runtimeSyncInFlight = false
+    })
+}
+
+function startRuntimeSyncLoop(): void {
+  stopRuntimeSyncLoop()
+  runtimeSyncTimer = setInterval(() => triggerRuntimeSync('poll'), runtimeSyncIntervalMs())
+}
+
 function exitWithError(message: string): never {
   process.stderr.write(`${message}\n`)
   stopping = true
   stopHeartbeat()
+  stopRuntimeSyncLoop()
   void shutdownTelemetry().then(() => process.exit(1))
   throw new Error(message)
 }
 
-async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void> {
+async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Promise<void> {
   if (!nodeId || !runtimeToken) return
 
-  const controlUrl = currentControlUrl ?? deriveControlUrl(joinUrl)
+  const controlUrl = currentControlUrl ?? configuredControlUrl ?? deriveControlUrl(joinUrl)
   if (!controlUrl) {
     forwardLog('error', 'node runtime control url is invalid')
     return
@@ -119,22 +173,47 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void>
   const keyMaterial = currentWireGuardKey ?? (await loadOrCreateWireGuardKeyMaterial())
   currentWireGuardKey = keyMaterial
 
+  // STUN 发现公网 endpoint（仅尝试一次，缓存后续复用）
+  if (!stunDiscoveryAttempted && !currentPublicEndpoint) {
+    stunDiscoveryAttempted = true
+    const stunResult = await discoverPublicEndpoint()
+    if (stunResult.ok) {
+      currentPublicEndpoint = `${stunResult.endpoint.ip}:${stunResult.endpoint.port}`
+      process.stdout.write(`node public endpoint discovered via STUN: ${currentPublicEndpoint}\n`)
+    } else {
+      process.stderr.write(`STUN discovery failed: ${stunResult.reason}\n`)
+    }
+  }
+
   const registration = await registerNodeRuntimeKey(controlUrl, nodeId, runtimeToken, {
     keyId: keyMaterial.keyId,
     publicKey: keyMaterial.publicKey,
-    createdAt: keyMaterial.createdAt
+    createdAt: keyMaterial.createdAt,
+    ...(currentPublicEndpoint ? { endpoint: currentPublicEndpoint } : {})
   })
-  if (registration.kind !== 'runtime.key.registered') {
+  const keyCorrelationId =
+    registration.kind === 'runtime.key.registered' ? registration.correlationId : undefined
+  if (
+    registration.kind !== 'runtime.key.registered' &&
+    !isIdempotentRuntimeKeyRegistrationFailure(registration.reason)
+  ) {
+    process.stderr.write(`node runtime key registration failed: ${registration.reason}\n`)
     forwardLog('error', 'failed to register node runtime key', undefined, {
       nodeId,
       reason: registration.reason
     })
     return
   }
+  if (registration.kind !== 'runtime.key.registered') {
+    process.stderr.write(
+      `node runtime key registration already satisfied: ${registration.reason}\n`
+    )
+  }
 
   const latestMap = await fetchLatestNodeRuntimeNetworkMap(controlUrl, nodeId, runtimeToken)
   if (latestMap.kind !== 'runtime.network_map.fetched') {
-    forwardLog('error', 'failed to fetch latest runtime network map', registration.correlationId, {
+    process.stderr.write(`node runtime network map fetch failed: ${latestMap.reason}\n`)
+    forwardLog('error', 'failed to fetch latest runtime network map', keyCorrelationId, {
       nodeId,
       reason: latestMap.reason
     })
@@ -156,7 +235,10 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void>
   currentEnforcementState = localOverlay.state
 
   if (localOverlay.kind === 'torn_down') {
-    forwardLog('warn', 'node runtime overlay torn down', registration.correlationId, {
+    process.stderr.write(
+      `node runtime overlay torn down: ${localOverlay.reason} (${localOverlay.state.status})\n`
+    )
+    forwardLog('warn', 'node runtime overlay torn down', keyCorrelationId, {
       nodeId,
       reason: localOverlay.reason,
       status: localOverlay.state.status
@@ -164,15 +246,18 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void>
     return
   }
 
-  forwardLog('info', 'node runtime state synchronized', registration.correlationId, {
+  forwardLog('info', 'node runtime state synchronized', keyCorrelationId, {
     nodeId,
-    keyId: registration.keyId,
+    keyId: registration.kind === 'runtime.key.registered' ? registration.keyId : keyMaterial.keyId,
     mapVersion: latestMap.map.mapVersion,
     mode,
     configHash: localOverlay.configHash,
     interfaceName: localOverlayEnv.interfaceName,
     localTunnelIp: localOverlay.localTunnelIp
   })
+  process.stdout.write(
+    `node runtime state synchronized: node=${nodeId} mapVersion=${latestMap.map.mapVersion} tunnelIp=${localOverlay.localTunnelIp ?? 'unknown'} mode=${mode}\n`
+  )
 }
 
 /**
@@ -182,13 +267,16 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume'): Promise<void>
 function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): void {
   nodeId = message.node.id
   currentSessionId = message.sessionId
-  currentControlUrl = deriveControlUrl(joinUrl)
+  currentControlUrl = configuredControlUrl ?? deriveControlUrl(joinUrl)
   if (message.type === 'join.accepted') {
     runtimeToken = message.runtimeToken
     joinTicket = undefined
     process.stdout.write(`node-agent joined as ${message.node.id}\n`)
   } else {
     process.stdout.write(`node-agent resumed session for ${message.node.id}\n`)
+  }
+  if (runtimeToken) {
+    saveRuntimeCredentials({ nodeId: message.node.id, runtimeToken }, runtimeStatePath)
   }
   startHeartbeat()
   forwardLog(
@@ -200,7 +288,8 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
       mode: message.node.mode
     }
   )
-  void reconcileNodeRuntimeState(message.type === 'join.accepted' ? 'join' : 'resume')
+  triggerRuntimeSync(message.type === 'join.accepted' ? 'join' : 'resume')
+  startRuntimeSyncLoop()
 }
 
 /**
@@ -317,9 +406,14 @@ function connect(): void {
   // close 是唯一重连入口：它同时负责清空当前 session lease，避免旧 sessionId 继续出现在后续帧里。
   ws.onclose = () => {
     stopHeartbeat()
+    stopRuntimeSyncLoop()
     currentSessionId = null
     if (!stopping) scheduleReconnect()
   }
+}
+
+if (!joinTicket && (!nodeId || !runtimeToken)) {
+  requiredOneOf(['MERISTEM_JOIN_TICKET', 'MERISTEM_NODE_ID', 'MERISTEM_NODE_TOKEN'])
 }
 
 connect()
@@ -327,6 +421,7 @@ connect()
 process.on('SIGINT', () => {
   stopping = true
   stopHeartbeat()
+  stopRuntimeSyncLoop()
   forwardLog('warn', 'node agent stopping')
   socket?.close()
   void shutdownTelemetry().then(() => process.exit(0))
