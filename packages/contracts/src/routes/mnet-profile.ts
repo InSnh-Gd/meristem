@@ -1,4 +1,5 @@
 import * as Schema from 'effect/Schema'
+import { NodeControlRequestSchema, NodeControlResponseSchema } from '../schemas/core.ts'
 import {
   DataPlaneStatusResponseSchema,
   InternalNetworkProfileRejectResponseSchema,
@@ -15,6 +16,7 @@ export const mNetProfileApiRoutes = {
   collection: '/api/v0/network-profiles',
   detail: '/api/v0/network-profiles/:profileVersion',
   setNetworkProfile: '/api/v0/networks/:id/profile',
+  nodeControl: '/api/v0/nodes/:nodeId/control',
   networkMap: '/api/v0/networks/:id/network-map',
   registerNodeKey: '/api/v0/networks/:id/nodes/:nodeId/key',
   dataPlaneStatus: '/api/v0/networks/:id/dataplane/status',
@@ -38,6 +40,11 @@ export const NetworkNodeRouteParamsSchema = Schema.Struct({
 })
 export type NetworkNodeRouteParamsFromSchema = typeof NetworkNodeRouteParamsSchema.Type
 
+export const NodeControlRouteParamsSchema = Schema.Struct({
+  nodeId: Schema.String
+})
+export type NodeControlRouteParamsFromSchema = typeof NodeControlRouteParamsSchema.Type
+
 export const MNetProfileDetailResponseSchema = MNetRegionalProfileSchema
 export type MNetProfileDetailResponseFromSchema = typeof MNetProfileDetailResponseSchema.Type
 
@@ -59,6 +66,13 @@ export const mNetProfileRouteContracts = {
     paramsSchema: NetworkProfileRouteParamsSchema,
     requestSchema: SetNetworkProfileRequestSchema,
     responseSchema: SetNetworkProfileResponseSchema
+  },
+  nodeControl: {
+    method: 'POST',
+    path: mNetProfileApiRoutes.nodeControl,
+    paramsSchema: NodeControlRouteParamsSchema,
+    requestSchema: NodeControlRequestSchema,
+    responseSchema: NodeControlResponseSchema
   },
   networkMap: {
     method: 'GET',

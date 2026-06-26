@@ -7,6 +7,10 @@ export type {
   ConfigTransitionV01,
   ConfigVersionV01
 } from './schemas/config.ts'
+export type {
+  IssueNodeCredentialResponse,
+  RevokeNodeCredentialResponse
+} from './types/core-node-credentials.ts'
 export type DependencyState = 'ready' | 'unavailable'
 
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。
@@ -144,8 +148,18 @@ export type ServiceReloadResponse = {
 export type NodeKind = 'stem' | 'leaf'
 export type NodeMode = 'agent' | 'managed' | 'simulated'
 export type NodeReachability = 'unknown' | 'public' | 'private' | 'reachable' | 'unreachable'
-export type NodeStatus = 'ready' | 'joining' | 'healthy' | 'degraded' | 'offline' | 'revoked'
+export type NodeStatus =
+  | 'ready'
+  | 'joining'
+  | 'healthy'
+  | 'degraded'
+  | 'offline'
+  | 'disabled'
+  | 'isolated'
+  | 'recovering'
+  | 'revoked'
 export type NodeJoinTicketStatus = 'active' | 'redeemed' | 'expired' | 'revoked'
+export type NodeControlAction = 'disable' | 'isolate' | 'recover' | 'switch-role'
 
 export type RegisterNodeRequest = {
   kind: NodeKind
@@ -173,6 +187,18 @@ export type RegisterNodeResponse = {
   correlationId: string
 }
 
+export type NodeControlRequest = {
+  action: NodeControlAction
+  reason: string
+  targetKind?: NodeKind
+}
+
+export type NodeControlResponse = {
+  node: MNode
+  policyDecisionId: string
+  correlationId: string
+}
+
 export type CreateNodeTicketRequest = {
   kind: NodeKind
   name: string
@@ -185,14 +211,6 @@ export type CreateNodeTicketResponse = {
   ticket: string
   expiresAt: string
   joinUrl: string
-  policyDecisionId: string
-  correlationId: string
-}
-
-export type IssueNodeCredentialResponse = {
-  nodeId: string
-  token: string
-  issuedAt: string
   policyDecisionId: string
   correlationId: string
 }
