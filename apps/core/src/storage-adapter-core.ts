@@ -128,6 +128,26 @@ export function createDbStorage(
         issuedAt: now.toISOString()
       }
     },
+    async revokeNodeCredential(nodeId: string) {
+      const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId)).limit(1)
+      if (!node) return null
+      const [credential] = await db
+        .select()
+        .from(nodeCredentials)
+        .where(and(eq(nodeCredentials.nodeId, nodeId), eq(nodeCredentials.status, 'active')))
+        .limit(1)
+      if (!credential) return { status: 'no-active-credential', nodeId }
+      const revokedAt = new Date()
+      await db
+        .update(nodeCredentials)
+        .set({ status: 'revoked', revokedAt })
+        .where(eq(nodeCredentials.id, credential.id))
+      return {
+        status: 'revoked',
+        nodeId,
+        revokedAt: revokedAt.toISOString()
+      }
+    },
     async hasActiveNodeCredential(nodeId: string) {
       const [credential] = await db
         .select()

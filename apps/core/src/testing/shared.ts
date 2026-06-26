@@ -125,6 +125,7 @@ export type NodeCredentialRecord = {
   tokenHash: string
   status: 'active' | 'revoked'
   issuedAt: string
+  revokedAt?: string
   lastUsedAt?: string
 }
 
