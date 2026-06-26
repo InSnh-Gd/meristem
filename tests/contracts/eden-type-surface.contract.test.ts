@@ -19,6 +19,8 @@ import type {
   MTaskPolicyDecision,
   NetworkSummary,
   NodeAgentTaskExecuteResponse,
+  NodeControlAction,
+  NodeControlResponse,
   Permission,
   ProjectionHealth,
   SubmitTaskRequest,
@@ -27,11 +29,11 @@ import type {
   TimelineLog,
   TimelineSearchQuery
 } from '../../packages/contracts/src/index.ts'
+import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
-import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
@@ -186,6 +188,20 @@ type ExpectedMNetAppDeps = {
     taskId: string
     correlationId: string
   }): Promise<ExpectedMNetServiceResult<NodeAgentTaskExecuteResponse>>
+  controlNode?: (input: {
+    actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+    nodeId: string
+    action: NodeControlAction
+    reason: string
+    targetKind?: 'stem' | 'leaf'
+  }) => Promise<
+    | NodeControlResponse
+    | {
+        kind: 'failure'
+        status: 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
   profileStore?: {
     getDefinitions(): Promise<MNetRegionalProfile[]>
     getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>

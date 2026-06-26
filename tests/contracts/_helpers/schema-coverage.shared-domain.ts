@@ -178,6 +178,16 @@ export const sharedResponseContracts: ResponseContract[] = [
     }
   },
   {
+    route: 'POST /api/v0/nodes/:id/credentials/revoke',
+    schema: Contracts.RevokeNodeCredentialResponseSchema,
+    fixture: {
+      nodeId: 'node-1',
+      revokedAt: '2026-06-04T10:05:00.000Z',
+      policyDecisionId: 'pd-6',
+      correlationId: 'corr-6'
+    }
+  },
+  {
     route: 'GET /api/v0/nodes',
     schema: Contracts.NodeListResponseSchema,
     fixture: {
@@ -209,6 +219,24 @@ export const sharedResponseContracts: ResponseContract[] = [
         capabilities: ['node.relay'],
         createdAt: '2026-06-04T10:00:00.000Z'
       }
+    }
+  },
+  {
+    route: 'POST /api/v0/nodes/:id/control',
+    schema: Contracts.NodeControlResponseSchema,
+    fixture: {
+      node: {
+        id: 'node-1',
+        kind: 'leaf',
+        name: 'leaf-a',
+        mode: 'agent',
+        status: 'disabled',
+        reachability: 'reachable',
+        capabilities: ['node.relay'],
+        createdAt: '2026-06-04T10:00:00.000Z'
+      },
+      policyDecisionId: 'pd-node-control',
+      correlationId: 'corr-node-control'
     }
   },
   {

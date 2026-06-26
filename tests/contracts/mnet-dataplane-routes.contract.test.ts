@@ -323,12 +323,15 @@ describe('M-Net dataplane route contracts', () => {
         }
       )
     )
-    expect(duplicateRegistration.status).toBe(409)
-    expect(
-      (await duplicateRegistration.json()) as { error: { code: string; message: string } }
-    ).toEqual({
-      error: { code: 'key.duplicate', message: 'duplicate or invalid public key rejected' }
-    })
+    // 重复公钥不再返回 409，而是幂等刷新地图并返回 200
+    expect(duplicateRegistration.status).toBe(200)
+    const duplicateBody = (await duplicateRegistration.json()) as {
+      nodeId: string
+      keyId: string
+      mapVersion: number
+    }
+    expect(duplicateBody.nodeId).toBe('leaf-cn-1')
+    expect(duplicateBody.mapVersion).toBeGreaterThan(0)
 
     const nodeRuntimeMap = await fixture.app.handle(
       new Request('http://localhost/api/v0/node-runtime/nodes/leaf-cn-1/network-map', {

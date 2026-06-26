@@ -137,18 +137,31 @@ Public exposure rule:
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
 | `MERISTEM_MNET_CONTROL_URL` | node-agent M-Net control plane URL | derived from join URL host on port `3104` |
+| `MERISTEM_NODE_AGENT_FORCE_RELAY` | force node-agent WireGuard peers to the declared local wstunnel UDP sidecar endpoint when direct UDP is blocked | `false` |
 | `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` | node-agent stale map TTL (ms) | `900000` |
 | `MERISTEM_WG_BINARY_PATH` | WireGuard binary path | `wg` (PATH lookup) |
 | `MERISTEM_WSTUNNEL_BINARY_PATH` | wstunnel binary path | `wstunnel` (PATH lookup) |
+| `MERISTEM_WSTUNNEL_LOCAL_ENDPOINT` | node-agent local UDP sidecar endpoint used for forced relay WireGuard peers | `127.0.0.1:51821` |
 | `MERISTEM_ACME_DIRECTORY` | ACME directory URL | Let's Encrypt production directory |
-| `MERISTEM_ACME_ACCOUNT_KEY` | ACME account key (secret, host-local) | none |
-| `MERISTEM_HOST_PRIVATE_KEY_PATH` | host WireGuard private key path (secret, host-local only) | `.local/wg/private.key` |
+| `MERISTEM_ACME_ACCOUNT_KEY` | ACME account key (secret, host-local) | `/etc/meristem/node-agent/tls/account.key` in the NixOS/systemd node-agent path |
+| `MERISTEM_HOST_PRIVATE_KEY_PATH` | host WireGuard private key path (secret, host-local only) | `/etc/meristem/node-agent/wg/private.key` in the NixOS/systemd node-agent path |
 | `MERISTEM_RELAY_ENDPOINT` | wstunnel relay endpoint for fallback | none |
 | `MERISTEM_RELAY_PUBLIC_HOSTNAME` | public fallback relay hostname | `localhost` in local development |
 | `MERISTEM_RELAY_PUBLIC_PORT` | public fallback relay port | `443` |
 | `MERISTEM_RELAY_PATH_PREFIX` | relay upgrade-path prefix | `meristem-fallback-relay` |
 | `MERISTEM_RELAY_HEALTH_URL` | relay loopback health probe | `http://127.0.0.1:19090/health` |
 | `MERISTEM_WSTUNNEL_VERSION` | pinned upstream relay release | `v10.5.5` |
+| `MERISTEM_MNET_MAP_SIGNING_KEY_ID` | M-Net 网络映射签名密钥标识符 | — |
+| `MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_PEM` | M-Net PEM 格式内联签名私钥（与 FILE 二选一） | — |
+| `MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_FILE` | M-Net 文件路径方式加载签名私钥（生产推荐，避免多行 PEM 在 env 中截断） | — |
+| `MERISTEM_MNET_MAP_SIGNING_PUBLIC_KEY` | M-Net 签名公钥（未设置时从私钥派生） | — |
+| `MERISTEM_WG_INTERFACE_NAME` | node-agent WireGuard 接口名 | `meristem-wg0` |
+| `MERISTEM_WG_LISTEN_PORT` | node-agent WireGuard 监听端口 | `51820` |
+| `MERISTEM_WG_CONFIG_PATH` | node-agent WireGuard 配置文件路径 | `/run/meristem/wg0.conf` |
+| `MERISTEM_WG_STATE_PATH` | node-agent WireGuard 状态文件路径 | `/run/meristem/wg0.state` |
+| `MERISTEM_IP_BINARY_PATH` | node-agent ip 二进制路径 | `ip` |
+| `MERISTEM_NODE_RUNTIME_STATE_PATH` | node-agent 运行时状态文件路径（nodeId + runtimeToken 持久化） | `/var/lib/meristem/node-agent/runtime.json` |
+| `MERISTEM_NODE_RUNTIME_SYNC_INTERVAL_MS` | node-agent 运行时同步间隔 | `30000` |
 
 MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
@@ -167,6 +180,89 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal fr
 | APISIX unavailable | optional edge path | direct Bun dev routes remain available |
 | Leaf Node abnormal | node status, recent Audit / Full Log | revoke or shrink permissions |
 
+## 节点管理控制
+
+操作者可通过 Core REST API 或 M-CLI 对节点执行行政控制操作。
+
+### 禁用节点
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"disable","reason":"maintenance window"}' \
+  http://localhost:3000/api/v0/nodes/<node-id>/control
+```
+
+禁用后节点状态变为 `disabled`，heartbeat 被抑制，节点从 peer path 中排除。
+
+### 隔离节点
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"isolate","reason":"security incident"}' \
+  http://localhost:3000/api/v0/nodes/<node-id>/control
+```
+
+隔离后节点状态变为 `isolated`，与禁用类似但用于安全事件场景。
+
+### 恢复节点
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"recover","reason":"issue resolved"}' \
+  http://localhost:3000/api/v0/nodes/<node-id>/control
+```
+
+恢复后节点状态变为 `recovering`，等待下一次有效 heartbeat 后自动回到 `healthy` 或 `degraded`。
+
+### 角色切换
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"switch-role","reason":"promote to stem","targetKind":"stem"}' \
+  http://localhost:3000/api/v0/nodes/<node-id>/control
+```
+
+切换节点角色（stem ↔ leaf）。最后一个 stem 节点不允许降级为 leaf。此操作需要 `admin` 或 `security-admin` 权限。
+
+## 运行时令牌轮换
+
+### 签发/轮换运行时令牌
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  http://localhost:3000/api/v0/nodes/<node-id>/credentials
+```
+
+返回一次性明文令牌。重新签发会自动撤销之前的活跃令牌。
+
+### 撤销运行时令牌
+
+```bash
+curl -X POST -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"credentialAction":"revoke"}' \
+  http://localhost:3000/api/v0/nodes/<node-id>/credentials/revoke
+```
+
+撤销后节点 agent 需要重新注册或手动配置新令牌才能恢复通信。
+
+## 节点代理生命周期管理
+
+```bash
+# 安装节点代理（生成本地配置和密钥）
+bun run meristem node-agent install --kind stem --name my-stem
+
+# 升级节点代理（可选轮换密钥）
+bun run meristem node-agent upgrade --rotate-wireguard-key
+
+# 卸载节点代理（默认保留密钥，--purge-secrets 清除全部）
+bun run meristem node-agent uninstall --purge-secrets
+```
+
 ---
 
 ## 5.1 M-Net Profile controlPlaneOnly Behavior
@@ -179,7 +275,7 @@ MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal fr
 - even with the gate on, no real transport is exposed (skeleton returns noop status).
 - operators should not expect network routing changes when enabling `0.1.x` CN profile.
 
-For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This activates the production data-plane (ADR-N03) using WireGuard + wstunnel relay sidecars. Operators should expect actual host-level interface orchestration and network traffic routing when enabling `0.2.0`.
+For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental data-plane track (ADR-N03) using WireGuard + wstunnel relay sidecars where that path has been deployed and verified. Operators should require current evidence for host-level interface orchestration and traffic routing before treating a deployment as production-ready.
 
 ---
 
@@ -275,8 +371,8 @@ Leaf host runtime shape:
 Current proof boundary:
 
 - automated E2E covers signed map publication, noop management dispatch, stale-map fail-closed, and invalid target rejection
-- the latest operator proof also verified in-tunnel overlay TCP from leaf `100.96.0.1` to stem `100.96.0.2`
-- this is sufficient to claim the first harness topology is **real virtual networking**, not just control-plane health
+- the latest operator proof also verified in-tunnel overlay traffic for the first `1 stem + 1 leaf` topology
+- this is evidence that the first harness topology can exercise a real overlay path, but it is not a blanket production-readiness claim for all relay, recovery, or N-host scenarios
 
 ---
 

@@ -6,16 +6,16 @@ import type {
 import { DEFAULT_CLOCK_SKEW_MS } from '../../services/m-net/src/key-lifecycle.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../services/m-net/src/network-map-renderer.ts'
 import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
+import {
   type AgentEnforcementState,
   applyEnforcementDecision,
   buildKeyMetadataReport,
   evaluateAclForPeer,
   evaluateNetworkMap
 } from '../../services/node-agent/src/node-agent-map-enforcement.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 const signingPublicKey =

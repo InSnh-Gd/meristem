@@ -562,9 +562,9 @@ type RegisterNodeResponse = {
     id: string;
     kind: "stem" | "leaf";
     name: string;
-    mode: "agent" | "simulated";
-    status: "joining" | "healthy" | "degraded" | "offline" | "revoked";
-    reachability: "unknown" | "reachable" | "unreachable";
+    mode: "agent" | "managed" | "simulated";
+    status: "ready" | "joining" | "healthy" | "degraded" | "offline" | "disabled" | "isolated" | "recovering" | "revoked";
+    reachability: "unknown" | "public" | "private" | "reachable" | "unreachable";
     lastSeenAt?: string;
     agentVersion?: string;
     capabilities: string[];
@@ -604,6 +604,32 @@ Rules:
 - Core stores only the token hash.
 - re-issuing revokes the previous active token for the same node.
 - this route remains an internal compatibility path for tests or operators; it is no longer the primary public agent join flow.
+- node-agent restart or explicit reconfiguration is required to use the replacement token; this slice does not provide automatic in-agent token refresh.
+
+**Error Responses**: `404` (node not found), `503` (audit write failed)
+
+### `POST /api/v0/nodes/:id/credentials/revoke`
+
+Protected by `node:issue-token`.
+
+```ts
+type RevokeNodeCredentialResponse = {
+  nodeId: string;
+  revokedAt: string;
+  policyDecisionId: string;
+  correlationId: string;
+};
+```
+
+Rules:
+
+- revokes the active runtime token for the target node without returning replacement token material.
+- missing node returns `404 node.not_found`.
+- nodes without an active runtime token return `409 node.credential_not_active` and do not write a success timeline fact.
+- revoked runtime tokens fail closed for later runtime authentication or `session.resume` attempts.
+- a later replacement token still requires node-agent restart or explicit reconfiguration in this slice.
+
+**Error Responses**: `404` (node not found), `409` (no active credential), `503` (audit write failed)
 
 ### `GET /api/v0/nodes`
 
@@ -616,6 +642,39 @@ Returns all MVP node records.
 Protected by `core:read`.
 
 Returns one node or `404`.
+
+### `POST /api/v0/nodes/:id/control`
+
+Protected by one of the node-control permissions selected by action:
+
+- `node:disable` for `disable`
+- `node:isolate` for `isolate`
+- `node:recover` for `recover`
+- `node:switch-role` for `switch-role`
+
+```ts
+type NodeControlRequest = {
+  action: 'disable' | 'isolate' | 'recover' | 'switch-role';
+  reason: string;
+  targetKind?: 'stem' | 'leaf';
+};
+
+type NodeControlResponse = {
+  node: MNode;
+  policyDecisionId: string;
+  correlationId: string;
+};
+```
+
+Rules:
+
+- Core is the public facade; it authorizes the actor and forwards the control request to M-Net.
+- `disable`, `isolate`, and `recover` are admin/security-admin actions.
+- `switch-role` is operator-only and requires `targetKind`.
+- demoting a stem to a leaf fails closed if any joined network would be left without another stem.
+- policy denials and successful transitions are auditable.
+
+**Error Responses**: `403` (policy denied), `404` (node not found), `409` (invalid transition), `503` (audit/side-effect failed)
 
 ---
 

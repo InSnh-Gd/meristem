@@ -9,6 +9,10 @@ import {
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import { gateClockSkew, rejectDuplicatePublicKey } from '../../services/m-net/src/key-lifecycle.ts'
 import { registerNodePublicKey } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
 import { assignNodeTunnelIp } from '../../services/m-net/src/overlay-cidr.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import {
@@ -21,10 +25,6 @@ import {
   createLogBuffer,
   formatTaskResult
 } from '../../services/node-agent/src/node-agent-task-log.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 const signingPublicKey =
@@ -204,14 +204,11 @@ describe('M-Net data-plane security hardening failure modes', () => {
       createdAt: '2026-06-18T01:00:00.000Z'
     })
 
-    expect(result).toEqual({
-      kind: 'failure',
-      status: 409,
-      error: {
-        code: 'key.duplicate',
-        message: 'duplicate or invalid public key rejected'
-      }
-    })
+    // 重复公钥不再返回 409，而是幂等刷新地图并返回最新 mapVersion
+    expect('kind' in result).toBe(false)
+    if ('kind' in result) throw new Error('expected success, got failure')
+    expect(result.nodeId).toBe('leaf-a')
+    expect(result.mapVersion).toBeGreaterThan(0)
   })
 
   it('fails closed for join and key registration when clock skew exceeds five minutes', () => {
@@ -304,14 +301,11 @@ describe('M-Net data-plane security hardening failure modes', () => {
       createdAt: '2026-06-18T00:10:01.000Z'
     })
 
-    expect(second).toEqual({
-      kind: 'failure',
-      status: 409,
-      error: {
-        code: 'key.duplicate',
-        message: 'duplicate or invalid public key rejected'
-      }
-    })
+    // 重复公钥不再返回 409，而是幂等刷新地图并返回最新 mapVersion
+    expect('kind' in second).toBe(false)
+    if ('kind' in second) throw new Error('expected success, got failure')
+    expect(second.nodeId).toBe('leaf-a')
+    expect(second.mapVersion).toBeGreaterThan(0)
   })
 
   it('moves stale-map evaluation into stale then fail_closed partition states with tunnel teardown plan', () => {

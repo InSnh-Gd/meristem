@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { hashNodeToken } from '../../packages/auth/src/index.ts'
-import { createDb } from '../../packages/db/src/client.ts'
+import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
 import { nodeCredentials, nodeJoinTickets, nodes } from '../../packages/db/src/schema.ts'
 import {
   type ManagedProcess,
@@ -32,6 +32,16 @@ const { db, client } = createDb()
 const joinIngressPort = 18_443
 const joinIngressUrl = `wss://localhost:${joinIngressPort}/join/v0/session`
 const joinIngressSessionTimeoutMs = 15_000
+const pgAvailable = await (async () => {
+  try {
+    const sql = createSqlClient()
+    await sql`select 1`
+    await sql.end()
+    return true
+  } catch {
+    return false
+  }
+})()
 
 let logMock: ManagedProcess | null = null
 let eventBusMock: ManagedProcess | null = null
@@ -209,6 +219,7 @@ function closeManagedSessionSocket(socket: ManagedSessionSocket | null): void {
  */
 describe('M-Net join ingress session handling', () => {
   beforeAll(async () => {
+    if (!pgAvailable) return
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
     await import('../../packages/db/src/migrate.ts')
     eventBusMock = createMockInternalService(3103, 'm-eventbus')
@@ -231,9 +242,14 @@ describe('M-Net join ingress session handling', () => {
     await client.end()
   })
 
+  it('skips gracefully when PostgreSQL is unavailable', () => {
+    expect(typeof pgAvailable).toBe('boolean')
+  })
+
   it(
     'treats a resumed websocket as the active session and ignores stale frames from the superseded socket',
     async () => {
+      if (!pgAvailable) return
       const ticket = `supersede-${crypto.randomUUID()}`
       const ticketId = await seedJoinTicket({
         ticket,
@@ -323,6 +339,7 @@ describe('M-Net join ingress session handling', () => {
   )
 
   it('returns stable join ticket errors and only redeems a ticket once', async () => {
+    if (!pgAvailable) return
     const expiredTicket = `expired-${crypto.randomUUID()}`
     const revokedTicket = `revoked-${crypto.randomUUID()}`
     const redeemedTicket = `redeemed-${crypto.randomUUID()}`

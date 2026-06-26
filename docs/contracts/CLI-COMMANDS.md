@@ -73,65 +73,77 @@ Rules:
 
 Permission: `node:issue-token`.
 
-Issues or rotates the per-node agent token for one node.
+Issues or rotates the per-node runtime token for one node.
 
 Rules:
 
 - token plaintext is returned once and must not be logged.
 - re-issuing a token revokes the previous active token for that node.
 - only one active token exists per node in MVP.
-- this command is a compatibility path, not the primary public node-join flow.
+- this command is a compatibility rotation path, not the primary public node-join flow.
+- node-agent restart or explicit reconfiguration is required to use the replacement token; this slice does not provide automatic in-agent token refresh.
 
-### `meristem node-agent install --kind stem|leaf --name <name> [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>]`
+### `meristem node revoke-token --node <node-id>`
 
-Permission: `node:register`.
+Permission: `node:issue-token`.
 
-Installs and configures the node-agent service on the local host. Creates a systemd service unit file, writes the initial configuration, and registers the node with Core if a Join Ticket is provided.
+Revokes the active per-node runtime token without issuing a replacement token.
+
+Rules:
+
+- the command returns revoke metadata only; no token plaintext is returned.
+- after revoke, runtime `session.resume` using the revoked token must fail closed until an operator rotates a new token or the node rejoins through the public join flow.
+- node-agent restart or explicit reconfiguration is required after a later replacement token is issued; this slice does not provide automatic in-agent token refresh.
+
+### `meristem node-agent install --kind stem|leaf --name <name> [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-wireguard-key] [--rotate-acme-account-key]`
+
+Permission: none (local operator path).
+
+Stages the local node-agent host files expected by the existing NixOS/systemd packaging. It does not call Core, does not create a service unit, and does not start the service.
 
 Rules:
 
 - `--kind stem|leaf` is required. `core` is not supported for node-agent.
-- `--name` is required and must be unique.
+- `--name` is required.
+- `--join-ticket` is optional. When supplied, the plaintext is written only to the configured `join-ticket` file and is never echoed in command output.
 - `--join-url` defaults to `wss://localhost:8443/join/v0/session`.
 - `--wg-binary` defaults to `wg` (PATH lookup).
-- `--wstunnel-binary` defaults to `wstunnel` (PATH lookup).
+- `--wstunnel-binary` defaults to `/run/current-system/sw/bin/wstunnel`.
 - `--acme-directory` defaults to the Let's Encrypt production directory.
-- `--relay-endpoint` is optional; when omitted, relay fallback is disabled.
-- the command writes the systemd service unit to `/etc/systemd/system/meristem-node-agent.service`.
-- the command does not start the service; use `meristem node-agent run` or `systemctl start meristem-node-agent`.
-- WireGuard and wstunnel binaries must exist at the specified paths or the command fails with a diagnostic message.
-- on success, prints the node ID and service unit path.
+- `--relay-endpoint` defaults to `wss://relay.control-plane.example.com:443`.
+- `--config-dir` defaults to `/etc/meristem/node-agent`.
+- `--runtime-state` defaults to `/var/lib/meristem/node-agent/runtime.json`.
+- the command writes `node-agent.env`, `join-ticket`, `node-id`, `runtime-token`, `wg/private.key`, and `tls/account.key` within the host-local boundary already declared by the NixOS module.
+- when no runtime token exists yet, the command stages an empty `runtime-token` file for later `join.accepted` or recovery material instead of inventing a token locally.
+- when `--rotate-wireguard-key` or `--rotate-acme-account-key` is omitted, existing host-local secret material is preserved.
+- on success, prints validation metadata only. Runtime tokens, join tickets, private keys, and ACME account keys never appear in stdout.
 
-### `meristem node-agent run [--foreground]`
+### `meristem node-agent upgrade [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-runtime-token] [--rotate-wireguard-key] [--rotate-acme-account-key]`
 
-Permission: none (local execution only).
+Permission: none (local operator path).
 
-Starts the node-agent runtime process. In foreground mode, the agent runs in the current terminal until stopped with SIGINT. Without `--foreground`, the agent starts as a background systemd service.
+Updates an existing local node-agent install in place while preserving node identity and host-local secrets by default.
 
 Rules:
 
-- if `--foreground` is specified, the agent runs in the foreground and logs to stdout.
-- without `--foreground`, the command delegates to `systemctl start meristem-node-agent`.
-- the agent performs pre-flight checks (WireGuard tooling, wstunnel binary, ACME key) before establishing the M-Net session.
-- on join failure, the agent prints a diagnostic message and exits non-zero.
-- `MERISTEM_JOIN_TICKET` or `MERISTEM_NODE_ID` + `MERISTEM_NODE_TOKEN` must be set in the environment.
+- `node-agent.env` must already exist; otherwise upgrade fails non-zero.
+- node identity in `node-id` is preserved unless the operator explicitly edits the host-local files outside this command.
+- runtime token material is preserved by default. `--rotate-runtime-token` clears the staged runtime token and removes cached runtime-state so the next join/resume material must come from Core.
+- `--rotate-wireguard-key` and `--rotate-acme-account-key` replace only the requested host-local secret files.
+- on success, prints which materials were preserved or rotated without printing any secret plaintext.
 
-### `meristem node-agent status`
+### `meristem node-agent uninstall [--config-dir <path>] [--runtime-state <path>] [--purge-secrets]`
 
-Permission: `core:read`.
+Permission: none (local operator path).
 
-Shows the current status of the local node-agent: session state, WireGuard interface state, wstunnel sidecar state, and network-map freshness.
+Removes the staged local node-agent configuration while leaving host-local secret material intact unless the operator explicitly asks to purge it.
 
-Output fields:
+Rules:
 
-- `nodeId`: registered node ID
-- `sessionState`: `disconnected`, `joining`, `healthy`, or `offline`
-- `wireguardState`: `configured`, `degraded`, or `unavailable`
-- `sidecarState`: `running`, `restarting`, `stopped`, or `unavailable`
-- `networkMapVersion`: latest applied map version or `none`
-- `networkMapAge`: time since last successful map pull
-- `lastHeartbeatAt`: ISO 8601 timestamp of last successful heartbeat
-- `agentVersion`: agent version string
+- the command removes `node-agent.env`, `join-ticket`, `node-id`, `runtime-token`, and runtime-state metadata.
+- without `--purge-secrets`, `wg/private.key`, `wg/private.key.pub`, `wg/private.key.meta.json`, and `tls/account.key` are preserved.
+- with `--purge-secrets`, those host-local secret files are also removed.
+- the command does not stop or disable the `meristem-node-agent` unit; systemd lifecycle remains outside this CLI slice.
 
 ### `meristem node list`
 
@@ -358,7 +370,7 @@ Issues a local actor token.
 
 Rules:
 
-- Only `security-admin` can issue runtime tokens.
+- Only `security-admin` can issue local actor tokens.
 - token plaintext is returned once and must never be logged.
 - issue writes Audit before returning plaintext.
 - issue fails closed when Audit Log is unavailable.

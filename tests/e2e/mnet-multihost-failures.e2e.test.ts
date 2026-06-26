@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
+import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   internalServicePorts,
   internalTokenHeaderName
 } from '../../packages/internal-http/src/index.ts'
-import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
+import { loadState } from '../../scripts/mnet-multihost-harness-support.ts'
 import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../services/m-net/src/network-map-renderer.ts'
 import { evaluateNetworkMap } from '../../services/node-agent/src/node-agent-map-enforcement.ts'
-import { loadState } from '../../scripts/mnet-multihost-harness-support.ts'
 import { startProcess } from '../helpers/process.ts'
 
 type HarnessStatus = {

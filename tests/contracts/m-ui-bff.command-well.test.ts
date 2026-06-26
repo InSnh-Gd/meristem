@@ -990,6 +990,28 @@ describe('M-UI BFF contract tests', () => {
               correlationId: 'core-mock-profile'
             }
           })
+          .post('/api/v0/nodes/:id/control', ({ params, body }) => {
+            const typedBody = body as { action: string; reason?: string }
+            return {
+              node: {
+                id: params.id,
+                kind: 'leaf',
+                name: params.id,
+                mode: 'agent',
+                status:
+                  typedBody.action === 'disable'
+                    ? 'disabled'
+                    : typedBody.action === 'recover'
+                      ? 'recovering'
+                      : typedBody.action,
+                reachability: 'reachable',
+                capabilities: ['task.noop'],
+                createdAt: '2026-01-01T00:00:00.000Z'
+              },
+              policyDecisionId: 'core-mock-node-control-policy',
+              correlationId: 'core-mock-node-control'
+            }
+          })
       )
     }
 
@@ -1038,6 +1060,13 @@ describe('M-UI BFF contract tests', () => {
           'POST',
           'admin-token',
           { networkId: 'n2', profileVersion: 'm-net-default@0.1.0' }
+        )
+        await makeRequest(
+          app,
+          '/api/v0/commands/node.disable.execute/execute',
+          'POST',
+          'admin-token',
+          { nodeId: 'leaf-1', reason: 'maintenance window' }
         )
 
         // RED: BFF currently rejects unknown commands; zero requests made
@@ -1193,6 +1222,29 @@ describe('M-UI BFF contract tests', () => {
               received: typedBody
             }
           })
+          .post('/api/v0/nodes/:id/control', ({ params, body }) => {
+            const typedBody = body as { action: string; reason?: string }
+            return {
+              node: {
+                id: params.id,
+                kind: 'leaf',
+                name: params.id,
+                mode: 'agent',
+                status:
+                  typedBody.action === 'disable'
+                    ? 'disabled'
+                    : typedBody.action === 'recover'
+                      ? 'recovering'
+                      : typedBody.action,
+                reachability: 'reachable',
+                capabilities: ['task.noop'],
+                createdAt: '2026-01-01T00:00:00.000Z'
+              },
+              policyDecisionId: 'decision-node-control-1',
+              correlationId: 'corr-node-control-1',
+              received: typedBody
+            }
+          })
       )
     }
 
@@ -1314,6 +1366,21 @@ describe('M-UI BFF contract tests', () => {
           expect(body.networkId).toBe('network-cn-001')
           expect(body.status).toBe('disabled')
           expect(body.correlationId).toBe('corr-break-glass-1')
+        }
+      },
+      {
+        commandId: 'node.disable.execute',
+        token: 'admin-token',
+        requestBody: { nodeId: 'leaf-1', reason: 'maintenance window' },
+        expectedMethod: 'POST',
+        expectedPath: '/api/v0/nodes/leaf-1/control',
+        expectedForwardedBody: { action: 'disable', reason: 'maintenance window' },
+        assertResponse(body) {
+          expect((body.node as { id?: string; status?: string } | undefined)?.id).toBe('leaf-1')
+          expect((body.node as { id?: string; status?: string } | undefined)?.status).toBe(
+            'disabled'
+          )
+          expect(body.policyDecisionId).toBe('decision-node-control-1')
         }
       }
     ]

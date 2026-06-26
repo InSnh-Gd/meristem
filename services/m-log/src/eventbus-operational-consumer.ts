@@ -1,5 +1,5 @@
-import * as Schema from 'effect/Schema'
 import type { NatsConnection } from '@nats-io/nats-core'
+import * as Schema from 'effect/Schema'
 import {
   EventBusPublishFailedPayloadSchema,
   EventBusRejectedPayloadSchema,

@@ -1,0 +1,25 @@
+Meristem node-agent force-relay acceptance boundary
+===============================================
+
+Scope
+- Prove the production force-relay path depends on the declared local wstunnel UDP sidecar endpoint.
+- Prove the apply path stays within node-agent-owned WireGuard and `ip` route/interface commands.
+- Prove there is no committed dependency on ad hoc host firewall/netfilter redirect commands.
+
+Accepted boundary
+- Local relay endpoint remains `127.0.0.1:51821` for the proven wstunnel sidecar topology.
+- `MERISTEM_NODE_AGENT_FORCE_RELAY=true|1` means WireGuard peer `Endpoint` values are rendered to that declared local sidecar endpoint.
+- Successful local apply uses node-agent-owned commands such as `wg setconf`, `ip link`, `ip address`, and `ip route`.
+- Unsupported dependency set: `iptables`, `nft`, `OUTPUT`, `SNAT`, `MASQUERADE`.
+
+Focused proof points
+- `tests/contracts/node-agent-local-apply.contract.test.ts`
+  - successful apply path asserts `Endpoint = 127.0.0.1:51821`
+  - successful apply command log excludes `iptables`, `nft`, `OUTPUT`, `SNAT`, and `MASQUERADE`
+- `tests/contracts/node-agent-wg-config.contract.test.ts`
+  - force-relay config keeps peers on the local sidecar endpoint instead of remote UDP peer endpoints
+- `docs/services/node-agent.md`
+  - documents supported local sidecar relay boundary and rejects host firewall/netfilter redirect hacks
+
+Sanitization notes
+- Contains no credentials, tokens, private keys, absolute secret paths, or internal orchestration path references.

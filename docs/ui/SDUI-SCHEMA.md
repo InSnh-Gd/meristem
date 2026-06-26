@@ -290,7 +290,7 @@ Each route may declare `degradedState: { enabled: boolean; reason: string }`. Wh
 
 ### 8.6 Formal v0.2 Approval And Profile Routes
 
-The following routes extend the SDUI v0.2 surface for the implemented approval/profile control-room workflows. The route registry, UI screens, and BFF/Core data flows are active for approval mutation and per-network profile mutation. M-Net production data-plane behavior is active for `m-net-cn@0.2.0` (ADR-N03).
+The following routes extend the SDUI v0.2 surface for the implemented approval/profile control-room workflows. The route registry, UI screens, and BFF/Core data flows are active for approval mutation, per-network profile mutation, and verified node-control CommandWell boundaries. M-Net `m-net-cn@0.2.0` data-plane work is incremental; route surfaces must only claim behavior backed by current contract/evidence gates.
 
 #### 8.6.1 Route Registry Entries
 

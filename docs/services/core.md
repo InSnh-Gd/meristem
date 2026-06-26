@@ -31,6 +31,7 @@ What this service owns:
 - minimal policy entrypoint
 - secretRef management entrypoint
 - node registration entrypoint
+- 节点行政控制 facade（`POST /api/v0/nodes/:id/control`）：Core 鉴权后将 disable/isolate/recover/switch-role 请求转发到 M-Net
 - Core health checks
 
 What this service must not own:
@@ -73,7 +74,11 @@ Implementation notes:
 |------------|--------------|------|
 | `core:read` | read Core status | low |
 | `node:register` | register simulated nodes or create agent Join Tickets | high |
-| `node:issue-token` | issue or rotate per-node runtime token | high |
+| `node:issue-token` | issue, rotate, or revoke per-node runtime token | high |
+| `node:disable` | 禁用节点 | high |
+| `node:isolate` | 隔离节点 | high |
+| `node:recover` | 恢复节点 | high |
+| `node:switch-role` | 切换节点角色（stem ↔ leaf） | high |
 | `service:register` | register service definition | high |
 | `service:reload` | request reload for a reloadable internal service | high |
 | `identity:token-issue` | issue local actor token | high |
@@ -140,6 +145,7 @@ Current ownership additions:
 - Core owns local-mode Identity v0.2 actor records, actor token lifecycle, `jti` revocation, and internal token introspection.
 - Core owns SecretRef v0.1 management entrypoints.
 - Core owns Config Lifecycle v0.1 orchestration entrypoints.
+- Core owns explicit runtime node token rotate/revoke entrypoints; revoke returns metadata only and replacement token adoption remains operator-managed in this slice.
 
 Task ownership note:
 

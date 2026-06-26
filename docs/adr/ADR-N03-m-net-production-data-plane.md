@@ -15,7 +15,7 @@ ADR-N01 和 ADR-N02 限制 M-Net 仅进行 control-plane 逻辑和 mock data-pla
 1. **M-Net/Core Orchestration Scope:** M-Net/Core orchestrates identity, topology, public-key metadata, ACL intent, relay selection, network-map signing, status, and audit. **M-Net/Core MUST NOT forward user packets or implement transport protocols.**
 2. **Packet Path Ownership:** Packet path is owned by Meristem node-agent (host-local) + WireGuard + pinned external wstunnel relay sidecars over WSS/443 with ACME TLS.
 3. **Topology:** The first supported topology is 1 control-plane+relay host + 2 Leaf hosts.
-4. **Profile Capability:** `m-net-cn@0.2.0` profile carries production data-plane capabilities; `m-net-cn@0.1.x` remains control-plane-only and auto-migrates to `0.2.0`.
+4. **Profile Capability:** `m-net-cn@0.2.0` profile carries the WireGuard+wstunnel data-plane track; `m-net-cn@0.1.x` remains control-plane-only and auto-migrates to `0.2.0`. Production-readiness claims remain scenario-specific and evidence-bound.
 5. **Key Management:** Node-agent private keys never leave the host; Meristem stores public keys and key metadata only.
 6. **Network-map TTL Fail-closed:** Signed network-map TTL fail-closed: node-agent tears down Meristem-managed tunnels after `MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS` (default 15m) without a fresh signed map.
 7. **Overlay CIDR:** Default overlay CIDR is `100.96.0.0/12`.
@@ -25,7 +25,7 @@ ADR-N01 和 ADR-N02 限制 M-Net 仅进行 control-plane 逻辑和 mock data-pla
 
 ## 结果
 
-通过这个决策，M-Net 具备了真实的生产级数据面控制能力。
+通过这个决策，M-Net 具备了实现真实数据面控制能力的架构授权；具体生产级能力必须由对应验收证据证明。
 节点之间的通信通过 host-local 的 sidecar 组件（WireGuard, wstunnel）完成，Core 本身不承担数据包的路由、转发等消耗 CPU/内存的重负载任务。
 保持了 Core 作为轻量微服务的定位。
 

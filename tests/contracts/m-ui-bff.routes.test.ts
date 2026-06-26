@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
-import { createMUiBffApp } from '../../services/m-ui-bff/src/app.ts'
 import { createEventBusApp } from '../../services/m-eventbus/src/app.ts'
+import { createMUiBffApp } from '../../services/m-ui-bff/src/app.ts'
 import {
   CORE_BASE,
   captureOriginalFetch,

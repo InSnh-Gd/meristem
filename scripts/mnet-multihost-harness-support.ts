@@ -380,9 +380,7 @@ function harnessEnv(): Record<string, string> {
     MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS: '2000',
     [NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY]: signing.keyId,
     [NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]: signing.privateKeyPem,
-    [NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY]: signing.publicKey ?? '',
-    MERISTEM_MNET_SIGNING_KEY_ID: signing.keyId,
-    MERISTEM_MNET_SIGNING_PUBLIC_KEY: signing.publicKey ?? ''
+    [NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY]: signing.publicKey ?? ''
   }
 }
 

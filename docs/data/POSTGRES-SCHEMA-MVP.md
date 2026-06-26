@@ -73,7 +73,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | `kind` | text | `core`, `stem`, `leaf` |
 | `name` | text | display name |
 | `mode` | text | `agent` or `simulated` |
-| `status` | text | `joining`, `healthy`, `degraded`, `offline`, `revoked` |
+| `status` | text | `ready`, `joining`, `healthy`, `degraded`, `offline`, `disabled`, `isolated`, `recovering`, `revoked` |
 | `reachability` | text | `unknown`, `reachable`, `unreachable` |
 | `last_seen_at` | timestamptz nullable | last accepted heartbeat |
 | `agent_version` | text nullable | latest reported node-agent version |
@@ -477,6 +477,7 @@ Primary key: `(network_id, map_version)`.
 | `rotation_due_at` | timestamptz nullable | next rotation deadline |
 | `rotation_counter` | integer | rotation count |
 | `status` | text | key lifecycle status |
+| `endpoint` | text | STUN-discovered public WireGuard endpoint (e.g. `203.0.113.5:51820`); nullable, omitted when no direct P2P endpoint is available |
 
 Primary key: `(node_id, key_id)`.
 

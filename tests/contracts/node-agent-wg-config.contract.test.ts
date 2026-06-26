@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '../../services/m-net/src/network-map-signing.ts'
+import {
   checkWgTooling,
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
-  DEFAULT_WG_PRIVATE_KEY_PATH,
   DEFAULT_WSTUNNEL_UDP_BIND_HOST,
   DEFAULT_WSTUNNEL_UDP_BIND_PORT,
   renderWireGuardConfig
 } from '../../services/node-agent/src/node-agent-wg-config.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
+const TEST_PRIVATE_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 
 function createNetworkMap(overrides?: {
   readonly members?: NetworkMap['members']
@@ -61,7 +61,8 @@ describe('node-agent WireGuard config contract', () => {
   it('renders deterministic INI config from a signed network map with two peers', () => {
     const rendered = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -69,12 +70,10 @@ describe('node-agent WireGuard config contract', () => {
 
     expect(rendered.value.peerCount).toBe(2)
     expect(rendered.value.listenPort).toBe(DEFAULT_WG_LISTEN_PORT)
-    expect(rendered.value.privateKeyPath).toBe(DEFAULT_WG_PRIVATE_KEY_PATH)
     expect(rendered.value.config).toBe(
       [
         '[Interface]',
-        'Address = 100.96.0.1/32',
-        `PrivateKey = ${DEFAULT_WG_PRIVATE_KEY_PATH}`,
+        `PrivateKey = ${TEST_PRIVATE_KEY}`,
         `ListenPort = ${DEFAULT_WG_LISTEN_PORT}`,
         '',
         '[Peer]',
@@ -99,7 +98,8 @@ describe('node-agent WireGuard config contract', () => {
           nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
         }
       }),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -107,16 +107,171 @@ describe('node-agent WireGuard config contract', () => {
     expect(rendered.value.config).toContain('Endpoint = direct-peer.example:51820')
   })
 
-  it('renders config with host-local key path reference and never inline private key', () => {
+  it('prefers per-member direct P2P endpoint over wstunnel relay when available', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // Each peer should use its own direct endpoint, NOT the relay
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.30:51820')
+    expect(rendered.value.config).not.toContain('127.0.0.1:51821')
+  })
+
+  it('default (forceRelayEndpoint undefined) prefers direct P2P endpoint for all peers with endpoint', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+      // forceRelayEndpoint 未设置，默认 false 行为
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // 所有对等节点应使用各自 direct endpoint，而非 relay
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.30:51820')
+    expect(rendered.value.config).not.toContain('127.0.0.1:51821')
+  })
+
+  it('forceRelayEndpoint: true forces all peers to use relay endpoint even when member.endpoint is present', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+          endpoint: '203.0.113.10:51820'
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
+          endpoint: '203.0.113.30:51820'
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821',
+      forceRelayEndpoint: true
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // 所有对等节点都强制使用 relay endpoint
+    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+    // 不应出现任何 direct endpoint
+    expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.20:51820')
+    expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.30:51820')
+  })
+
+  it('falls back to wstunnel relay for peers missing direct endpoint', () => {
+    const map = createNetworkMap({
+      members: [
+        {
+          nodeId: 'node-agent-1',
+          tunnelIp: '100.96.0.1',
+          publicKey: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+        },
+        {
+          nodeId: 'node-peer-2',
+          tunnelIp: '100.96.0.2',
+          publicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+          endpoint: '203.0.113.20:51820'
+        },
+        {
+          nodeId: 'node-peer-3',
+          tunnelIp: '100.96.0.3',
+          publicKey: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC='
+          // no endpoint — should fall back to relay
+        }
+      ]
+    })
+    const rendered = renderWireGuardConfig({
+      map,
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY,
+      localRelayEndpoint: '127.0.0.1:51821'
+    })
+
+    expect(rendered.ok).toBe(true)
+    if (!rendered.ok) throw new Error(rendered.error.kind)
+    // peer-2 has direct endpoint
+    expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
+    // peer-3 falls back to relay
+    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+  })
+
+  it('inlines the private key content into the config for wg setconf consumption', () => {
     const rendered = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
     if (!rendered.ok) throw new Error(rendered.error.kind)
 
-    expect(rendered.value.config).toContain(`PrivateKey = ${DEFAULT_WG_PRIVATE_KEY_PATH}`)
+    expect(rendered.value.config).toContain(`PrivateKey = ${TEST_PRIVATE_KEY}`)
   })
 
   it('accepts parseable wg version output and returns typed metadata', () => {
@@ -162,11 +317,13 @@ describe('node-agent WireGuard config contract', () => {
   it('produces the same SHA-256 hash for the same config and a different hash for a changed map', () => {
     const first = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
     const second = renderWireGuardConfig({
       map: createNetworkMap(),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
     const changed = renderWireGuardConfig({
       map: createNetworkMap({
@@ -188,7 +345,8 @@ describe('node-agent WireGuard config contract', () => {
           nodeIds: ['node-agent-1', 'node-peer-2']
         }
       }),
-      agentNodeId: 'node-agent-1'
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(first.ok).toBe(true)
@@ -220,7 +378,7 @@ describe('node-agent WireGuard config contract', () => {
       }),
       agentNodeId: 'node-agent-1',
       listenPort: 51821,
-      privateKeyPath: '/run/meristem/custom-wg.key'
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
@@ -228,12 +386,7 @@ describe('node-agent WireGuard config contract', () => {
 
     expect(rendered.value.peerCount).toBe(0)
     expect(rendered.value.config).toBe(
-      [
-        '[Interface]',
-        'Address = 100.96.0.1/32',
-        'PrivateKey = /run/meristem/custom-wg.key',
-        'ListenPort = 51821'
-      ].join('\n')
+      ['[Interface]', `PrivateKey = ${TEST_PRIVATE_KEY}`, 'ListenPort = 51821'].join('\n')
     )
   })
 })
