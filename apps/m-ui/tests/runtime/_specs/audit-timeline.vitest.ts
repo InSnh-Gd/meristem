@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-import AuditPage from '../../../src/routes/audit/+page.svelte'
 import { appState } from '../../../src/lib/stores.svelte.ts'
+import AuditPage from '../../../src/routes/audit/+page.svelte'
 import { installAppStateReset } from './app-state'
 import { createAuditFixture } from './fixtures'
 

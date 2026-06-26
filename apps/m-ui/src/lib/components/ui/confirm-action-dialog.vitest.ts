@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte'
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { createRawSnippet } from 'svelte'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import ConfirmActionDialog from './ConfirmActionDialog.svelte'
 
 const triggerLabel = '打开确认对话框'

@@ -7,10 +7,10 @@ vi.mock('$app/state', () => ({
   }
 }))
 
-import ApprovalDetailWorkspace from './ApprovalDetailWorkspace.svelte'
 import { appState } from '$lib/stores.svelte.ts'
 import { installAppStateReset } from '../../../../../tests/runtime/_specs/app-state'
 import { createApprovalDetailFixture } from '../../../../../tests/runtime/_specs/fixtures'
+import ApprovalDetailWorkspace from './ApprovalDetailWorkspace.svelte'
 
 installAppStateReset()
 

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import CommandWell from '../../src/lib/components/modules/command/CommandWell.svelte'
 import { createControlRoomCommandState, createOverviewFixture } from './_specs/fixtures'
 

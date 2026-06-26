@@ -1,13 +1,12 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, expect, it } from 'vitest'
-
-import ControlRoomWorkspace from './ControlRoomWorkspace.svelte'
 import { appState } from '$lib/stores.svelte.ts'
 import { installAppStateReset } from '../../../../../tests/runtime/_specs/app-state'
 import {
   createControlRoomCommandState,
   createOverviewFixture
 } from '../../../../../tests/runtime/_specs/fixtures'
+import ControlRoomWorkspace from './ControlRoomWorkspace.svelte'
 
 installAppStateReset()
 

@@ -42,7 +42,7 @@
               <td class="mono">{member.nodeId}</td>
               <td class="mono">{member.nodeKind}</td>
               <td class="mono">{member.membershipMode}</td>
-              <td class="mono">{member.status}</td>
+              <td class="mono" data-testid="network-member-status-{member.nodeId}">{member.status}</td>
               <td class="mono">{member.joinedAt}</td>
               <td><StateSourceBadge source={member.stateSource.sourceType} /></td>
             </tr>

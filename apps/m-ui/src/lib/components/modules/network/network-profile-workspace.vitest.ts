@@ -7,10 +7,10 @@ vi.mock('$app/state', () => ({
   }
 }))
 
-import NetworkProfileWorkspace from './NetworkProfileWorkspace.svelte'
 import { appState } from '$lib/stores.svelte.ts'
 import { installAppStateReset } from '../../../../../tests/runtime/_specs/app-state'
 import { createNetworkProfileDetailFixture } from '../../../../../tests/runtime/_specs/fixtures'
+import NetworkProfileWorkspace from './NetworkProfileWorkspace.svelte'
 
 installAppStateReset()
 
