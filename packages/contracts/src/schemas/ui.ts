@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
-import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
 import { ServiceSummarySchema } from './core.ts'
+import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
 import { ActorIdSchema } from './identity.ts'
 import {
   MNetProfileRegionSchema,
@@ -10,9 +10,9 @@ import {
 import {
   ApprovalOriginServiceSchema,
   ApprovalStatusSchema,
-  PolicyInternalSummarySchema,
   ApprovalVoteTypeSchema,
   PermissionSchema,
+  PolicyInternalSummarySchema,
   RequiredActionSchema
 } from './policy.ts'
 import { ProjectionHealthResponseSchema } from './projection.ts'

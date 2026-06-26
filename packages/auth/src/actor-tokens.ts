@@ -7,6 +7,7 @@ import type {
   TokenIntrospectionResult
 } from '../../contracts/src/index.ts'
 import {
+  alg,
   defaultAudience,
   extractIsoClaim,
   isActorId,
@@ -15,8 +16,7 @@ import {
   issuer,
   parseExpiresInToMs,
   secretBytes,
-  serviceAudience,
-  alg
+  serviceAudience
 } from './shared.ts'
 
 export type MintLocalTokenInput = {
