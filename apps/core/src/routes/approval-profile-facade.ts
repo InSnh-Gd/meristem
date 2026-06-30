@@ -63,7 +63,7 @@ const approvalActionResponseSchema = t.Object({
 })
 
 /** China 区域 profile 版本常量，用于判断 enable/disable 权限方向 */
-const CHINA_PROFILE_VERSION = 'm-net-cn@0.1.0'
+const CHINA_PROFILE_VERSION = 'm-net-cn@0.3.0'
 
 /**
  * Core 公开读/写 facade 只做认证、授权与错误收敛；真实数据与状态仍由 M-Policy/M-Net 公共 HTTP API 拥有。
@@ -117,7 +117,7 @@ export function approvalProfileFacadeRoutes(deps: CoreDeps) {
       .get(
         '/api/v0/network-profiles',
         async ({ headers }) => {
-          return runFacadeRead(deps, {
+          const response = await runFacadeRead(deps, {
             headers,
             action: deps.networkProfileReader.requiredPermission,
             resource: 'network-profiles',
@@ -127,6 +127,7 @@ export function approvalProfileFacadeRoutes(deps: CoreDeps) {
                 correlationId: auth.correlationId
               })
           })
+          return response
         },
         {
           response: protectedResponse(networkProfileListResponseSchema, { 503: apiErrorSchema }),
@@ -136,7 +137,7 @@ export function approvalProfileFacadeRoutes(deps: CoreDeps) {
       .get(
         '/api/v0/network-profiles/:profileVersion',
         async ({ params, headers }) => {
-          return runFacadeRequiredRead(deps, {
+          const response = await runFacadeRequiredRead(deps, {
             headers,
             action: deps.networkProfileReader.requiredPermission,
             resource: `network-profile:${params.profileVersion}`,
@@ -147,6 +148,7 @@ export function approvalProfileFacadeRoutes(deps: CoreDeps) {
                 correlationId: auth.correlationId
               })
           })
+          return response
         },
         {
           params: t.Object({ profileVersion: t.String({ minLength: 1 }) }),

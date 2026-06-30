@@ -4,7 +4,8 @@ const actorIdSchema = t.Union([
   t.Literal('viewer'),
   t.Literal('operator'),
   t.Literal('admin'),
-  t.Literal('security-admin')
+  t.Literal('security-admin'),
+  t.Literal('break-glass-reviewer')
 ])
 
 export const policyApprovalSchema = t.Object({
@@ -63,38 +64,79 @@ export const approvalDetailResponseSchema = t.Object({
   votes: t.Array(policyApprovalVoteSchema)
 })
 
-const mNetSecretRefFieldSchema = t.Object({
-  secretRefId: t.String()
+const mNetInfrastructureConfigRefSchema = t.Object({
+  configRef: t.String()
 })
 
-const mNetRuntimeConfigSchema = t.Object({
-  wstunnelRelay: t.Optional(t.Union([mNetSecretRefFieldSchema, t.Undefined()])),
-  tcpInterconnect: t.Optional(t.Union([mNetSecretRefFieldSchema, t.Undefined()])),
-  udpPath: t.Optional(t.Union([mNetSecretRefFieldSchema, t.Undefined()])),
-  headscaleEndpoint: t.Optional(t.Union([mNetSecretRefFieldSchema, t.Undefined()])),
-  routingTable: t.Optional(t.Union([mNetSecretRefFieldSchema, t.Undefined()]))
+const mNetRegionalProfileCapabilitiesSchema = t.Object({
+  controlPlaneOnly: t.Literal(false),
+  managementPlaneExcluded: t.Literal(true),
+  realNetBirdSidecar: t.Literal(true),
+  signalConfigRef: mNetInfrastructureConfigRefSchema,
+  relayConfigRef: mNetInfrastructureConfigRefSchema,
+  stunConfigRef: mNetInfrastructureConfigRefSchema,
+  sidecarDesiredState: t.Union([
+    t.Literal('install'),
+    t.Literal('configure'),
+    t.Literal('start'),
+    t.Literal('drain'),
+    t.Literal('stop')
+  ]),
+  sidecarCredentialRef: t.Object({
+    provider: t.String(),
+    keyPath: t.String(),
+    version: t.Number()
+  }),
+  sidecarCredentialStatus: t.Union([
+    t.Literal('missing'),
+    t.Literal('pending'),
+    t.Literal('ready'),
+    t.Literal('expired'),
+    t.Literal('rotation_required')
+  ]),
+  sidecarHealthStatus: t.Union([
+    t.Literal('unknown'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('unhealthy')
+  ])
+})
+
+const mNetForcedTcpRelaySelectorSchema = t.Object({
+  enabled: t.Literal(true),
+  selectorOwnership: t.Union([t.Literal('operator'), t.Literal('policy')]),
+  selector: t.Union([
+    t.Object({ selectorType: t.Literal('all-leaf-nodes'), includeAllLeafNodes: t.Literal(true) }),
+    t.Object({ selectorType: t.Literal('node-ids'), nodeIds: t.Array(t.String()) }),
+    t.Object({ selectorType: t.Literal('label-selector'), matchLabels: t.Record(t.String(), t.String()) })
+  ]),
+  routeClass: t.Union([t.Literal('standard'), t.Literal('cn-resident'), t.Literal('forced-tcp-relay')]),
+  operatorOverrideAllowed: t.Boolean(),
+  operatorOverrideActive: t.Boolean(),
+  operatorOverrideActor: t.Optional(actorIdSchema),
+  operatorOverrideReason: t.Optional(t.String()),
+  policyDecision: t.Object({
+    decisionId: t.String(),
+    source: t.Literal('m-policy'),
+    outcome: t.Union([t.Literal('allow'), t.Literal('deny'), t.Literal('conditional')]),
+    reason: t.String()
+  }),
+  auditEvidence: t.Object({
+    auditId: t.String(),
+    eventId: t.String(),
+    eventSubject: t.Literal('mnet.forced_relay.change.v0')
+  })
 })
 
 export const mNetRegionalProfileSchema = t.Object({
-  profileVersion: t.Union([
-    t.Literal('m-net-cn@0.1.0'),
-    t.Literal('m-net-cn@0.2.0'),
-    t.Literal('m-net-default@0.1.0')
-  ]),
+  profileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
   region: t.Union([t.Literal('cn'), t.Literal('default')]),
   displayName: t.String(),
-  schemaVersion: t.Union([t.Literal('mnet-profile@0.1.0'), t.Literal('mnet-profile@0.2.0')]),
+  schemaVersion: t.Literal('mnet-profile@0.3.0'),
   status: t.Union([t.Literal('available'), t.Literal('deprecated')]),
   rules: t.Record(t.String(), t.Unknown()),
-  capabilities: t.Object({
-    realWstunnelRelay: t.Literal(false),
-    realTcpInterconnect: t.Literal(false),
-    realUdpPathSwitching: t.Literal(false),
-    controlPlaneOnly: t.Boolean(),
-    realWireGuardTunnel: t.Optional(t.Union([t.Boolean(), t.Undefined()])),
-    realRelayFallback: t.Optional(t.Union([t.Boolean(), t.Undefined()]))
-  }),
-  runtimeConfig: t.Optional(t.Union([mNetRuntimeConfigSchema, t.Undefined()]))
+  capabilities: mNetRegionalProfileCapabilitiesSchema,
+  forcedTcpRelaySelector: t.Optional(mNetForcedTcpRelaySelectorSchema)
 })
 
 export const networkProfileListResponseSchema = t.Object({

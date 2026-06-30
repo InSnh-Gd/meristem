@@ -104,6 +104,17 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     ...networkProfilePermissions,
     ...extensionPermissions,
     ...projectionPermissions
+  ],
+  'break-glass-reviewer': [
+    'core:read',
+    'timeline:read',
+    'log:read-full',
+    'audit:read',
+    'policy:approval-read',
+    'policy:approval-approve',
+    'policy:approval-reject',
+    'network:read',
+    'network:profile-read'
   ]
 }
 

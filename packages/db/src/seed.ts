@@ -239,24 +239,32 @@ await sql.begin(async tx => {
   await tx`
     insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
     values (
-      'm-net-default@0.1.0',
-      'm-net-default@0.1.0',
-      'global',
-      'mnet-profile@0.1.0',
+      'm-net@0.3.0',
+      'm-net@0.3.0',
+      'default',
+      'mnet-profile@0.3.0',
       ${JSON.stringify({
-        profileVersion: 'm-net-default@0.1.0',
-        region: 'global',
-        displayName: 'M-Net Default',
-        schemaVersion: 'mnet-profile@0.1.0',
+        profileVersion: 'm-net@0.3.0',
+        region: 'default',
+        displayName: 'M-Net Default (v0.3)',
+        schemaVersion: 'mnet-profile@0.3.0',
         status: 'available',
-        rules: {
-          defaultInterconnect: { mode: 'placeholder' }
-        },
+        rules: {},
         capabilities: {
-          realWstunnelRelay: false,
-          realTcpInterconnect: false,
-          realUdpPathSwitching: false,
-          controlPlaneOnly: false
+          controlPlaneOnly: false,
+          managementPlaneExcluded: true,
+          realNetBirdSidecar: true,
+          signalConfigRef: { configRef: 'signal/default' },
+          relayConfigRef: { configRef: 'relay/default' },
+          stunConfigRef: { configRef: 'stun/default' },
+          sidecarDesiredState: 'start',
+          sidecarCredentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/sidecar',
+            version: 1
+          },
+          sidecarCredentialStatus: 'ready',
+          sidecarHealthStatus: 'healthy'
         }
       })}::jsonb,
       'available',
@@ -275,27 +283,51 @@ await sql.begin(async tx => {
   await tx`
     insert into mnet_profile_definitions (id, profile_version, region, schema_version, definition, status, created_at, updated_at)
     values (
-      'm-net-cn@0.1.0',
-      'm-net-cn@0.1.0',
+      'm-net-cn@0.3.0',
+      'm-net-cn@0.3.0',
       'cn',
-      'mnet-profile@0.1.0',
+      'mnet-profile@0.3.0',
       ${JSON.stringify({
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         region: 'cn',
-        displayName: 'M-Net CN',
-        schemaVersion: 'mnet-profile@0.1.0',
+        displayName: 'M-Net CN (v0.3)',
+        schemaVersion: 'mnet-profile@0.3.0',
         status: 'available',
-        rules: {
-          mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' },
-          asianStemToCore: { interconnect: 'tcp_required' },
-          asianStemWstunnel: { allowed: true, mode: 'placeholder' },
-          publicWstunnelFallback: { configurable: true, defaultEnabled: false }
-        },
+        rules: {},
         capabilities: {
-          realWstunnelRelay: false,
-          realTcpInterconnect: false,
-          realUdpPathSwitching: false,
-          controlPlaneOnly: true
+          controlPlaneOnly: false,
+          managementPlaneExcluded: true,
+          realNetBirdSidecar: true,
+          signalConfigRef: { configRef: 'signal/cn-primary' },
+          relayConfigRef: { configRef: 'relay/cn-primary' },
+          stunConfigRef: { configRef: 'stun/cn-primary' },
+          sidecarDesiredState: 'start',
+          sidecarCredentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/cn-sidecar',
+            version: 1
+          },
+          sidecarCredentialStatus: 'ready',
+          sidecarHealthStatus: 'healthy'
+        },
+        forcedTcpRelaySelector: {
+          enabled: true,
+          selectorOwnership: 'policy',
+          selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+          routeClass: 'forced-tcp-relay',
+          operatorOverrideAllowed: false,
+          operatorOverrideActive: false,
+          policyDecision: {
+            decisionId: 'seed',
+            source: 'm-policy',
+            outcome: 'allow',
+            reason: 'seed'
+          },
+          auditEvidence: {
+            auditId: 'seed',
+            eventId: 'seed',
+            eventSubject: 'mnet.forced_relay.change.v0'
+          }
         }
       })}::jsonb,
       'available',

@@ -4,7 +4,6 @@ import { err, ok } from '../../../../packages/common/src/result.ts'
 import type {
   ApprovalDetailResponse,
   ApprovalListResponse,
-  MNetRegionalProfile
 } from '../../../../packages/contracts/src/index.ts'
 import {
   ApprovalDetailResponseSchema,
@@ -16,6 +15,7 @@ import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import { serviceErrorFromHttpResponse } from '../effect-helpers.ts'
 import type {
   ApprovalReaderPort,
+  NetworkProfileDto,
   NetworkProfileReaderPort,
   ReaderContext
 } from '../types/approval-profile-readers.ts'
@@ -24,6 +24,8 @@ type PublicReaderAdapterOptions = {
   baseUrl?: string
   fetcher?: PublicReaderFetch
 }
+
+type DecodedProfile = typeof MNetProfileDetailResponseSchema.Type
 
 export type PublicReaderFetch = (
   input: string | URL | Request,
@@ -117,42 +119,100 @@ function asApprovalDetail(value: unknown): ApprovalDetailResponse | null {
     : null
 }
 
-function asProfileList(value: unknown): { profiles: MNetRegionalProfile[] } | null {
+function asProfileList(value: unknown): { profiles: NetworkProfileDto[] } | null {
   const decoded = Schema.decodeUnknownEither(MNetProfileListResponseSchema)(value)
   return Either.isRight(decoded)
     ? {
-        profiles: decoded.right.profiles.map(profile => ({
-          profileVersion: profile.profileVersion,
-          region: profile.region,
-          displayName: profile.displayName,
-          schemaVersion: profile.schemaVersion,
-          status: profile.status,
-          rules: { ...profile.rules },
-          capabilities: { ...profile.capabilities },
-          ...(profile.runtimeConfig !== undefined
-            ? { runtimeConfig: { ...profile.runtimeConfig } }
-            : {})
-        }))
+        profiles: decoded.right.profiles.map(cloneProfile)
       }
     : null
 }
 
-function asProfileDetail(value: unknown): MNetRegionalProfile | null {
+function asProfileDetail(value: unknown): NetworkProfileDto | null {
   const decoded = Schema.decodeUnknownEither(MNetProfileDetailResponseSchema)(value)
-  return Either.isRight(decoded)
-    ? {
-        profileVersion: decoded.right.profileVersion,
-        region: decoded.right.region,
-        displayName: decoded.right.displayName,
-        schemaVersion: decoded.right.schemaVersion,
-        status: decoded.right.status,
-        rules: { ...decoded.right.rules },
-        capabilities: { ...decoded.right.capabilities },
-        ...(decoded.right.runtimeConfig !== undefined
-          ? { runtimeConfig: { ...decoded.right.runtimeConfig } }
-          : {})
+  return Either.isRight(decoded) ? cloneProfile(decoded.right) : null
+}
+
+function cloneProfile(profile: DecodedProfile): NetworkProfileDto {
+  const capabilities: NetworkProfileDto['capabilities'] = {
+    controlPlaneOnly: false,
+    managementPlaneExcluded: true,
+    realNetBirdSidecar: true,
+    signalConfigRef: { configRef: profile.capabilities.signalConfigRef.configRef },
+    relayConfigRef: { configRef: profile.capabilities.relayConfigRef.configRef },
+    stunConfigRef: { configRef: profile.capabilities.stunConfigRef.configRef },
+    sidecarDesiredState: profile.capabilities.sidecarDesiredState,
+    sidecarCredentialRef: {
+      provider: profile.capabilities.sidecarCredentialRef.provider,
+      keyPath: profile.capabilities.sidecarCredentialRef.keyPath,
+      version: profile.capabilities.sidecarCredentialRef.version ?? 1
+    },
+    sidecarCredentialStatus: profile.capabilities.sidecarCredentialStatus,
+    sidecarHealthStatus: profile.capabilities.sidecarHealthStatus
+  }
+
+  if (profile.profileVersion === 'm-net-cn@0.3.0') {
+    const forcedTcpRelaySelector = {
+      enabled: true as const,
+      selectorOwnership: profile.forcedTcpRelaySelector.selectorOwnership,
+      selector:
+        profile.forcedTcpRelaySelector.selector.selectorType === 'all-leaf-nodes'
+          ? {
+              selectorType: 'all-leaf-nodes' as const,
+              includeAllLeafNodes: true as const
+            }
+          : profile.forcedTcpRelaySelector.selector.selectorType === 'node-ids'
+            ? {
+                selectorType: 'node-ids' as const,
+                nodeIds: [...profile.forcedTcpRelaySelector.selector.nodeIds]
+              }
+            : {
+                selectorType: 'label-selector' as const,
+                matchLabels: { ...profile.forcedTcpRelaySelector.selector.matchLabels }
+              },
+      routeClass: profile.forcedTcpRelaySelector.routeClass,
+      operatorOverrideAllowed: profile.forcedTcpRelaySelector.operatorOverrideAllowed,
+      operatorOverrideActive: profile.forcedTcpRelaySelector.operatorOverrideActive,
+      ...(profile.forcedTcpRelaySelector.operatorOverrideActor !== undefined
+        ? { operatorOverrideActor: profile.forcedTcpRelaySelector.operatorOverrideActor }
+        : {}),
+      ...(profile.forcedTcpRelaySelector.operatorOverrideReason !== undefined
+        ? { operatorOverrideReason: profile.forcedTcpRelaySelector.operatorOverrideReason }
+        : {}),
+      policyDecision: {
+        decisionId: profile.forcedTcpRelaySelector.policyDecision.decisionId,
+        source: 'm-policy' as const,
+        outcome: profile.forcedTcpRelaySelector.policyDecision.outcome,
+        reason: profile.forcedTcpRelaySelector.policyDecision.reason
+      },
+      auditEvidence: {
+        auditId: profile.forcedTcpRelaySelector.auditEvidence.auditId,
+        eventId: profile.forcedTcpRelaySelector.auditEvidence.eventId,
+        eventSubject: 'mnet.forced_relay.change.v0' as const
       }
-    : null
+    }
+
+    return {
+      profileVersion: profile.profileVersion,
+      region: profile.region,
+      displayName: profile.displayName,
+      schemaVersion: profile.schemaVersion,
+      status: profile.status,
+      rules: { ...profile.rules },
+      capabilities,
+      forcedTcpRelaySelector
+    }
+  }
+
+  return {
+    profileVersion: profile.profileVersion,
+    region: profile.region,
+    displayName: profile.displayName,
+    schemaVersion: profile.schemaVersion,
+    status: profile.status,
+    rules: { ...profile.rules },
+    capabilities
+  }
 }
 
 /**

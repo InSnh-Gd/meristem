@@ -95,10 +95,10 @@ export function createNetworkProfileWriterPort(
         return err({ code: 'feature.unavailable', message: 'profile features not available' })
       }
       // 根据 profileVersion 决定返回 enable 或 disable 响应
-      if (body.profileVersion === 'm-net-default@0.1.0') {
+      if (body.profileVersion === 'm-net@0.3.0') {
         return ok({
           status: 'disabled',
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: body.profileVersion,
           correlationId: 'correlation-write-test-disable-1'
         })
       }

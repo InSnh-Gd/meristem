@@ -28,6 +28,7 @@ export const auditLogSchema = t.Object({
     t.Literal('operator'),
     t.Literal('admin'),
     t.Literal('security-admin'),
+    t.Literal('break-glass-reviewer'),
     t.Literal('system')
   ]),
   action: t.String(),

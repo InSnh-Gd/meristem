@@ -1,6 +1,7 @@
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type {
   ApprovalReaderPort,
+  NetworkProfileDto,
   NetworkProfileReaderPort
 } from '../types/approval-profile-readers.ts'
 import type { InMemoryCoreTestingHelpers } from './shared.ts'
@@ -21,33 +22,75 @@ const defaultApproval = {
   updatedAt: now
 }
 
-const defaultProfiles = [
+const defaultProfiles: NetworkProfileDto[] = [
   {
-    profileVersion: 'm-net-default@0.1.0' as const,
-    region: 'default' as const,
-    displayName: 'M-Net Default',
-    schemaVersion: 'mnet-profile@0.1.0' as const,
+    profileVersion: 'm-net@0.3.0',
+    region: 'default',
+    displayName: 'M-Net Default v0.3',
+    schemaVersion: 'mnet-profile@0.3.0',
     status: 'available' as const,
     rules: {},
     capabilities: {
-      realWstunnelRelay: false as const,
-      realTcpInterconnect: false as const,
-      realUdpPathSwitching: false as const,
-      controlPlaneOnly: false
+      controlPlaneOnly: false,
+      managementPlaneExcluded: true,
+      realNetBirdSidecar: true,
+      signalConfigRef: { configRef: 'signal/default' },
+      relayConfigRef: { configRef: 'relay/default' },
+      stunConfigRef: { configRef: 'stun/default' },
+      sidecarDesiredState: 'start',
+      sidecarCredentialRef: {
+        provider: 'vault-kv-v2',
+        keyPath: 'secret/data/mnet/sidecar',
+        version: 1
+      },
+      sidecarCredentialStatus: 'ready',
+      sidecarHealthStatus: 'healthy'
     }
   },
   {
-    profileVersion: 'm-net-cn@0.1.0' as const,
-    region: 'cn' as const,
-    displayName: 'M-Net CN',
-    schemaVersion: 'mnet-profile@0.1.0' as const,
-    status: 'available' as const,
-    rules: { residency: 'cn-only' },
+    profileVersion: 'm-net-cn@0.3.0',
+    region: 'cn',
+    displayName: 'M-Net CN v0.3',
+    schemaVersion: 'mnet-profile@0.3.0',
+    status: 'available',
+    rules: {
+      residency: 'cn-only',
+      mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' }
+    },
     capabilities: {
-      realWstunnelRelay: false as const,
-      realTcpInterconnect: false as const,
-      realUdpPathSwitching: false as const,
-      controlPlaneOnly: true
+      controlPlaneOnly: false,
+      managementPlaneExcluded: true,
+      realNetBirdSidecar: true,
+      signalConfigRef: { configRef: 'signal/cn-primary' },
+      relayConfigRef: { configRef: 'relay/cn-primary' },
+      stunConfigRef: { configRef: 'stun/cn-primary' },
+      sidecarDesiredState: 'start',
+      sidecarCredentialRef: {
+        provider: 'vault-kv-v2',
+        keyPath: 'secret/data/mnet/cn-sidecar',
+        version: 1
+      },
+      sidecarCredentialStatus: 'ready',
+      sidecarHealthStatus: 'healthy'
+    },
+    forcedTcpRelaySelector: {
+      enabled: true,
+      selectorOwnership: 'policy',
+      selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+      routeClass: 'forced-tcp-relay',
+      operatorOverrideAllowed: false,
+      operatorOverrideActive: false,
+      policyDecision: {
+        decisionId: 'decision-core-facade-cn',
+        source: 'm-policy',
+        outcome: 'allow',
+        reason: 'fixture'
+      },
+      auditEvidence: {
+        auditId: 'audit-core-facade-cn',
+        eventId: 'event-core-facade-cn',
+        eventSubject: 'mnet.forced_relay.change.v0'
+      }
     }
   }
 ]
