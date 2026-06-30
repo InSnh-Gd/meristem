@@ -34,7 +34,7 @@ export function createNetworkService({
     // 使用全局默认 profile，如果未配置则使用内置默认
     const defaultProfileVersion = globalDefaultsStore
       ? await globalDefaultsStore.getDefaultProfileVersion()
-      : 'm-net-default@0.1.0'
+      : 'm-net@0.3.0'
 
     const now = new Date()
     const network: typeof networks.$inferInsert = {

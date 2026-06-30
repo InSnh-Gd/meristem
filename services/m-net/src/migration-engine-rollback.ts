@@ -5,7 +5,103 @@ import {
   type MigrationEngineDeps,
   storeMigration
 } from './migration-engine-pure.ts'
-import { rollbackMNetProfile } from './profile-migration.ts'
+import {
+  rollbackMNetProfile,
+  type MigrationProfileCandidate,
+  type MigrationNetworkState
+} from './profile-migration.ts'
+
+function toRollbackProfileCandidate(profileVersion: string): MigrationProfileCandidate {
+  if (profileVersion === 'm-net-cn@0.3.0') {
+    return {
+      profileVersion: 'm-net-cn@0.3.0',
+      region: 'cn',
+      displayName: 'M-Net CN (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
+      status: 'available',
+      rules: {
+        mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' },
+        residency: 'cn-only'
+      },
+      capabilities: {
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/cn-primary' },
+        relayConfigRef: { configRef: 'relay/cn-primary' },
+        stunConfigRef: { configRef: 'stun/cn-primary' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/cn-sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
+      },
+      forcedTcpRelaySelector: {
+        enabled: true,
+        selectorOwnership: 'policy',
+        selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+        routeClass: 'forced-tcp-relay',
+        operatorOverrideAllowed: false,
+        operatorOverrideActive: false,
+        policyDecision: {
+          decisionId: 'mnet-profile-migration',
+          source: 'm-policy',
+          outcome: 'allow',
+          reason: 'legacy CN profile migrated to NetBird sidecar profile'
+        },
+        auditEvidence: {
+          auditId: 'mnet-profile-migration',
+          eventId: 'mnet-profile-migration',
+          eventSubject: 'mnet.forced_relay.change.v0'
+        }
+      }
+    }
+  }
+
+  return {
+    profileVersion,
+    region: 'cn',
+    displayName: 'M-Net CN (legacy control plane)',
+    schemaVersion: 'mnet-profile@0.1.0',
+    status: 'available',
+    rules: {
+      mainlandNodeWithoutPublicAccess: { interconnect: 'wstunnel_relay' },
+      residency: 'cn-only'
+    },
+    capabilities: {
+      controlPlaneOnly: true,
+      realWstunnelRelay: false,
+      realTcpInterconnect: false,
+      realUdpPathSwitching: false
+    }
+  }
+}
+
+function toRollbackNetworkState(
+  networkId: string,
+  state: { profileVersion: string; status: string },
+  migrationStatus?: string
+): MigrationNetworkState {
+  return {
+    networkId,
+    profileVersion: state.profileVersion,
+    status: state.status === 'disabled' || state.status === 'enabled' ? state.status : 'enabled',
+    activeBreakGlass: false,
+    operationStatus: 'idle',
+    ...(migrationStatus === 'pending' || migrationStatus === 'applied'
+      ? {
+          desiredDataPlane: {
+            networkMapStatus: 'planned',
+            tunnelStatus: 'desired',
+            relayFallback: 'desired'
+          }
+        }
+      : {})
+  }
+}
 
 export async function rollbackNetwork(
   deps: MigrationEngineDeps,
@@ -22,9 +118,7 @@ export async function rollbackNetwork(
   const timestamp = new Date().toISOString()
   const state = await deps.profileStore.getNetworkState(input.networkId)
   const previousProfileVersion = input.snapshot.get(input.networkId) ?? LEGACY_CN_PROFILE_VERSION
-  const currentProfile = state ? await deps.profileStore.getDefinition(state.profileVersion) : null
-  const previousProfile = await deps.profileStore.getDefinition(previousProfileVersion)
-  if (!state || !currentProfile || !previousProfile) {
+  if (!state) {
     return migrationResult(
       input.networkId,
       input.operation.targetProfileVersion,
@@ -38,24 +132,9 @@ export async function rollbackNetwork(
   }
   const migration = await getStoredMigration(deps, input.networkId, input.operationId)
   const rollback = rollbackMNetProfile({
-    currentProfile,
-    currentNetwork: {
-      networkId: input.networkId,
-      profileVersion: state.profileVersion,
-      status: state.status === 'disabled' || state.status === 'enabled' ? state.status : 'enabled',
-      activeBreakGlass: false,
-      operationStatus: 'idle',
-      ...(migration?.status === 'pending' || migration?.status === 'applied'
-        ? {
-            desiredDataPlane: {
-              networkMapStatus: 'planned',
-              tunnelStatus: 'desired',
-              relayFallback: 'desired'
-            }
-          }
-        : {})
-    },
-    targetControlPlaneProfile: previousProfile,
+    currentProfile: toRollbackProfileCandidate(state.profileVersion),
+    currentNetwork: toRollbackNetworkState(input.networkId, state, migration?.status),
+    targetControlPlaneProfile: toRollbackProfileCandidate(previousProfileVersion),
     operationId: input.operationId,
     actor: input.actor,
     reason: input.reason ?? 'batch migration rollback',

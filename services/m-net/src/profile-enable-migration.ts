@@ -1,6 +1,7 @@
 import type {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   KnownNetworkState,
+  ProfileWriteBody,
   ProfileWorkflowFailure,
   ProfileWriteDeps
 } from './profile-workflow-types.ts'
@@ -9,7 +10,7 @@ import { CHINA_PROFILE_VERSION, profileWorkflowFailure } from './profile-workflo
 /**
  * enable 中国数据面 Profile 前的迁移处理：
  * 如果当前网络仍在使用旧版 China Profile（m-net-cn@0.1.0），
- * 通过迁移引擎升级到数据面 Profile（m-net-cn@0.2.0）。
+ * 通过迁移引擎升级到数据面 Profile（m-net-cn@0.3.0）。
  */
 export async function migrateLegacyCnProfileBeforeEnable(
   deps: ProfileWriteDeps,
@@ -17,7 +18,7 @@ export async function migrateLegacyCnProfileBeforeEnable(
     actor: string
     networkId: string
     state: KnownNetworkState
-    profileVersion: typeof CHINA_PROFILE_VERSION | typeof CHINA_DATA_PLANE_PROFILE_VERSION
+    profileVersion: Extract<ProfileWriteBody['profileVersion'], `m-net-cn@${string}`>
     reason: string
   }
 ): Promise<{ ok: true } | ProfileWorkflowFailure> {

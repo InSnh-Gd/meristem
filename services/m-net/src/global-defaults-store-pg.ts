@@ -25,7 +25,7 @@ async function ensureGlobalDefaultsRow(db: MeristemDb): Promise<void> {
     .insert(mnetGlobalDefaults)
     .values({
       id: defaultsRowId,
-      defaultProfileVersion: 'm-net-default@0.1.0',
+      defaultProfileVersion: 'm-net@0.3.0',
       switchState: 'idle',
       switchOperationId: null,
       updatedAt: new Date()
@@ -142,7 +142,7 @@ export function createPgGlobalDefaultsStore(
         .from(mnetGlobalDefaults)
         .where(eq(mnetGlobalDefaults.id, defaultsRowId))
         .limit(1)
-      return row?.defaultProfileVersion ?? 'm-net-default@0.1.0'
+      return row?.defaultProfileVersion ?? 'm-net@0.3.0'
     },
     async setDefaultProfileVersion(profileVersion: string) {
       await ensureGlobalDefaultsRow(db)
@@ -205,7 +205,7 @@ export function createPgGlobalDefaultsStore(
             snapshotRows.push({
               operationId,
               networkId,
-              previousProfileVersion: state?.profileVersion ?? 'm-net-default@0.1.0'
+                previousProfileVersion: state?.profileVersion ?? 'm-net@0.3.0'
             })
           }
         }

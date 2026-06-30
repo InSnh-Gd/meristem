@@ -19,19 +19,24 @@ import {
   releaseOperationLock
 } from './operation-locks.ts'
 import { transitionPartitionState } from './partition-state.ts'
-import { migrateMNetProfile } from './profile-migration.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
+  DEFAULT_PROFILE_VERSION,
   isProfileWorkflowFailure,
   type ProfileWorkflowFailure,
   type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
 
-/** 为 m-net-cn@0.2.0 执行持久化数据面编排。 */
+/** 为 m-net-cn@0.3.0 执行持久化数据面编排。 */
 export async function enableDataPlaneProfile(
   deps: DataPlaneDeps,
-  input: { actor: string; networkId: string; reason: string }
+  input: {
+    actor: string
+    networkId: string
+    reason: string
+    profileVersion?: typeof CHINA_DATA_PLANE_PROFILE_VERSION
+  }
 ): Promise<EnableDataPlaneSuccess | ProfileWorkflowFailure> {
   const correlationId = crypto.randomUUID()
   const auditWritten = await writeRequiredAudit(
@@ -79,7 +84,7 @@ export async function enableDataPlaneProfile(
     await deps.networkUpdater?.setProfileVersion(input.networkId, CHINA_DATA_PLANE_PROFILE_VERSION)
     await deps.profileStore.recordTransition({
       networkId: input.networkId,
-      fromVersion: 'm-net-default@0.1.0',
+      fromVersion: DEFAULT_PROFILE_VERSION,
       toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
       fromStatus: 'enabling',
       toStatus: 'enabled',
@@ -90,7 +95,7 @@ export async function enableDataPlaneProfile(
     await deps.dataPlane.profileMigrations.upsert({
       networkId: input.networkId,
       operationId: request.operationId,
-      fromVersion: 'm-net-cn@0.1.0',
+      fromVersion: DEFAULT_PROFILE_VERSION,
       toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
       status: 'applied',
       idempotencyKey: request.idempotencyKey ?? request.operationId,
@@ -303,61 +308,6 @@ export async function breakGlassFailClosed(
     return { operationId: request.operationId }
   } catch (error) {
     return asFailure(error)
-  }
-}
-
-/** 默认切到 0.2.0 时，对 0.1.0 网络执行幂等迁移记录与目标态推进。 */
-export async function autoMigrateCnDefaults(
-  deps: {
-    profileStore: NonNullable<ProfileWriteDeps['profileStore']>
-    dataPlane: import('./data-plane-store-types.ts').DataPlaneStores
-  },
-  actor: string
-): Promise<void> {
-  const states = await deps.profileStore.listNetworkStates()
-  for (const state of states) {
-    if (state.profileVersion !== 'm-net-cn@0.1.0') continue
-    const plan = migrateMNetProfile({
-      profile: {
-        profileVersion: 'm-net-cn@0.1.0',
-        schemaVersion: 'mnet-profile@0.1.0',
-        region: 'cn',
-        displayName: 'M-Net CN',
-        status: 'available',
-        rules: {},
-        capabilities: {
-          realWstunnelRelay: false,
-          realTcpInterconnect: false,
-          realUdpPathSwitching: false,
-          controlPlaneOnly: true
-        }
-      },
-      network: {
-        networkId: state.networkId,
-        profileVersion: state.profileVersion,
-        status: state.status === 'enabled' ? 'enabled' : 'disabled',
-        activeBreakGlass: false,
-        operationStatus: 'idle'
-      },
-      operationId: crypto.randomUUID(),
-      actor,
-      reason: 'default switch auto-migration'
-    })
-    if (plan.kind !== 'migrated') continue
-    await deps.profileStore.setNetworkState(state.networkId, {
-      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-      status: state.status
-    })
-    await deps.dataPlane.profileMigrations.upsert({
-      networkId: state.networkId,
-      operationId: plan.audit.operationId,
-      fromVersion: 'm-net-cn@0.1.0',
-      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-      status: 'planned',
-      idempotencyKey: `${state.networkId}:default-switch`,
-      startedAt: new Date().toISOString(),
-      auditMetadata: { actor, plannedEffects: plan.plannedEffects }
-    })
   }
 }
 

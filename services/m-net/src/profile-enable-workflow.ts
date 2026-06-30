@@ -6,6 +6,7 @@ import { canRequestEnable } from './profile-state-machine.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   type CHINA_PROFILE_VERSION,
+  type ProfileWriteBody,
   isProfileWorkflowFailure,
   type KnownNetworkState,
   type ProfileWorkflowFailure,
@@ -20,7 +21,7 @@ export async function requestEnableProfile(
     actor: string
     networkId: string
     state: KnownNetworkState
-    profileVersion: typeof CHINA_PROFILE_VERSION | typeof CHINA_DATA_PLANE_PROFILE_VERSION
+    profileVersion: Extract<ProfileWriteBody['profileVersion'], `m-net-cn@${string}`>
     reason: string
   }
 ): Promise<
@@ -49,10 +50,7 @@ export async function requestEnableProfile(
     )
   }
 
-  if (
-    input.profileVersion === CHINA_DATA_PLANE_PROFILE_VERSION &&
-    policyResult.result === 'allow'
-  ) {
+  if (policyResult.result === 'allow') {
     const migrated = await migrateLegacyCnProfileBeforeEnable(deps, input)
     if (isProfileWorkflowFailure(migrated)) return migrated
     if (!deps.listMembers) {
@@ -72,12 +70,13 @@ export async function requestEnableProfile(
       ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
     })
     if (isProfileWorkflowFailure(dataPlaneDeps)) return dataPlaneDeps
-    return enableDataPlaneProfile(dataPlaneDeps, {
-      actor: input.actor,
-      networkId: input.networkId,
-      reason: input.reason
-    })
-  }
+      return enableDataPlaneProfile(dataPlaneDeps, {
+        actor: input.actor,
+        networkId: input.networkId,
+        reason: input.reason,
+        profileVersion: input.profileVersion as typeof CHINA_DATA_PLANE_PROFILE_VERSION | 'm-net-cn@0.3.0'
+      })
+    }
 
   const pending = await createPendingApprovalFlow(deps, {
     actor: input.actor,

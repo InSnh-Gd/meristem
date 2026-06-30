@@ -1,12 +1,18 @@
 import { Elysia, t } from 'elysia'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
-import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type {
+  NetworkMapFromSchema,
+  NodeAgentRuntimeDesiredSidecar
+} from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
+import {
+  externalMigrationRequiredApiError,
+  isMigrationRequiredFailure
+} from './migration-required-support.ts'
 import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
 import { externalApiError } from './route-helpers.ts'
 import {
   externalWriteErrorResponses,
-  latestNetworkMapSchema,
   nodeIdParamsSchema,
   nodeKeyRegistrationBodySchema,
   nodeKeyRegistrationResponseSchema
@@ -16,7 +22,11 @@ type NodeRuntimeContext = {
   nodeRuntime: NonNullable<MNetAppDeps['nodeRuntime']>
 }
 
-function toLatestNetworkMapResponse(map: NetworkMapFromSchema) {
+function toLatestNetworkMapResponse(input: {
+  map: NetworkMapFromSchema
+  sidecar: NodeAgentRuntimeDesiredSidecar
+}) {
+  const { map, sidecar } = input
   return {
     map: {
       profileVersion: map.profileVersion,
@@ -51,6 +61,25 @@ function toLatestNetworkMapResponse(map: NetworkMapFromSchema) {
         publicKey: map.signatureMetadata.publicKey,
         value: map.signatureMetadata.value
       }
+    },
+    sidecar: {
+      signalConfigRef: { configRef: sidecar.signalConfigRef.configRef },
+      relayConfigRef: { configRef: sidecar.relayConfigRef.configRef },
+      stunConfigRef: { configRef: sidecar.stunConfigRef.configRef },
+      sidecarCredentialRef: {
+        provider: sidecar.sidecarCredentialRef.provider,
+        keyPath: sidecar.sidecarCredentialRef.keyPath,
+        ...(typeof sidecar.sidecarCredentialRef.version === 'number'
+          ? { version: sidecar.sidecarCredentialRef.version }
+          : {}),
+        ...(sidecar.sidecarCredentialRef.metadata
+          ? { metadata: { ...sidecar.sidecarCredentialRef.metadata } }
+          : {})
+      },
+      desiredState: sidecar.desiredState,
+      credentialStatus: sidecar.credentialStatus,
+      healthStatus: sidecar.healthStatus,
+      ...(sidecar.configHash ? { configHash: sidecar.configHash } : {})
     }
   }
 }
@@ -102,16 +131,19 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
         }
 
         const result = await context.nodeRuntime.fetchLatestNetworkMap(params.nodeId)
-        if (isProfileWorkflowFailure(result)) {
+        if ('kind' in result) {
+          if (isProfileWorkflowFailure(result) && isMigrationRequiredFailure(result)) {
+            return externalMigrationRequiredApiError(set, result.status, result.error.migration)
+          }
           return externalApiError(set, result.status, result.error.code, result.error.message)
         }
 
-        return toLatestNetworkMapResponse(result.map)
+        return toLatestNetworkMapResponse(result)
       },
       {
         params: nodeIdParamsSchema,
         response: {
-          200: t.Object({ map: latestNetworkMapSchema }),
+          200: t.Any(),
           401: externalWriteErrorResponses[401],
           404: externalWriteErrorResponses[404],
           409: externalWriteErrorResponses[409],
@@ -137,7 +169,10 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
           createdAt: body.createdAt,
           ...(body.endpoint ? { endpoint: body.endpoint } : {})
         })
-        if (isProfileWorkflowFailure(result)) {
+        if ('kind' in result) {
+          if (isProfileWorkflowFailure(result) && isMigrationRequiredFailure(result)) {
+            return externalMigrationRequiredApiError(set, result.status, result.error.migration)
+          }
           return externalApiError(set, result.status, result.error.code, result.error.message)
         }
 

@@ -11,8 +11,30 @@ import {
   requireSwitchOperationResult,
   setGlobalDefaultProfile
 } from './global-defaults-support.ts'
+import { buildMigrationReport } from './migration-required-support.ts'
 import { CHINA_DATA_PLANE_PROFILE_VERSION } from './mnet-dataplane-workflows.ts'
 import { externalApiError } from './route-helpers.ts'
+import { externalReadErrorResponses } from './route-schemas.ts'
+
+function toMigrationReportResponse(report: Awaited<ReturnType<typeof buildMigrationReport>>) {
+  return {
+    status: report.status,
+    generatedAt: report.generatedAt,
+    items: report.items.map(item => ({
+      resourceKind: item.resourceKind,
+      resourceId: item.resourceId,
+      migration: {
+        code: item.migration.code,
+        message: item.migration.message,
+        targetProfileVersion: item.migration.targetProfileVersion,
+        rebuildGuidanceKey: item.migration.rebuildGuidanceKey,
+        affectedProfileIds: [...item.migration.affectedProfileIds],
+        affectedNodeIds: [...item.migration.affectedNodeIds],
+        reasonCode: item.migration.reasonCode
+      }
+    }))
+  }
+}
 
 /**
  * 全局默认 Profile 与批量 switch 公开 REST API。
@@ -21,6 +43,7 @@ import { externalApiError } from './route-helpers.ts'
 export function createGlobalDefaultsRoutes(
   deps: Pick<
     MNetAppDeps,
+    | 'db'
     | 'globalDefaultsStore'
     | 'migrationEngine'
     | 'policyAuthorize'
@@ -57,6 +80,50 @@ export function createGlobalDefaultsRoutes(
           switchOperationId: switchState.switchOperationId
         }
       })
+      .get(
+        '/networks/profile-switches/report',
+        async ({ headers, set }) => {
+          const actor = await requireGlobalDefaultsActor(headers, set)
+          if (isGlobalDefaultsFailure(actor)) {
+            return externalApiError(set, actor.status, actor.error.code, actor.error.message)
+          }
+          const defaultsDeps = requireDefaultsReadDeps(deps, set)
+          if (isGlobalDefaultsFailure(defaultsDeps)) {
+            return externalApiError(
+              set,
+              defaultsDeps.status,
+              defaultsDeps.error.code,
+              defaultsDeps.error.message
+            )
+          }
+          if (!deps.db) {
+            return externalApiError(
+              set,
+              503,
+              'feature.unavailable',
+              'migration report is not available'
+            )
+          }
+          if (!deps.profileStore) {
+            return externalApiError(
+              set,
+              503,
+              'feature.unavailable',
+              'migration report is not available'
+            )
+          }
+
+          return toMigrationReportResponse(
+            await buildMigrationReport({ db: deps.db, profileStore: deps.profileStore })
+          )
+        },
+        {
+          response: {
+            200: t.Any(),
+            ...externalReadErrorResponses
+          }
+        }
+      )
       .put(
         '/networks/profile-defaults',
         async ({ body, headers, set }) => {

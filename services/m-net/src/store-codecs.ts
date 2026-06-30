@@ -139,7 +139,7 @@ export function asSuspendedStatus(value: string): NetworkSuspendedOperationStatu
  * 校验并收窄 actor 字段；未知 actor 直接拒绝解码。
  */
 export function asActorId(value: string): ActorId | null {
-  return ['viewer', 'operator', 'admin', 'security-admin'].includes(value)
+  return ['viewer', 'operator', 'admin', 'security-admin', 'break-glass-reviewer'].includes(value)
     ? (value as ActorId)
     : null
 }
@@ -148,16 +148,23 @@ export function asActorId(value: string): ActorId | null {
  * 校验并收窄 M-Net profile 版本。
  */
 export function asProfileVersion(value: string): MNetProfileVersion | null {
-  return ['m-net-default@0.1.0', 'm-net-cn@0.1.0', 'm-net-cn@0.2.0'].includes(value)
+  return [
+    'm-net-default@0.1.0',
+    'm-net-cn@0.1.0',
+    'm-net-cn@0.2.0',
+    'm-net@0.3.0',
+    'm-net-cn@0.3.0'
+  ].includes(value)
     ? (value as MNetProfileVersion)
     : null
 }
 
 /**
  * 校验并收窄 relay 类型。
+ * legacy wstunnel — v0.2 data-plane types preserved for stored data migration compat.
  */
 export function asRelayType(value: string): MNetRelayType | null {
-  return ['direct', 'wstunnel', 'wstunnel_fallback'].includes(value)
+  return ['direct', 'wstunnel', 'wstunnel_fallback'].includes(value) // legacy v0.2 wstunnel types preserved in stored records
     ? (value as MNetRelayType)
     : null
 }

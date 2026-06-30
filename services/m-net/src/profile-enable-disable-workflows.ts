@@ -2,6 +2,7 @@ import type { MNetAppDeps } from './deps.ts'
 import { requestDisableWithApproval } from './profile-approval-workflow.ts'
 import { disableImmediately } from './profile-disable-workflow.ts'
 import { requestEnableProfile } from './profile-enable-workflow.ts'
+import { requireSupportedProfileVersion } from './migration-required-support.ts'
 import { canDisable } from './profile-state-machine.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
@@ -16,6 +17,12 @@ import {
   type RouteSet,
   toKnownState
 } from './profile-workflow-types.ts'
+
+function isEnableTarget(
+  profileVersion: ProfileWriteBody['profileVersion']
+): profileVersion is 'm-net-cn@0.3.0' {
+  return profileVersion === CHINA_PROFILE_VERSION
+}
 
 /**
  * 只读 profile 依赖守卫；返回 tagged failure 而非直接操作 Elysia response。
@@ -92,10 +99,14 @@ export async function requestNetworkProfileChange(
     )
   }
 
-  if (
-    input.body.profileVersion === CHINA_PROFILE_VERSION ||
-    input.body.profileVersion === CHINA_DATA_PLANE_PROFILE_VERSION
-  ) {
+  const compatibility = await requireSupportedProfileVersion(
+    deps.profileStore,
+    input.body.profileVersion,
+    state.profileVersion
+  )
+  if (compatibility !== true) return compatibility
+
+  if (isEnableTarget(input.body.profileVersion)) {
     return requestEnableProfile(deps, {
       actor: input.actor,
       networkId: input.networkId,
@@ -124,7 +135,7 @@ export async function requestNetworkProfileChange(
   const disablePolicy = deps.profileDisablePolicy
     ? await deps.profileDisablePolicy.getPolicy()
     : null
-  const disableProfileVersion: typeof DEFAULT_PROFILE_VERSION = DEFAULT_PROFILE_VERSION
+  const disableProfileVersion = DEFAULT_PROFILE_VERSION
 
   const result = disablePolicy?.requireApproval
     ? await requestDisableWithApproval(deps, {

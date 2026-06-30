@@ -57,66 +57,79 @@ export type ProfileTransitionRecord = {
 
 /**
  * 内置默认 Profile 种子定义。
- * m-net-default@0.1.0：controlPlaneOnly: false 的基线 Profile。
- * m-net-cn@0.1.0：controlPlaneOnly: true 的区域控制面 Profile。
- * m-net-cn@0.2.0：WireGuard + wstunnel relay 的生产数据面 Profile。
+ * 默认内存 seed 仅保留 v0.3 active profile，legacy decode/migration 通过专用兼容路径处理。
  */
 const DEFAULT_PROFILES: MNetRegionalProfile[] = [
   {
-    profileVersion: 'm-net-default@0.1.0',
+    profileVersion: 'm-net@0.3.0',
     region: 'default',
-    displayName: 'M-Net Default',
-    schemaVersion: 'mnet-profile@0.1.0',
+    displayName: 'M-Net Default (v0.3)',
+    schemaVersion: 'mnet-profile@0.3.0',
     status: 'available',
     rules: {},
     capabilities: {
-      realWstunnelRelay: false,
-      realTcpInterconnect: false,
-      realUdpPathSwitching: false,
-      controlPlaneOnly: false
+      controlPlaneOnly: false,
+      managementPlaneExcluded: true,
+      realNetBirdSidecar: true,
+      signalConfigRef: { configRef: 'signal/default' },
+      relayConfigRef: { configRef: 'relay/default' },
+      stunConfigRef: { configRef: 'stun/default' },
+      sidecarDesiredState: 'start',
+      sidecarCredentialRef: {
+        provider: 'vault-kv-v2',
+        keyPath: 'secret/data/mnet/sidecar',
+        version: 1
+      },
+      sidecarCredentialStatus: 'ready',
+      sidecarHealthStatus: 'healthy'
     }
   },
   {
-    profileVersion: 'm-net-cn@0.1.0',
+    profileVersion: 'm-net-cn@0.3.0',
     region: 'cn',
-    displayName: 'M-Net CN',
-    schemaVersion: 'mnet-profile@0.1.0',
+    displayName: 'M-Net CN (v0.3)',
+    schemaVersion: 'mnet-profile@0.3.0',
     status: 'available',
     rules: {
       mainlandNodeWithoutPublicAccess: {
-        interconnect: 'tcp_required'
-      }
-    },
-    capabilities: {
-      realWstunnelRelay: false,
-      realTcpInterconnect: false,
-      realUdpPathSwitching: false,
-      controlPlaneOnly: true
-    }
-  },
-  {
-    profileVersion: 'm-net-cn@0.2.0',
-    region: 'cn',
-    displayName: 'M-Net CN (Production Data Plane)',
-    schemaVersion: 'mnet-profile@0.2.0',
-    status: 'available',
-    rules: {
-      mainlandNodeWithoutPublicAccess: {
-        interconnect: 'wstunnel_relay'
+        interconnect: 'netbird_sidecar'
       },
       residency: 'cn-only'
     },
     capabilities: {
-      realWstunnelRelay: false,
-      realTcpInterconnect: false,
-      realUdpPathSwitching: false,
       controlPlaneOnly: false,
-      realWireGuardTunnel: true,
-      realRelayFallback: true
+      managementPlaneExcluded: true,
+      realNetBirdSidecar: true,
+      signalConfigRef: { configRef: 'signal/cn-primary' },
+      relayConfigRef: { configRef: 'relay/cn-primary' },
+      stunConfigRef: { configRef: 'stun/cn-primary' },
+      sidecarDesiredState: 'start',
+      sidecarCredentialRef: {
+        provider: 'vault-kv-v2',
+        keyPath: 'secret/data/mnet/cn-sidecar',
+        version: 1
+      },
+      sidecarCredentialStatus: 'ready',
+      sidecarHealthStatus: 'healthy'
     },
-    runtimeConfig: {
-      headscaleEndpoint: { secretRefId: 'mnet-cn-headscale-endpoint' },
-      routingTable: { secretRefId: 'mnet-cn-routing-table' }
+    forcedTcpRelaySelector: {
+      enabled: true,
+      selectorOwnership: 'policy',
+      selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+      routeClass: 'forced-tcp-relay',
+      operatorOverrideAllowed: false,
+      operatorOverrideActive: false,
+      policyDecision: {
+        decisionId: 'default-profile-seed',
+        source: 'm-policy',
+        outcome: 'allow',
+        reason: 'default-profile-seed'
+      },
+      auditEvidence: {
+        auditId: 'default-profile-seed',
+        eventId: 'default-profile-seed',
+        eventSubject: 'mnet.forced_relay.change.v0'
+      }
     }
   }
 ]
@@ -152,7 +165,7 @@ async function ensureProfileDefinitions(db: MeristemDb): Promise<void> {
 
 /**
  * 创建内存 Profile 存储适配器，用于单元测试和契约测试。
- * 默认 seed m-net-default@0.1.0、m-net-cn@0.1.0 和 m-net-cn@0.2.0 Profile。
+ * 默认 seed 仅包含 v0.3 active Profile。
  */
 export function createInMemoryProfileStore(definitions?: MNetRegionalProfile[]): ProfileStore {
   const profileDefinitions = new Map<string, MNetRegionalProfile>()

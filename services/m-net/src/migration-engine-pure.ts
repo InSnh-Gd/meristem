@@ -61,7 +61,7 @@ export type MigrationEngineDeps = {
   }) => Promise<void>
 }
 
-export const TARGET_CN_PROFILE_VERSION = 'm-net-cn@0.2.0'
+export const TARGET_CN_PROFILE_VERSION = 'm-net-cn@0.3.0'
 const LOCK_TTL_MS = 5 * 60 * 1000
 
 export type PlanMigrationResult = {
@@ -72,6 +72,79 @@ export type PlanMigrationResult = {
 }
 
 type MigrationApplySuccess = MigrationSuccess | MigrationAlreadyApplied
+
+function toMigrationProfileCandidate(state: NetworkSnapshot): MigrationProfileCandidate {
+  if (state.profileVersion === TARGET_CN_PROFILE_VERSION) {
+    return {
+      profileVersion: TARGET_CN_PROFILE_VERSION,
+      region: 'cn',
+      displayName: 'M-Net CN (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
+      status: 'available',
+      rules: {
+        mainlandNodeWithoutPublicAccess: {
+          interconnect: 'netbird_sidecar'
+        },
+        residency: 'cn-only'
+      },
+      capabilities: {
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/cn-primary' },
+        relayConfigRef: { configRef: 'relay/cn-primary' },
+        stunConfigRef: { configRef: 'stun/cn-primary' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/cn-sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
+      },
+      forcedTcpRelaySelector: {
+        enabled: true,
+        selectorOwnership: 'policy',
+        selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+        routeClass: 'forced-tcp-relay',
+        operatorOverrideAllowed: false,
+        operatorOverrideActive: false,
+        policyDecision: {
+          decisionId: 'mnet-profile-migration',
+          source: 'm-policy',
+          outcome: 'allow',
+          reason: 'legacy CN profile migrated to NetBird sidecar profile'
+        },
+        auditEvidence: {
+          auditId: 'mnet-profile-migration',
+          eventId: 'mnet-profile-migration',
+          eventSubject: 'mnet.forced_relay.change.v0'
+        }
+      }
+    }
+  }
+
+  return {
+    profileVersion: state.profileVersion,
+    region: 'cn',
+    displayName: 'M-Net CN (legacy control plane)',
+    schemaVersion: 'mnet-profile@0.1.0',
+    status: 'available',
+    rules: {
+      mainlandNodeWithoutPublicAccess: {
+        interconnect: 'wstunnel_relay'
+      },
+      residency: 'cn-only'
+    },
+    capabilities: {
+      controlPlaneOnly: true,
+      realWstunnelRelay: false,
+      realTcpInterconnect: false,
+      realUdpPathSwitching: false
+    }
+  }
+}
 
 export const ok = <T>(value: T) => ({ ok: true as const, value })
 export const fail = (error: string) => ({ ok: false as const, error })
@@ -179,87 +252,101 @@ async function finalizeAppliedMigration(
   timestamp: string,
   correlationId: string
 ): Promise<NetworkProfileMigrationResult> {
-  const offline = await assessOffline(deps, input.networkId)
-  const resultStatus = offline.kind === 'pending' ? 'pending' : 'applied'
-  await deps.profileStore.setNetworkState(input.networkId, {
-    profileVersion: migrated.profile.profileVersion,
-    status: input.targetStatus ?? migrated.network.status
-  })
-  await deps.profileStore.recordTransition({
-    networkId: input.networkId,
-    fromVersion: state.profileVersion,
-    toVersion: migrated.profile.profileVersion,
-    fromStatus: state.status,
-    toStatus: input.targetStatus ?? migrated.network.status,
-    actor: input.actor,
-    reason: input.operation.reason,
-    correlationId
-  })
-  const auditId =
-    (await deps.writeAudit({
+  try {
+    const offline = await assessOffline(deps, input.networkId)
+    const resultStatus = offline.kind === 'pending' ? 'pending' : 'applied'
+    await deps.profileStore.setNetworkState(input.networkId, {
+      profileVersion: migrated.profile.profileVersion,
+      status: input.targetStatus ?? migrated.network.status
+    })
+    await deps.profileStore.recordTransition({
+      networkId: input.networkId,
+      fromVersion: state.profileVersion,
+      toVersion: migrated.profile.profileVersion,
+      fromStatus: state.status,
+      toStatus: input.targetStatus ?? migrated.network.status,
       actor: input.actor,
-      action:
+      reason: input.operation.reason,
+      correlationId
+    })
+    const auditId =
+      (await deps.writeAudit({
+        actor: input.actor,
+        action:
+          resultStatus === 'pending'
+            ? 'mnet.profile.migration.pending'
+            : migrated.kind === 'already-migrated'
+              ? 'mnet.profile.migration.applied'
+              : migrated.audit.action,
+        resource: `network:${input.networkId}`,
+        result: resultStatus === 'pending' ? 'pending' : 'applied',
+        correlationId,
+        metadata: {
+          operationId: input.operation.operationId,
+          batchId: input.batchId,
+          offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : [],
+          plannedEffects: migrated.plannedEffects
+        }
+      })) ?? correlationId
+    await deps.writeTimeline?.({
+      summary:
+        resultStatus === 'pending'
+          ? `migration pending follow-up for ${input.networkId}`
+          : `migration applied for ${input.networkId}`,
+      subject:
         resultStatus === 'pending'
           ? 'mnet.profile.migration.pending'
-          : migrated.kind === 'already-migrated'
-            ? 'mnet.profile.migration.applied'
-            : migrated.audit.action,
-      resource: `network:${input.networkId}`,
-      result: resultStatus === 'pending' ? 'pending' : 'applied',
+          : 'mnet.profile.migration.applied',
+      correlationId
+    })
+    await deps.writeFull({
+      level: 'info',
+      message: `profile migration ${resultStatus} for ${input.networkId}`,
       correlationId,
       metadata: {
         operationId: input.operation.operationId,
         batchId: input.batchId,
-        offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : [],
-        plannedEffects: migrated.plannedEffects
+        offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : []
       }
-    })) ?? correlationId
-  await deps.writeTimeline?.({
-    summary:
-      resultStatus === 'pending'
-        ? `migration pending follow-up for ${input.networkId}`
-        : `migration applied for ${input.networkId}`,
-    subject:
-      resultStatus === 'pending'
-        ? 'mnet.profile.migration.pending'
-        : 'mnet.profile.migration.applied',
-    correlationId
-  })
-  await deps.writeFull({
-    level: 'info',
-    message: `profile migration ${resultStatus} for ${input.networkId}`,
-    correlationId,
-    metadata: {
+    })
+    await storeMigration(deps, {
+      networkId: input.networkId,
+      fromVersion: state.profileVersion,
+      toVersion: input.operation.targetProfileVersion,
       operationId: input.operation.operationId,
-      batchId: input.batchId,
-      offlineLeafNodeIds: offline.kind === 'pending' ? offline.pendingNodeIds : []
-    }
-  })
-  await storeMigration(deps, {
-    networkId: input.networkId,
-    fromVersion: state.profileVersion,
-    toVersion: input.operation.targetProfileVersion,
-    operationId: input.operation.operationId,
-    status: resultStatus,
-    timestamp,
-    auditMetadata: {
-      auditId,
-      plannedEffects: migrated.plannedEffects,
-      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
-    }
-  })
-  await releaseLock(deps, operationLock, timestamp)
-  return migrationResult(
-    input.networkId,
-    state.profileVersion,
-    input.operation.targetProfileVersion,
-    resultStatus,
-    {
-      correlationId,
-      auditId,
-      ...(offline.kind === 'pending' ? { reason: offline.message } : {})
-    }
-  )
+      status: resultStatus,
+      timestamp,
+      auditMetadata: {
+        auditId,
+        plannedEffects: migrated.plannedEffects,
+        ...(offline.kind === 'pending' ? { reason: offline.message } : {})
+      }
+    })
+    await releaseLock(deps, operationLock, timestamp)
+    return migrationResult(
+      input.networkId,
+      state.profileVersion,
+      input.operation.targetProfileVersion,
+      resultStatus,
+      {
+        correlationId,
+        auditId,
+        ...(offline.kind === 'pending' ? { reason: offline.message } : {})
+      }
+    )
+  } catch {
+    await releaseLock(deps, operationLock, timestamp)
+    return migrationResult(
+      input.networkId,
+      state.profileVersion,
+      input.operation.targetProfileVersion,
+      'failed',
+      {
+        correlationId,
+        reason: 'internal error during apply'
+      }
+    )
+  }
 }
 
 // ── 核心 apply / rollback ───────────────────────────
@@ -297,19 +384,6 @@ export async function applyNetwork(
   }
   if (input.operation.targetProfileVersion !== TARGET_CN_PROFILE_VERSION) {
     return applyControlPlaneProfileSwitch(deps, input, state, correlationId)
-  }
-  const profile = await deps.profileStore.getDefinition(state.profileVersion)
-  if (!profile) {
-    return migrationResult(
-      input.networkId,
-      state.profileVersion,
-      input.operation.targetProfileVersion,
-      'failed',
-      {
-        correlationId,
-        reason: `profile definition missing: ${state.profileVersion}`
-      }
-    )
   }
   const operationLock = await acquireLock(
     deps,
@@ -350,7 +424,7 @@ export async function applyNetwork(
     )
   }
   const migrated = migrateMNetProfile({
-    profile: profile as MigrationProfileCandidate,
+    profile: toMigrationProfileCandidate(state),
     network: {
       networkId: input.networkId,
       profileVersion: state.profileVersion,

@@ -1,7 +1,13 @@
 import type {
+  ActorId,
   CreateNetworkRequest,
+  MNetOperationalEventIngestRequestFromSchema,
+  MNetOperationalEventIngestResponseFromSchema,
+  MNetOperationalSnapshotFromSchema,
   MNetwork,
   MNetworkMember,
+  NodeAgentRuntimeDesiredSidecar,
+  NodeAgentRuntimeStatus,
   NetworkSummary,
   NodeAgentTaskExecuteResponse,
   NodeControlAction,
@@ -11,16 +17,18 @@ import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schem
 import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
-} from '../../../packages/contracts/src/types/mnet-profile.ts'
+} from '../../../packages/contracts/src/index.ts'
 import type { DataPlaneStores } from './data-plane-store-types.ts'
+import type { ForcedRelayNodeContext } from './forced-relay-node-context.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { MigrationEngine } from './migration-engine.ts'
+import type { MNetDb } from './clients.ts'
 import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
-import type { ProfileWorkflowFailure } from './profile-workflow-types.ts'
 import type { MNetServiceResult } from './types.ts'
 
 export type MNetAppDeps = {
+  db?: MNetDb
   readiness(): Promise<{ ready: boolean }>
   createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>>
   listNetworks(): Promise<MNetServiceResult<NetworkSummary[]>>
@@ -34,8 +42,26 @@ export type MNetAppDeps = {
     taskId: string
     correlationId: string
   }): Promise<MNetServiceResult<NodeAgentTaskExecuteResponse>>
+  getOperationalState?: (networkId: string) => Promise<
+    | MNetOperationalSnapshotFromSchema
+    | {
+        kind: 'failure'
+        status: 400 | 401 | 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
+  ingestOperationalEvent?: (
+    input: MNetOperationalEventIngestRequestFromSchema
+  ) => Promise<
+    | MNetOperationalEventIngestResponseFromSchema
+    | {
+        kind: 'failure'
+        status: 400 | 401 | 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
   controlNode?: (input: {
-    actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+    actor: ActorId
     nodeId: string
     action: NodeControlAction
     reason: string
@@ -145,6 +171,7 @@ export type MNetAppDeps = {
       payload?: unknown
     ): Promise<void>
   }
+  describeForcedRelayNode?: (nodeId: string) => Promise<ForcedRelayNodeContext | null>
   profileDisablePolicy?: ProfileDisablePolicyStore
   policyHealthCheck?: {
     checkHealth(): Promise<{ healthy: boolean }>
@@ -160,12 +187,31 @@ export type MNetAppDeps = {
     authorize(nodeId: string, token: string): Promise<boolean>
     fetchLatestNetworkMap(
       nodeId: string
-    ): Promise<{ map: NetworkMapFromSchema } | ProfileWorkflowFailure>
+    ): Promise<
+      | {
+          map: NetworkMapFromSchema
+          sidecar: NodeAgentRuntimeDesiredSidecar
+        }
+      | {
+          kind: 'failure'
+          status: 400 | 401 | 403 | 404 | 409 | 503
+          error: { code: string; message: string }
+        }
+    >
     registerNodePublicKey(input: {
       nodeId: string
       keyId: string
       publicKey: string
       createdAt: string
-    }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
+      endpoint?: string
+    }): Promise<
+      | NodeKeyRegistrationSuccess
+      | {
+          kind: 'failure'
+          status: 400 | 401 | 403 | 404 | 409 | 503
+          error: { code: string; message: string }
+        }
+    >
+    reportStatus?(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
   }
 }

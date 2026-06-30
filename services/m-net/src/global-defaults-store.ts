@@ -138,7 +138,7 @@ export type GlobalDefaultsStore = {
  * 创建内存全局默认值存储适配器，用于单元测试和契约测试。
  */
 export function createInMemoryGlobalDefaultsStore(profileStore: ProfileStore): GlobalDefaultsStore {
-  let defaultProfileVersion = 'm-net-default@0.1.0'
+  let defaultProfileVersion = 'm-net@0.3.0'
   let switchState: GlobalSwitchState = 'idle'
   let switchOperationId: string | undefined
   let updatedAt = new Date().toISOString()
@@ -204,7 +204,7 @@ export function createInMemoryGlobalDefaultsStore(profileStore: ProfileStore): G
       for (const batch of input.batches) {
         for (const networkId of batch.networkIds) {
           const state = await profileStore.getNetworkState(networkId)
-          snapshot.set(networkId, state?.profileVersion ?? 'm-net-default@0.1.0')
+          snapshot.set(networkId, state?.profileVersion ?? 'm-net@0.3.0')
         }
       }
       migrationSnapshots.set(operationId, snapshot)

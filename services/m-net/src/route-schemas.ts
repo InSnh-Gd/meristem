@@ -5,6 +5,63 @@ export const internalErrorSchema = apiErrorRouteSchema
 
 export const externalErrorSchema = apiErrorRouteSchema
 
+export const externalMigrationRequiredErrorSchema = t.Object({
+  error: t.Object({
+    code: t.Literal('migration_required'),
+    message: t.String(),
+    correlationId: t.Optional(t.String()),
+    migration: t.Object({
+      code: t.Literal('migration_required'),
+      message: t.String(),
+      targetProfileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
+      rebuildGuidanceKey: t.Union([
+        t.Literal('rebuild_node_with_netbird_sidecar'),
+        t.Literal('migrate_profile_to_mnet_v03'),
+        t.Literal('migrate_profile_to_mnet_cn_v03')
+      ]),
+      affectedProfileIds: t.Array(t.String()),
+      affectedNodeIds: t.Array(t.String()),
+      reasonCode: t.Union([
+        t.Literal('legacy_profile_v0_1'),
+        t.Literal('legacy_cn_profile_v0_1'),
+        t.Literal('legacy_wstunnel_profile_v0_2'),
+        t.Literal('legacy_wstunnel_node')
+      ])
+    })
+  })
+})
+
+export const migrationRequiredBodySchema = t.Object({
+  code: t.Literal('migration_required'),
+  message: t.String(),
+  targetProfileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
+  rebuildGuidanceKey: t.Union([
+    t.Literal('rebuild_node_with_netbird_sidecar'),
+    t.Literal('migrate_profile_to_mnet_v03'),
+    t.Literal('migrate_profile_to_mnet_cn_v03')
+  ]),
+  affectedProfileIds: t.Array(t.String()),
+  affectedNodeIds: t.Array(t.String()),
+  reasonCode: t.Union([
+    t.Literal('legacy_profile_v0_1'),
+    t.Literal('legacy_cn_profile_v0_1'),
+    t.Literal('legacy_wstunnel_profile_v0_2'),
+    t.Literal('legacy_wstunnel_node')
+  ])
+})
+
+export const migrationReportItemSchema = t.Object({
+  resourceKind: t.Union([t.Literal('profile'), t.Literal('node')]),
+  resourceId: t.String(),
+  migration: migrationRequiredBodySchema
+})
+
+export const migrationReportSchema = t.Object({
+  status: t.Union([t.Literal('ok'), t.Literal('migration_required')]),
+  generatedAt: t.String(),
+  items: t.Array(migrationReportItemSchema)
+})
+
 export const networkSchema = t.Object({
   id: t.String(),
   name: t.String(),
@@ -67,9 +124,8 @@ export const executeNoopBodySchema = t.Object({
 
 export const setNetworkProfileBodySchema = t.Object({
   profileVersion: t.Union([
-    t.Literal('m-net-cn@0.1.0'),
-    t.Literal('m-net-cn@0.2.0'),
-    t.Literal('m-net-default@0.1.0')
+    t.Literal('m-net@0.3.0'),
+    t.Literal('m-net-cn@0.3.0')
   ]),
   reason: t.String({ minLength: 1 })
 })
@@ -95,7 +151,7 @@ export const setNetworkProfileResponseSchema = t.Union([
     relayAssignment: t.Object({
       nodeId: t.String(),
       relayEndpoint: t.String(),
-      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')])
+      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]) // relay transport type remains backward-readable for stored artifacts
     })
   })
 ])
@@ -170,7 +226,7 @@ export const latestNetworkMapSchema = t.Object({
   ),
   relayAssignment: t.Optional(
     t.Object({
-      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]),
+      relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]), // legacy wstunnel — v0.2 contract, preserved for migration compat
       relayEndpoint: t.String(),
       nodeIds: t.Array(t.String())
     })
@@ -183,6 +239,39 @@ export const latestNetworkMapSchema = t.Object({
     publicKey: t.String(),
     value: t.String()
   })
+})
+
+export const latestNodeRuntimeSidecarSchema = t.Object({
+  signalConfigRef: t.Object({ configRef: t.String() }),
+  relayConfigRef: t.Object({ configRef: t.String() }),
+  stunConfigRef: t.Object({ configRef: t.String() }),
+  sidecarCredentialRef: t.Object({
+    provider: t.String(),
+    keyPath: t.String(),
+    version: t.Optional(t.Number()),
+    metadata: t.Optional(t.Record(t.String(), t.String()))
+  }),
+  desiredState: t.Union([
+    t.Literal('install'),
+    t.Literal('configure'),
+    t.Literal('start'),
+    t.Literal('drain'),
+    t.Literal('stop')
+  ]),
+  credentialStatus: t.Union([
+    t.Literal('missing'),
+    t.Literal('pending'),
+    t.Literal('ready'),
+    t.Literal('expired'),
+    t.Literal('rotation_required')
+  ]),
+  healthStatus: t.Union([
+    t.Literal('unknown'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('unhealthy')
+  ]),
+  configHash: t.Optional(t.String())
 })
 
 export const nodeKeyRegistrationBodySchema = t.Object({
@@ -254,7 +343,7 @@ export const externalWriteErrorResponses = {
   401: externalErrorSchema,
   403: externalErrorSchema,
   404: externalErrorSchema,
-  409: externalErrorSchema,
+  409: t.Union([externalMigrationRequiredErrorSchema, externalErrorSchema]),
   503: externalErrorSchema
 } as const
 

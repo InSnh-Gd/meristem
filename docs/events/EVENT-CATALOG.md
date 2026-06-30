@@ -89,6 +89,12 @@ Rules:
 | `mnet.node_key.rotated.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetNodeKeyRotatedPayload` | at-least-once |
 | `mnet.relay.assigned.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetRelayAssignedPayload` | at-least-once |
 | `mnet.dataplane.tunnel.changed.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetDataplaneTunnelChangedPayload` | at-least-once |
+| `mnet.sidecar.lifecycle.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetSidecarLifecyclePayload` | at-least-once |
+| `mnet.sidecar.health.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetSidecarHealthPayload` | at-least-once |
+| `mnet.topology.update.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetTopologyUpdatePayload` | at-least-once |
+| `mnet.migration.required.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetMigrationRequiredPayload` | at-least-once |
+| `mnet.forced_relay.change.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayChangePayload` | at-least-once |
+| `mnet.credential.expiry.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialExpiryPayload` | at-least-once |
 | `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
 | `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |
@@ -316,6 +322,97 @@ type MNetDataplaneTunnelChangedPayload = {
   previousStatus: "up" | "down" | "degraded";
   reason: string;
   correlationId: string;
+};
+
+type MNetSidecarLifecyclePayload = {
+  networkId: string;
+  nodeId: string;
+  profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  previousDesiredState: "install" | "configure" | "start" | "drain" | "stop";
+  desiredState: "install" | "configure" | "start" | "drain" | "stop";
+  credentialStatus: "missing" | "pending" | "ready" | "expired" | "rotation_required";
+  signalConfigRef: { configRef: string };
+  relayConfigRef: { configRef: string };
+  stunConfigRef: { configRef: string };
+  correlationId: string;
+  auditId: string;
+};
+
+type MNetSidecarHealthPayload = {
+  networkId: string;
+  nodeId: string;
+  profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  healthStatus: "unknown" | "healthy" | "degraded" | "unhealthy";
+  previousHealthStatus: "unknown" | "healthy" | "degraded" | "unhealthy";
+  signalReachable: boolean;
+  relayReachable: boolean;
+  stunReachable: boolean;
+  checkedAt: string;
+  correlationId: string;
+};
+
+type MNetTopologyUpdatePayload = {
+  networkId: string;
+  profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  topologyRevision: string;
+  routeClass: "standard" | "cn-resident" | "forced-tcp-relay";
+  sidecarDesiredState: "install" | "configure" | "start" | "drain" | "stop";
+  affectedNodeIds: string[];
+  policyDecisionId: string;
+  auditId: string;
+  correlationId: string;
+};
+
+type MNetMigrationRequiredPayload = {
+  resourceKind: "profile" | "node";
+  networkId?: string;
+  policyDecisionId?: string;
+  auditId: string;
+  correlationId: string;
+  migration: {
+    code: "migration_required";
+    message: string;
+    targetProfileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+    rebuildGuidanceKey:
+      | "rebuild_node_with_netbird_sidecar"
+      | "migrate_profile_to_mnet_v03"
+      | "migrate_profile_to_mnet_cn_v03";
+    affectedProfileIds: string[];
+    affectedNodeIds: string[];
+    reasonCode:
+      | "legacy_profile_v0_1"
+      | "legacy_cn_profile_v0_1"
+      | "legacy_wstunnel_profile_v0_2"
+      | "legacy_wstunnel_node";
+  };
+};
+
+type MNetForcedRelayChangePayload = {
+  networkId: string;
+  profileVersion: "m-net-cn@0.3.0";
+  routeClass: "standard" | "cn-resident" | "forced-tcp-relay";
+  selectorOwnership: "operator" | "policy";
+  selector:
+    | { selectorType: "all-leaf-nodes"; includeAllLeafNodes: true }
+    | { selectorType: "node-ids"; nodeIds: string[] }
+    | { selectorType: "label-selector"; matchLabels: Record<string, string> };
+  operatorOverrideActive: boolean;
+  policyDecisionId: string;
+  auditId: string;
+  eventId: string;
+  affectedNodeIds: string[];
+  correlationId: string;
+};
+
+type MNetCredentialExpiryPayload = {
+  networkId: string;
+  nodeId: string;
+  profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  credentialRef: { provider: string; keyPath: string; version?: number };
+  credentialStatus: "missing" | "pending" | "ready" | "expired" | "rotation_required";
+  expiresAt: string;
+  correlationId: string;
+  auditId: string;
 };
 
 type PolicyDecisionCreatedPayload = {

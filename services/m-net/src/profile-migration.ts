@@ -4,18 +4,30 @@ import type {
 } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 const SOURCE_CN_PROFILE_VERSION = 'm-net-cn@0.1.0'
-const TARGET_CN_PROFILE_VERSION = 'm-net-cn@0.2.0'
-const TARGET_PROFILE_SCHEMA_VERSION = 'mnet-profile@0.2.0'
+const TARGET_CN_PROFILE_VERSION = 'm-net-cn@0.3.0'
+const TARGET_PROFILE_SCHEMA_VERSION = 'mnet-profile@0.3.0'
 
 type MNetRegionalProfile = MNetRegionalProfileFromSchema
 type NetworkProfileState = NetworkProfileStateFromSchema
 
 export type MigrationProfileCandidate = Omit<
   MNetRegionalProfile,
-  'profileVersion' | 'schemaVersion'
+  'profileVersion' | 'schemaVersion' | 'capabilities' | 'forcedTcpRelaySelector'
 > & {
   readonly profileVersion: string
   readonly schemaVersion: string
+  readonly capabilities:
+    | {
+        readonly controlPlaneOnly: true
+        readonly realWstunnelRelay: false
+        readonly realTcpInterconnect: false
+        readonly realUdpPathSwitching: false
+      }
+    | MNetRegionalProfile['capabilities']
+  readonly forcedTcpRelaySelector?: Extract<
+    MNetRegionalProfile,
+    { profileVersion: 'm-net-cn@0.3.0' }
+  >['forcedTcpRelaySelector']
 }
 
 export type MigrationNetworkState = {
@@ -134,9 +146,9 @@ export type AuditTrailEntry = {
 }
 
 export type RollbackInput = {
-  readonly currentProfile: MNetRegionalProfile
+  readonly currentProfile: MigrationProfileCandidate
   readonly currentNetwork: MigrationNetworkState
-  readonly targetControlPlaneProfile: MNetRegionalProfile
+  readonly targetControlPlaneProfile: MigrationProfileCandidate
   readonly operationId: string
   readonly actor: string
   readonly reason: string
@@ -147,7 +159,7 @@ export type RollbackInput = {
 
 export type RollbackSuccess = {
   readonly kind: 'rolled-back'
-  readonly profile: MNetRegionalProfile
+  readonly profile: MigrationProfileCandidate
   readonly network: MigrationNetworkState
   readonly plannedEffects: readonly PlannedMigrationEffect[]
   readonly audit: {
@@ -172,15 +184,50 @@ export type RollbackResult = RollbackSuccess | RollbackIrreversible
 
 const supportedSourceVersions = [SOURCE_CN_PROFILE_VERSION, TARGET_CN_PROFILE_VERSION]
 
-const targetRuntimeConfig = {
-  headscaleEndpoint: { secretRefId: 'mnet-cn-headscale-endpoint' },
-  routingTable: { secretRefId: 'mnet-cn-routing-table' }
-}
-
 const desiredDataPlane: DataPlaneDesiredState = {
   networkMapStatus: 'planned',
   tunnelStatus: 'desired',
   relayFallback: 'desired'
+}
+
+const targetSidecarCapabilities: MNetRegionalProfile['capabilities'] = {
+  controlPlaneOnly: false,
+  managementPlaneExcluded: true,
+  realNetBirdSidecar: true,
+  signalConfigRef: { configRef: 'signal/cn-primary' },
+  relayConfigRef: { configRef: 'relay/cn-primary' },
+  stunConfigRef: { configRef: 'stun/cn-primary' },
+  sidecarDesiredState: 'start',
+  sidecarCredentialRef: {
+    provider: 'vault-kv-v2',
+    keyPath: 'secret/data/mnet/cn-sidecar',
+    version: 1
+  },
+  sidecarCredentialStatus: 'ready',
+  sidecarHealthStatus: 'healthy'
+}
+
+const targetForcedTcpRelaySelector: Extract<
+  MNetRegionalProfile,
+  { profileVersion: 'm-net-cn@0.3.0' }
+>['forcedTcpRelaySelector'] = {
+  enabled: true,
+  selectorOwnership: 'policy',
+  selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+  routeClass: 'forced-tcp-relay',
+  operatorOverrideAllowed: false,
+  operatorOverrideActive: false,
+  policyDecision: {
+    decisionId: 'mnet-profile-migration',
+    source: 'm-policy',
+    outcome: 'allow',
+    reason: 'legacy CN profile migrated to NetBird sidecar profile'
+  },
+  auditEvidence: {
+    auditId: 'mnet-profile-migration',
+    eventId: 'mnet-profile-migration',
+    eventSubject: 'mnet.forced_relay.change.v0'
+  }
 }
 
 /**
@@ -312,25 +359,17 @@ function toTargetProfile(profile: MigrationProfileCandidate): MNetRegionalProfil
     ...profile,
     profileVersion: TARGET_CN_PROFILE_VERSION,
     region: 'cn',
-    displayName: 'M-Net CN (Production Data Plane)',
+    displayName: 'M-Net CN (v0.3)',
     schemaVersion: TARGET_PROFILE_SCHEMA_VERSION,
     status: 'available',
     rules: {
-      ...profile.rules,
       mainlandNodeWithoutPublicAccess: {
-        interconnect: 'wstunnel_relay'
+        interconnect: 'netbird_sidecar'
       },
       residency: 'cn-only'
     },
-    capabilities: {
-      realWstunnelRelay: false,
-      realTcpInterconnect: false,
-      realUdpPathSwitching: false,
-      controlPlaneOnly: false,
-      realWireGuardTunnel: true,
-      realRelayFallback: true
-    },
-    runtimeConfig: targetRuntimeConfig
+    capabilities: targetSidecarCapabilities,
+    forcedTcpRelaySelector: targetForcedTcpRelaySelector
   }
 }
 
@@ -377,7 +416,7 @@ function rollbackIrreversibleReasons(input: RollbackInput): readonly RollbackIrr
 
 function toControlPlaneNetwork(
   network: MigrationNetworkState,
-  profile: MNetRegionalProfile
+  profile: MigrationProfileCandidate
 ): MigrationNetworkState {
   return {
     networkId: network.networkId,

@@ -1,9 +1,11 @@
 import { swagger } from '@elysiajs/swagger'
 import { Elysia } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
+import { createForcedRelayRoutes } from './forced-relay-routes.ts'
 import { createGlobalDefaultsRoutes } from './global-defaults-routes.ts'
 import { createInternalRoutes } from './internal-routes.ts'
 import { createNodeControlRoutes } from './node-control-routes.ts'
+import { createOperationalRoutes } from './operational-routes.ts'
 import { createNodeRuntimeRoutes } from './node-runtime-routes.ts'
 import { createProfileAdminRoutes } from './profile-admin-routes.ts'
 import { createProfileRoutes } from './profile-routes.ts'
@@ -24,9 +26,11 @@ export function createMNetApp(deps: MNetAppDeps) {
     .use(createReadyRoute(deps))
     .use(createInternalRoutes(deps))
     .use(createNodeControlRoutes(deps))
+    .use(createOperationalRoutes(deps))
     .use(createNodeRuntimeRoutes(deps))
     .use(createProfileAdminRoutes(deps))
     .use(createProfileRoutes(deps))
+    .use(createForcedRelayRoutes(deps))
     .use(createGlobalDefaultsRoutes(deps))
 }
 

@@ -7,6 +7,10 @@ import {
   requireProfileReadDeps,
   requireProfileWriteDeps
 } from './profile-enable-disable-workflows.ts'
+import {
+  externalMigrationRequiredApiError,
+  isMigrationRequiredFailure
+} from './migration-required-support.ts'
 import { isProfileWorkflowFailure, type ProfileReadDeps } from './profile-workflow-types.ts'
 import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import {
@@ -28,6 +32,15 @@ type ProfileReadRouteFailure = {
   code: string
   message: string
 }
+
+const migrationRequiredErrorSchema = t.Object({
+  error: t.Object({
+    code: t.Literal('migration_required'),
+    message: t.String(),
+    correlationId: t.Optional(t.String()),
+    migration: t.Any()
+  })
+})
 
 async function requireAuthorizedProfileReadContext(
   deps: Pick<MNetAppDeps, 'profileStore' | 'policyAuthorize'>,
@@ -201,8 +214,12 @@ export function createProfileRoutes(
             networkId: params.id,
             body
           })
-          if (isEnableDisableFailure(result))
+          if (isEnableDisableFailure(result)) {
+            if (isMigrationRequiredFailure(result)) {
+              return externalMigrationRequiredApiError(set, result.status, result.error.migration)
+            }
             return externalApiError(set, result.status, result.error.code, result.error.message)
+          }
           return result
         },
         {
@@ -210,7 +227,8 @@ export function createProfileRoutes(
           body: setNetworkProfileBodySchema,
           response: {
             200: setNetworkProfileResponseSchema,
-            ...externalWriteErrorResponses
+            ...externalWriteErrorResponses,
+            409: t.Union([externalWriteErrorResponses[409], migrationRequiredErrorSchema])
           }
         }
       )

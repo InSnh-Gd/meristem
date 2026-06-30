@@ -1,18 +1,26 @@
 import { and, eq } from 'drizzle-orm'
+import type { NodeAgentRuntimeDesiredSidecar } from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import { networkMemberships } from '../../../packages/db/src/schema.ts'
+import { decodeMNetProfileV03Compatibility } from '../../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 import { validateNodeCredential } from './agent-runtime-session-lifecycle.ts'
 import type { MNetDb } from './clients.ts'
+import { guardLegacyNodeRuntime } from './migration-required-support.ts'
 import { fetchLatestNetworkMap } from './mnet-dataplane-materialize.ts'
 import type { DataPlaneDeps, NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import { registerNodePublicKey } from './mnet-dataplane-workflows.ts'
-import { type ProfileWorkflowFailure, profileWorkflowFailure } from './profile-workflow-types.ts'
+import type { ProfileWorkflowFailure } from './profile-workflow-types.ts'
 
 type NodeRuntimeFacade = {
   authorize(nodeId: string, token: string): Promise<boolean>
   fetchLatestNetworkMap(
     nodeId: string
-  ): Promise<{ map: NetworkMapFromSchema } | ProfileWorkflowFailure>
+  ): Promise<
+    | {
+        map: NetworkMapFromSchema
+        sidecar: NodeAgentRuntimeDesiredSidecar
+      }
+    | ProfileWorkflowFailure
+  >
   registerNodePublicKey(input: {
     nodeId: string
     keyId: string
@@ -22,16 +30,53 @@ type NodeRuntimeFacade = {
   }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
 }
 
-async function resolveJoinedNetworkId(db: MNetDb, nodeId: string): Promise<string | null> {
-  const [membership] = await db
-    .select({ networkId: networkMemberships.networkId })
-    .from(networkMemberships)
-    .where(and(eq(networkMemberships.nodeId, nodeId), eq(networkMemberships.status, 'joined')))
-    .limit(1)
+async function resolveSidecarRuntimeState(
+  deps: DataPlaneDeps,
+  networkId: string,
+  nodeId: string
+): Promise<NodeAgentRuntimeDesiredSidecar> {
+  const network = await deps.profileStore.getNetworkState(networkId)
+  const profileDefinition = network
+    ? await deps.profileStore.getDefinition(network.profileVersion)
+    : null
 
-  return membership?.networkId ?? null
+  if (!profileDefinition) {
+    return {
+      signalConfigRef: { configRef: 'netbird/signal/missing' },
+      relayConfigRef: { configRef: 'netbird/relay/missing' },
+      stunConfigRef: { configRef: 'netbird/stun/missing' },
+      sidecarCredentialRef: { provider: 'missing', keyPath: 'netbird/sidecar/missing' },
+      desiredState: 'stop',
+      credentialStatus: 'missing',
+      healthStatus: 'unknown'
+    }
+  }
+
+  const compatibility = decodeMNetProfileV03Compatibility(profileDefinition)
+  if (compatibility.kind !== 'profile') {
+    return {
+      signalConfigRef: { configRef: 'netbird/signal/migration-required' },
+      relayConfigRef: { configRef: 'netbird/relay/migration-required' },
+      stunConfigRef: { configRef: 'netbird/stun/migration-required' },
+      sidecarCredentialRef: { provider: 'migration-required', keyPath: 'netbird/sidecar/migration-required' },
+      desiredState: 'stop',
+      credentialStatus: 'missing',
+      healthStatus: 'degraded'
+    }
+  }
+
+  const desiredConfig = await deps.dataPlane.sidecarDesiredConfigs.get(nodeId)
+  return {
+    signalConfigRef: compatibility.profile.capabilities.signalConfigRef,
+    relayConfigRef: compatibility.profile.capabilities.relayConfigRef,
+    stunConfigRef: compatibility.profile.capabilities.stunConfigRef,
+    sidecarCredentialRef: compatibility.profile.capabilities.sidecarCredentialRef,
+    desiredState: compatibility.profile.capabilities.sidecarDesiredState,
+    credentialStatus: compatibility.profile.capabilities.sidecarCredentialStatus,
+    healthStatus: compatibility.profile.capabilities.sidecarHealthStatus,
+    ...(desiredConfig?.configHash ? { configHash: desiredConfig.configHash } : {})
+  }
 }
-
 export function createNodeRuntimeFacade(input: {
   db: MNetDb
   dataPlaneDeps?: DataPlaneDeps | null
@@ -44,21 +89,29 @@ export function createNodeRuntimeFacade(input: {
       return validateNodeCredential({ db: input.db }, nodeId, token)
     },
     async fetchLatestNetworkMap(nodeId) {
-      const networkId = await resolveJoinedNetworkId(input.db, nodeId)
-      if (!networkId) {
-        return profileWorkflowFailure(404, 'node.not_in_network', 'node is not joined to a network')
+      const guard = await guardLegacyNodeRuntime(input.db, nodeId)
+      if ('kind' in guard) {
+        return guard
       }
 
-      return fetchLatestNetworkMap(dataPlaneDeps, networkId)
+      const map = await fetchLatestNetworkMap(dataPlaneDeps, guard.networkId)
+      if ('kind' in map) {
+        return map
+      }
+
+      return {
+        map: map.map,
+        sidecar: await resolveSidecarRuntimeState(dataPlaneDeps, guard.networkId, nodeId)
+      }
     },
     async registerNodePublicKey(payload) {
-      const networkId = await resolveJoinedNetworkId(input.db, payload.nodeId)
-      if (!networkId) {
-        return profileWorkflowFailure(404, 'node.not_in_network', 'node is not joined to a network')
+      const guard = await guardLegacyNodeRuntime(input.db, payload.nodeId)
+      if ('kind' in guard) {
+        return guard
       }
 
       return registerNodePublicKey(dataPlaneDeps, {
-        networkId,
+        networkId: guard.networkId,
         nodeId: payload.nodeId,
         keyId: payload.keyId,
         publicKey: payload.publicKey,

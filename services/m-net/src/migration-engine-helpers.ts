@@ -11,7 +11,7 @@ export type NetworkSnapshot = {
 
 /** 判断 Network 是否为目标 profile version 的迁移候选。 */
 export function isCandidate(state: NetworkSnapshot, targetProfileVersion: string): boolean {
-  return targetProfileVersion === 'm-net-cn@0.2.0'
+  return targetProfileVersion === 'm-net-cn@0.3.0'
     ? state.profileVersion.startsWith('m-net-cn@0.1.')
     : state.profileVersion !== targetProfileVersion
 }
