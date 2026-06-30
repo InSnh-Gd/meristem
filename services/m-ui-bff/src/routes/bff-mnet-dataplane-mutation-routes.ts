@@ -6,6 +6,7 @@ import {
   invalidExecuteBody
 } from './command-well-support.ts'
 import {
+  redactCredentialMutationResponse,
   readBreakGlassBody,
   readCredentialRevokeBody,
   readDefaultsSetBody,
@@ -33,6 +34,15 @@ import {
  * createBffMNetDataplaneMutationRoutes 暴露 M-UI 直接调用的 BFF 数据面 mutation façade。
  */
 export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps) {
+  async function forwardCredentialMutation(responsePromise: Promise<Response>) {
+    const response = await responsePromise
+    if (response.status >= 400) return response
+    const body = await response.json()
+    const record = requireObjectRecord(body, 'Upstream credential mutation returned invalid payload')
+    if (record instanceof Response) return record
+    return redactCredentialMutationResponse(record)
+  }
+
   return new Elysia()
     .post(
       '/api/v0/networks/:id/join-tickets',
@@ -65,7 +75,7 @@ export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps)
       async ({ params, headers }) => {
         const token = requireBearerToken(headers)
         if (token instanceof Response) return token
-        return forwardCoreExecute(
+        return forwardCredentialMutation(
           mfRaw(
             `/api/v0/networks/${encodeURIComponent(params.id)}/nodes/${encodeURIComponent(params.nodeId)}/credentials`,
             token,
@@ -85,7 +95,7 @@ export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps)
       async ({ params, headers }) => {
         const token = requireBearerToken(headers)
         if (token instanceof Response) return token
-        return forwardCoreExecute(
+        return forwardCredentialMutation(
           mfRaw(
             `/api/v0/networks/${encodeURIComponent(params.id)}/nodes/${encodeURIComponent(params.nodeId)}/credentials/rotate`,
             token,
@@ -117,7 +127,7 @@ export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps)
         if (!revokeBody) {
           return invalidExecuteBody('reason must be a non-empty string when provided')
         }
-        return forwardCoreExecute(
+        return forwardCredentialMutation(
           mfRaw(
             `/api/v0/networks/${encodeURIComponent(params.id)}/nodes/${encodeURIComponent(params.nodeId)}/credentials/revoke`,
             token,

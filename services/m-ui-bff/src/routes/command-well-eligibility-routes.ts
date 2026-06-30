@@ -18,6 +18,7 @@ import {
   GENERIC_NOOP_COMMAND_ID,
   MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
   MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID,
+  MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID,
   MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
@@ -36,6 +37,7 @@ import {
   invalidExecuteBody,
   isDisplayOnlyCommandId,
   readApprovalBody,
+  readForcedRelayChangeBody,
   readLeafNodeIdBody,
   readNetworkProfilePreviewBody,
   toMutableNode
@@ -65,7 +67,7 @@ import {
 /**
  * createCommandWellEligibilityRoutes 保留 noop 命令派生与通用 eligibility 语义。
  */
-export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) {
+export function createCommandWellEligibilityRoutes({ cf, mf, tf }: MUiBffRouteDeps) {
   return new Elysia()
     .post(
       '/api/v0/commands/noop',
@@ -179,11 +181,13 @@ export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) 
             commandId === MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID ||
             commandId === MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID ||
             commandId === MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID ||
+            commandId === MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID ||
             commandId === MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID ||
             commandId === MNET_BREAK_GLASS_EXECUTE_COMMAND_ID ||
+            commandId === MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID ||
             isNodeControlExecuteCommandId(commandId)
           ) {
             const token = bearerTokenFromHeaders(headers)
@@ -235,6 +239,26 @@ export function createCommandWellEligibilityRoutes({ cf, tf }: MUiBffRouteDeps) 
                 toMutableNode(decodedNode.node),
                 commandId
               )
+            }
+
+            if (commandId === MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID) {
+              const target = readForcedRelayChangeBody(body)
+              if (!target) return invalidExecuteBody('nodeId is required')
+
+              if (!session.permissions.includes('network:profile-enable')) {
+                return disabledEligibility(
+                  'missing_permission',
+                  '缺少权限：network:profile-enable',
+                  'network:profile-enable'
+                )
+              }
+
+              const response = await mf('/api/v0/forced-relay/eligibility', token, {
+                method: 'POST',
+                body: JSON.stringify(target)
+              })
+              if (!response.ok) return passthroughCoreError(response)
+              return response.data
             }
 
             if (

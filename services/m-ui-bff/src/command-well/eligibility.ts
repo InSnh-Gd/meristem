@@ -105,10 +105,10 @@ export function deriveNoopCommandEligibility(
   }
   const statusBlockReason = blockedNodeStatusMessage(node.status)
   if (statusBlockReason) {
-    return disabledCommand('node_unreachable', statusBlockReason)
+    return disabledCommand('unreachable_node', statusBlockReason)
   }
   if (node.reachability !== 'reachable') {
-    return disabledCommand('node_unreachable', '目标节点不可达')
+    return disabledCommand('unreachable_node', '目标节点不可达')
   }
 
   return {
@@ -147,7 +147,7 @@ export function deriveNodeControlCommandEligibility(
     if (node.status === 'disabled' || node.status === 'isolated' || node.status === 'recovering') {
       controlledStatus = `节点当前为 ${node.status}`
     }
-    return disabledCommand('node_unreachable', `${controlledStatus}，不能执行 ${action}`)
+    return disabledCommand('unreachable_node', `${controlledStatus}，不能执行 ${action}`)
   }
 
   return {

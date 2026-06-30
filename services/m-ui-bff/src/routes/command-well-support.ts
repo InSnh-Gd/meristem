@@ -9,6 +9,7 @@ import {
   COMMAND_PREVIEW_DEFINITIONS,
   DISPLAY_ONLY_COMMAND_IDS,
   type GenericCommandEligibilityBody,
+  type MNetForcedRelayChangeBody,
   type NetworkProfileBreakGlassDisableBody,
   type NetworkProfileDefaultSetBody,
   type NetworkProfileDisablePolicySetBody,
@@ -208,6 +209,15 @@ export function readNetworkProfileBreakGlassDisableBody(
   const emergencyReason = getOptionalStringFieldAllowEmpty(objectBody, 'emergencyReason')
   if (!networkId || emergencyReason === null) return null
   return emergencyReason === undefined ? { networkId } : { networkId, emergencyReason }
+}
+
+export function readForcedRelayChangeBody(body: unknown): MNetForcedRelayChangeBody | null {
+  const objectBody = asObject(body)
+  if (!objectBody) return null
+  const nodeId = getStringField(objectBody, 'nodeId')
+  const reason = getOptionalStringField(objectBody, 'reason')
+  if (!nodeId || reason === null) return null
+  return reason === undefined ? { nodeId } : { nodeId, reason }
 }
 
 /** 预览命令只返回展示态，不返回 execute URL，也不触发策略或审计副作用。 */

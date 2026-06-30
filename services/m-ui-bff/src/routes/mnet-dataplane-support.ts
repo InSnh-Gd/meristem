@@ -1,9 +1,12 @@
 import * as Schema from 'effect/Schema'
 import type {
+  BffOperationalProofPathResponseFromSchema,
   CommandWellEligibilityFromSchema as CommandWellEligibility,
+  DisabledCommandExplanationFromSchema as DisabledCommandExplanation,
+  MNetMigrationRequired,
+  MNetOperationalSnapshotFromSchema,
   Permission
 } from '../../../../packages/contracts/src/index.ts'
-import { internalTokenHeaderName } from '../../../../packages/internal-http/src/index.ts'
 import type {
   MNetBreakGlassBody,
   MNetCredentialRevokeBody,
@@ -37,8 +40,8 @@ export const BffCredentialMutationResponseSchema = Schema.Struct({
   action: Schema.Literal('issued', 'rotated', 'revoked'),
   policyDecisionId: Schema.String,
   correlationId: Schema.String,
-  token: Schema.optional(Schema.String),
   issuedAt: Schema.optional(Schema.String),
+  revokedAt: Schema.optional(Schema.String),
   reason: Schema.optional(Schema.String)
 })
 
@@ -118,21 +121,48 @@ export const BffNetworkDetailResponseSchema = Schema.Struct({
   stateSource: Schema.Struct({ sourceType: Schema.String, sourceId: Schema.String })
 })
 
-type DisabledCode = 'missing_permission' | 'target_missing' | 'wrong_node_kind' | 'node_unreachable'
+type DisabledCode = DisabledCommandExplanation['code']
+
+const operationalStateSource = (networkId: string, suffix: string) => ({
+  sourceType: 'read-model' as const,
+  sourceId: `mnet:/api/v0/networks/${networkId}/operational-state#${suffix}`
+})
+
+function disabledExplanation(input: {
+  code: DisabledCode
+  message: string
+  missingPermission?: Permission
+  migration?: MNetMigrationRequired
+}): DisabledCommandExplanation {
+  return {
+    code: input.code,
+    message: input.message,
+    ...(input.missingPermission !== undefined
+      ? { missingPermission: input.missingPermission }
+      : {}),
+    ...(input.migration ? { migration: input.migration } : {})
+  }
+}
 
 /** 统一构造 M-Net CommandWell 禁用态，保持与现有 UI schema 一致。 */
 export function disabledEligibility(
   code: DisabledCode,
   message: string,
-  missingPermission?: Permission
+  missingPermission?: Permission,
+  migration?: MNetMigrationRequired
 ): CommandWellEligibility {
+  const detail =
+    missingPermission !== undefined || migration !== undefined
+      ? disabledExplanation({
+          code,
+          message,
+          ...(missingPermission !== undefined ? { missingPermission } : {}),
+          ...(migration !== undefined ? { migration } : {})
+        })
+      : disabledExplanation({ code, message })
   return {
     state: 'disabled',
-    disabled: {
-      code,
-      message,
-      ...(missingPermission ? { missingPermission } : {})
-    },
+    disabled: detail,
     disabledReason: message
   }
 }
@@ -141,9 +171,9 @@ export function disabledEligibility(
 export function enabledEligibility(input: {
   id: string
   label: string
-  action: Permission
+  action: string
   resource: string
-  risk?: 'medium' | 'high'
+  risk?: 'low' | 'medium' | 'high' | 'critical'
   requiredPermissions: readonly Permission[]
 }) {
   return {
@@ -161,13 +191,148 @@ export function enabledEligibility(input: {
   }
 }
 
-/** 发送 M-Net internal 路由时附加 shared internal token，避免公开 Bearer 直接打内部接口。 */
-export function withInternalHeaders(init?: RequestInit): RequestInit {
+/** BFF 对节点凭证 mutation 只保留生命周期元数据，绝不回传明文 token。 */
+export function redactCredentialMutationResponse(
+  value: Record<string, unknown>
+): Schema.Schema.Type<typeof BffCredentialMutationResponseSchema> {
+  const nodeId = typeof value.nodeId === 'string' ? value.nodeId : ''
+  const policyDecisionId = typeof value.policyDecisionId === 'string' ? value.policyDecisionId : ''
+  const correlationId = typeof value.correlationId === 'string' ? value.correlationId : ''
+  const issuedAt = typeof value.issuedAt === 'string' ? value.issuedAt : undefined
+  const revokedAt = typeof value.revokedAt === 'string' ? value.revokedAt : undefined
+  const reason = typeof value.reason === 'string' ? value.reason : undefined
+  const action = revokedAt
+    ? 'revoked'
+    : issuedAt
+      ? (typeof value.token === 'string' ? 'issued' : 'rotated')
+      : 'rotated'
+
   return {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      [internalTokenHeaderName]: process.env.MERISTEM_INTERNAL_TOKEN ?? 'test-internal-token'
+    nodeId,
+    action,
+    policyDecisionId,
+    correlationId,
+    ...(issuedAt ? { issuedAt } : {}),
+    ...(revokedAt ? { revokedAt } : {}),
+    ...(reason ? { reason } : {})
+  }
+}
+
+/** 将公开 operational snapshot 适配成 proof-path 读模型，不在 BFF 内合成授权或最终状态。 */
+export function mapOperationalSnapshotToProofPath(
+  snapshot: MNetOperationalSnapshotFromSchema,
+  permissions: readonly Permission[]
+): BffOperationalProofPathResponseFromSchema {
+  const migrationReason = snapshot.migrationRequired.required && snapshot.migrationRequired.migration
+    ? disabledExplanation({
+        code: 'migration_required',
+        message: snapshot.migrationRequired.summary,
+        migration: snapshot.migrationRequired.migration
+      })
+    : undefined
+  const missingPermissionReason = permissions.includes('network:profile-enable')
+    ? undefined
+    : disabledExplanation({
+        code: 'missing_permission',
+        message: '缺少权限：network:profile-enable',
+        missingPermission: 'network:profile-enable'
+      })
+  const profileSelectionReason = migrationReason ?? missingPermissionReason
+  const eligibilityState = profileSelectionReason ? 'disabled' : 'enabled'
+
+  return {
+    networkId: snapshot.networkId,
+    createManageStatus: {
+      mode: 'manage',
+      networkId: snapshot.networkId,
+      networkStatus: snapshot.network.status,
+      profileState: snapshot.network.profileState,
+      memberCount: snapshot.network.memberCount,
+      lastUpdatedAt: snapshot.network.lastUpdatedAt,
+      summary: snapshot.network.summary,
+      stateSource: operationalStateSource(snapshot.networkId, 'network')
+    },
+    profileSelection: {
+      networkId: snapshot.networkId,
+      profileSelection: snapshot.profileSelection,
+      summary: snapshot.profileSelection.migration?.message ?? snapshot.network.summary,
+      ...(profileSelectionReason ? { disabledReason: profileSelectionReason } : {}),
+      stateSource: operationalStateSource(snapshot.networkId, 'profileSelection')
+    },
+    topology: {
+      networkId: snapshot.networkId,
+      topology: snapshot.topology,
+      stateSource: operationalStateSource(snapshot.networkId, 'topology')
+    },
+    sidecarHealth: {
+      networkId: snapshot.networkId,
+      status: snapshot.sidecars.some(node => node.healthStatus === 'unhealthy' || node.stale)
+        ? 'degraded'
+        : snapshot.sidecars.length > 0
+          ? 'healthy'
+          : 'blocked',
+      summary:
+        snapshot.sidecars.length === 0
+          ? 'No sidecar health facts are available'
+          : `${snapshot.sidecars.length} sidecar runtime entries are visible`,
+      nodes: snapshot.sidecars,
+      stateSource: operationalStateSource(snapshot.networkId, 'sidecars')
+    },
+    credentialLifecycle: {
+      networkId: snapshot.networkId,
+      credentials: snapshot.credentials,
+      stateSource: operationalStateSource(snapshot.networkId, 'credentials')
+    },
+    migration: {
+      networkId: snapshot.networkId,
+      migration: snapshot.migrationRequired,
+      ...(migrationReason ? { disabledReason: migrationReason } : {}),
+      stateSource: operationalStateSource(snapshot.networkId, 'migration')
+    },
+    policyEligibility: {
+      networkId: snapshot.networkId,
+      commands: [
+        {
+          commandId: 'network.profile.enable.execute',
+          label: '切换网络 Profile',
+          action: 'network:profile-enable',
+          resource: `network:${snapshot.networkId}`,
+          requiredPermissions: ['network:profile-enable'],
+          requiresPolicy: true,
+          requiresAudit: true,
+          state: eligibilityState,
+          ...(profileSelectionReason ? { disabledReason: profileSelectionReason } : {}),
+          summary: profileSelectionReason?.message ?? '公开事实允许发起 profile 管理请求'
+        },
+        {
+          commandId: 'network.break-glass.execute',
+          label: '执行 break-glass',
+          action: 'network:profile-disable',
+          resource: `network:${snapshot.networkId}`,
+          requiredPermissions: ['network:profile-disable'],
+          requiresPolicy: true,
+          requiresAudit: true,
+          state: permissions.includes('network:profile-disable') ? 'enabled' : 'disabled',
+          ...(permissions.includes('network:profile-disable')
+            ? {}
+            : {
+                disabledReason: disabledExplanation({
+                  code: 'missing_permission',
+                  message: '缺少权限：network:profile-disable',
+                  missingPermission: 'network:profile-disable'
+                })
+              }),
+          summary: 'BFF 只展示策略资格，不决定最终授权'
+        }
+      ],
+      stateSource: operationalStateSource(snapshot.networkId, 'policyEligibility')
+    },
+    progressFeed: {
+      networkId: snapshot.networkId,
+      eventStream: snapshot.eventStream,
+      deploymentReadiness: snapshot.deploymentReadiness,
+      summary: snapshot.deploymentReadiness.summary,
+      stateSource: operationalStateSource(snapshot.networkId, 'progressFeed')
     }
   }
 }

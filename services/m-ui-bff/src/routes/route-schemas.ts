@@ -125,6 +125,11 @@ export const nodeControlCommandBodySchema = t.Object({
   reason: t.Optional(t.String({ minLength: 1 }))
 })
 
+export const forcedRelayChangeBodySchema = t.Object({
+  nodeId: t.String({ minLength: 1 }),
+  reason: t.Optional(t.String({ minLength: 1 }))
+})
+
 export const genericCommandEligibilityBodySchema = t.Union([
   leafNodeIdBodySchema,
   approvalPreviewBodySchema,
@@ -138,7 +143,8 @@ export const genericCommandEligibilityBodySchema = t.Union([
   mnetBreakGlassEligibilityBodySchema,
   mnetMigrationEligibilityBodySchema,
   mnetCredentialEligibilityBodySchema,
-  nodeControlCommandBodySchema
+  nodeControlCommandBodySchema,
+  forcedRelayChangeBodySchema
 ])
 
 export const genericCommandExecuteBodySchema = t.Union([
@@ -159,5 +165,6 @@ export const genericCommandExecuteBodySchema = t.Union([
   migrationRollbackBodySchema,
   credentialRevokeBodySchema,
   mnetCredentialEligibilityBodySchema,
-  nodeControlCommandBodySchema
+  nodeControlCommandBodySchema,
+  forcedRelayChangeBodySchema
 ])

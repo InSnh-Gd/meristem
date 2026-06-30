@@ -140,9 +140,14 @@ export function toGenericNoopEligibility(
   return {
     state: 'enabled',
     command: {
-      ...eligibility.command,
       id: GENERIC_NOOP_COMMAND_ID,
-      requiredPermissions: [...eligibility.command.requiredPermissions]
+      label: eligibility.command.label,
+      action: eligibility.command.action,
+      resource: eligibility.command.resource,
+      risk: 'medium',
+      requiredPermissions: [...eligibility.command.requiredPermissions],
+      requiresPolicy: eligibility.command.requiresPolicy,
+      requiresAudit: eligibility.command.requiresAudit
     }
   }
 }

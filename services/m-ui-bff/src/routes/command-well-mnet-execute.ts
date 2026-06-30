@@ -5,6 +5,7 @@ import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
   MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
   MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID,
+  MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID,
   MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
@@ -23,9 +24,11 @@ import {
 import {
   bffIdempotencyKey,
   forwardCoreExecute,
-  invalidExecuteBody
+  invalidExecuteBody,
+  readForcedRelayChangeBody
 } from './command-well-support.ts'
 import {
+  redactCredentialMutationResponse,
   readBreakGlassBody,
   readCredentialRevokeBody,
   readCredentialTargetBody,
@@ -49,10 +52,12 @@ const MNET_EXECUTE_COMMANDS = new Set([
   MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID,
   MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
   MNET_DEFAULTS_SET_EXECUTE_COMMAND_ID,
+  MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_DRY_RUN_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID,
+  MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID,
   NODE_DISABLE_EXECUTE_COMMAND_ID,
   NODE_ISOLATE_EXECUTE_COMMAND_ID,
   NODE_RECOVER_EXECUTE_COMMAND_ID
@@ -98,6 +103,15 @@ export async function handleMNetExecuteCommand(input: {
   deps: Pick<MUiBffRouteDeps, 'cf' | 'cfRaw' | 'mfRaw'>
 }) {
   const { commandId, body, token, deps } = input
+  const forwardCredentialMutation = async (responsePromise: Promise<Response>) => {
+    const response = await responsePromise
+    if (response.status >= 400) return response
+    const payload = await response.json()
+    if (typeof payload !== 'object' || payload === null) {
+      return bffError(502, 'bff.invalid_upstream_response', 'Upstream credential mutation returned invalid JSON')
+    }
+    return redactCredentialMutationResponse(payload as Record<string, unknown>)
+  }
   if (!isMNetExecuteCommand(commandId)) return null
 
   if (commandId === MNET_JOIN_TICKET_CREATE_EXECUTE_COMMAND_ID) {
@@ -140,7 +154,7 @@ export async function handleMNetExecuteCommand(input: {
     if (!target) return invalidExecuteBody('networkId and nodeId are required')
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
-    return forwardCoreExecute(
+    return forwardCredentialMutation(
       deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials`,
         token,
@@ -156,7 +170,7 @@ export async function handleMNetExecuteCommand(input: {
     if (!target) return invalidExecuteBody('networkId and nodeId are required')
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
-    return forwardCoreExecute(
+    return forwardCredentialMutation(
       deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials/rotate`,
         token,
@@ -176,7 +190,7 @@ export async function handleMNetExecuteCommand(input: {
     }
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
-    return forwardCoreExecute(
+    return forwardCredentialMutation(
       deps.cfRaw(
         `/api/v0/networks/${encodeURIComponent(target.networkId)}/nodes/${encodeURIComponent(target.nodeId)}/credentials/revoke`,
         token,
@@ -199,7 +213,7 @@ export async function handleMNetExecuteCommand(input: {
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
       deps.cfRaw(
-        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile/enable`,
+        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`,
         token,
         {
           method: 'POST',
@@ -220,7 +234,7 @@ export async function handleMNetExecuteCommand(input: {
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
       deps.cfRaw(
-        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile/disable`,
+        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`,
         token,
         {
           method: 'POST',
@@ -273,6 +287,21 @@ export async function handleMNetExecuteCommand(input: {
           reason: defaultsBody.reason ?? 'm-ui-bff defaults update',
           idempotencyKey: defaultsBody.idempotencyKey ?? bffIdempotencyKey('mnet-defaults-set')
         })
+      })
+    )
+  }
+
+  if (commandId === MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID) {
+    const forcedRelayBody = readForcedRelayChangeBody(body)
+    if (!forcedRelayBody) {
+      return invalidExecuteBody('nodeId is required; reason must be a non-empty string when provided')
+    }
+    const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
+    if (permissionCheck instanceof Response) return permissionCheck
+    return forwardCoreExecute(
+      deps.mfRaw('/api/v0/forced-relay/change', token, {
+        method: 'POST',
+        body: JSON.stringify(forcedRelayBody)
       })
     )
   }

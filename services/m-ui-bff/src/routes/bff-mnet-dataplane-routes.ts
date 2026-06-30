@@ -1,17 +1,21 @@
 import * as Schema from 'effect/Schema'
 import { Elysia } from 'elysia'
 import {
+  BffOperationalProofPathResponseSchema,
+  type MNetOperationalSnapshotFromSchema,
+  MNetOperationalSnapshotSchema,
   NetworkListResponseSchema,
-  NetworkMapResponseSchema,
-  NetworkMembersResponseSchema
+  NetworkMembersResponseSchema,
+  SessionResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
 import {
   BffDataPlaneStatusResponseSchema,
   BffJoinTicketListResponseSchema,
-  withInternalHeaders
+  mapOperationalSnapshotToProofPath
 } from './mnet-dataplane-support.ts'
 import {
+  decodeUpstreamData,
   fetchDecodedUpstream,
   requireBearerToken,
   withStateSource,
@@ -19,8 +23,24 @@ import {
 } from './route-helpers.ts'
 import { networkIdParamsSchema } from './route-schemas.ts'
 
+function relayEndpointFromOperationalSnapshot(snapshot: MNetOperationalSnapshotFromSchema) {
+  const selector = snapshot.forcedRelay.selector
+  if (!snapshot.forcedRelay.active || !selector) return 'not-configured'
+  switch (selector.selectorType) {
+    case 'all-leaf-nodes':
+      return 'all-leaf-nodes'
+    case 'node-ids':
+      return selector.nodeIds.join(',') || 'node-ids'
+    case 'label-selector':
+      return Object.entries(selector.matchLabels)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(',') || 'label-selector'
+  }
+}
+
 /**
- * createBffMNetDataplaneRoutes 聚合 M-Net 数据面面板所需读模型，并为每条响应补充 stateSource。
+ * createBffMNetDataplaneRoutes 聚合 M-Net proof-path 面板所需公开读模型。
+ * BFF 只消费公开 REST fact，并把 UI 需要的组合形状下沉到 support mapper。
  */
 export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
   return new Elysia()
@@ -30,7 +50,7 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
         const token = requireBearerToken(headers)
         if (token instanceof Response) return token
 
-        const [networks, members, mapSummary, dataPlaneStatus] = await Promise.all([
+        const [networks, members, operationalState, dataPlaneStatus] = await Promise.all([
           fetchDecodedUpstream({
             fetcher: cf,
             path: '/api/v0/networks',
@@ -39,20 +59,18 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
             errorMessage: 'Core returned invalid network list payload'
           }),
           fetchDecodedUpstream({
-            fetcher: mf,
-            path: `/internal/v0/networks/${params.id}/members`,
+            fetcher: cf,
+            path: `/api/v0/networks/${params.id}/members`,
             token,
             schema: NetworkMembersResponseSchema,
-            errorMessage: 'M-Net returned invalid member list payload',
-            init: withInternalHeaders()
+            errorMessage: 'Core returned invalid network member list payload'
           }),
           fetchDecodedUpstream({
             fetcher: mf,
-            path: `/internal/v0/networks/${params.id}/network-map`,
+            path: `/api/v0/networks/${params.id}/operational-state`,
             token,
-            schema: NetworkMapResponseSchema,
-            errorMessage: 'M-Net returned invalid network map payload',
-            init: withInternalHeaders()
+            schema: MNetOperationalSnapshotSchema,
+            errorMessage: 'M-Net returned invalid operational state payload'
           }),
           fetchDecodedUpstream({
             fetcher: mf,
@@ -65,7 +83,7 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
 
         if (networks instanceof Response) return networks
         if (members instanceof Response) return members
-        if (mapSummary instanceof Response) return mapSummary
+        if (operationalState instanceof Response) return operationalState
         if (dataPlaneStatus instanceof Response) return dataPlaneStatus
 
         const network = networks.networks.find(candidate => candidate.id === params.id)
@@ -79,11 +97,17 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
           )
         }
 
-        const relayAssignment = mapSummary.relayAssignment ?? {
-          relayType: 'none',
-          relayEndpoint: 'none',
-          nodeIds: []
-        }
+        const relayAssignment = operationalState.forcedRelay.active
+          ? {
+              relayType: operationalState.forcedRelay.routeClass ?? 'forced-relay',
+              relayEndpoint: relayEndpointFromOperationalSnapshot(operationalState),
+              nodeIds: operationalState.forcedRelay.affectedNodeIds
+            }
+          : {
+              relayType: 'unknown',
+              relayEndpoint: 'unknown',
+              nodeIds: [] as string[]
+            }
 
         return {
           network: withStateSource(network, {
@@ -93,27 +117,27 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
           members: members.members.map(member =>
             withStateSource(member, {
               sourceType: 'authoritative',
-              sourceId: `mnet:/internal/v0/networks/${params.id}/members/${member.nodeId}`
+              sourceId: `core:/api/v0/networks/${params.id}/members/${member.nodeId}`
             })
           ),
           profileState: {
             profileVersion: network.profileVersion,
             stateSource: {
               sourceType: 'authoritative',
-              sourceId: `core:/api/v0/networks/${params.id}/profile`
+              sourceId: `core:/api/v0/network-profiles/${network.profileVersion}`
             }
           },
           networkMapSummary: {
             networkId: params.id,
-            mapVersion: mapSummary.mapVersion,
-            memberCount: mapSummary.members.length,
-            aclRuleCount: mapSummary.aclRules.length,
+            mapVersion: operationalState.topology.topologyRevision ?? 'unavailable',
+            memberCount: operationalState.topology.nodes.length,
+            aclRuleCount: operationalState.topology.edges.length,
             relayAssignment,
-            expiresAt: mapSummary.expiresAt,
-            signedBy: mapSummary.signedBy,
+            expiresAt: operationalState.network.lastUpdatedAt,
+            signedBy: operationalState.eventStream.lastEventId ?? 'unknown',
             stateSource: {
               sourceType: 'read-model',
-              sourceId: `mnet:/internal/v0/networks/${params.id}/network-map`
+              sourceId: `mnet:/api/v0/networks/${params.id}/operational-state#topology`
             }
           },
           dataPlaneStatus,
@@ -125,7 +149,7 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
       },
       {
         params: networkIdParamsSchema,
-        detail: withStateSourceDetail('Read M-Net network detail with members and topology', [
+        detail: withStateSourceDetail('Read M-Net network detail with public topology facts', [
           'authoritative',
           'read-model'
         ])
@@ -174,25 +198,30 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
       async ({ params, headers }) => {
         const token = requireBearerToken(headers)
         if (token instanceof Response) return token
-        const map = await fetchDecodedUpstream({
+        const snapshot = await fetchDecodedUpstream({
           fetcher: mf,
-          path: `/internal/v0/networks/${params.id}/network-map`,
+          path: `/api/v0/networks/${params.id}/operational-state`,
           token,
-          schema: NetworkMapResponseSchema,
-          errorMessage: 'M-Net returned invalid network map payload',
-          init: withInternalHeaders()
+          schema: MNetOperationalSnapshotSchema,
+          errorMessage: 'M-Net returned invalid operational state payload'
         })
-        if (map instanceof Response) return map
+        if (snapshot instanceof Response) return snapshot
         return {
           networkId: params.id,
-          relayAssignment: map.relayAssignment ?? {
-            relayType: 'none',
-            relayEndpoint: 'none',
-            nodeIds: []
-          },
+          relayAssignment: snapshot.forcedRelay.active
+            ? {
+                relayType: snapshot.forcedRelay.routeClass ?? 'forced-relay',
+                relayEndpoint: relayEndpointFromOperationalSnapshot(snapshot),
+                nodeIds: snapshot.forcedRelay.affectedNodeIds
+              }
+            : {
+                relayType: 'unknown',
+                relayEndpoint: 'unknown',
+                nodeIds: []
+              },
           stateSource: {
             sourceType: 'read-model',
-            sourceId: `mnet:/internal/v0/networks/${params.id}/network-map`
+            sourceId: `mnet:/api/v0/networks/${params.id}/operational-state#forcedRelay`
           }
         }
       },
@@ -208,37 +237,114 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
       async ({ params, headers }) => {
         const token = requireBearerToken(headers)
         if (token instanceof Response) return token
-        const map = await fetchDecodedUpstream({
+        const snapshot = await fetchDecodedUpstream({
           fetcher: mf,
-          path: `/internal/v0/networks/${params.id}/network-map`,
+          path: `/api/v0/networks/${params.id}/operational-state`,
           token,
-          schema: NetworkMapResponseSchema,
-          errorMessage: 'M-Net returned invalid network map payload',
-          init: withInternalHeaders()
+          schema: MNetOperationalSnapshotSchema,
+          errorMessage: 'M-Net returned invalid operational state payload'
         })
-        if (map instanceof Response) return map
-        const summary = {
+        if (snapshot instanceof Response) return snapshot
+        return {
           networkId: params.id,
-          mapVersion: map.mapVersion,
-          memberCount: map.members.length,
-          aclRuleCount: map.aclRules.length,
-          relayAssignment: map.relayAssignment ?? {
-            relayType: 'none',
-            relayEndpoint: 'none',
-            nodeIds: []
-          },
-          expiresAt: map.expiresAt,
-          signedBy: map.signedBy,
+          mapVersion: snapshot.topology.topologyRevision ?? 'unavailable',
+          memberCount: snapshot.topology.nodes.length,
+          aclRuleCount: snapshot.topology.edges.length,
+          relayAssignment: snapshot.forcedRelay.active
+            ? {
+                relayType: snapshot.forcedRelay.routeClass ?? 'forced-relay',
+                relayEndpoint: relayEndpointFromOperationalSnapshot(snapshot),
+                nodeIds: snapshot.forcedRelay.affectedNodeIds
+              }
+            : {
+                relayType: 'unknown',
+                relayEndpoint: 'unknown',
+                nodeIds: []
+              },
+          expiresAt: snapshot.network.lastUpdatedAt,
+          signedBy: snapshot.eventStream.lastEventId ?? 'unknown',
           stateSource: {
             sourceType: 'read-model',
-            sourceId: `mnet:/internal/v0/networks/${params.id}/network-map`
+            sourceId: `mnet:/api/v0/networks/${params.id}/operational-state#topology`
           }
         }
-        return summary
       },
       {
         params: networkIdParamsSchema,
         detail: withStateSourceDetail('Read network-map summary for one network', ['read-model'])
+      }
+    )
+    .get(
+      '/api/v0/networks/:id/operational-state',
+      async ({ params, headers }) => {
+        const token = requireBearerToken(headers)
+        if (token instanceof Response) return token
+
+        const result = await fetchDecodedUpstream({
+          fetcher: mf,
+          path: `/api/v0/networks/${params.id}/operational-state`,
+          token,
+          schema: MNetOperationalSnapshotSchema,
+          errorMessage: 'M-Net returned invalid operational state payload'
+        })
+        if (result instanceof Response) return result
+
+        return {
+          ...result,
+          stateSource: {
+            sourceType: 'read-model',
+            sourceId: `mnet:/api/v0/networks/${params.id}/operational-state`
+          }
+        }
+      },
+      {
+        params: networkIdParamsSchema,
+        detail: withStateSourceDetail('Read network operational read model state', ['read-model'])
+      }
+    )
+    .get(
+      '/api/v0/networks/:id/proof-path',
+      async ({ params, headers }) => {
+        const token = requireBearerToken(headers)
+        if (token instanceof Response) return token
+
+        const [sessionRes, operationalRes] = await Promise.all([
+          cf('/api/v0/session', token),
+          mf(`/api/v0/networks/${params.id}/operational-state`, token)
+        ])
+        if (!sessionRes.ok) return new Response(JSON.stringify(sessionRes.data), {
+          status: sessionRes.status || 502,
+          headers: { 'content-type': 'application/json' }
+        })
+        if (!operationalRes.ok) return new Response(JSON.stringify(operationalRes.data), {
+          status: operationalRes.status || 502,
+          headers: { 'content-type': 'application/json' }
+        })
+
+        const session = decodeUpstreamData(
+          SessionResponseSchema,
+          sessionRes.data,
+          'Core returned invalid session payload'
+        )
+        if (session instanceof Response) return session
+        const operational = decodeUpstreamData(
+          MNetOperationalSnapshotSchema,
+          operationalRes.data,
+          'M-Net returned invalid operational state payload'
+        )
+        if (operational instanceof Response) return operational
+
+        return Schema.decodeUnknownSync(BffOperationalProofPathResponseSchema)(
+          mapOperationalSnapshotToProofPath(operational, session.permissions)
+        )
+      },
+      {
+        params: networkIdParamsSchema,
+        detail: withStateSourceDetail('Read proof-path network management contract', [
+          'authoritative',
+          'read-model',
+          'policy'
+        ])
       }
     )
     .get(

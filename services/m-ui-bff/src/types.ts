@@ -21,7 +21,7 @@ export type GenericNoopEligibility =
         label: string
         action: Permission
         resource: string
-        risk: 'medium'
+        risk: 'low' | 'medium' | 'high' | 'critical'
         requiredPermissions: readonly Permission[]
         requiresPolicy: boolean
         requiresAudit: boolean
@@ -90,6 +90,11 @@ export type MNetNodeControlBody = {
   reason?: string
 }
 
+export type MNetForcedRelayChangeBody = {
+  nodeId: string
+  reason?: string
+}
+
 export type MNetProfileToggleBody = {
   networkId: string
   profileVersion: string
@@ -139,6 +144,7 @@ export type GenericCommandEligibilityBody =
   | { scope?: string }
   | MNetCredentialTargetBody
   | MNetNodeControlBody
+  | MNetForcedRelayChangeBody
 
 export type CommandPreviewDefinition = Pick<
   OperationalCommandPreview,
@@ -247,6 +253,9 @@ export const MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID = 'network.migration.apply.
 export const MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID = 'network.migration.resume.execute'
 /** M-Net 迁移回滚执行命令 ID */
 export const MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID = 'network.migration.rollback.execute'
+/** M-Net 强制 Relay 切换执行命令 ID */
+export const MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID =
+  'network.forced-relay.change.execute'
 /** 节点禁用执行命令 ID */
 export const NODE_DISABLE_EXECUTE_COMMAND_ID = 'node.disable.execute'
 /** 节点隔离执行命令 ID */
@@ -286,6 +295,7 @@ export const EXECUTE_COMMAND_IDS = [
   MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID,
   MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID,
+  MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID,
   NODE_DISABLE_EXECUTE_COMMAND_ID,
   NODE_ISOLATE_EXECUTE_COMMAND_ID,
   NODE_RECOVER_EXECUTE_COMMAND_ID
@@ -317,6 +327,7 @@ export const EXECUTE_COMMAND_REQUIRED_PERMISSIONS: Record<ExecuteCommandId, Perm
   [MNET_MIGRATION_APPLY_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [MNET_MIGRATION_RESUME_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [MNET_MIGRATION_ROLLBACK_EXECUTE_COMMAND_ID]: 'network:profile-enable',
+  [MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID]: 'network:profile-enable',
   [NODE_DISABLE_EXECUTE_COMMAND_ID]: 'node:disable',
   [NODE_ISOLATE_EXECUTE_COMMAND_ID]: 'node:isolate',
   [NODE_RECOVER_EXECUTE_COMMAND_ID]: 'node:recover'
