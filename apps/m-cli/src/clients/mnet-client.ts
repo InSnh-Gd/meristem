@@ -13,6 +13,7 @@ export function createMnetClient(
   | 'enableNetworkProfile'
   | 'disableNetworkProfile'
   | 'getMigrationStatus'
+  | 'getMigrationReport'
   | 'planMigration'
   | 'applyMigration'
   | 'resumeMigration'
@@ -44,7 +45,7 @@ export function createMnetClient(
     },
     disableNetworkProfile: async (networkId, reason) => {
       const result = await mnetRoutes.postJson(`/api/v0/networks/${networkId}/profile`, {
-        body: { profileVersion: 'm-net-default@0.1.0', reason }
+        body: { profileVersion: 'm-net@0.3.0', reason }
       })
       if (!result.ok) throw new Error(result.error.message)
       return result.value
@@ -58,6 +59,11 @@ export function createMnetClient(
         return result.value
       }
       const result = await mnetRoutes.getJson('/api/v0/networks/profile-defaults')
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    },
+    getMigrationReport: async () => {
+      const result = await mnetRoutes.getJson('/api/v0/networks/profile-switches/report')
       if (!result.ok) throw new Error(result.error.message)
       return result.value
     },

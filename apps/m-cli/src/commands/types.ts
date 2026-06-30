@@ -58,6 +58,8 @@ export type CliClient = {
   disableNetworkProfile?(networkId: string, reason: string): Promise<unknown>
   /** 获取全局迁移状态或指定操作状态 */
   getMigrationStatus?(operationId?: string): Promise<unknown>
+  /** 扫描 legacy profile/node 并返回可执行迁移报告 */
+  getMigrationReport?(): Promise<unknown>
   /** 规划迁移 dry-run */
   planMigration?(
     targetVersion: string,

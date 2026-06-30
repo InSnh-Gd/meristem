@@ -91,7 +91,7 @@ function generateHelp(): CliRunResult {
   cli.command('node', 'Node: register, ticket, issue-token, list')
   cli.command('node-agent', 'Node agent: install, upgrade, uninstall')
   cli.command('network', 'Network: create, list, join, members, profile')
-  cli.command('mnet', 'M-Net: migration, health, relay, map, break-glass')
+  cli.command('mnet', 'M-Net: migration status/report, health, relay, map, break-glass')
   cli.command('extension', 'Extension: list, show, register, enable, disable')
   cli.command('task', 'Task: submit, cancel, status, list, retry')
   cli.command('service', 'Service: list, reload')

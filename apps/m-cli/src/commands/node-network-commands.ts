@@ -138,6 +138,11 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
         return success(await migrationStatus(operationId))
       }
 
+      if (migrationAction === 'report') {
+        const migrationReport = requireMethod(client.getMigrationReport, 'getMigrationReport')
+        return success(await migrationReport())
+      }
+
       if (migrationAction === 'dry-run') {
         const targetVersion = requireArg(args, '--target-version')
         const reason = requireArg(args, '--reason')
@@ -167,7 +172,7 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
       }
 
       throw new Error(
-        'usage: meristem mnet migration status [--operation <id>] | dry-run --target-version <v> --reason <text> [--batch-size <n>] | apply --operation <id> | resume --operation <id> | rollback --operation <id> --reason <text>'
+        'usage: meristem mnet migration status [--operation <id>] | report | dry-run --target-version <v> --reason <text> [--batch-size <n>] | apply --operation <id> | resume --operation <id> | rollback --operation <id> --reason <text>'
       )
     }
 
@@ -213,7 +218,7 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
     }
 
     throw new Error(
-      'usage: meristem mnet migration status [--operation <id>] | migration dry-run --target-version <v> --reason <text> | migration apply --operation <id> | migration resume --operation <id> | migration rollback --operation <id> --reason <text> | health --network <id> | relay --network <id> | map inspect --network <id> | break-glass --network <id> --reason <text> --confirm-break-glass'
+      'usage: meristem mnet migration status [--operation <id>] | migration report | migration dry-run --target-version <v> --reason <text> | migration apply --operation <id> | migration resume --operation <id> | migration rollback --operation <id> --reason <text> | health --network <id> | relay --network <id> | map inspect --network <id> | break-glass --network <id> --reason <text> --confirm-break-glass'
     )
   }
 

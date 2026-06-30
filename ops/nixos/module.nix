@@ -3,9 +3,222 @@
 let
   cfg = config.services.meristem;
   relayCfg = cfg.relay;
+  deploymentConfigPath = "/etc/meristem/deployment-v02.json";
+  mkSecretRef =
+    keyPath:
+    if keyPath == null then
+      null
+    else
+      {
+        provider = cfg.secrets.providerName;
+        inherit keyPath;
+      };
+  deploymentSecretBindings = builtins.filter (binding: binding != null) [
+    (if cfg.deployment.internalAuth.tokenSecretRef == null then
+      null
+    else
+      {
+        envVar = cfg.deployment.internalAuth.tokenEnvVar;
+        ref = mkSecretRef cfg.deployment.internalAuth.tokenSecretRef;
+      })
+    (if cfg.secrets.oidc.clientSecretRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_OIDC_CLIENT_SECRET";
+        ref = mkSecretRef cfg.secrets.oidc.clientSecretRef;
+      })
+    (if cfg.secrets.oidc.jwksRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_OIDC_JWKS";
+        ref = mkSecretRef cfg.secrets.oidc.jwksRef;
+      })
+    (if cfg.secrets.netbird.signalCredentialRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_NETBIRD_SIGNAL_CREDENTIAL";
+        ref = mkSecretRef cfg.secrets.netbird.signalCredentialRef;
+      })
+    (if cfg.secrets.netbird.relayCredentialRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_NETBIRD_RELAY_CREDENTIAL";
+        ref = mkSecretRef cfg.secrets.netbird.relayCredentialRef;
+      })
+    (if cfg.secrets.netbird.stunCredentialRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_NETBIRD_STUN_CREDENTIAL";
+        ref = mkSecretRef cfg.secrets.netbird.stunCredentialRef;
+      })
+    (if cfg.secrets.sidecar.authTokenRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_SIDECAR_AUTH_TOKEN";
+        ref = mkSecretRef cfg.secrets.sidecar.authTokenRef;
+      })
+    (if cfg.secrets.sidecar.configSecretRef == null then
+      null
+    else
+      {
+        envVar = "MERISTEM_SIDECAR_CONFIG_SECRET";
+        ref = mkSecretRef cfg.secrets.sidecar.configSecretRef;
+      })
+  ];
+  namedSecretProviderConfig =
+    {
+      name = cfg.secrets.providerName;
+      config =
+        if cfg.secrets.providerBackend == "local-dev-env" then
+          {
+            backend = "local-dev-env";
+            envMappings = cfg.secrets.localDevEnvMappings;
+          }
+        else
+          {
+            backend = "vault-kv-v2";
+            address = cfg.secrets.vault.address;
+            mountPath = cfg.secrets.vault.mountPath;
+            authMethodRef = cfg.secrets.vault.authMethodRef;
+          };
+    }
+    // lib.optionalAttrs (cfg.secrets.cache.freshTtlMs != null && cfg.secrets.cache.staleTtlMs != null) {
+      cache = {
+        freshTtlMs = cfg.secrets.cache.freshTtlMs;
+        staleTtlMs = cfg.secrets.cache.staleTtlMs;
+      };
+    };
+  deploymentV02Config = {
+    track = "nixos";
+    serviceUrls = cfg.deployment.serviceUrls;
+    internalAuth = {
+      headerName = cfg.deployment.internalAuth.headerName;
+      tokenEnvVar = cfg.deployment.internalAuth.tokenEnvVar;
+    }
+    // lib.optionalAttrs (cfg.deployment.internalAuth.tokenSecretRef != null) {
+      tokenSecretRef = mkSecretRef cfg.deployment.internalAuth.tokenSecretRef;
+    };
+    oidc = {
+      provider = "oidc";
+      issuer = cfg.deployment.oidc.issuer;
+      audiences = cfg.deployment.oidc.audiences;
+      allowedAlgorithms = cfg.deployment.oidc.allowedAlgorithms;
+      jwksCache = {
+        refreshIntervalMs = cfg.deployment.oidc.jwksCache.refreshIntervalMs;
+        ttlMs = cfg.deployment.oidc.jwksCache.ttlMs;
+      };
+      clockToleranceSeconds = cfg.deployment.oidc.clockToleranceSeconds;
+    }
+    // lib.optionalAttrs (cfg.deployment.oidc.discoveryUrl != null) {
+      discoveryUrl = cfg.deployment.oidc.discoveryUrl;
+    };
+    secretProvider = {
+      providerName = cfg.secrets.providerName;
+      backend = cfg.secrets.providerBackend;
+      namedProvider = namedSecretProviderConfig;
+    };
+    secretBindings = deploymentSecretBindings;
+    netbird = cfg.deployment.netbird;
+    nodeAgentCapabilities = cfg.deployment.nodeAgentCapabilities;
+    readiness = {
+      postgres = {
+        kind = "postgres-select-1";
+        target = "postgres";
+      };
+      core = {
+        kind = "http-get";
+        target = "core";
+        endpoint = "${cfg.deployment.serviceUrls.core}/api/v0/ready";
+      };
+      mnet = {
+        kind = "http-get";
+        target = "m-net";
+        endpoint = "${cfg.deployment.serviceUrls.mnet}/ready";
+      };
+      policy = {
+        kind = "http-get";
+        target = "m-policy";
+        endpoint = "${cfg.deployment.serviceUrls.policy}/ready";
+      };
+      log = {
+        kind = "http-get";
+        target = "m-log";
+        endpoint = "${cfg.deployment.serviceUrls.log}/ready";
+      };
+      eventbus = {
+        kind = "http-get";
+        target = "m-eventbus";
+        endpoint = "${cfg.deployment.serviceUrls.eventbus}/ready";
+      };
+      task = {
+        kind = "http-get";
+        target = "m-task";
+        endpoint = "${cfg.deployment.serviceUrls.task}/health";
+      };
+      extension = {
+        kind = "http-get";
+        target = "m-extension";
+        endpoint = "${cfg.deployment.serviceUrls.extension}/ready";
+      };
+      uiBff = {
+        kind = "http-get";
+        target = "m-ui-bff";
+        endpoint = "${cfg.deployment.serviceUrls.uiBff}/ready";
+      };
+      nodeAgent = {
+        kind = "command";
+        target = "node-agent";
+        command = [ "systemctl" "is-active" "meristem-node-agent.service" ];
+      };
+    };
+  };
+  secretProviderEnvironment =
+    {
+      MERISTEM_SECRET_PROVIDER_NAME = cfg.secrets.providerName;
+      MERISTEM_SECRET_PROVIDER_BACKEND = cfg.secrets.providerBackend;
+      MERISTEM_V02_DEPLOYMENT_CONFIG = deploymentConfigPath;
+    }
+    // lib.optionalAttrs (cfg.secrets.vault.address != "") {
+      MERISTEM_SECRET_PROVIDER_VAULT_ADDRESS = cfg.secrets.vault.address;
+    }
+    // lib.optionalAttrs (cfg.secrets.vault.mountPath != "") {
+      MERISTEM_SECRET_PROVIDER_VAULT_MOUNT_PATH = cfg.secrets.vault.mountPath;
+    }
+    // lib.optionalAttrs (cfg.secrets.vault.authMethodRef != "") {
+      MERISTEM_SECRET_PROVIDER_VAULT_AUTH_METHOD_REF = cfg.secrets.vault.authMethodRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.oidc.clientSecretRef != null) {
+      MERISTEM_OIDC_CLIENT_SECRET_REF = cfg.secrets.oidc.clientSecretRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.oidc.jwksRef != null) {
+      MERISTEM_OIDC_JWKS_SECRET_REF = cfg.secrets.oidc.jwksRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.netbird.signalCredentialRef != null) {
+      MERISTEM_NETBIRD_SIGNAL_CREDENTIAL_REF = cfg.secrets.netbird.signalCredentialRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.netbird.relayCredentialRef != null) {
+      MERISTEM_NETBIRD_RELAY_CREDENTIAL_REF = cfg.secrets.netbird.relayCredentialRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.netbird.stunCredentialRef != null) {
+      MERISTEM_NETBIRD_STUN_CREDENTIAL_REF = cfg.secrets.netbird.stunCredentialRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.sidecar.authTokenRef != null) {
+      MERISTEM_SIDECAR_AUTH_TOKEN_REF = cfg.secrets.sidecar.authTokenRef;
+    }
+    // lib.optionalAttrs (cfg.secrets.sidecar.configSecretRef != null) {
+      MERISTEM_SIDECAR_CONFIG_SECRET_REF = cfg.secrets.sidecar.configSecretRef;
+    }
+    // cfg.secrets.deploymentEnvSecretRefs;
 
   composeBase = import ./compose/base.nix {
     inherit lib pkgs;
+    composeEnvFile = cfg.composeEnvFile;
     workspaceDir = cfg.workspaceDir;
   };
   composeOpenSearch = import ./compose/opensearch.nix {
@@ -132,6 +345,7 @@ let
       after = [ "network-online.target" ] ++ infraDependencies ++ bootstrapDependencies ++ after;
       wants = [ "network-online.target" ] ++ infraDependencies ++ bootstrapDependencies ++ wants;
       environmentFile = cfg.environmentFile;
+      environment = secretProviderEnvironment;
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
@@ -178,6 +392,12 @@ in
       type = lib.types.str;
       default = "meristem";
       description = "System group that owns Meristem service processes.";
+    };
+
+    composeEnvFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/etc/meristem/compose/base.env";
+      description = "Environment file consumed by compose2nix-derived infrastructure containers for secret-bearing values.";
     };
 
     enableUiBff = lib.mkOption {
@@ -328,6 +548,290 @@ in
         description = "Whether the bootstrap oneshot should seed local demo data.";
       };
     };
+
+    secrets = {
+      providerName = lib.mkOption {
+        type = lib.types.str;
+        default = "local-dev";
+        description = "Named SecretProvider instance advertised to Meristem services.";
+      };
+
+      providerBackend = lib.mkOption {
+        type = lib.types.enum [ "local-dev-env" "vault-kv-v2" ];
+        default = "local-dev-env";
+        description = "SecretProvider backend contract used by deployment wiring.";
+      };
+
+      localDevEnvMappings = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        description = "local-dev SecretProvider keyPath to environment-variable mapping emitted into the v0.2 deployment wrapper.";
+      };
+
+      cache = {
+        freshTtlMs = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "Optional SecretProvider fresh cache TTL advertised in the v0.2 deployment wrapper.";
+        };
+
+        staleTtlMs = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "Optional SecretProvider stale cache TTL advertised in the v0.2 deployment wrapper.";
+        };
+      };
+
+      vault = {
+        address = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Vault KV v2 base address for the first production SecretProvider backend.";
+        };
+
+        mountPath = lib.mkOption {
+          type = lib.types.str;
+          default = "secret";
+          description = "Vault KV v2 mount path used by the SecretProvider contract.";
+        };
+
+        authMethodRef = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Opaque auth-method reference resolved by the runtime SecretProvider.";
+        };
+      };
+
+      oidc = {
+        clientSecretRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for the future OIDC client secret consumer boundary.";
+        };
+
+        jwksRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for the future OIDC JWKS material consumer boundary.";
+        };
+      };
+
+      netbird = {
+        signalCredentialRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for NetBird Signal credentials.";
+        };
+
+        relayCredentialRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for NetBird Relay credentials.";
+        };
+
+        stunCredentialRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for NetBird STUN credentials.";
+        };
+      };
+
+      sidecar = {
+        authTokenRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for node sidecar auth token material.";
+        };
+
+        configSecretRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef for sidecar config fragments that must not live in plaintext deployment env.";
+        };
+      };
+
+      deploymentEnvSecretRefs = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        description = "Additional env-var to SecretRef bindings exported to Meristem services.";
+      };
+    };
+
+    deployment = {
+      serviceUrls = {
+        core = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3000";
+          description = "Core base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        mnet = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3104";
+          description = "M-Net base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        policy = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3101";
+          description = "M-Policy base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        log = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3102";
+          description = "M-Log base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        eventbus = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3103";
+          description = "M-EventBus base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        task = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3105";
+          description = "M-Task base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        extension = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3106";
+          description = "M-Extension base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        uiBff = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3200";
+          description = "M-UI BFF base URL advertised by the v0.2 deployment wrapper.";
+        };
+
+        nodeAgent = lib.mkOption {
+          type = lib.types.str;
+          default = "http://127.0.0.1:3307";
+          description = "Node-agent control endpoint reference advertised by the v0.2 deployment wrapper.";
+        };
+      };
+
+      internalAuth = {
+        headerName = lib.mkOption {
+          type = lib.types.str;
+          default = "x-meristem-internal-token";
+          description = "Internal auth header name advertised by the v0.2 deployment wrapper.";
+        };
+
+        tokenEnvVar = lib.mkOption {
+          type = lib.types.str;
+          default = "MERISTEM_INTERNAL_TOKEN";
+          description = "Environment variable name that carries the internal auth token.";
+        };
+
+        tokenSecretRef = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "SecretRef keyPath for the internal auth token metadata exposed by the v0.2 deployment wrapper.";
+        };
+      };
+
+      oidc = {
+        issuer = lib.mkOption {
+          type = lib.types.str;
+          default = "https://identity.control-plane.example.com";
+          description = "OIDC issuer used by the v0.2 deployment wrapper.";
+        };
+
+        discoveryUrl = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "Optional explicit OIDC discovery URL used by the v0.2 deployment wrapper.";
+        };
+
+        audiences = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ "meristem-core" "meristem-operators" ];
+          description = "Allowed OIDC audiences advertised by the v0.2 deployment wrapper.";
+        };
+
+        allowedAlgorithms = lib.mkOption {
+          type = lib.types.listOf (lib.types.enum [ "RS256" "RS384" "RS512" "ES256" "ES384" ]);
+          default = [ "RS256" "ES256" ];
+          description = "OIDC signing algorithms advertised by the v0.2 deployment wrapper.";
+        };
+
+        jwksCache = {
+          refreshIntervalMs = lib.mkOption {
+            type = lib.types.int;
+            default = 300000;
+            description = "OIDC JWKS refresh interval advertised by the v0.2 deployment wrapper.";
+          };
+
+          ttlMs = lib.mkOption {
+            type = lib.types.int;
+            default = 900000;
+            description = "OIDC JWKS hard TTL advertised by the v0.2 deployment wrapper.";
+          };
+        };
+
+        clockToleranceSeconds = lib.mkOption {
+          type = lib.types.int;
+          default = 30;
+          description = "OIDC clock tolerance advertised by the v0.2 deployment wrapper.";
+        };
+      };
+
+      netbird = {
+        signalEndpoint = lib.mkOption {
+          type = lib.types.str;
+          default = "https://signal.control-plane.example.com:443";
+          description = "NetBird Signal endpoint reference advertised by the v0.2 deployment wrapper.";
+        };
+
+        relayEndpoint = lib.mkOption {
+          type = lib.types.str;
+          default = "turns://relay.control-plane.example.com:443";
+          description = "NetBird Relay endpoint reference advertised by the v0.2 deployment wrapper.";
+        };
+
+        stunEndpoint = lib.mkOption {
+          type = lib.types.str;
+          default = "stun:relay.control-plane.example.com:3478";
+          description = "NetBird STUN endpoint reference advertised by the v0.2 deployment wrapper.";
+        };
+      };
+
+      nodeAgentCapabilities = {
+        netAdmin = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether node-agent hosts are expected to provide CAP_NET_ADMIN.";
+        };
+
+        wireguardModulePath = lib.mkOption {
+          type = lib.types.str;
+          default = "/sys/module/wireguard";
+          description = "WireGuard kernel module path expected on node-agent hosts.";
+        };
+
+        wgBinaryPath = lib.mkOption {
+          type = lib.types.str;
+          default = "/run/current-system/sw/bin/wg";
+          description = "WireGuard userspace binary path expected on node-agent hosts.";
+        };
+
+        ipBinaryPath = lib.mkOption {
+          type = lib.types.str;
+          default = "/run/current-system/sw/bin/ip";
+          description = "iproute2 binary path expected on node-agent hosts.";
+        };
+
+        wstunnelBinaryPath = lib.mkOption {
+          type = lib.types.str;
+          default = "/run/current-system/sw/bin/wstunnel";
+          description = "Legacy relay tool path kept as deployment metadata for migration windows.";
+        };
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -368,8 +872,12 @@ in
 
         networking.firewall.allowedTCPPorts = [ 8443 ] ++ lib.optionals relayCfg.enable [ relayCfg.publicPort ];
 
-        environment.etc = lib.optionalAttrs relayCfg.enable {
-          "meristem/wstunnel/restrictions.yaml".text = ''
+        environment.etc = lib.mkMerge [
+          {
+            "meristem/deployment-v02.json".text = builtins.toJSON deploymentV02Config;
+          }
+          (lib.optionalAttrs relayCfg.enable {
+            "meristem/wstunnel/restrictions.yaml".text = ''
             restrictions:
               - name: "meristem-wireguard-fallback"
                 description: "Only allow UDP-over-WSS relay traffic to the local WireGuard port."
@@ -386,36 +894,37 @@ in
                       - 127.0.0.1/32
                       - ::1/128
           '';
-          "meristem/wstunnel/health/health".text = "ok\n";
-          "meristem/wstunnel/relay-config.json".text = builtins.toJSON {
-            binarySource = relayCfg.binarySource;
-            command = [
-              "wstunnel"
-              "server"
-              "wss://${relayCfg.listenAddress}:${toString relayCfg.publicPort}"
-              "--restrict-to"
-              "${relayCfg.restrictHost}:${toString relayCfg.wireGuardPort}"
-              "--restrict-config"
-              "${relayCfg.configDir}/restrictions.yaml"
-              "--restrict-http-upgrade-path-prefix"
-              relayCfg.pathPrefix
-              "--tls-certificate"
-              relayTlsCertPath
-              "--tls-private-key"
-              relayTlsKeyPath
-              "--log-lvl"
-              relayCfg.logLevel
-              "--no-color"
-            ];
-            configDir = relayCfg.configDir;
-            containerSource = relayCfg.containerSource;
-            endpoint = relayPublicEndpoint;
-            healthUrl = relayHealthUrl;
-            logFields = [ "service" "source" "version" "endpoint" "healthUrl" "mode" "message" ];
-            mode = relayCfg.mode;
-            versionPin = relayCfg.versionPin;
-          };
-        };
+            "meristem/wstunnel/health/health".text = "ok\n";
+            "meristem/wstunnel/relay-config.json".text = builtins.toJSON {
+              binarySource = relayCfg.binarySource;
+              command = [
+                "wstunnel"
+                "server"
+                "wss://${relayCfg.listenAddress}:${toString relayCfg.publicPort}"
+                "--restrict-to"
+                "${relayCfg.restrictHost}:${toString relayCfg.wireGuardPort}"
+                "--restrict-config"
+                "${relayCfg.configDir}/restrictions.yaml"
+                "--restrict-http-upgrade-path-prefix"
+                relayCfg.pathPrefix
+                "--tls-certificate"
+                relayTlsCertPath
+                "--tls-private-key"
+                relayTlsKeyPath
+                "--log-lvl"
+                relayCfg.logLevel
+                "--no-color"
+              ];
+              configDir = relayCfg.configDir;
+              containerSource = relayCfg.containerSource;
+              endpoint = relayPublicEndpoint;
+              healthUrl = relayHealthUrl;
+              logFields = [ "service" "source" "version" "endpoint" "healthUrl" "mode" "message" ];
+              mode = relayCfg.mode;
+              versionPin = relayCfg.versionPin;
+            };
+          })
+        ];
 
         systemd.tmpfiles.rules = lib.optionals relayCfg.enable [
           "d ${relayCfg.configDir} 0750 root ${cfg.group} - -"
