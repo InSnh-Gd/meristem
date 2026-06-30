@@ -20,6 +20,7 @@
         "@opentelemetry/sdk-trace-base": "2.7.1",
         "@opentelemetry/semantic-conventions": "1.40.0",
         "@scalar/types": "0.9.5",
+        "@sinclair/typebox": "0.34.49",
         "cac": "7.0.0",
         "date-fns": "4.4.0",
         "drizzle-orm": "0.45.2",
@@ -90,6 +91,10 @@
     },
     "packages/policy": {
       "name": "@meristem/policy",
+      "version": "0.1.0",
+    },
+    "packages/secrets": {
+      "name": "@meristem/secrets",
       "version": "0.1.0",
     },
     "packages/telemetry": {
@@ -269,6 +274,8 @@
     "@meristem/m-policy": ["@meristem/m-policy@workspace:services/m-policy"],
 
     "@meristem/policy": ["@meristem/policy@workspace:packages/policy"],
+
+    "@meristem/secrets": ["@meristem/secrets@workspace:packages/secrets"],
 
     "@meristem/telemetry": ["@meristem/telemetry@workspace:packages/telemetry"],
 
