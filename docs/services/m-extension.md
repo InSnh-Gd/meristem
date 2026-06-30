@@ -14,7 +14,7 @@
 
 ## 2. Responsibility
 
-M-Extension owns the supplemental extension control plane. It exists to register and govern extensions that are not better expressed as first-class M-* services.
+M-Extension owns the supplemental extension control plane. It exists to register and govern extensions that are not better expressed as first-class capability domain services.
 
 What M-Extension owns:
 

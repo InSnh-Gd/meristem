@@ -36,6 +36,7 @@ export const auditLogSchema = t.Object({
     t.Literal('operator'),
     t.Literal('admin'),
     t.Literal('security-admin'),
+    t.Literal('break-glass-reviewer'),
     t.Literal('system')
   ]),
   action: t.String({ minLength: 1 }),
@@ -179,6 +180,7 @@ export const auditWriteBodySchema = t.Object({
     t.Literal('operator'),
     t.Literal('admin'),
     t.Literal('security-admin'),
+    t.Literal('break-glass-reviewer'),
     t.Literal('system')
   ]),
   action: t.String({ minLength: 1 }),

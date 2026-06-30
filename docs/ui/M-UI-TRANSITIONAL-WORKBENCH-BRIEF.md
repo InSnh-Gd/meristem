@@ -43,7 +43,7 @@ It is not the final visual design, and it must remain open to later restructurin
 
 The Transitional Workbench should produce a real, operable, traceable, and evolvable workbench ancestor inside this repository. It is not the final frontend, but the future formal workbench should be able to evolve from its validated structure rather than restart from a blank slate.
 
-The Transitional Workbench is the structural predecessor of the formal workbench, not a temporary bypass. Later work may redesign visual language, refine local interactions, replace component implementations, or reorganize internal modules, but it should not discard validated workflows, information domains, ownership boundaries, or the M-UI -> BFF -> Core / M-* data path without a deliberate architecture change.
+The Transitional Workbench is the structural predecessor of the formal workbench, not a temporary bypass. Later work may redesign visual language, refine local interactions, replace component implementations, or reorganize internal modules, but it should not discard validated workflows, information domains, ownership boundaries, or the M-UI → M-UI BFF → Core public facade → capability domain service data path without a deliberate architecture change.
 
 The first design exploration does not need to produce final visual signoff or a final component system. It must produce a direction that clearly expresses:
 
@@ -75,7 +75,7 @@ The first exploration may defer:
 - advanced charting, visualization, and motion systems;
 - plugin-provided UI, runtime composition, remote frontend modules, and dynamic component registration.
 
-Future implementers may decide implementation details that do not change the final result shape. This includes component split granularity, local layout choices, primitive wrappers, Svelte implementation style, local interaction pattern, and CSS/token mechanics. They must not change the result target, four experience layers, ownership boundaries, M-UI -> BFF -> Core / M-* data path, or SDUI registry role without updating this brief and the relevant contracts.
+Future implementers may decide implementation details that do not change the final result shape. This includes component split granularity, local layout choices, primitive wrappers, Svelte implementation style, local interaction pattern, and CSS/token mechanics. They must not change the result target, four experience layers, ownership boundaries, M-UI → M-UI BFF → Core public facade → capability domain service data path, or SDUI registry role without updating this brief and the relevant contracts.
 
 ---
 
@@ -87,7 +87,7 @@ Design exploration and implementation planning must keep these ownership boundar
    M-UI owns the workbench shell, core route surfaces, Svelte components, interaction structure, and future `layout / modules / ui` split.
 
 2. **Services own facts and capabilities**
-   M-* services own facts, capabilities, events, policy state, audit state, and domain state. They do not own frontend pages, Svelte components, or rendered workbench elements.
+   Capability domain services own facts, capabilities, events, policy state, audit state, and domain state. They do not own frontend pages, Svelte components, or rendered workbench elements.
 
 3. **BFF adapts facts into UI-facing data**
    M-UI BFF may aggregate, trim, order, annotate state sources, and derive display-oriented command eligibility. It must not own final business facts, final authorization, final policy decisions, or UI component structure.
@@ -224,8 +224,8 @@ Use these instructions when prompting design exploration or design-refinement to
 3. Prioritize information architecture and workflow fit before visual style.
 4. Use the six core workflows in this brief as scenario anchors.
 5. Represent state source, disabled-command reasons, policy / audit visibility, and degraded state explicitly.
-6. Do not assume direct frontend access to Core; design around M-UI -> BFF -> Core / M-* service boundaries.
-7. Do not assume that pages, components, layouts, or rendered elements are supplied by M-* services, M-Extension, or plugins at runtime.
+6. Do not assume direct frontend access to Core; design around M-UI → M-UI BFF → Core public facade → capability domain service boundaries.
+7. Do not assume that pages, components, layouts, or rendered elements are supplied by capability domain services, M-Extension, or plugins at runtime.
 8. Treat SDUI as a route/component contract registry, not as a runtime page builder.
 9. For each concept, explain the workflow path it optimizes and the tradeoff it makes.
 
@@ -247,7 +247,7 @@ Evaluate generated concepts in this order:
    Can the structure carry nodes, approvals, network, policy, logs, and service state without becoming a one-off page?
 
 4. **Boundary correctness**
-   Does the concept respect M-UI -> BFF -> Core / M-* boundaries and avoid assigning fact ownership or final authorization to the frontend?
+   Does the concept respect M-UI → M-UI BFF → Core public facade → capability domain service boundaries and avoid assigning fact ownership or final authorization to the frontend?
 
 5. **Traceability**
    Does it make source, correlation id, policy decision, audit, and log relationships understandable?

@@ -19,7 +19,7 @@
 - Binary name: `meristem`.
 - Default Core URL: `http://localhost:3000`.
 - Core URL can be overridden by `MERISTEM_CORE_URL`.
-- Follow-on service URLs can be overridden by service-specific environment variables such as `MERISTEM_TASK_URL`, `MERISTEM_POLICY_URL`, `MERISTEM_MNET_URL`, and `MERISTEM_EXTENSION_URL` when a command is owned by an external M-* service.
+- Follow-on service URLs can be overridden by service-specific environment variables such as `MERISTEM_TASK_URL`, `MERISTEM_POLICY_URL`, `MERISTEM_MNET_URL`, and `MERISTEM_EXTENSION_URL` when a command is owned by an external capability domain service.
 - Actor is selected by a locally signed JWT in `MERISTEM_TOKEN`.
 - Output defaults to human-readable text.
 - `--json` returns JSON for scripts.
@@ -95,7 +95,7 @@ Rules:
 - after revoke, runtime `session.resume` using the revoked token must fail closed until an operator rotates a new token or the node rejoins through the public join flow.
 - node-agent restart or explicit reconfiguration is required after a later replacement token is issued; this slice does not provide automatic in-agent token refresh.
 
-### `meristem node-agent install --kind stem|leaf --name <name> [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-wireguard-key] [--rotate-acme-account-key]`
+### `meristem node-agent install --kind stem|leaf --name <name> [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-wireguard-key] [--rotate-acme-account-key]`
 
 Permission: none (local operator path).
 
@@ -108,7 +108,6 @@ Rules:
 - `--join-ticket` is optional. When supplied, the plaintext is written only to the configured `join-ticket` file and is never echoed in command output.
 - `--join-url` defaults to `wss://localhost:8443/join/v0/session`.
 - `--wg-binary` defaults to `wg` (PATH lookup).
-- `--wstunnel-binary` defaults to `/run/current-system/sw/bin/wstunnel`.
 - `--acme-directory` defaults to the Let's Encrypt production directory.
 - `--relay-endpoint` defaults to `wss://relay.control-plane.example.com:443`.
 - `--config-dir` defaults to `/etc/meristem/node-agent`.
@@ -118,7 +117,7 @@ Rules:
 - when `--rotate-wireguard-key` or `--rotate-acme-account-key` is omitted, existing host-local secret material is preserved.
 - on success, prints validation metadata only. Runtime tokens, join tickets, private keys, and ACME account keys never appear in stdout.
 
-### `meristem node-agent upgrade [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--wstunnel-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-runtime-token] [--rotate-wireguard-key] [--rotate-acme-account-key]`
+### `meristem node-agent upgrade [--join-ticket <ticket>] [--join-url <url>] [--wg-binary <path>] [--acme-directory <url>] [--relay-endpoint <url>] [--config-dir <path>] [--runtime-state <path>] [--rotate-runtime-token] [--rotate-wireguard-key] [--rotate-acme-account-key]`
 
 Permission: none (local operator path).
 

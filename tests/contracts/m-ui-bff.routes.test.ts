@@ -339,11 +339,11 @@ describe('SDUI v0.2 BFF routes', () => {
       stateSource: { sourceType: string; sourceId: string }
     }
     expect(body.profiles.map(profile => profile.profileVersion).sort()).toEqual([
-      'm-net-cn@0.1.0',
-      'm-net-default@0.1.0'
+      'm-net-cn@0.3.0',
+      'm-net@0.3.0'
     ])
-    const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.1.0')
-    expect(cnProfile?.stateSource.sourceId).toBe('core:/api/v0/network-profiles/m-net-cn@0.1.0')
+    const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.3.0')
+    expect(cnProfile?.stateSource.sourceId).toBe('core:/api/v0/network-profiles/m-net-cn@0.3.0')
     expect(body.profiles[0]?.stateSource.sourceType).toBe('authoritative')
     expect(body.stateSource).toEqual({
       sourceType: 'authoritative',
@@ -358,7 +358,7 @@ describe('SDUI v0.2 BFF routes', () => {
 
     const res = await makeRequest(
       app,
-      '/api/v0/network-profiles/m-net-cn@0.1.0',
+      '/api/v0/network-profiles/m-net-cn@0.3.0',
       'GET',
       'admin-token'
     )
@@ -367,10 +367,10 @@ describe('SDUI v0.2 BFF routes', () => {
       profileVersion: string
       stateSource: { sourceType: string; sourceId: string }
     }
-    expect(body.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(body.profileVersion).toBe('m-net-cn@0.3.0')
     expect(body.stateSource).toEqual({
       sourceType: 'authoritative',
-      sourceId: 'core:/api/v0/network-profiles/m-net-cn@0.1.0'
+      sourceId: 'core:/api/v0/network-profiles/m-net-cn@0.3.0'
     })
   })
 
@@ -688,7 +688,7 @@ describe('SDUI v0.2 BFF routes', () => {
       '/api/v0/commands/network.profile.enable.preview/execute',
       'POST',
       'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.3.0' }
     )
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: { code: string } }

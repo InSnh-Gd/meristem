@@ -11,6 +11,35 @@ import {
   mintTestToken
 } from './_helpers/mnet-profile-routes.ts'
 
+const MigrationReportResponseSchema = Schema.Struct({
+  status: Schema.Literal('ok', 'migration_required'),
+  generatedAt: Schema.String,
+  items: Schema.Array(
+    Schema.Struct({
+      resourceKind: Schema.Literal('profile', 'node'),
+      resourceId: Schema.String,
+      migration: Schema.Struct({
+        code: Schema.Literal('migration_required'),
+        message: Schema.String,
+        targetProfileVersion: Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0'),
+        rebuildGuidanceKey: Schema.Literal(
+          'rebuild_node_with_netbird_sidecar',
+          'migrate_profile_to_mnet_v03',
+          'migrate_profile_to_mnet_cn_v03'
+        ),
+        affectedProfileIds: Schema.Array(Schema.String),
+        affectedNodeIds: Schema.Array(Schema.String),
+        reasonCode: Schema.Literal(
+          'legacy_profile_v0_1',
+          'legacy_cn_profile_v0_1',
+          'legacy_wstunnel_profile_v0_2',
+          'legacy_wstunnel_node'
+        )
+      })
+    })
+  )
+})
+
 // ── 响应 Schema ──────────────────────────────────────────────────────────
 
 /** GET /api/v0/networks/profile-defaults 响应 */
@@ -111,7 +140,7 @@ describe('M-Net global profile defaults contract', () => {
 
       expect(response.status).toBe(200)
       const body = await decodeJson(response, ProfileDefaultsResponseSchema)
-      expect(body.defaultProfileVersion).toBe('m-net-default@0.1.0')
+      expect(body.defaultProfileVersion).toBe('m-net@0.3.0')
       expect(body.globalSwitchState).toBe('idle')
       expect(body.updatedAt).toBeString()
     })
@@ -122,6 +151,45 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults')
       )
       expect(response.status).toBe(401)
+    })
+
+    it('returns migration report with legacy profile and node fixture IDs', async () => {
+      const db = {
+        select() {
+          return {
+            from() {
+              return {
+                leftJoin() {
+                  return {
+                    async leftJoin() {
+                      return []
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } as never
+      const app = createTestApp(
+        createInMemoryProfileStore(),
+        createInMemorySuspendedOperationStore(),
+        undefined,
+        undefined,
+        db
+      )
+      const token = await mintTestToken('admin')
+
+      const response = await app.handle(
+        new Request('http://localhost/api/v0/networks/profile-switches/report', {
+          headers: bearerHeaders(token)
+        })
+      )
+
+      expect(response.status).toBe(200)
+      const body = await decodeJson(response, MigrationReportResponseSchema)
+      expect(body.status).toBe('ok')
+      expect(body.items).toHaveLength(0)
     })
   })
 
@@ -135,7 +203,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'PUT',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'switch all new networks to CN profile',
             idempotencyKey: crypto.randomUUID()
           })
@@ -144,7 +212,7 @@ describe('M-Net global profile defaults contract', () => {
 
       expect(response.status).toBe(200)
       const body = await decodeJson(response, SetProfileDefaultsResponseSchema)
-      expect(body.defaultProfileVersion).toBe('m-net-cn@0.1.0')
+      expect(body.defaultProfileVersion).toBe('m-net-cn@0.3.0')
       expect(body.operationId).toBeString()
       expect(body.policyDecisionId).toBeString()
       expect(body.auditId).toBeString()
@@ -160,7 +228,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'PUT',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'test update',
             idempotencyKey: crypto.randomUUID()
           })
@@ -174,7 +242,7 @@ describe('M-Net global profile defaults contract', () => {
         })
       )
       const body = await decodeJson(getRes, ProfileDefaultsResponseSchema)
-      expect(body.defaultProfileVersion).toBe('m-net-cn@0.1.0')
+      expect(body.defaultProfileVersion).toBe('m-net-cn@0.3.0')
     })
 
     it('returns 400 for unknown profile version', async () => {
@@ -203,7 +271,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -216,18 +284,18 @@ describe('M-Net global profile defaults contract', () => {
   // ──── 2. 新网络使用配置的默认 Profile ───────────────────────────────
 
   describe('New network creation uses configured default', () => {
-    it('new network uses m-net-default@0.1.0 when no override set', async () => {
+      it('new network uses m-net@0.3.0 when no override set', async () => {
       const app = buildApp()
       const token = await mintTestToken('admin')
 
-      // 读取当前默认（m-net-default@0.1.0）
+      // 读取当前默认（m-net@0.3.0）
       const defaultsRes = await app.handle(
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           headers: bearerHeaders(token)
         })
       )
       const defaults = await decodeJson(defaultsRes, ProfileDefaultsResponseSchema)
-      expect(defaults.defaultProfileVersion).toBe('m-net-default@0.1.0')
+      expect(defaults.defaultProfileVersion).toBe('m-net@0.3.0')
     })
 
     it('after setting CN as default, new networks reflect it', async () => {
@@ -240,7 +308,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'PUT',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -254,7 +322,7 @@ describe('M-Net global profile defaults contract', () => {
         })
       )
       const updatedDefaults = await decodeJson(defaultsRes, ProfileDefaultsResponseSchema)
-      expect(updatedDefaults.defaultProfileVersion).toBe('m-net-cn@0.1.0')
+      expect(updatedDefaults.defaultProfileVersion).toBe('m-net-cn@0.3.0')
     })
   })
 
@@ -270,7 +338,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'POST',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            targetProfileVersion: 'm-net-cn@0.3.0',
             batchSize: 5,
             reason: 'fleet migration to CN profile',
             idempotencyKey: crypto.randomUUID()
@@ -315,7 +383,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -338,7 +406,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'POST',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -406,7 +474,7 @@ describe('M-Net global profile defaults contract', () => {
           method: 'POST',
           headers: bearerHeaders(token),
           body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -465,8 +533,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
           })
@@ -521,8 +589,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
           })
@@ -535,8 +603,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
           })
@@ -556,8 +624,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
           })
@@ -570,8 +638,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            targetProfileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
           })
@@ -603,8 +671,8 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-          body: JSON.stringify({
-            profileVersion: 'm-net-cn@0.1.0',
+            body: JSON.stringify({
+            profileVersion: 'm-net-cn@0.3.0',
             reason: 'should be denied',
             idempotencyKey: crypto.randomUUID()
           })

@@ -62,7 +62,7 @@ function createPorts(calls: Calls): {
   switchWriter: ProfileSwitchWriterPort
 } {
   const defaults: ProfileDefaultsResponse = {
-    defaultProfileVersion: 'm-net-default@0.1.0',
+    defaultProfileVersion: 'm-net@0.3.0',
     globalSwitchState: 'idle',
     updatedAt: '2026-06-17T00:00:00.000Z'
   }
@@ -70,7 +70,7 @@ function createPorts(calls: Calls): {
     operationId: 'op-default-set-1',
     policyDecisionId: 'pd-1',
     auditId: 'audit-1',
-    defaultProfileVersion: 'm-net-cn@0.1.0'
+    defaultProfileVersion: 'm-net-cn@0.3.0'
   }
   const planResponse: PlanSwitchResponse = {
     operationId: 'switch-op-1',
@@ -81,7 +81,7 @@ function createPorts(calls: Calls): {
   }
   const switchStatusResponse = {
     operationId: 'switch-op-1',
-    targetProfileVersion: 'm-net-cn@0.2.0',
+    targetProfileVersion: 'm-net-cn@0.3.0',
     reason: 'auto migration',
     batchSize: 10,
     candidateCount: 2,
@@ -99,8 +99,8 @@ function createPorts(calls: Calls): {
     results: [
       {
         networkId: 'net-1',
-        previousProfileVersion: 'm-net-default@0.1.0',
-        targetProfileVersion: 'm-net-cn@0.1.0',
+        previousProfileVersion: 'm-net-cn@0.1.0',
+        targetProfileVersion: 'm-net-cn@0.3.0',
         status: 'applied',
         auditId: 'audit-apply-1',
         correlationId: 'corr-apply-1'
@@ -119,8 +119,8 @@ function createPorts(calls: Calls): {
     rollbackResults: [
       {
         networkId: 'net-1',
-        previousProfileVersion: 'm-net-cn@0.1.0',
-        targetProfileVersion: 'm-net-default@0.1.0',
+        previousProfileVersion: 'm-net-cn@0.3.0',
+        targetProfileVersion: 'm-net-cn@0.1.0',
         status: 'rolled_back',
         correlationId: 'corr-rollback-1'
       }
@@ -246,13 +246,13 @@ describe('Core global defaults facade contract', () => {
     )
     expect(getRes.status).toBe(200)
     const getBody = (await getRes.json()) as ProfileDefaultsResponse
-    expect(getBody.defaultProfileVersion).toBe('m-net-default@0.1.0')
+    expect(getBody.defaultProfileVersion).toBe('m-net@0.3.0')
 
     const putRes = await app.handle(
       put(
         '/api/v0/networks/profile-defaults',
         'admin-token',
-        { profileVersion: 'm-net-cn@0.1.0', reason: 'set default', idempotencyKey: 'idem-put-1' },
+        { profileVersion: 'm-net-cn@0.3.0', reason: 'set default', idempotencyKey: 'idem-put-1' },
         correlationId
       )
     )
@@ -263,7 +263,7 @@ describe('Core global defaults facade contract', () => {
         '/api/v0/networks/profile-switches/plan',
         'admin-token',
         {
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           batchSize: 2,
           reason: 'plan',
           idempotencyKey: 'idem-plan-1'
@@ -367,7 +367,7 @@ describe('Core global defaults facade contract', () => {
     await expectError(
       await app.handle(
         put('/api/v0/networks/profile-defaults', 'admin-token', {
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'set default',
           idempotencyKey: 'idem-error'
         })
@@ -378,7 +378,7 @@ describe('Core global defaults facade contract', () => {
     await expectError(
       await app.handle(
         post('/api/v0/networks/profile-switches/plan', 'admin-token', {
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           reason: 'plan',
           idempotencyKey: 'idem-plan-error'
         })

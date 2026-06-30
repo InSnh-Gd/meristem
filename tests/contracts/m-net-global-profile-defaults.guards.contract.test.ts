@@ -74,7 +74,7 @@ describe('M-Net global defaults route guards', () => {
             method: 'PUT',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              profileVersion: 'm-net-cn@0.1.0',
+              profileVersion: 'm-net-cn@0.3.0',
               reason: 'x',
               idempotencyKey: 'a'
             })
@@ -89,7 +89,7 @@ describe('M-Net global defaults route guards', () => {
             method: 'POST',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              targetProfileVersion: 'm-net-cn@0.1.0',
+              targetProfileVersion: 'm-net-cn@0.3.0',
               reason: 'x',
               idempotencyKey: 'b'
             })
@@ -175,7 +175,7 @@ describe('M-Net global defaults route guards', () => {
             method: 'PUT',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              profileVersion: 'm-net-cn@0.1.0',
+              profileVersion: 'm-net-cn@0.3.0',
               reason: 'x',
               idempotencyKey: 'a'
             })
@@ -190,7 +190,7 @@ describe('M-Net global defaults route guards', () => {
             method: 'POST',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              targetProfileVersion: 'm-net-cn@0.1.0',
+              targetProfileVersion: 'm-net-cn@0.3.0',
               reason: 'x',
               idempotencyKey: 'b'
             })
@@ -248,7 +248,7 @@ describe('M-Net global defaults route guards', () => {
       operationId: 'op-replay-1',
       policyDecisionId: 'pd-replay-1',
       auditId: 'audit-replay-1',
-      defaultProfileVersion: 'm-net-cn@0.1.0'
+      defaultProfileVersion: 'm-net-cn@0.3.0'
     })
 
     const app = createMNetApp(
@@ -280,7 +280,7 @@ describe('M-Net global defaults route guards', () => {
         method: 'PUT',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'replay',
           idempotencyKey: 'idem-replay'
         })
@@ -292,7 +292,7 @@ describe('M-Net global defaults route guards', () => {
       operationId: 'op-replay-1',
       policyDecisionId: 'pd-replay-1',
       auditId: 'audit-replay-1',
-      defaultProfileVersion: 'm-net-cn@0.1.0'
+      defaultProfileVersion: 'm-net-cn@0.3.0'
     })
   })
 

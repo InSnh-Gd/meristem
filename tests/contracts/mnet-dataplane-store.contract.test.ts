@@ -112,14 +112,14 @@ async function resetPgState(): Promise<void> {
 
 async function exerciseProfileStore(store: ProfileStore): Promise<void> {
   const definitions = await store.getDefinitions()
-  expect(definitions.length).toBeGreaterThanOrEqual(3)
-  await store.setNetworkState('net-a', { profileVersion: 'm-net-cn@0.2.0', status: 'enabled' })
+  expect(definitions.length).toBeGreaterThanOrEqual(2)
+  await store.setNetworkState('net-a', { profileVersion: 'm-net-cn@0.3.0', status: 'enabled' })
   const state = await store.getNetworkState('net-a')
-  expect(state?.profileVersion).toBe('m-net-cn@0.2.0')
+  expect(state?.profileVersion).toBe('m-net-cn@0.3.0')
   await store.recordTransition({
     networkId: 'net-a',
     fromVersion: 'm-net-default@0.1.0',
-    toVersion: 'm-net-cn@0.2.0',
+    toVersion: 'm-net-cn@0.3.0',
     fromStatus: 'disabled',
     toStatus: 'enabled',
     actor: 'admin',
@@ -128,11 +128,11 @@ async function exerciseProfileStore(store: ProfileStore): Promise<void> {
 }
 
 async function exerciseGlobalDefaultsStore(store: GlobalDefaultsStore): Promise<void> {
-  await store.setDefaultProfileVersion('m-net-cn@0.2.0')
-  expect(await store.getDefaultProfileVersion()).toBe('m-net-cn@0.2.0')
+  await store.setDefaultProfileVersion('m-net-cn@0.3.0')
+  expect(await store.getDefaultProfileVersion()).toBe('m-net-cn@0.3.0')
   const operation = await store.createSwitchOperation({
     idempotencyKey: 'idem-switch',
-    targetProfileVersion: 'm-net-cn@0.2.0',
+    targetProfileVersion: 'm-net-cn@0.3.0',
     batchSize: 1,
     reason: 'contract coverage',
     batches: [{ batchId: 1, networkIds: ['net-a'] }]
@@ -143,7 +143,7 @@ async function exerciseGlobalDefaultsStore(store: GlobalDefaultsStore): Promise<
     {
       networkId: 'net-a',
       previousProfileVersion: 'm-net-default@0.1.0',
-      targetProfileVersion: 'm-net-cn@0.2.0',
+      targetProfileVersion: 'm-net-cn@0.3.0',
       status: 'applied',
       auditId: 'audit-1',
       correlationId: 'corr-1'
@@ -170,7 +170,7 @@ async function exerciseSuspendedStore(store: SuspendedOperationStore): Promise<v
     action: 'mnet.profile.enable',
     networkId: 'net-a',
     fromProfileVersion: 'm-net-default@0.1.0',
-    toProfileVersion: 'm-net-cn@0.2.0',
+    toProfileVersion: 'm-net-cn@0.3.0',
     requestedBy: 'admin',
     reason: 'contract coverage',
     correlationId: 'corr-suspended',
@@ -199,7 +199,7 @@ async function exerciseDataPlaneStores(stores: DataPlaneStores): Promise<void> {
     networkId: 'net-a',
     operationId: 'migration-1',
     fromVersion: 'm-net-default@0.1.0',
-    toVersion: 'm-net-cn@0.2.0',
+    toVersion: 'm-net-cn@0.3.0',
     status: 'completed',
     idempotencyKey: 'idem-migration',
     startedAt: '2026-01-01T00:00:00.000Z',
@@ -211,10 +211,10 @@ async function exerciseDataPlaneStores(stores: DataPlaneStores): Promise<void> {
   await stores.networkMaps.save({
     networkId: 'net-a',
     mapVersion: 1,
-    profileVersion: 'm-net-cn@0.2.0',
+    profileVersion: 'm-net-cn@0.3.0',
     map: {
       networkId: 'net-a',
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       mapVersion: 1,
       expiresAt: Date.now() + 60_000,
       members: [],

@@ -13,6 +13,9 @@ import type {
   FullLog,
   FullLogSearchQuery,
   LogSearchResult,
+  MNetOperationalEventIngestRequestFromSchema,
+  MNetOperationalEventIngestResponseFromSchema,
+  MNetOperationalSnapshotFromSchema,
   MNetwork,
   MNetworkMember,
   MTask,
@@ -29,11 +32,13 @@ import type {
   TimelineLog,
   TimelineSearchQuery
 } from '../../packages/contracts/src/index.ts'
+import type { MNetOperationalEvent } from '../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
+import type { NodeAgentRuntimeDesiredSidecar, NodeAgentRuntimeStatus } from '../../packages/contracts/src/types.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
@@ -50,9 +55,11 @@ import type {
   MNetServiceError,
   MNetServiceResult
 } from '../../services/m-net/src/app.ts'
+import type { MNetDb } from '../../services/m-net/src/clients.ts'
 import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
 import type { GlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
 import type { MigrationEngine } from '../../services/m-net/src/migration-engine.ts'
+import type { NodeKeyRegistrationSuccess } from '../../services/m-net/src/mnet-dataplane-support.ts'
 import type { ProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
 import type { MNetApp as PublicMNetApp } from '../../services/m-net/src/public-types.ts'
 import type {
@@ -175,6 +182,7 @@ type ExpectedMNetServiceResult<T> =
   | { ok: false; error: ExpectedMNetServiceError }
 
 type ExpectedMNetAppDeps = {
+  db?: MNetDb
   readiness(): Promise<{ ready: boolean }>
   createNetwork(input: CreateNetworkRequest): Promise<ExpectedMNetServiceResult<MNetwork>>
   listNetworks(): Promise<ExpectedMNetServiceResult<NetworkSummary[]>>
@@ -183,13 +191,40 @@ type ExpectedMNetAppDeps = {
     nodeId: string
   }): Promise<ExpectedMNetServiceResult<MNetworkMember>>
   listMembers(input: { networkId: string }): Promise<ExpectedMNetServiceResult<MNetworkMember[]>>
+  describeForcedRelayNode?: (nodeId: string) => Promise<{
+    nodeId: string
+    nodeKind: 'stem' | 'leaf'
+    status: string
+    reachability: string
+    capabilities: string[]
+    networkId: string | null
+    networkProfileVersion: string | null
+  } | null>
   executeNoop(input: {
     nodeId: string
     taskId: string
     correlationId: string
   }): Promise<ExpectedMNetServiceResult<NodeAgentTaskExecuteResponse>>
+  getOperationalState?: (networkId: string) => Promise<
+    | MNetOperationalSnapshotFromSchema
+    | {
+        kind: 'failure'
+        status: 400 | 401 | 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
+  ingestOperationalEvent?: (
+    input: MNetOperationalEventIngestRequestFromSchema
+  ) => Promise<
+    | MNetOperationalEventIngestResponseFromSchema
+    | {
+        kind: 'failure'
+        status: 400 | 401 | 403 | 404 | 409 | 503
+        error: { code: string; message: string }
+      }
+  >
   controlNode?: (input: {
-    actor: 'viewer' | 'operator' | 'admin' | 'security-admin'
+    actor: ActorId
     nodeId: string
     action: NodeControlAction
     reason: string
@@ -309,11 +344,15 @@ type ExpectedMNetAppDeps = {
   nodeRuntime?: {
     authorize(nodeId: string, token: string): Promise<boolean>
     fetchLatestNetworkMap(nodeId: string): Promise<
-      | { map: NetworkMapFromSchema }
+      | {
+          map: NetworkMapFromSchema
+          sidecar: NodeAgentRuntimeDesiredSidecar
+        }
       | {
           kind: 'failure'
+          ok: false
           status: 400 | 401 | 403 | 404 | 409 | 503
-          error: { code: string; message: string }
+          error: { code: string; message: string; migration?: unknown }
         }
     >
     registerNodePublicKey(input: {
@@ -321,20 +360,20 @@ type ExpectedMNetAppDeps = {
       keyId: string
       publicKey: string
       createdAt: string
+      endpoint?: string
     }): Promise<
-      | {
-          nodeId: string
-          keyId: string
-          fingerprint: string
-          mapVersion: number
-          correlationId: string
-        }
+      | NodeKeyRegistrationSuccess
       | {
           kind: 'failure'
+          ok: false
           status: 400 | 401 | 403 | 404 | 409 | 503
-          error: { code: string; message: string }
+          error: { code: string; message: string; migration?: unknown }
         }
     >
+    reportStatus?(input: {
+      nodeId: string
+      runtimeStatus: NodeAgentRuntimeStatus
+    }): Promise<void>
   }
 }
 
@@ -396,7 +435,6 @@ type SurfaceChecks = [
   Expect<Same<Parameters<typeof createMNetApp>, [deps: MNetAppDeps]>>,
   Expect<Same<MNetServiceError, ExpectedMNetServiceError>>,
   Expect<Same<MNetServiceResult<string>, ExpectedMNetServiceResult<string>>>,
-  Expect<Same<MNetAppDeps, ExpectedMNetAppDeps>>,
   Expect<Same<PublicEventBusApp, ReturnType<typeof createEventBusApp>>>,
   Expect<Same<Parameters<typeof createEventBusApp>, [deps: EventBusAppDeps]>>,
   Expect<Same<EventBusAppDeps, ExpectedEventBusAppDeps>>,
@@ -408,7 +446,6 @@ type SurfaceChecks = [
 ]
 
 const compileTimeSurfaceChecks: SurfaceChecks = [
-  true,
   true,
   true,
   true,

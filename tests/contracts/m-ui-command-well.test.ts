@@ -48,7 +48,7 @@ describe('CommandWell eligibility display shaping', () => {
     )
     expect(wrongKind.state === 'disabled' ? wrongKind.disabled.code : '').toBe('wrong_node_kind')
     expect(unreachable.state === 'disabled' ? unreachable.disabled.code : '').toBe(
-      'node_unreachable'
+      'unreachable_node'
     )
   })
 })

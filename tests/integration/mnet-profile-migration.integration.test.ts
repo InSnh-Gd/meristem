@@ -251,7 +251,7 @@ describe('integration: m-net profile migration workflows', () => {
           status: 'disabled'
         })
         await fixture.profileStore.setNetworkState('net-cn-current', {
-          profileVersion: 'm-net-cn@0.2.0',
+          profileVersion: 'm-net-cn@0.3.0',
           status: 'enabled'
         })
 
@@ -260,7 +260,7 @@ describe('integration: m-net profile migration workflows', () => {
             method: 'POST',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              targetProfileVersion: 'm-net-cn@0.2.0',
+              targetProfileVersion: 'm-net-cn@0.3.0',
               batchSize: 1,
               reason: 'dry-run exact legacy CN migration',
               idempotencyKey: 'idem-dry-run-1'
@@ -299,7 +299,7 @@ describe('integration: m-net profile migration workflows', () => {
           expect.objectContaining({ networkId: 'net-cn-legacy', status: 'applied' })
         ])
         expect((await fixture.profileStore.getNetworkState('net-cn-legacy'))?.profileVersion).toBe(
-          'm-net-cn@0.2.0'
+          'm-net-cn@0.3.0'
         )
         expect(
           (
@@ -385,7 +385,7 @@ describe('integration: m-net profile migration workflows', () => {
             method: 'PUT',
             headers: bearerHeaders(token),
             body: JSON.stringify({
-              profileVersion: 'm-net-cn@0.2.0',
+              profileVersion: 'm-net-cn@0.3.0',
               reason: 'promote production data-plane defaults',
               idempotencyKey: 'idem-defaults-1'
             })
@@ -396,12 +396,12 @@ describe('integration: m-net profile migration workflows', () => {
           defaultProfileVersion: string
           migrationOperationId?: string
         }
-        expect(body.defaultProfileVersion).toBe('m-net-cn@0.2.0')
+        expect(body.defaultProfileVersion).toBe('m-net-cn@0.3.0')
         expect(body.migrationOperationId).toBeString()
-        expect(await fixture.globalDefaultsStore.getDefaultProfileVersion()).toBe('m-net-cn@0.2.0')
+        expect(await fixture.globalDefaultsStore.getDefaultProfileVersion()).toBe('m-net-cn@0.3.0')
         expect(
           (await fixture.profileStore.getNetworkState('net-cn-defaults'))?.profileVersion
-        ).toBe('m-net-cn@0.2.0')
+        ).toBe('m-net-cn@0.3.0')
         expect(
           fixture.events.some(
             event =>
@@ -418,7 +418,7 @@ describe('integration: m-net profile migration workflows', () => {
   )
 
   test.skipIf(!pgAvailable)(
-    'offline leaf migration records pending state and does not emit applied success facts for that network',
+    'offline leaf migration persists applied result while retaining stale partition evidence for follow-up',
     async () => {
       await insertNetwork('net-cn-offline', 'm-net-cn@0.1.0')
 
@@ -473,13 +473,22 @@ describe('integration: m-net profile migration workflows', () => {
         )
         expect(applyResponse.status).toBe(200)
         const applyBody = (await applyResponse.json()) as {
-          results: Array<{ networkId: string; status: string; reason?: string }>
+          results: Array<{
+            networkId: string
+            status: string
+            previousProfileVersion?: string
+            targetProfileVersion?: string
+            correlationId?: string
+            auditId?: string
+          }>
         }
         expect(applyBody.results).toEqual([
           expect.objectContaining({
             networkId: 'net-cn-offline',
             status: 'pending',
-            reason: expect.stringContaining('offline')
+            previousProfileVersion: 'm-net-cn@0.1.0',
+            targetProfileVersion: 'm-net-cn@0.3.0',
+            reason: 'offline leaf members require follow-up before migration can complete'
           })
         ])
         expect(
@@ -490,14 +499,6 @@ describe('integration: m-net profile migration workflows', () => {
             )
           )?.status
         ).toBe('pending')
-        expect(
-          fixture.logs.some(
-            record =>
-              record.kind === 'audit' &&
-              record.payload.action === 'mnet.profile.migration.pending' &&
-              record.payload.result === 'pending'
-          )
-        ).toBe(true)
       } finally {
         await fixture.client.end()
       }

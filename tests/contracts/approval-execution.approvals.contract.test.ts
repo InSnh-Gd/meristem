@@ -71,10 +71,51 @@ describe('Approval execution contract', () => {
     expect(auditLog.some(entry => entry.action === 'policy.approval.approve')).toBe(true)
   })
 
+  it('allows break-glass-reviewer to approve a security-admin requested operation', async () => {
+    const approval = createTestApproval({
+      requestedBy: 'security-admin',
+      requiredAction: 'manual_review',
+      quorumRequired: 1
+    })
+    let approvedCallback: PolicyApproval | null = null
+    const { routes, auditLog } = createTestApprovalRoutes({
+      actor: 'break-glass-reviewer',
+      approvals: [approval],
+      onApproved: async a => {
+        approvedCallback = a
+      }
+    })
+
+    const response = await routes.handle(
+      new Request(`http://localhost/api/v0/policy/approvals/${approval.id}/approve`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer reviewer-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'independent break-glass review' })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      approval: { status: string; requestedBy: string }
+      votes: Array<{ actor: string; vote: string; reason?: string }>
+    }
+    expect(body.approval.status).toBe('approved')
+    expect(body.approval.requestedBy).toBe('security-admin')
+    expect(body.votes[0]).toEqual(
+      expect.objectContaining({
+        actor: 'break-glass-reviewer',
+        vote: 'approve',
+        reason: 'independent break-glass review'
+      })
+    )
+    expect(approvedCallback).not.toBeNull()
+    expect(auditLog.some(entry => entry.actor === 'break-glass-reviewer')).toBe(true)
+  })
+
   it('approves with two distinct security-admin votes for multi-approval', async () => {
     const approval = createTestApproval({ requiredAction: 'multi_approval', quorumRequired: 2 })
     const store = createInMemoryApprovalStore([approval])
-    const auditLog: Array<{ action: string }> = []
+    const auditLog: Array<{ action: string; actor?: ActorId | 'system' }> = []
 
     const routes1 = createApprovalRoutes({
       auth: {

@@ -3,6 +3,7 @@ import { mExtensionEventContracts } from './_helpers/schema-coverage.m-extension
 import { mPolicyEventContracts } from './_helpers/schema-coverage.m-policy.ts'
 import { mTaskEventContracts } from './_helpers/schema-coverage.m-task.ts'
 import { mnetEventContracts } from './_helpers/schema-coverage.mnet.ts'
+import { mnetV03EventContracts } from './_helpers/schema-coverage.mnet-v03.ts'
 import { sharedEventContracts } from './_helpers/schema-coverage.shared-domain.ts'
 import {
   activePublisherSchemaContracts,
@@ -27,6 +28,7 @@ const activeEventContractMap = new Map(
   [
     ...sharedEventContracts,
     ...mnetEventContracts,
+    ...mnetV03EventContracts,
     ...mTaskEventContracts,
     ...mPolicyEventContracts,
     ...mExtensionEventContracts,

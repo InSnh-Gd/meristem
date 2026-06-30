@@ -89,8 +89,10 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
 | M-Task | `3105` | canonical M-Task API `/api/v0/tasks` |
 | M-Extension | `3106` | M-Extension control-plane API |
-| M-Net fallback relay | `443` | public WSS endpoint for pinned `wstunnel` UDP-over-WSS fallback to local WireGuard `51820` |
+| M-Net fallback relay | `443` | public WSS endpoint for pinned `wstunnel` UDP-over-WSS fallback to local WireGuard `51820`（ADR-N03 旧版路径） |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
+| NetBird Signal | managed externally | NetBird 信令服务（NixOS/systemd 管理，v0.2 基础设施依赖，ADR-N04） |
+| NetBird Relay/STUN | managed externally | NetBird 中继与 NAT 穿透服务（NixOS/systemd 管理，v0.2 基础设施依赖，ADR-N04） |
 | M-UI | `5173` or framework default | SvelteKit dev server |
 | M-UI BFF | `3200` | UI-facing BFF dev server |
 | NATS TCP | `4222` | server-side listen port; not the default Bun client transport |
@@ -104,7 +106,8 @@ Ports are provisional until the project scaffold defines them.
 
 Public exposure rule:
 
-- public deployment exposes `8443` for join ingress and `443` for the fallback relay when the relay sidecar is enabled
+- public deployment exposes `8443` for join ingress and `443` for the fallback relay when the relay sidecar is enabled (ADR-N03 旧版路径)
+- NetBird Signal and Relay/STUN ports managed per upstream NetBird defaults by NixOS/systemd (ADR-N04 v0.2 基础设施依赖)
 - `3000`, `3101`, `3102`, `3103`, `3104`, `3105`, `3106`, PostgreSQL, NATS, OpenSearch, and Redis stay private or loopback-only unless an explicit local optional profile documents otherwise
 - exposing `3000 + 4223` for remote validation is now a development exception, not the target topology
 - APISIX profile may expose only explicit external-route allowlists from `ops/apisix/apisix.yaml`; it must not expose `/internal/v0/*`
@@ -265,7 +268,9 @@ bun run meristem node-agent uninstall --purge-secrets
 
 ---
 
-## 5.1 M-Net Profile controlPlaneOnly Behavior
+## 5.1 M-Net Profile Runtime Behavior
+
+### `controlPlaneOnly` Behavior
 
 `m-net-cn@0.1.x` profiles carry `controlPlaneOnly: true`. This means:
 
@@ -275,7 +280,13 @@ bun run meristem node-agent uninstall --purge-secrets
 - even with the gate on, no real transport is exposed (skeleton returns noop status).
 - operators should not expect network routing changes when enabling `0.1.x` CN profile.
 
-For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental data-plane track (ADR-N03) using WireGuard + wstunnel relay sidecars where that path has been deployed and verified. Operators should require current evidence for host-level interface orchestration and traffic routing before treating a deployment as production-ready.
+### Legacy Data-Plane Path (`m-net-cn@0.2.0`, ADR-N03)
+
+For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental data-plane track (ADR-N03) using WireGuard + wstunnel relay sidecars where that path has been deployed and verified. **This is the legacy path superseded by ADR-N04 for v0.2 NetBird direction.** Operators should require current evidence for host-level interface orchestration and traffic routing before treating a deployment as production-ready.
+
+### v0.2 NetBird Direction (`m-net@0.3.0`, `m-net-cn@0.3.0`, ADR-N04)
+
+v0.2 data-plane direction (ADR-N04): NetBird client sidecar + NetBird Signal + NetBird Relay/STUN. NetBird Management excluded. Viability gate: `bun run mnet:v02:sidecar-proof`. No wstunnel mixed/fallback mode in v0.2. Legacy wstunnel path retained for migration window only.
 
 ---
 
@@ -319,7 +330,7 @@ Compatibility note:
 
 ## 6.1 First Multi-Host Harness
 
-The first topology keeps all M-* services on the local control host and isolates only the two Leaf hosts with Docker bridge networking. This proves distinct leaf networking without claiming split M-* runtime support.
+The first topology keeps all capability domain services on the local control host and isolates only the two Leaf hosts with Docker bridge networking. This proves distinct leaf networking without claiming split capability domain runtime support.
 
 Local limitation summary:
 

@@ -14,7 +14,9 @@
 
 ## 2. Responsibility
 
-The node-agent is the long-running agent on Stem or Leaf nodes. It joins through the M-Net public ingress, maintains a session lease, forwards logs, executes task requests dispatched through M-Task via M-Net, pulls and enforces signed network maps, manages host-local WireGuard and wstunnel sidecars, and handles ACME certificate provisioning for relay TLS.
+The node-agent is the long-running agent on Stem or Leaf nodes. It joins through the M-Net public ingress, maintains a session lease, forwards logs, executes task requests dispatched through M-Task via M-Net, pulls and enforces signed network maps, and manages host-local data-plane sidecar lifecycle.
+
+v0.2 data-plane direction (ADR-N04): target sidecar is NetBird client. Proof gate: `bun run mnet:v02:sidecar-proof`. NetBird Management excluded. Current legacy path (ADR-N03): node-agent manages host-local WireGuard + wstunnel sidecars with ACME certificate provisioning for relay TLS.
 
 What this service owns:
 
@@ -26,8 +28,9 @@ What this service owns:
 - execution of `task.execute` frames and return of `task.result`
 - signed network-map pull, TTL enforcement, and local ACL render
 - host-local WireGuard interface lifecycle (create, configure, tear down)
-- host-local wstunnel relay sidecar lifecycle (start, health-check, restart, stop)
-- ACME certificate provisioning for wstunnel relay TLS
+- NetBird client sidecar lifecycle (v0.2 target per ADR-N04, pending viability proof `bun run mnet:v02:sidecar-proof`)
+- host-local wstunnel relay sidecar lifecycle (ADR-N03 legacy path: start, health-check, restart, stop)
+- ACME certificate provisioning for wstunnel relay TLS (ADR-N03 legacy path)
 - WireGuard key generation boundary on the host (private key never leaves host)
 - partition state machine (connected, stale, partitioned, offline)
 - local log buffering when M-Net is unreachable
@@ -35,8 +38,10 @@ What this service owns:
 What this service must not own:
 
 - public HTTP APIs
-- protocol implementation of WireGuard, wstunnel relay, TCP, UDP, or DERP (node-agent coordinates host-local configuration, lifecycle, health, and drift reporting for these tools, but does not implement transport protocols directly)
-- node-to-node data-plane mesh forwarding (forwarding is performed by the WireGuard kernel module and wstunnel process)
+- protocol implementation of WireGuard, wstunnel relay, TCP, UDP, DERP, or NetBird Management (node-agent coordinates host-local configuration, lifecycle, health, and drift reporting for these tools, but does not implement transport protocols directly)
+- node-to-node data-plane mesh forwarding (forwarding is performed by the WireGuard kernel module and wstunnel/NetBird client processes)
+- NetBird Dashboard, ACL/policy, auth/SSO, audit/logging, or account model (excluded per ADR-N04)
+- NetBird Signal / Relay / STUN service lifecycle or configuration (infrastructure dependencies managed by NixOS/systemd; node-agent only manages the local client sidecar)
 - local privilege expansion beyond declared systemd capabilities
 - M-Policy authorization decisions
 - Audit Log writes
@@ -104,7 +109,10 @@ The node-agent process must run with the minimum set of Linux capabilities. It m
 | M-Task (via M-Net) | service | task execution requests are not delivered |
 | M-Log (via M-Net) | service | forwarded logs are buffered locally until the session recovers |
 | WireGuard (`wg` binary) | host tool | tunnel configuration cannot be applied; agent reports degraded |
-| wstunnel binary | host tool | relay sidecar cannot start; agent enters relay-only degraded mode |
+| NetBird client binary | host tool (v0.2 target) | NetBird sidecar cannot start; agent enters degraded mode pending viability proof (`bun run mnet:v02:sidecar-proof`) |
+| wstunnel binary | host tool (ADR-N03 legacy path) | relay sidecar cannot start; agent enters relay-only degraded mode |
+| NetBird Signal | infrastructure service (v0.2 target) | managed externally by NixOS/systemd; not a node-agent runtime dependency |
+| NetBird Relay/STUN | infrastructure service (v0.2 target) | managed externally by NixOS/systemd; not a node-agent runtime dependency |
 | ACME directory | external service | TLS certificate renewal for wstunnel may fail; existing certs continue until expiry |
 | systemd / init system | host service | agent process management (start, stop, restart) depends on host init |
 

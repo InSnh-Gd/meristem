@@ -83,7 +83,7 @@ describe('M-Net disable approval failure modes', () => {
 
     const networkId = crypto.randomUUID()
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -93,7 +93,7 @@ describe('M-Net disable approval failure modes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'disable without approval'
         })
       })
@@ -102,7 +102,7 @@ describe('M-Net disable approval failure modes', () => {
     expect(response.status).toBe(200)
     const body = (await response.json()) as { status: string; profileVersion: string }
     expect(body.status).toBe('disabled')
-    expect(body.profileVersion).toBe('m-net-default@0.1.0')
+    expect(body.profileVersion).toBe('m-net@0.3.0')
   })
 
   it('normal disable with requireApproval:true enters approval-required path', async () => {
@@ -117,7 +117,7 @@ describe('M-Net disable approval failure modes', () => {
 
     const networkId = crypto.randomUUID()
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -127,7 +127,7 @@ describe('M-Net disable approval failure modes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'disable requires approval'
         })
       })
@@ -156,7 +156,7 @@ describe('M-Net disable approval failure modes', () => {
 
     const networkId = crypto.randomUUID()
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -166,7 +166,7 @@ describe('M-Net disable approval failure modes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'disable requires approval'
         })
       })
@@ -187,7 +187,7 @@ describe('M-Net disable approval failure modes', () => {
 
     const networkId = crypto.randomUUID()
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -197,7 +197,7 @@ describe('M-Net disable approval failure modes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'should be policy denied'
         })
       })
@@ -213,7 +213,7 @@ describe('M-Net disable approval failure modes', () => {
 
     const networkId = crypto.randomUUID()
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
@@ -223,7 +223,7 @@ describe('M-Net disable approval failure modes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'already disabled'
         })
       })

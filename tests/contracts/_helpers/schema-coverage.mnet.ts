@@ -31,27 +31,48 @@ const dataPlaneAclRules = [
   }
 ] as const
 
-const productionRuntimeConfig = {
-  headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
-  routingTable: { secretRefId: 'secret-routing-cn' }
-} as const
-
 const productionCnProfile = {
-  profileVersion: 'm-net-cn@0.2.0',
+  profileVersion: 'm-net-cn@0.3.0',
   region: 'cn',
-  displayName: 'M-Net CN (Production Data Plane)',
-  schemaVersion: 'mnet-profile@0.2.0',
+  displayName: 'M-Net CN (v0.3)',
+  schemaVersion: 'mnet-profile@0.3.0',
   status: 'available',
-  rules: { residency: 'cn-only', relay: 'wstunnel' },
+  rules: { residency: 'cn-only', mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' } },
   capabilities: {
-    realWstunnelRelay: false,
-    realTcpInterconnect: false,
-    realUdpPathSwitching: false,
-    controlPlaneOnly: false,
-    realWireGuardTunnel: true,
-    realRelayFallback: true
+            controlPlaneOnly: false,
+    managementPlaneExcluded: true,
+    realNetBirdSidecar: true,
+    signalConfigRef: { configRef: 'signal/cn-primary' },
+    relayConfigRef: { configRef: 'relay/cn-primary' },
+    stunConfigRef: { configRef: 'stun/cn-primary' },
+    sidecarDesiredState: 'start',
+    sidecarCredentialRef: {
+      provider: 'vault-kv-v2',
+      keyPath: 'secret/data/mnet/cn-sidecar',
+      version: 1
+    },
+    sidecarCredentialStatus: 'ready',
+    sidecarHealthStatus: 'healthy'
   },
-  runtimeConfig: productionRuntimeConfig
+  forcedTcpRelaySelector: {
+    enabled: true,
+    selectorOwnership: 'policy',
+    selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+    routeClass: 'forced-tcp-relay',
+    operatorOverrideAllowed: false,
+    operatorOverrideActive: false,
+    policyDecision: {
+      decisionId: 'fixture',
+      source: 'm-policy',
+      outcome: 'allow',
+      reason: 'fixture'
+    },
+    auditEvidence: {
+      auditId: 'fixture',
+      eventId: 'fixture',
+      eventSubject: 'mnet.forced_relay.change.v0'
+    }
+  }
 } as const
 
 export const mnetEventContracts: EventContract[] = [
@@ -68,7 +89,7 @@ export const mnetEventContracts: EventContract[] = [
   {
     subject: 'mnet.network.created.v0',
     schema: Contracts.MNetNetworkCreatedPayloadSchema,
-    fixture: { networkId: 'net-1', name: 'primary', profileVersion: 'm-net-default@0.1.0' }
+    fixture: { networkId: 'net-1', name: 'primary', profileVersion: 'm-net@0.3.0' }
   },
   {
     subject: 'mnet.membership.joined.v0',
@@ -81,7 +102,7 @@ export const mnetEventContracts: EventContract[] = [
     fixture: {
       networkId: 'net-1',
       fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.1.0',
+      toProfileVersion: 'm-net-cn@0.3.0',
       actor: 'admin',
       policyDecisionId: 'pd-1',
       approvalId: 'approval-1',
@@ -97,7 +118,7 @@ export const mnetEventContracts: EventContract[] = [
     fixture: {
       networkId: 'net-1',
       fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.1.0',
+      toProfileVersion: 'm-net-cn@0.3.0',
       actor: 'system',
       policyDecisionId: 'pd-1',
       operationId: 'op-1',
@@ -111,8 +132,8 @@ export const mnetEventContracts: EventContract[] = [
     schema: Contracts.MNetProfileEventPayloadSchema,
     fixture: {
       networkId: 'net-1',
-      fromProfileVersion: 'm-net-cn@0.1.0',
-      toProfileVersion: 'm-net-default@0.1.0',
+      fromProfileVersion: 'm-net-cn@0.3.0',
+      toProfileVersion: 'm-net@0.3.0',
       actor: 'admin',
       policyDecisionId: 'pd-2',
       correlationId: 'corr-2',
@@ -125,8 +146,8 @@ export const mnetEventContracts: EventContract[] = [
     schema: Contracts.MNetProfileEventPayloadSchema,
     fixture: {
       networkId: 'net-1',
-      fromProfileVersion: 'm-net-cn@0.1.0',
-      toProfileVersion: 'm-net-default@0.1.0',
+      fromProfileVersion: 'm-net-cn@0.3.0',
+      toProfileVersion: 'm-net@0.3.0',
       actor: 'admin',
       policyDecisionId: 'pd-2',
       correlationId: 'corr-2',
@@ -140,7 +161,7 @@ export const mnetEventContracts: EventContract[] = [
     fixture: {
       networkId: 'net-1',
       fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.1.0',
+      toProfileVersion: 'm-net-cn@0.3.0',
       actor: 'system',
       policyDecisionId: 'pd-3',
       operationId: 'op-2',
@@ -155,7 +176,7 @@ export const mnetEventContracts: EventContract[] = [
     fixture: {
       networkId: 'net-1',
       fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.1.0',
+      toProfileVersion: 'm-net-cn@0.3.0',
       actor: 'system',
       policyDecisionId: 'pd-4',
       operationId: 'op-3',
@@ -168,7 +189,7 @@ export const mnetEventContracts: EventContract[] = [
     subject: 'mnet.profile.defaults.updated.v0',
     schema: Contracts.MNetProfileDefaultsUpdatedEventPayloadSchema,
     fixture: {
-      defaultProfileVersion: 'm-net-cn@0.1.0',
+      defaultProfileVersion: 'm-net-cn@0.3.0',
       actor: 'admin',
       reason: 'switch all new networks to CN profile',
       correlationId: 'corr-defaults-1',
@@ -270,7 +291,7 @@ export const mnetResponseContracts: ResponseContract[] = [
       network: {
         id: 'net-1',
         name: 'primary',
-        profileVersion: 'm-net-default@0.1.0',
+        profileVersion: 'm-net@0.3.0',
         status: 'active',
         createdAt: '2026-06-04T10:00:00.000Z'
       },
@@ -286,7 +307,7 @@ export const mnetResponseContracts: ResponseContract[] = [
         {
           id: 'net-1',
           name: 'primary',
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           status: 'active',
           createdAt: '2026-06-04T10:00:00.000Z',
           memberCount: 2
@@ -332,17 +353,27 @@ export const mnetResponseContracts: ResponseContract[] = [
     fixture: {
       profiles: [
         {
-          profileVersion: 'm-net-cn@0.1.0',
-          region: 'cn',
-          displayName: 'M-Net CN',
-          schemaVersion: 'mnet-profile@0.1.0',
+          profileVersion: 'm-net@0.3.0',
+          region: 'default',
+          displayName: 'M-Net Default (v0.3)',
+          schemaVersion: 'mnet-profile@0.3.0',
           status: 'available',
-          rules: { residency: 'cn-only' },
+          rules: {},
           capabilities: {
-            realWstunnelRelay: false,
-            realTcpInterconnect: false,
-            realUdpPathSwitching: false,
-            controlPlaneOnly: true
+            controlPlaneOnly: false,
+            managementPlaneExcluded: true,
+            realNetBirdSidecar: true,
+            signalConfigRef: { configRef: 'signal/default' },
+            relayConfigRef: { configRef: 'relay/default' },
+            stunConfigRef: { configRef: 'stun/default' },
+            sidecarDesiredState: 'start',
+            sidecarCredentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/sidecar',
+              version: 1
+            },
+            sidecarCredentialStatus: 'ready',
+            sidecarHealthStatus: 'healthy'
           }
         },
         productionCnProfile
@@ -353,17 +384,27 @@ export const mnetResponseContracts: ResponseContract[] = [
     route: 'GET /api/v0/network-profiles/:profileVersion',
     schema: Contracts.MNetRegionalProfileSchema,
     fixture: {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       region: 'default',
-      displayName: 'Default',
-      schemaVersion: 'mnet-profile@0.1.0',
+      displayName: 'M-Net Default (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
       status: 'available',
-      rules: { residency: 'global' },
+      rules: {},
       capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: true
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/default' },
+        relayConfigRef: { configRef: 'relay/default' },
+        stunConfigRef: { configRef: 'stun/default' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
       }
     }
   },
@@ -382,7 +423,7 @@ export const mnetResponseContracts: ResponseContract[] = [
     schema: Contracts.SetNetworkProfileResponseSchema,
     fixture: {
       status: 'activated',
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       operationId: 'op-dataplane-1',
       networkMap: { networkId: 'net-1', mapVersion: 'map-20260604-1' },
       dataPlaneActivationStatus: 'active',
@@ -428,6 +469,164 @@ export const mnetResponseContracts: ResponseContract[] = [
       lastMapVersion: 'map-20260604-1',
       lastMapAt: '2026-06-04T10:00:00.000Z',
       partitionState: 'connected'
+    }
+  },
+  {
+    route: 'GET /api/v0/networks/:id/operational-state',
+    schema: Contracts.MNetOperationalSnapshotSchema,
+    fixture: {
+      networkId: 'net-v03',
+      network: {
+        status: 'degraded',
+        memberCount: 1,
+        profileState: 'enabled',
+        lastUpdatedAt: '2026-06-30T10:00:00.000Z',
+        summary: '1 nodes tracked in the operational read model'
+      },
+      profileSelection: {
+          profileVersion: 'm-net-cn@0.3.0',
+          displayName: 'M-Net CN (v0.3)',
+          schemaVersion: 'mnet-profile@0.3.0',
+        region: 'cn',
+        controlPlaneOnly: false,
+        compatibility: 'migration_required',
+        migration: {
+          code: 'migration_required',
+          message: 'wstunnel production profile must migrate to NetBird CN profile v0.3.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
+          rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+          affectedProfileIds: ['m-net-cn@0.2.0'],
+          affectedNodeIds: [],
+          reasonCode: 'legacy_wstunnel_profile_v0_2'
+        }
+      },
+      eventStream: {
+        status: 'degraded',
+        lastSubject: 'mnet.sidecar.health.v0',
+        lastEventId: 'evt-1',
+        lastEventAt: '2026-06-30T10:01:00.000Z',
+        degradationReason: {
+          code: 'eventbus_unavailable',
+          message: 'event bus unavailable',
+          subject: 'mnet.sidecar.health.v0',
+          observedAt: '2026-06-30T10:01:00.000Z'
+        }
+      },
+      sidecars: [
+        {
+          nodeId: 'node-v03-1',
+          nodeKind: 'stem',
+          profileVersion: 'm-net@0.3.0',
+          desiredState: 'start',
+          credentialStatus: 'rotation_required',
+          credentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'meristem/netbird/node-v03-1',
+            version: 3
+          },
+          expiresAt: '2026-07-01T10:00:00.000Z',
+          healthStatus: 'degraded',
+          checkedAt: '2026-06-30T10:00:00.000Z',
+          signalReachable: true,
+          relayReachable: false,
+          stunReachable: true,
+          stale: false,
+          summary: 'Sidecar health is degraded'
+        }
+      ],
+      topology: {
+        topologyRevision: 'topology-42',
+        routeClass: 'forced-tcp-relay',
+        nodes: [
+          {
+            nodeId: 'node-v03-1',
+            label: 'stem:node-v03-1',
+            nodeKind: 'stem',
+            healthStatus: 'degraded',
+            state: 'degraded'
+          }
+        ],
+        edges: [
+          {
+            edgeId: 'node-v03-1->relay-1:forced',
+            fromNodeId: 'node-v03-1',
+            toNodeId: 'relay-1',
+            relation: 'forced-relay'
+          }
+        ],
+        summary: '1 nodes and 1 edges are visible'
+      },
+      credentials: {
+        status: 'degraded',
+        nodes: [
+          {
+            nodeId: 'node-v03-1',
+            credentialStatus: 'rotation_required',
+            expiresAt: '2026-07-01T10:00:00.000Z',
+            credentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'meristem/netbird/node-v03-1',
+              version: 3
+            },
+            summary: 'Credential rotation is required'
+          }
+        ],
+        summary: 'Credential lifecycle is derived from the latest sidecar events'
+      },
+      migrationRequired: {
+        required: true,
+        resourceKind: 'profile',
+        migration: {
+          code: 'migration_required',
+          message: 'wstunnel production profile must migrate to NetBird CN profile v0.3.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
+          rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+          affectedProfileIds: ['m-net-cn@0.2.0'],
+          affectedNodeIds: [],
+          reasonCode: 'legacy_wstunnel_profile_v0_2'
+        },
+        summary: 'wstunnel production profile must migrate to NetBird CN profile v0.3.0'
+      },
+      forcedRelay: {
+        active: true,
+        routeClass: 'forced-tcp-relay',
+        selectorOwnership: 'policy',
+        selector: { selectorType: 'label-selector', matchLabels: { region: 'cn' } },
+        operatorOverrideActive: false,
+        affectedNodeIds: ['node-v03-1'],
+        summary: '1 nodes are pinned to forced relay'
+      },
+      deploymentReadiness: {
+        status: 'blocked',
+        summary: '3 readiness issue(s)',
+        reasons: [
+          {
+            code: 'eventbus_unavailable',
+            message: 'event bus unavailable',
+            subject: 'mnet.sidecar.health.v0',
+            observedAt: '2026-06-30T10:01:00.000Z'
+          },
+          {
+            code: 'migration_required',
+            message: 'wstunnel production profile must migrate to NetBird CN profile v0.3.0'
+          },
+          {
+            code: 'credential_rotation_required',
+            message: 'credential rotation required for node-v03-1'
+          }
+        ]
+      },
+      stateSources: {
+        network: 'authoritative',
+        profileSelection: 'authoritative',
+        sidecars: 'read-model',
+        topology: 'read-model',
+        credentials: 'read-model',
+        migration: 'read-model',
+        forcedRelay: 'read-model',
+        deploymentReadiness: 'composed',
+        eventStream: 'read-model'
+      }
     }
   },
   {

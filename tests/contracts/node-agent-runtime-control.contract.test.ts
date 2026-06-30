@@ -104,7 +104,7 @@ describe('node-agent runtime control helpers', () => {
         new Response(
           JSON.stringify({
             map: {
-              profileVersion: 'm-net-cn@0.2.0',
+              profileVersion: 'm-net-cn@0.3.0',
               networkId: 'network-prod-a',
               members: [
                 {
@@ -127,6 +127,19 @@ describe('node-agent runtime control helpers', () => {
                 publicKey: 'PUBLICKEY==',
                 value: 'SIGNATURE=='
               }
+            },
+            sidecar: {
+              signalConfigRef: { configRef: 'netbird/signal/prod-a' },
+              relayConfigRef: { configRef: 'netbird/relay/prod-a' },
+              stunConfigRef: { configRef: 'netbird/stun/prod-a' },
+              sidecarCredentialRef: {
+                provider: 'vault-prod',
+                keyPath: 'netbird/sidecar/prod-a'
+              },
+              desiredState: 'start',
+              credentialStatus: 'ready',
+              healthStatus: 'unknown',
+              configHash: 'sidecar-config-hash'
             }
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
@@ -137,6 +150,11 @@ describe('node-agent runtime control helpers', () => {
     if (latestMap.kind === 'runtime.network_map.fetched') {
       expect(latestMap.map.networkId).toBe('network-prod-a')
       expect(latestMap.map.mapVersion).toBe(7)
+      expect(latestMap.sidecar.desiredState).toBe('start')
+      expect(latestMap.sidecar.sidecarCredentialRef).toEqual({
+        provider: 'vault-prod',
+        keyPath: 'netbird/sidecar/prod-a'
+      })
     }
   })
 

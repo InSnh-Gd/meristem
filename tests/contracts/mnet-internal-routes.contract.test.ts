@@ -28,7 +28,7 @@ const internalToken = 'mnet-internal-route-test-token'
 const networkFixture = {
   id: 'network-1',
   name: 'primary network',
-  profileVersion: 'm-net-default@0.1.0',
+  profileVersion: 'm-net@0.3.0',
   status: 'active',
   createdAt: '2026-06-18T00:00:00.000Z'
 } satisfies MNetwork
@@ -127,14 +127,14 @@ describe('M-Net internal route contracts', () => {
     const response = await app.handle(
       jsonRequest('/internal/v0/networks', 'POST', {
         name: 'primary network',
-        profileVersion: 'm-net-default@0.1.0'
+        profileVersion: 'm-net@0.3.0'
       })
     )
 
     expect(response.status).toBe(200)
     await expectJson(response, { network: networkFixture })
     expect(calls.createNetwork).toEqual([
-      { name: 'primary network', profileVersion: 'm-net-default@0.1.0' }
+      { name: 'primary network', profileVersion: 'm-net@0.3.0' }
     ])
   })
 

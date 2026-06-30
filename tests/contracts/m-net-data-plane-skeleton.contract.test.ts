@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
+  MNetHistoricalProfileVersionSchema,
   type MNetRegionalProfileFromSchema,
   MNetRegionalProfileSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
@@ -9,46 +10,85 @@ import {
   DATA_PLANE_FEATURE_GATE_DEFAULT
 } from '../../services/m-net/src/data-plane/noop-adapter.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 
 describe('M-Net data-plane skeleton contract', () => {
-  it('m-net-cn@0.1.0 profile has controlPlaneOnly: true', async () => {
-    const store = createInMemoryProfileStore()
-    const def = await store.getDefinition('m-net-cn@0.1.0')
-    expect(def).not.toBeNull()
-    expect(def?.capabilities.controlPlaneOnly).toBe(true)
+  it('legacy m-net-cn@0.1.0 profile is rejected through migration guidance', async () => {
+    const compatibility = decodeMNetProfileV03Compatibility({ profileVersion: 'm-net-cn@0.1.0' })
+    expect(compatibility.kind).toBe('migration_required')
+    if (compatibility.kind !== 'migration_required') throw new Error('expected migration_required')
+    expect(compatibility.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
   })
 
-  it('m-net-cn@0.1.0 profile has all real transport capabilities set to false', async () => {
+  it('m-net-cn@0.3.0 profile has NetBird sidecar enabled', async () => {
     const store = createInMemoryProfileStore()
-    const def = await store.getDefinition('m-net-cn@0.1.0')
+    const def = await store.getDefinition('m-net-cn@0.3.0')
     expect(def).not.toBeNull()
-    expect(def?.capabilities.realWstunnelRelay).toBe(false)
-    expect(def?.capabilities.realTcpInterconnect).toBe(false)
-    expect(def?.capabilities.realUdpPathSwitching).toBe(false)
+    expect(def?.capabilities.controlPlaneOnly).toBe(false)
+    expect(def?.capabilities.realNetBirdSidecar).toBe(true)
   })
 
-  it('m-net-default@0.1.0 profile has controlPlaneOnly: false', async () => {
+  it('m-net-cn@0.3.0 profile exposes sidecar config refs instead of legacy transport flags', async () => {
     const store = createInMemoryProfileStore()
-    const def = await store.getDefinition('m-net-default@0.1.0')
+    const def = await store.getDefinition('m-net-cn@0.3.0')
+    expect(def).not.toBeNull()
+    expect(def?.capabilities.signalConfigRef).toEqual({ configRef: 'signal/cn-primary' })
+    expect(def?.capabilities.relayConfigRef).toEqual({ configRef: 'relay/cn-primary' })
+    expect(def?.capabilities.stunConfigRef).toEqual({ configRef: 'stun/cn-primary' })
+  })
+
+  it('m-net@0.3.0 profile has controlPlaneOnly: false', async () => {
+    const store = createInMemoryProfileStore()
+    const def = await store.getDefinition('m-net@0.3.0')
     expect(def).not.toBeNull()
     expect(def?.capabilities.controlPlaneOnly).toBe(false)
   })
 
   it('profile schema does not expose runtime transport ports or protocols', () => {
     const cnProfile: MNetRegionalProfileFromSchema = {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       region: 'cn',
-      displayName: 'M-Net CN',
-      schemaVersion: 'mnet-profile@0.1.0',
+      displayName: 'M-Net CN (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
       status: 'available',
       rules: {
-        mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' }
+        mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' },
+        residency: 'cn-only'
       },
       capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: true
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/cn-primary' },
+        relayConfigRef: { configRef: 'relay/cn-primary' },
+        stunConfigRef: { configRef: 'stun/cn-primary' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/cn-sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
+      },
+      forcedTcpRelaySelector: {
+        enabled: true,
+        selectorOwnership: 'policy',
+        selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+        routeClass: 'forced-tcp-relay',
+        operatorOverrideAllowed: false,
+        operatorOverrideActive: false,
+        policyDecision: {
+          decisionId: 'fixture',
+          source: 'm-policy',
+          outcome: 'allow',
+          reason: 'fixture'
+        },
+        auditEvidence: {
+          auditId: 'fixture',
+          eventId: 'fixture',
+          eventSubject: 'mnet.forced_relay.change.v0'
+        }
       }
     }
 
@@ -79,19 +119,12 @@ describe('M-Net data-plane skeleton contract', () => {
     expect(adapter.status).toBe('noop')
   })
 
-  it('profile enable event payload carries controlPlaneOnly: true', () => {
-    // The event payload schema enforces controlPlaneOnly as literal true
-    const payload = {
-      networkId: 'net-1',
-      fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.1.0',
-      actor: 'admin',
-      policyDecisionId: 'pd-1',
-      correlationId: 'corr-1',
-      reason: 'enable CN profile',
-      controlPlaneOnly: true as const
-    }
-    // This matches the event payload shape used in profile-routes.ts
-    expect(payload.controlPlaneOnly).toBe(true)
+  it('historical profile versions remain decodable for migration metadata', () => {
+    expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-default@0.1.0')).toBe(
+      'm-net-default@0.1.0'
+    )
+    expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-cn@0.2.0')).toBe(
+      'm-net-cn@0.2.0'
+    )
   })
 })

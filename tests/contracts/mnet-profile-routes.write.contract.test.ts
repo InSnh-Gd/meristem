@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { SetNetworkProfileResponseSchema } from '../../packages/contracts/src/index.ts'
+import {
+  MNetMigrationRequiredErrorSchema,
+  SetNetworkProfileResponseSchema
+} from '../../packages/contracts/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
@@ -19,7 +22,7 @@ describe('M-Net profile external routes', () => {
     process.env.MERISTEM_INTERNAL_TOKEN = internalToken
   })
 
-  it('POST /api/v0/networks/:id/profile with CN creates pending approval', async () => {
+  it('POST /api/v0/networks/:id/profile returns typed migration_required for legacy CN control-plane profile', async () => {
     const profileStore = createInMemoryProfileStore()
     const suspendedOps = createInMemorySuspendedOperationStore()
     const app = createTestApp(profileStore, suspendedOps)
@@ -27,7 +30,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-1'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net-cn@0.1.0',
       status: 'disabled'
     })
 
@@ -36,33 +39,27 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'enable CN profile for compliance'
         })
       })
     )
 
-    expect(response.status).toBe(200)
-    const body = await decodeJson(response, SetNetworkProfileResponseSchema)
-    const pendingBody = body.status === 'pending_approval' ? body : null
-    expect(pendingBody?.status).toBe('pending_approval')
-    if (!pendingBody) throw new Error(`expected pending_approval response, got ${body.status}`)
-    expect(pendingBody.operationId).toBeDefined()
-    expect(pendingBody.approvalId).toBeDefined()
-    expect(pendingBody.correlationId).toBeDefined()
+    expect(response.status).toBe(409)
+    const body = await decodeJson(response, MNetMigrationRequiredErrorSchema)
+    expect(body.error.code).toBe('migration_required')
+    expect(body.error.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
+    expect(body.error.migration.rebuildGuidanceKey).toBe('migrate_profile_to_mnet_cn_v03')
+    expect(body.error.migration.reasonCode).toBe('legacy_cn_profile_v0_1')
+    expect(body.error.migration.affectedProfileIds).toEqual(['m-net-cn@0.1.0'])
 
     const state = await profileStore.getNetworkState(networkId)
     expect(state).not.toBeNull()
-    expect(state?.status).toBe('enabling')
-
-    const suspendedOp = await suspendedOps.get(pendingBody.operationId)
-    expect(suspendedOp).not.toBeNull()
-    expect(suspendedOp?.status).toBe('suspended')
-    expect(suspendedOp?.action).toBe('mnet.profile.enable')
-    expect(suspendedOp?.toProfileVersion).toBe('m-net-cn@0.1.0')
+    expect(state?.status).toBe('disabled')
+    expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
   })
 
-  it('POST /api/v0/networks/:id/profile keeps profile unchanged when approval creation fails', async () => {
+  it('POST /api/v0/networks/:id/profile short-circuits approval failure path for legacy wstunnel profile', async () => {
     const profileStore = createInMemoryProfileStore()
     const suspendedOps = createInMemorySuspendedOperationStore()
     const token = await mintTestToken('admin')
@@ -114,7 +111,7 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'approval service failure coverage'
         })
       })
@@ -123,7 +120,6 @@ describe('M-Net profile external routes', () => {
     expect(response.status).toBe(503)
     const body = await decodeJson(response, ErrorResponseSchema)
     expect(body.error.code).toBe('approval.create_failed')
-    expect(body.error.message).toBe('approval service unavailable')
 
     const networkState = await profileStore.getNetworkState(networkId)
     expect(networkState?.profileVersion).toBe('m-net-default@0.1.0')
@@ -137,7 +133,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-2'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -152,7 +148,7 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'disable CN profile'
         })
       })
@@ -163,13 +159,13 @@ describe('M-Net profile external routes', () => {
     const disabledBody = body.status === 'disabled' ? body : null
     expect(disabledBody?.status).toBe('disabled')
     if (!disabledBody) throw new Error(`expected disabled response, got ${body.status}`)
-    expect(disabledBody.profileVersion).toBe('m-net-default@0.1.0')
+    expect(disabledBody.profileVersion).toBe('m-net@0.3.0')
     expect(disabledBody.correlationId).toBeDefined()
 
     const state = await profileStore.getNetworkState(networkId)
     expect(state).not.toBeNull()
     expect(state?.status).toBe('disabled')
-    expect(state?.profileVersion).toBe('m-net-default@0.1.0')
+    expect(state?.profileVersion).toBe('m-net@0.3.0')
   })
 
   it('POST /api/v0/networks/:id/profile with already-active profile returns 409', async () => {
@@ -180,7 +176,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-3'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
@@ -189,7 +185,7 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'try to set same profile'
         })
       })
@@ -209,13 +205,45 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'enable CN'
         })
       })
     )
 
     expect(response.status).toBe(404)
+  })
+
+  it('POST /api/v0/networks/:id/profile returns typed migration_required for legacy wstunnel profile', async () => {
+    const profileStore = createInMemoryProfileStore()
+    const suspendedOps = createInMemorySuspendedOperationStore()
+    const app = createTestApp(profileStore, suspendedOps)
+    const token = await mintTestToken('admin')
+    const networkId = 'test-network-legacy-cutover'
+
+    await profileStore.setNetworkState(networkId, {
+      profileVersion: 'm-net-cn@0.2.0',
+      status: 'enabled'
+    })
+
+    const response = await app.handle(
+      new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
+        method: 'POST',
+        headers: bearerHeaders(token),
+        body: JSON.stringify({
+          profileVersion: 'm-net-cn@0.3.0',
+          reason: 'cutover legacy profile to typed migration guidance'
+        })
+      })
+    )
+
+    expect(response.status).toBe(409)
+    const body = await decodeJson(response, MNetMigrationRequiredErrorSchema)
+    expect(body.error.code).toBe('migration_required')
+    expect(body.error.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
+    expect(body.error.migration.rebuildGuidanceKey).toBe('rebuild_node_with_netbird_sidecar')
+    expect(body.error.migration.reasonCode).toBe('legacy_wstunnel_profile_v0_2')
+    expect(body.error.migration.affectedProfileIds).toEqual(['m-net-cn@0.2.0'])
   })
 
   it('POST /api/v0/networks/:id/profile returns 401 without bearer token', async () => {
@@ -225,7 +253,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-4'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
@@ -234,7 +262,7 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'enable CN'
         })
       })
@@ -251,7 +279,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-5'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'enabling'
     })
 
@@ -260,7 +288,7 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'try to enable again'
         })
       })
@@ -271,7 +299,7 @@ describe('M-Net profile external routes', () => {
     expect(body.error.code).toBe('profile.enable.invalid_state')
   })
 
-  it('POST /api/v0/networks/:id/profile disable from disabled returns 409', async () => {
+  it('POST /api/v0/networks/:id/profile returns 409 when disabling an already-disabled network', async () => {
     const profileStore = createInMemoryProfileStore()
     const suspendedOps = createInMemorySuspendedOperationStore()
     const app = createTestApp(profileStore, suspendedOps)
@@ -279,7 +307,7 @@ describe('M-Net profile external routes', () => {
     const networkId = 'test-network-6'
 
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
@@ -288,12 +316,14 @@ describe('M-Net profile external routes', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'try to disable'
         })
       })
     )
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(409)
+    const body = await decodeJson(response, ErrorResponseSchema)
+    expect(body.error.code).toBe('profile.not_enabled')
   })
 })

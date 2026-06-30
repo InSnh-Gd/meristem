@@ -175,7 +175,7 @@ describe('M-UI BFF contract tests', () => {
       true
     )
     expect(body.state).toBe('disabled')
-    expect(body.disabled.code).toBe('node_unreachable')
+    expect(body.disabled.code).toBe('unreachable_node')
     expect(body.disabledReason).toBe('目标节点不可达')
   })
 
@@ -361,7 +361,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.enable.preview/eligibility',
       'POST',
       'viewer-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.3.0' }
     )
 
     expect(res.status).toBe(200)
@@ -390,7 +390,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.disable.preview/eligibility',
       'POST',
       'admin-token',
-      { networkId: 'network-default-001', profileVersion: 'm-net-default@0.1.0' }
+      { networkId: 'network-default-001', profileVersion: 'm-net@0.3.0' }
     )
 
     expect(res.status).toBe(200)
@@ -499,7 +499,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.enable.preview/execute',
       'POST',
       'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.3.0' }
     )
     const audit = await deps.log.listAudit()
 
@@ -531,7 +531,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.disable.preview/execute',
       'POST',
       'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net@0.3.0' }
     )
     const audit = await deps.log.listAudit()
 
@@ -643,7 +643,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.enable.execute/execute',
       'POST',
       'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.3.0' }
     )
 
     // profile enable 透传 Core facade 的 pending_approval 结果。
@@ -682,7 +682,7 @@ describe('M-UI BFF contract tests', () => {
       '/api/v0/commands/network.profile.disable.execute/execute',
       'POST',
       'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-default@0.1.0' }
+      { networkId: 'network-cn-001', profileVersion: 'm-net@0.3.0' }
     )
 
     // profile disable 透传 Core facade 的 disabled 结果。
@@ -693,7 +693,7 @@ describe('M-UI BFF contract tests', () => {
       correlationId: string
     }
     expect(body.status).toBe('disabled')
-    expect(body.profileVersion).toBe('m-net-default@0.1.0')
+    expect(body.profileVersion).toBe('m-net@0.3.0')
     expect(body.correlationId).toBeDefined()
     expect(requests.length).toBeGreaterThan(0)
   })
@@ -703,7 +703,7 @@ describe('M-UI BFF contract tests', () => {
   // =============================================================================
 
   it('POST /api/v0/commands/:commandId/execute rejects random.unknown.command as unknown (RED)', async () => {
-    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+    const deps = createInMemoryCoreDeps({ actor: 'viewer' })
     const coreApp = createCoreApp(deps)
     const app = createBffWithCore(coreApp)
 
@@ -762,8 +762,8 @@ describe('M-UI BFF contract tests', () => {
     expect(body.displayOnly).toBe(true)
   })
 
-  it('POST /api/v0/commands/:commandId/eligibility returns disabled for network.profile.enable.preview with insufficient permissions', async () => {
-    const deps = createInMemoryCoreDeps({ actor: 'admin' })
+  it('POST /api/v0/commands/:commandId/eligibility returns disabled preview for network.profile.enable.preview with insufficient permissions', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'viewer' })
     const coreApp = createCoreApp(deps)
     const app = createBffWithCore(coreApp)
 
@@ -771,8 +771,8 @@ describe('M-UI BFF contract tests', () => {
       app,
       '/api/v0/commands/network.profile.enable.preview/eligibility',
       'POST',
-      'admin-token',
-      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.1.0' }
+      'viewer-token',
+      { networkId: 'network-cn-001', profileVersion: 'm-net-cn@0.3.0' }
     )
 
     expect(res.status).toBe(200)

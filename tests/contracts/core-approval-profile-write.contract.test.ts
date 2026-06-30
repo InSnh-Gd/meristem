@@ -94,7 +94,7 @@ describe('Core facade write auth gate', () => {
     const { app } = createApp()
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', undefined, {
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         reason: 'test enable'
       })
     )
@@ -134,7 +134,7 @@ describe('Core facade write authorization gate', () => {
     const { app } = createApp('viewer')
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', 'viewer-token', {
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         reason: 'test enable'
       })
     )
@@ -146,7 +146,7 @@ describe('Core facade write authorization gate', () => {
     const { app } = createApp('admin')
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', 'admin-token', {
-        profileVersion: 'm-net-default@0.1.0',
+        profileVersion: 'm-net@0.3.0',
         reason: 'test disable'
       })
     )
@@ -233,7 +233,7 @@ describe('Core facade profile enable', () => {
         '/api/v0/networks/net-test-1/profile',
         'admin-token',
         {
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'regional compliance'
         },
         'correlation-enable-1'
@@ -259,7 +259,7 @@ describe('Core facade profile disable', () => {
         '/api/v0/networks/net-test-1/profile',
         'admin-token',
         {
-          profileVersion: 'm-net-default@0.1.0',
+          profileVersion: 'm-net@0.3.0',
           reason: 'compliance hold'
         },
         'correlation-disable-1'
@@ -269,7 +269,7 @@ describe('Core facade profile disable', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('status', 'disabled')
-    expect(body).toHaveProperty('profileVersion', 'm-net-default@0.1.0')
+    expect(body).toHaveProperty('profileVersion', 'm-net@0.3.0')
     expect(body).toHaveProperty('correlationId')
   })
 
@@ -277,7 +277,7 @@ describe('Core facade profile disable', () => {
     const { app } = createApp('admin')
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', 'admin-token', {
-        profileVersion: 'm-net-default@0.1.0'
+        profileVersion: 'm-net@0.3.0'
         // missing reason
       })
     )
@@ -309,7 +309,7 @@ describe('Core facade write error passthrough', () => {
     })
     const res = await app.handle(
       post('/api/v0/networks/net-in-conflict/profile', 'admin-token', {
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         reason: 'trigger conflict'
       })
     )
@@ -334,7 +334,7 @@ describe('Core facade write error passthrough', () => {
     })
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', 'admin-token', {
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         reason: 'test'
       })
     )
@@ -383,7 +383,7 @@ describe('Core facade write correlationId propagation', () => {
         '/api/v0/networks/net-test-1/profile',
         'admin-token',
         {
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'test'
         },
         incomingCorrelationId
@@ -418,7 +418,7 @@ describe('Core facade write never calls internal routes', () => {
     const { app } = createApp('admin')
     const res = await app.handle(
       post('/api/v0/networks/net-test-1/profile', 'admin-token', {
-        profileVersion: 'm-net-default@0.1.0',
+        profileVersion: 'm-net@0.3.0',
         reason: 'test'
       })
     )

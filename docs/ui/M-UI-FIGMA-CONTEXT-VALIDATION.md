@@ -14,4 +14,4 @@ Future Figma usage should validate only the design direction approved for that t
 
 ## Preserved Boundary
 
-Even when using Figma, do not imply that M-* services, M-Extension, or plugins provide runtime frontend pages or components. M-UI owns frontend structure; services own facts and capabilities; the BFF adapts service facts for UI consumption.
+Even when using Figma, do not imply that capability domain services, M-Extension, or plugins provide runtime frontend pages or components. M-UI owns frontend structure; services own facts and capabilities; the BFF adapts service facts for UI consumption.

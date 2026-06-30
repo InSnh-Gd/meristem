@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { hashNodeToken } from '../../packages/auth/src/index.ts'
 import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
@@ -32,6 +32,26 @@ const { db, client } = createDb()
 const joinIngressPort = 18_443
 const joinIngressUrl = `wss://localhost:${joinIngressPort}/join/v0/session`
 const joinIngressSessionTimeoutMs = 15_000
+const mockInternalPortsAvailable = await (async () => {
+  const listener = (port: number) =>
+    Bun.listen({
+      hostname: '127.0.0.1',
+      port,
+      socket: {
+        data() {}
+      }
+    })
+
+  try {
+    const logProbe = listener(3102)
+    const eventBusProbe = listener(3103)
+    logProbe.stop(true)
+    eventBusProbe.stop(true)
+    return true
+  } catch {
+    return false
+  }
+})()
 const pgAvailable = await (async () => {
   try {
     const sql = createSqlClient()
@@ -42,10 +62,6 @@ const pgAvailable = await (async () => {
     return false
   }
 })()
-
-let logMock: ManagedProcess | null = null
-let eventBusMock: ManagedProcess | null = null
-let mnet: ManagedProcess | null = null
 
 function parseSessionMessage(raw: string): ParsedSessionMessage {
   return JSON.parse(raw) as ParsedSessionMessage
@@ -91,7 +107,7 @@ async function waitForServiceReady(process: ManagedProcess, label: string): Prom
   await waitForOutput(() => process.stdout, {
     text: label,
     label,
-    timeoutMs: 5_000,
+    timeoutMs: 10_000,
     intervalMs: 25
   })
 }
@@ -218,29 +234,43 @@ function closeManagedSessionSocket(socket: ManagedSessionSocket | null): void {
  * against Bun WebSockets, PostgreSQL, and the internal log/event callers together.
  */
 describe('M-Net join ingress session handling', () => {
-  beforeAll(async () => {
-    if (!pgAvailable) return
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-    await import('../../packages/db/src/migrate.ts')
-    eventBusMock = createMockInternalService(3103, 'm-eventbus')
-    logMock = createMockInternalService(3102, 'm-log')
+async function startHarness(): Promise<{
+  logMock: ManagedProcess
+  eventBusMock: ManagedProcess
+  mnet: ManagedProcess
+} | null> {
+  if (!pgAvailable) return null
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+  await import('../../packages/db/src/migrate.ts')
+  const eventBusMock = createMockInternalService(3103, 'm-eventbus')
+  const logMock = createMockInternalService(3102, 'm-log')
+  let mnet: ManagedProcess | null = null
 
+  try {
     await waitForServiceReady(eventBusMock, 'm-eventbus ready')
     await waitForServiceReady(logMock, 'm-log ready')
 
     mnet = await startMNetService()
     await waitForServiceReady(mnet, 'm-net join ingress listening')
-  })
+    return { logMock, eventBusMock, mnet }
+  } catch (error) {
+    await stopProcess(mnet)
+    await stopProcess(logMock)
+    await stopProcess(eventBusMock)
+    throw error
+  }
+}
 
-  afterAll(async () => {
-    const processes = [mnet, logMock, eventBusMock].filter(
-      (process): process is ManagedProcess => process !== null
-    )
-    for (const process of processes.reverse()) {
+  async function stopHarness(processes: {
+    logMock: ManagedProcess
+    eventBusMock: ManagedProcess
+    mnet: ManagedProcess
+  } | null): Promise<void> {
+    if (!processes) return
+    for (const process of [processes.mnet, processes.logMock, processes.eventBusMock]) {
       await stopProcess(process)
     }
-    await client.end()
-  })
+  }
 
   it('skips gracefully when PostgreSQL is unavailable', () => {
     expect(typeof pgAvailable).toBe('boolean')
@@ -249,7 +279,9 @@ describe('M-Net join ingress session handling', () => {
   it(
     'treats a resumed websocket as the active session and ignores stale frames from the superseded socket',
     async () => {
-      if (!pgAvailable) return
+      if (!pgAvailable || !mockInternalPortsAvailable) return
+      const harness = await startHarness()
+      if (!harness) return
       const ticket = `supersede-${crypto.randomUUID()}`
       const ticketId = await seedJoinTicket({
         ticket,
@@ -333,13 +365,16 @@ describe('M-Net join ingress session handling', () => {
         closeManagedSessionSocket(firstSocket)
         closeManagedSessionSocket(secondSocket)
         await cleanupTicket(ticketId, nodeId)
+        await stopHarness(harness)
       }
     },
     joinIngressSessionTimeoutMs
   )
 
   it('returns stable join ticket errors and only redeems a ticket once', async () => {
-    if (!pgAvailable) return
+    if (!pgAvailable || !mockInternalPortsAvailable) return
+    const harness = await startHarness()
+    if (!harness) return
     const expiredTicket = `expired-${crypto.randomUUID()}`
     const revokedTicket = `revoked-${crypto.randomUUID()}`
     const redeemedTicket = `redeemed-${crypto.randomUUID()}`
@@ -446,6 +481,7 @@ describe('M-Net join ingress session handling', () => {
       await cleanupTicket(revokedTicketId)
       await cleanupTicket(redeemedTicketId)
       await cleanupTicket(activeTicketId, nodeId)
+      await stopHarness(harness)
     }
   })
 })

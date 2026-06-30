@@ -99,10 +99,10 @@ const approvalDetailDisplay = {
 } as const
 
 const networkProfileListItem = {
-  profileVersion: 'm-net-cn@0.1.0',
+  profileVersion: 'm-net-cn@0.3.0',
   region: 'cn',
-  displayName: 'China Control Plane',
-  controlPlaneOnly: true,
+  displayName: 'China NetBird Sidecar',
+  controlPlaneOnly: false,
   status: 'enabled',
   networkId: 'network-cn-001',
   stateSource: 'authoritative'

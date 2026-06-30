@@ -114,12 +114,12 @@ describe('M-Net PostgreSQL state persistence', () => {
     const firstDataPlaneStores = createPgDataPlaneStores(first.db)
 
     await firstProfileStore.setNetworkState('net-a', {
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
     const switchOperation = await firstGlobalDefaultsStore.createSwitchOperation({
       idempotencyKey: 'idem-restart',
-      targetProfileVersion: 'm-net-cn@0.2.0',
+      targetProfileVersion: 'm-net-cn@0.3.0',
       batchSize: 1,
       reason: 'restart persistence',
       batches: [{ batchId: 1, networkIds: ['net-a'] }]
@@ -128,7 +128,7 @@ describe('M-Net PostgreSQL state persistence', () => {
       {
         networkId: 'net-a',
         previousProfileVersion: 'm-net-default@0.1.0',
-        targetProfileVersion: 'm-net-cn@0.2.0',
+      targetProfileVersion: 'm-net-cn@0.3.0',
         status: 'applied'
       }
     ])
@@ -148,7 +148,7 @@ describe('M-Net PostgreSQL state persistence', () => {
       action: 'mnet.profile.enable',
       networkId: 'net-a',
       fromProfileVersion: 'm-net-default@0.1.0',
-      toProfileVersion: 'm-net-cn@0.2.0',
+      toProfileVersion: 'm-net-cn@0.3.0',
       requestedBy: 'admin',
       correlationId: 'corr-restart',
       idempotencyKey: 'idem-suspended',
@@ -158,7 +158,7 @@ describe('M-Net PostgreSQL state persistence', () => {
       networkId: 'net-a',
       operationId: 'migration-1',
       fromVersion: 'm-net-default@0.1.0',
-      toVersion: 'm-net-cn@0.2.0',
+      toVersion: 'm-net-cn@0.3.0',
       status: 'completed',
       idempotencyKey: 'idem-migration',
       startedAt: '2026-01-01T00:00:00.000Z',
@@ -168,10 +168,10 @@ describe('M-Net PostgreSQL state persistence', () => {
     await firstDataPlaneStores.networkMaps.save({
       networkId: 'net-a',
       mapVersion: 7,
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       map: {
         networkId: 'net-a',
-        profileVersion: 'm-net-cn@0.2.0',
+        profileVersion: 'm-net-cn@0.3.0',
         mapVersion: 7,
         expiresAt: Date.now() + 60_000,
         members: [],
@@ -245,7 +245,7 @@ describe('M-Net PostgreSQL state persistence', () => {
     const secondDataPlaneStores = createPgDataPlaneStores(second.db)
 
     expect((await secondProfileStore.getNetworkState('net-a'))?.profileVersion).toBe(
-      'm-net-cn@0.2.0'
+      'm-net-cn@0.3.0'
     )
     expect(
       (await secondGlobalDefaultsStore.getSwitchOperation(switchOperation.operationId))?.results

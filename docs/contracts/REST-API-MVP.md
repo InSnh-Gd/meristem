@@ -106,9 +106,9 @@ Returns service summaries. Built-in services include live runtime data; register
 
 The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
 
-### Follow-on M-* Service REST Ownership
+### Follow-on Capability Domain Service REST Ownership
 
-Some post-MVP external routes are owned directly by M-* services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
+Some post-MVP external routes are owned directly by capability domain services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
 
 Examples:
 
@@ -322,7 +322,7 @@ type RevokeTokenResponse = {
 
 Internal endpoint. Requires `x-meristem-internal-token`. Never returns token plaintext.
 
-M-* services must call this endpoint to verify revocation state instead of reading Core token tables directly. Core unavailable fails closed for protected external M-* routes.
+Capability domain services must call this endpoint to verify revocation state instead of reading Core token tables directly. Core unavailable fails closed for protected external capability domain routes.
 
 ```ts
 type IntrospectTokenRequest = {

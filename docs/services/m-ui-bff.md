@@ -26,7 +26,7 @@ What this service owns:
 - Exposing generic CommandWell endpoints for BFF-known command IDs only
 - Exposing its own minimal OpenAPI document for the M-UI frontend
 
-The BFF is a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but M-UI owns route surfaces, Svelte components, and interaction structure. M-* services own facts and capabilities; services, M-Extension, and plugins do not supply M-UI pages or components through the BFF.
+The BFF is a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but M-UI owns route surfaces, Svelte components, and interaction structure. Capability domain services own facts and capabilities; services, M-Extension, and plugins do not supply M-UI pages or components through the BFF.
 
 What this service must not own:
 

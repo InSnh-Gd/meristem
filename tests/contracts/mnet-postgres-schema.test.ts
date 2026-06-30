@@ -94,10 +94,10 @@ describe('M-Net PostgreSQL schema contract', () => {
   it('seeds default M-Net profiles and profile permissions', async () => {
     const seed = await Bun.file('packages/db/src/seed.ts').text()
 
-    expect(seed).toContain("'m-net-default@0.1.0'")
-    expect(seed).toContain("'m-net-cn@0.1.0'")
+    expect(seed).toContain("'m-net@0.3.0'")
+    expect(seed).toContain("'m-net-cn@0.3.0'")
     expect(seed).toContain('controlPlaneOnly: false')
-    expect(seed).toContain('controlPlaneOnly: true')
+    expect(seed).toContain('realNetBirdSidecar: true')
 
     expect(seed).toContain(
       "['network:profile-read', 'read network regional profile definitions and state']"

@@ -22,7 +22,7 @@ function createNetworkMap(overrides?: {
   readonly mapVersion?: number
 }): NetworkMap {
   const unsignedMap = {
-    profileVersion: 'm-net-cn@0.2.0' as const,
+    profileVersion: 'm-net-cn@0.3.0' as const,
     networkId: 'network-wg-1',
     members: overrides?.members ?? [
       {

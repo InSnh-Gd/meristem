@@ -5,11 +5,26 @@ import {
   type NetworkProfileStateFromSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import type { MNetRegionalProfile } from '../../packages/contracts/src/types/mnet-profile.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 
-type MigrationProfileCandidate = Omit<MNetRegionalProfile, 'profileVersion' | 'schemaVersion'> & {
+type MigrationProfileCandidate = Omit<
+  MNetRegionalProfile,
+  'profileVersion' | 'schemaVersion' | 'capabilities' | 'forcedTcpRelaySelector'
+> & {
   readonly profileVersion: string
   readonly schemaVersion: string
+  readonly capabilities:
+    | {
+        readonly controlPlaneOnly: true
+        readonly realWstunnelRelay: false
+        readonly realTcpInterconnect: false
+        readonly realUdpPathSwitching: false
+      }
+    | MNetRegionalProfile['capabilities']
+  readonly forcedTcpRelaySelector?: Extract<
+    MNetRegionalProfile,
+    { profileVersion: 'm-net-cn@0.3.0' }
+  >['forcedTcpRelaySelector']
 }
 
 type MigrationNetworkState = {
@@ -37,13 +52,13 @@ type PlannedMigrationEffect =
       readonly kind: 'provision-data-plane-desired-state'
       readonly key: string
       readonly networkId: string
-      readonly profileVersion: 'm-net-cn@0.2.0'
+      readonly profileVersion: 'm-net-cn@0.3.0'
     }
   | {
       readonly kind: 'tear-down-data-plane-desired-state'
       readonly key: string
       readonly networkId: string
-      readonly fromProfileVersion: 'm-net-cn@0.2.0'
+      readonly fromProfileVersion: 'm-net-cn@0.3.0'
     }
   | {
       readonly kind: 'preserve-audit-history'
@@ -111,7 +126,7 @@ type MigrationResult =
 type RollbackInput = {
   readonly currentProfile: MNetRegionalProfile
   readonly currentNetwork: MigrationNetworkState
-  readonly targetControlPlaneProfile: MNetRegionalProfile
+  readonly targetControlPlaneProfile: MigrationProfileCandidate
   readonly operationId: string
   readonly actor: string
   readonly reason: string
@@ -123,7 +138,7 @@ type RollbackInput = {
 type RollbackResult =
   | {
       readonly kind: 'rolled-back'
-      readonly profile: MNetRegionalProfile
+      readonly profile: MigrationProfileCandidate
       readonly network: MigrationNetworkState
       readonly plannedEffects: readonly PlannedMigrationEffect[]
       readonly audit: {
@@ -183,11 +198,31 @@ function isMigrationModule(value: unknown): value is MigrationModule {
   )
 }
 
-async function loadGoldenLegacyProfile(): Promise<MNetRegionalProfile> {
-  const store = createInMemoryProfileStore()
-  const profile = await store.getDefinition('m-net-cn@0.1.0')
-  if (!profile) throw new Error('golden m-net-cn@0.1.0 profile fixture is missing')
-  return Schema.decodeUnknownSync(MNetRegionalProfileSchema)(profile)
+async function loadGoldenLegacyProfile(): Promise<MigrationProfileCandidate> {
+  const compatibility = decodeMNetProfileV03Compatibility({
+    profileVersion: 'm-net-cn@0.1.0',
+    displayName: 'M-Net CN',
+    region: 'cn'
+  })
+  if (compatibility.kind !== 'migration_required') {
+    throw new Error('expected legacy compatibility result for m-net-cn@0.1.0 fixture')
+  }
+  return {
+    profileVersion: 'm-net-cn@0.1.0',
+    region: 'cn',
+    displayName: 'M-Net CN',
+    schemaVersion: 'mnet-profile@0.1.0',
+    status: 'available',
+    rules: {
+      mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' }
+    },
+    capabilities: {
+      controlPlaneOnly: true,
+      realWstunnelRelay: false,
+      realTcpInterconnect: false,
+      realUdpPathSwitching: false
+    }
+  }
 }
 
 function buildNetwork(overrides?: Partial<MigrationNetworkState>): MigrationNetworkState {
@@ -225,23 +260,23 @@ function expectNoDuplicateEffects(effects: readonly PlannedMigrationEffect[]) {
 }
 
 describe('M-Net profile migration contract', () => {
-  it('migrates the real m-net-cn@0.1.x profile fixture to m-net-cn@0.2.0 data-plane defaults', async () => {
+  it('migrates the real m-net-cn@0.1.x profile fixture to m-net-cn@0.3.0 data-plane defaults', async () => {
     const module = await loadMigrationModule()
     const legacyProfile = await loadGoldenLegacyProfile()
 
     const result = module.migrateMNetProfile(buildMigrationInput(legacyProfile))
 
     if (result.kind !== 'migrated') throw new Error(`expected migrated, got ${result.kind}`)
-    expect(result.profile.profileVersion).toBe('m-net-cn@0.2.0')
-    expect(result.profile.schemaVersion).toBe('mnet-profile@0.2.0')
+    expect(result.profile.profileVersion).toBe('m-net-cn@0.3.0')
+    expect(result.profile.schemaVersion).toBe('mnet-profile@0.3.0')
     expect(result.profile.capabilities.controlPlaneOnly).toBe(false)
-    expect(result.profile.capabilities.realWireGuardTunnel).toBe(true)
-    expect(result.profile.capabilities.realRelayFallback).toBe(true)
-    expect(result.profile.runtimeConfig).toEqual({
-      headscaleEndpoint: { secretRefId: 'mnet-cn-headscale-endpoint' },
-      routingTable: { secretRefId: 'mnet-cn-routing-table' }
-    })
-    expect(result.network.profileVersion).toBe('m-net-cn@0.2.0')
+    expect(result.profile.capabilities.realNetBirdSidecar).toBe(true)
+    expect(result.profile.capabilities.signalConfigRef).toEqual({ configRef: 'signal/cn-primary' })
+    if (result.profile.profileVersion !== 'm-net-cn@0.3.0') {
+      throw new Error(`expected m-net-cn@0.3.0, got ${result.profile.profileVersion}`)
+    }
+    expect(result.profile.forcedTcpRelaySelector.routeClass).toBe('forced-tcp-relay')
+    expect(result.network.profileVersion).toBe('m-net-cn@0.3.0')
     expect(result.network.desiredDataPlane).toEqual({
       networkMapStatus: 'planned',
       tunnelStatus: 'desired',
@@ -406,7 +441,7 @@ describe('M-Net profile migration contract', () => {
     expect(result.error).toEqual({
       code: 'profile.version_unsupported',
       profileVersion: 'm-net-cn@9.9.9',
-      supportedSourceVersions: ['m-net-cn@0.1.0', 'm-net-cn@0.2.0']
+      supportedSourceVersions: ['m-net-cn@0.1.0', 'm-net-cn@0.3.0']
     })
   })
 })

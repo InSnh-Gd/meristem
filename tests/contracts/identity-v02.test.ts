@@ -14,7 +14,13 @@ import * as Schema from 'effect/Schema'
 
 // ── Inline schema definitions (contract spec, not implementation) ──────
 
-const ActorIdV02Schema = Schema.Literal('viewer', 'operator', 'admin', 'security-admin')
+const ActorIdV02Schema = Schema.Literal(
+  'viewer',
+  'operator',
+  'admin',
+  'security-admin',
+  'break-glass-reviewer'
+)
 
 const IdentityActorV02Schema = Schema.Struct({
   id: ActorIdV02Schema,

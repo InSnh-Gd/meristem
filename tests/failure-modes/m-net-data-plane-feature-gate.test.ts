@@ -33,14 +33,13 @@ describe('M-Net data-plane feature gate failure modes', () => {
     expect(Object.keys(adapter)).toEqual(['enabled', 'status'])
   })
 
-  it('m-net-cn@0.1.0 remains controlPlaneOnly regardless of adapter state', async () => {
+  it('m-net-cn@0.3.0 keeps runtime sidecar profile data stable regardless of adapter state', async () => {
     const store = createInMemoryProfileStore()
-    const def = await store.getDefinition('m-net-cn@0.1.0')
+    const def = await store.getDefinition('m-net-cn@0.3.0')
     expect(def).not.toBeNull()
-    expect(def?.capabilities.controlPlaneOnly).toBe(true)
-    expect(def?.capabilities.realWstunnelRelay).toBe(false)
-    expect(def?.capabilities.realTcpInterconnect).toBe(false)
-    expect(def?.capabilities.realUdpPathSwitching).toBe(false)
+    expect(def?.capabilities.controlPlaneOnly).toBe(false)
+    expect(def?.capabilities.realNetBirdSidecar).toBe(true)
+    expect(def?.capabilities.signalConfigRef).toEqual({ configRef: 'signal/cn-primary' })
   })
 
   it('noop adapter does not expose endpoint or port fields', () => {
@@ -58,7 +57,7 @@ describe('M-Net data-plane feature gate failure modes', () => {
 
   it('profile store CN definition has no real endpoint data', async () => {
     const store = createInMemoryProfileStore()
-    const def = await store.getDefinition('m-net-cn@0.1.0')
+    const def = await store.getDefinition('m-net-cn@0.3.0')
     expect(def).not.toBeNull()
     // Profile must not contain endpoint, secret, relay, route, or probe data
     const profileKeys = Object.keys(def ?? {})

@@ -53,7 +53,7 @@ function createNetworkMap(overrides?: {
   const signatureKeyId = overrides?.signatureKeyId ?? 'signing-key-1'
 
   const unsignedMap = {
-    profileVersion: 'm-net-cn@0.2.0' as const,
+    profileVersion: 'm-net-cn@0.3.0' as const,
     networkId,
     members: overrides?.members ?? [
       {

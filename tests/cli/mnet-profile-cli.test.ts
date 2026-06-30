@@ -136,4 +136,61 @@ describe('mnet profile CLI commands', () => {
       'usage: meristem network profile show <profile-version>'
     )
   })
+
+  it('mnet migration report returns typed migration guidance for legacy fixtures', async () => {
+    const calls: string[] = []
+    const cli = createCliRunner({
+      async status() {
+        throw new Error('should not be called')
+      },
+      async getMigrationReport() {
+        calls.push('mnet:migration:report')
+        return {
+          status: 'migration_required',
+          generatedAt: '2026-06-30T10:00:00.000Z',
+          items: [
+            {
+              resourceKind: 'profile',
+              resourceId: 'fixture-profile-cn-wstunnel',
+              migration: {
+                code: 'migration_required',
+                message: 'wstunnel production profile must migrate to NetBird CN profile v0.3.0',
+                targetProfileVersion: 'm-net-cn@0.3.0',
+                rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+                affectedProfileIds: ['m-net-cn@0.2.0'],
+                affectedNodeIds: [],
+                reasonCode: 'legacy_wstunnel_profile_v0_2'
+              }
+            },
+            {
+              resourceKind: 'node',
+              resourceId: 'fixture-node-legacy-agent-capability',
+              migration: {
+                code: 'migration_required',
+                message:
+                  'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+                targetProfileVersion: 'm-net-cn@0.3.0',
+                rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+                affectedProfileIds: ['m-net-cn@0.3.0'],
+                affectedNodeIds: ['fixture-node-legacy-agent-capability'],
+                reasonCode: 'legacy_wstunnel_node'
+              }
+            }
+          ]
+        }
+      }
+    })
+
+    const result = await cli.run(['mnet', 'migration', 'report'])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('"status": "migration_required"')
+    expect(result.stdout).toContain('"fixture-profile-cn-wstunnel"')
+    expect(result.stdout).toContain('"fixture-node-legacy-agent-capability"')
+    expect(result.stdout).toContain('"m-net-cn@0.3.0"')
+    expect(result.stdout).toContain('"rebuild_node_with_netbird_sidecar"')
+    expect(result.stdout).toContain('"legacy_wstunnel_profile_v0_2"')
+    expect(result.stdout).toContain('"legacy_wstunnel_node"')
+    expect(calls).toEqual(['mnet:migration:report'])
+  })
 })

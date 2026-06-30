@@ -16,7 +16,7 @@ export function createTestApprovalRoutes(
   const store = createInMemoryApprovalStore(options.approvals ?? [])
   const timeline: Array<{ summary: string }> = []
   const fullLog: Array<{ message: string }> = []
-  const auditLog: Array<{ action: string }> = []
+  const auditLog: Array<{ action: string; actor?: ActorId | 'system' }> = []
   const published: Array<{ subject: string }> = []
 
   const routes = createApprovalRoutes({

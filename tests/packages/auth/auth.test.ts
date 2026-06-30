@@ -83,6 +83,7 @@ describe('isActorId', () => {
     expect(isActorId('operator')).toBe(true)
     expect(isActorId('admin')).toBe(true)
     expect(isActorId('security-admin')).toBe(true)
+    expect(isActorId('break-glass-reviewer')).toBe(true)
   })
 
   it('returns false for unknown or non-string values', () => {
@@ -168,6 +169,9 @@ describe('mintLocalToken', () => {
     expect(typeof (await mintLocalToken({ actor: 'operator', secret: testSecret }))).toBe('string')
     expect(typeof (await mintLocalToken({ actor: 'admin', secret: testSecret }))).toBe('string')
     expect(typeof (await mintLocalToken({ actor: 'security-admin', secret: testSecret }))).toBe(
+      'string'
+    )
+    expect(typeof (await mintLocalToken({ actor: 'break-glass-reviewer', secret: testSecret }))).toBe(
       'string'
     )
   })

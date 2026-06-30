@@ -41,12 +41,18 @@ What this service must not own:
 - Core-owned authorization decisions
 - M-Task-owned canonical task lifecycle state
 - public NATS semantics for the agent boundary
-- packet forwarding, DERP protocol implementation, TCP/UDP relay execution, or WireGuard protocol implementation. (M-Net orchestrates data-plane metadata: network maps, ACL renders, relay assignment, key metadata, tunnel addresses).
+- packet forwarding, DERP protocol implementation, TCP/UDP relay execution, WireGuard protocol implementation, or NetBird Management (Dashboard, ACL/policy, auth/SSO, audit/logging, account model). (M-Net orchestrates data-plane metadata: network maps, ACL renders, relay assignment, key metadata, tunnel addresses).
+- NetBird Signal / Relay / STUN service lifecycle or configuration (these are infrastructure dependencies managed by NixOS/systemd; Meristem deploys them as unmodified upstream binaries per ADR-N04 licence boundary).
 
 Current networking behavior scope:
 
 - `m-net-cn@0.1.x` remains control-plane-only.
-- `m-net-cn@0.2.0` carries the incremental data-plane track using node-agent managed WireGuard + wstunnel sidecars; production readiness remains evidence-bound per scenario (ADR-N03).
+- `m-net-cn@0.2.0` carries the incremental data-plane track using node-agent managed WireGuard + wstunnel sidecars (ADR-N03 legacy path; superseded by ADR-N04 for v0.2 NetBird direction).
+- `m-net@0.3.0` and `m-net-cn@0.3.0` carry NetBird data-plane semantics per ADR-N04; production readiness remains evidence-bound per scenario.
+- v0.2 is NetBird-only at runtime; no wstunnel mixed/fallback mode.
+- NetBird Management (Dashboard, ACL/policy, auth/SSO, audit/logging, account model) excluded per ADR-N04 guardrail.
+- NetBird Signal, Relay, and STUN are infrastructure dependencies only, managed by NixOS/systemd.
+- NetBird client sidecar viability remains unproven pending `bun run mnet:v02:sidecar-proof` (ADR-N04 §3).
 - active reachability probing beyond control-plane heartbeat
 - path selection
 - regional profile data-plane rollout
@@ -226,7 +232,9 @@ Current runtime boundary:
 
 Default network design:
 
-- Packet path is owned by node-agent + WireGuard + pinned external wstunnel relay sidecars over WSS/443 with ACME TLS.
+- Packet path is owned by node-agent + NetBird client sidecar + NetBird Signal + NetBird Relay/STUN (v0.2 direction, ADR-N04).
+- Legacy wstunnel path (`m-net-cn@0.2.0`, ADR-N03) retained for migration window only; not the v0.2 target.
+- NetBird Management excluded (Dashboard, ACL/policy, auth/SSO, audit/logging, account model).
 - The first supported topology is 1 control-plane+relay host + 2 Leaf hosts.
 - Default overlay CIDR is `100.96.0.0/12`.
 - Single active data-plane network per node for `m-net-cn@0.2.0`.
@@ -241,12 +249,13 @@ Regional Network Profile ownership:
 - external network-profile REST API and OpenAPI
 - profile lifecycle events published through M-EventBus
 
-M-Net CN is the first Regional Network Profile. `m-net-cn@0.1.x` control-plane lifecycle is implemented. `m-net-cn@0.2.0` introduces the WireGuard+wstunnel data-plane orchestration track (ADR-N03); each production claim must be backed by current acceptance evidence.
+M-Net CN is the first Regional Network Profile. `m-net-cn@0.1.x` control-plane lifecycle is implemented. `m-net-cn@0.2.0` introduces the WireGuard+wstunnel data-plane orchestration track (ADR-N03 legacy path). `m-net@0.3.0` and `m-net-cn@0.3.0` carry the NetBird data-plane track per ADR-N04. Each production claim must be backed by current acceptance evidence.
 
 Data-plane orchestration adapter:
 
 - `m-net-cn@0.1.x` profiles use a noop adapter (`services/m-net/src/data-plane/noop-adapter.ts`) since they are `controlPlaneOnly: true`.
-- `m-net-cn@0.2.0` profiles use the WireGuard+wstunnel data-plane adapter to orchestrate sidecars in verified scenarios.
+- `m-net-cn@0.2.0` profiles use the WireGuard+wstunnel data-plane adapter (ADR-N03 legacy path; superseded by ADR-N04 for v0.2 NetBird direction).
+- `m-net@0.3.0` and `m-net-cn@0.3.0` profiles use the NetBird data-plane adapter boundary in `services/m-net/src/netbird-adapter.ts`. The viability gate is `bun run mnet:v02:sidecar-proof`; it may succeed only after sidecar start, config acquisition, peer/session establishment, and clean stop all complete. If the client path requires excluded NetBird Management behavior, the command exits nonzero with `unsupported_management_dependency` and the ADR-N04 fallback decision: Meristem-owned WireGuard rendering plus NetBird Signal/Relay/STUN infrastructure.
 
 Profile definition `m-net-cn@0.1.x`:
 

@@ -65,7 +65,8 @@ describe('rolePermissions', () => {
     'viewer',
     'operator',
     'admin',
-    'security-admin'
+    'security-admin',
+    'break-glass-reviewer'
   ] as const)('has non-empty permissions for %s', actor => {
     expect(rolePermissions[actor].length).toBeGreaterThan(0)
   })
@@ -81,8 +82,19 @@ describe('rolePermissions', () => {
     expect(rolePermissions['security-admin']).toContain('audit:read')
   })
 
+  it('limits break-glass-reviewer to approval review without privileged operation permissions', () => {
+    expect(rolePermissions['break-glass-reviewer']).toContain('policy:approval-read')
+    expect(rolePermissions['break-glass-reviewer']).toContain('policy:approval-approve')
+    expect(rolePermissions['break-glass-reviewer']).toContain('policy:approval-reject')
+    expect(rolePermissions['break-glass-reviewer']).toContain('audit:read')
+    expect(rolePermissions['break-glass-reviewer']).not.toContain('network:profile-enable')
+    expect(rolePermissions['break-glass-reviewer']).not.toContain('network:profile-disable')
+    expect(rolePermissions['break-glass-reviewer']).not.toContain('node:disable')
+    expect(rolePermissions['break-glass-reviewer']).not.toContain('secret:reference')
+  })
+
   it('limits node control permissions to admin roles only', () => {
-    for (const actor of ['viewer', 'operator'] as const) {
+    for (const actor of ['viewer', 'operator', 'break-glass-reviewer'] as const) {
       expect(rolePermissions[actor]).not.toContain('node:switch-role')
       expect(rolePermissions[actor]).not.toContain('node:disable')
       expect(rolePermissions[actor]).not.toContain('node:isolate')

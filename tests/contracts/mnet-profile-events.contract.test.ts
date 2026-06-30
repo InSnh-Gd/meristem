@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
+import { MNetMigrationRequiredErrorSchema } from '../../packages/contracts/src/index.ts'
 import type { ActorId } from '../../packages/contracts/src/literals.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
@@ -8,6 +9,7 @@ import { createInMemoryProfileStore } from '../../services/m-net/src/profile-sto
 import type { MNetApp } from '../../services/m-net/src/public-types.ts'
 import type { SuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+import { decodeJson } from './_helpers/mnet-profile-routes.ts'
 
 const jwtSecret = 'test-jwt-secret'
 const internalToken = 'internal-test-token'
@@ -160,11 +162,11 @@ describe('M-Net profile events and logs contract', () => {
     app = createTestApp(profileStore, suspendedOps, collectors)
   })
 
-  it('enable request emits mnet.profile.enable.requested.v0', async () => {
+  it('legacy enable request returns migration_required and emits no enable-request event', async () => {
     const token = await mintTestToken('admin')
     const networkId = 'net-ev-1'
     await profileStore.setNetworkState(networkId, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net-cn@0.1.0',
       status: 'disabled'
     })
 
@@ -172,14 +174,16 @@ describe('M-Net profile events and logs contract', () => {
       new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
         method: 'POST',
         headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
+        body: JSON.stringify({ profileVersion: 'm-net-cn@0.3.0', reason: 'enable cn' })
       })
     )
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(409)
+    const body = await decodeJson(response, MNetMigrationRequiredErrorSchema)
+    expect(body.error.migration.reasonCode).toBe('legacy_cn_profile_v0_1')
     expect(
       collectors.events.some(event => event.subject === 'mnet.profile.enable.requested.v0')
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('enable resume success emits mnet.profile.enabled.v0', async () => {
@@ -227,7 +231,7 @@ describe('M-Net profile events and logs contract', () => {
       new Request(`http://localhost/api/v0/networks/${networkId}/profile`, {
         method: 'POST',
         headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+        body: JSON.stringify({ profileVersion: 'm-net@0.3.0', reason: 'disable cn' })
       })
     )
 
@@ -296,21 +300,8 @@ describe('M-Net profile events and logs contract', () => {
     ).toBe(true)
   })
 
-  it('writes audit entries on enable/disable flows', async () => {
+  it('writes audit entries on disable flows after legacy enable cutover', async () => {
     const token = await mintTestToken('admin')
-    const enableNetworkId = 'net-ev-6-enable'
-    await profileStore.setNetworkState(enableNetworkId, {
-      profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
-    })
-    await app.handle(
-      new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
-        method: 'POST',
-        headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
-      })
-    )
-
     const disableNetworkId = 'net-ev-6-disable'
     await profileStore.setNetworkState(disableNetworkId, {
       profileVersion: 'm-net-cn@0.1.0',
@@ -325,13 +316,10 @@ describe('M-Net profile events and logs contract', () => {
       new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
         method: 'POST',
         headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+        body: JSON.stringify({ profileVersion: 'm-net@0.3.0', reason: 'disable cn' })
       })
     )
 
-    expect(collectors.audit.some(entry => entry.action === 'mnet.profile.enable.request')).toBe(
-      true
-    )
     expect(collectors.audit.some(entry => entry.action === 'mnet.profile.disable.request')).toBe(
       true
     )
@@ -340,21 +328,8 @@ describe('M-Net profile events and logs contract', () => {
     )
   })
 
-  it('writes timeline entries on enable/disable flows', async () => {
+  it('writes timeline entries on disable flows after legacy enable cutover', async () => {
     const token = await mintTestToken('admin')
-    const enableNetworkId = 'net-ev-7-enable'
-    await profileStore.setNetworkState(enableNetworkId, {
-      profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
-    })
-    await app.handle(
-      new Request(`http://localhost/api/v0/networks/${enableNetworkId}/profile`, {
-        method: 'POST',
-        headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-cn@0.1.0', reason: 'enable cn' })
-      })
-    )
-
     const disableNetworkId = 'net-ev-7-disable'
     await profileStore.setNetworkState(disableNetworkId, {
       profileVersion: 'm-net-cn@0.1.0',
@@ -369,13 +344,10 @@ describe('M-Net profile events and logs contract', () => {
       new Request(`http://localhost/api/v0/networks/${disableNetworkId}/profile`, {
         method: 'POST',
         headers: bearerHeaders(token),
-        body: JSON.stringify({ profileVersion: 'm-net-default@0.1.0', reason: 'disable cn' })
+        body: JSON.stringify({ profileVersion: 'm-net@0.3.0', reason: 'disable cn' })
       })
     )
 
-    expect(
-      collectors.timeline.some(entry => entry.subject === 'mnet.profile.enable.requested')
-    ).toBe(true)
     expect(collectors.timeline.some(entry => entry.subject === 'mnet.profile.disabled')).toBe(true)
   })
 })

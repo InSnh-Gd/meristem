@@ -8,6 +8,7 @@ export function resetAppState() {
   appState.overview = null
   appState.selectedNodeId = null
   appState.commandState = null
+  appState.commandExecutionError = null
   appState.commandParams = null
   appState.taskResult = null
   appState.commandConfirming = false

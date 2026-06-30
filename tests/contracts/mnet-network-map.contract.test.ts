@@ -69,7 +69,7 @@ function baseInput(
   requestedAclRules: RequestedAclRule[]
 ): NetworkMapRenderInput {
   return {
-    profileVersion: 'm-net-cn@0.2.0',
+    profileVersion: 'm-net-cn@0.3.0',
     networkId: 'network-prod-a',
     members,
     requestedAclRules,
@@ -104,7 +104,7 @@ describe('M-Net signed network map contract', () => {
     const map = renderNetworkMap(baseInput([], []))
 
     expect(decodeMap(map)).toEqual(map)
-    expect(map.profileVersion).toBe('m-net-cn@0.2.0')
+    expect(map.profileVersion).toBe('m-net-cn@0.3.0')
     expect(map.networkId).toBe('network-prod-a')
     expect(map.members).toEqual([])
     expect(map.aclRules).toEqual([])
@@ -209,7 +209,7 @@ describe('M-Net signed network map contract', () => {
   it('includes signing metadata, profile version, network id, expiry, and numeric map version', () => {
     const map = renderNetworkMap(baseInput([stem, leafA], bidirectional(stem.nodeId, leafA.nodeId)))
 
-    expect(map.profileVersion).toBe('m-net-cn@0.2.0')
+    expect(map.profileVersion).toBe('m-net-cn@0.3.0')
     expect(map.networkId).toBe('network-prod-a')
     expect(map.expiresAt).toBe(issuedAt + DEFAULT_NETWORK_MAP_STALE_TTL_MS)
     expect(map.mapVersion).toBe(1)

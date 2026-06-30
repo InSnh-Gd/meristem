@@ -13,6 +13,9 @@ import {
   ConfigValidateResponseSchema,
   configApiRoutes,
   DataPlaneStatusResponseSchema,
+  MNetOperationalEventIngestRequestSchema,
+  MNetOperationalEventIngestResponseSchema,
+  MNetOperationalSnapshotSchema,
   MNetProfileDetailResponseSchema,
   MNetProfileListResponseSchema,
   MNetProfileVersionParamsSchema,
@@ -214,69 +217,117 @@ describe('m-net profile route contracts', () => {
       networkMap: '/api/v0/networks/:id/network-map',
       registerNodeKey: '/api/v0/networks/:id/nodes/:nodeId/key',
       dataPlaneStatus: '/api/v0/networks/:id/dataplane/status',
+      operationalState: '/api/v0/networks/:id/operational-state',
+      ingestOperationalEvent: '/internal/v0/operational-events',
       resumeOperation: '/internal/v0/network-profile-operations/:id/resume',
       rejectOperation: '/internal/v0/network-profile-operations/:id/reject'
     })
   })
 
   it('round-trips m-net profile request and response shapes', () => {
-    assertRoundTrip(MNetProfileVersionParamsSchema, { profileVersion: 'm-net-cn@0.1.0' })
+    assertRoundTrip(MNetProfileVersionParamsSchema, { profileVersion: 'm-net-cn@0.3.0' })
     assertRoundTrip(NetworkProfileRouteParamsSchema, { id: 'network-1' })
     assertRoundTrip(NetworkNodeRouteParamsSchema, { id: 'network-1', nodeId: 'node-1' })
     assertRoundTrip(MNetProfileListResponseSchema, {
       profiles: [
         {
-          profileVersion: 'm-net-cn@0.1.0',
-          region: 'cn',
-          displayName: 'M-Net CN',
-          schemaVersion: 'mnet-profile@0.1.0',
+          profileVersion: 'm-net@0.3.0',
+          region: 'default',
+          displayName: 'M-Net Default (v0.3)',
+          schemaVersion: 'mnet-profile@0.3.0',
           status: 'available',
-          rules: { residency: 'cn-only' },
+          rules: {},
           capabilities: {
-            realWstunnelRelay: false,
-            realTcpInterconnect: false,
-            realUdpPathSwitching: false,
-            controlPlaneOnly: true
+            controlPlaneOnly: false,
+            managementPlaneExcluded: true,
+            realNetBirdSidecar: true,
+            signalConfigRef: { configRef: 'signal/default' },
+            relayConfigRef: { configRef: 'relay/default' },
+            stunConfigRef: { configRef: 'stun/default' },
+            sidecarDesiredState: 'start',
+            sidecarCredentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/sidecar',
+              version: 1
+            },
+            sidecarCredentialStatus: 'ready',
+            sidecarHealthStatus: 'healthy'
           }
         },
         {
-          profileVersion: 'm-net-cn@0.2.0',
+          profileVersion: 'm-net-cn@0.3.0',
           region: 'cn',
-          displayName: 'M-Net CN (Production Data Plane)',
-          schemaVersion: 'mnet-profile@0.2.0',
+          displayName: 'M-Net CN (v0.3)',
+          schemaVersion: 'mnet-profile@0.3.0',
           status: 'available',
-          rules: { residency: 'cn-only', relay: 'wstunnel' },
-          capabilities: {
-            realWstunnelRelay: false,
-            realTcpInterconnect: false,
-            realUdpPathSwitching: false,
-            controlPlaneOnly: false,
-            realWireGuardTunnel: true,
-            realRelayFallback: true
+          rules: {
+            residency: 'cn-only',
+            mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' }
           },
-          runtimeConfig: {
-            headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
-            routingTable: { secretRefId: 'secret-routing-cn' }
+          capabilities: {
+            controlPlaneOnly: false,
+            managementPlaneExcluded: true,
+            realNetBirdSidecar: true,
+            signalConfigRef: { configRef: 'signal/cn-primary' },
+            relayConfigRef: { configRef: 'relay/cn-primary' },
+            stunConfigRef: { configRef: 'stun/cn-primary' },
+            sidecarDesiredState: 'start',
+            sidecarCredentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/cn-sidecar',
+              version: 1
+            },
+            sidecarCredentialStatus: 'ready',
+            sidecarHealthStatus: 'healthy'
+          },
+          forcedTcpRelaySelector: {
+            enabled: true,
+            selectorOwnership: 'policy',
+            selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+            routeClass: 'forced-tcp-relay',
+            operatorOverrideAllowed: false,
+            operatorOverrideActive: false,
+            policyDecision: {
+              decisionId: 'fixture',
+              source: 'm-policy',
+              outcome: 'allow',
+              reason: 'fixture'
+            },
+            auditEvidence: {
+              auditId: 'fixture',
+              eventId: 'fixture',
+              eventSubject: 'mnet.forced_relay.change.v0'
+            }
           }
         }
       ]
     })
     assertRoundTrip(MNetProfileDetailResponseSchema, {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       region: 'default',
-      displayName: 'M-Net Default',
-      schemaVersion: 'mnet-profile@0.1.0',
+      displayName: 'M-Net Default (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
       status: 'available',
       rules: {},
       capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: false
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/default' },
+        relayConfigRef: { configRef: 'relay/default' },
+        stunConfigRef: { configRef: 'stun/default' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
       }
     })
     assertRoundTrip(SetNetworkProfileRequestSchema, {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       reason: 'enable CN profile for compliance'
     })
     assertRoundTrip(SetNetworkProfileResponseSchema, {
@@ -287,12 +338,12 @@ describe('m-net profile route contracts', () => {
     })
     assertRoundTrip(SetNetworkProfileResponseSchema, {
       status: 'disabled',
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       correlationId: 'corr-2'
     })
     assertRoundTrip(SetNetworkProfileResponseSchema, {
       status: 'activated',
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       operationId: 'op-dataplane-1',
       networkMap: { networkId: 'network-1', mapVersion: 'map-1' },
       dataPlaneActivationStatus: 'active',
@@ -348,6 +399,88 @@ describe('m-net profile route contracts', () => {
       lastMapVersion: 'map-1',
       lastMapAt: '2026-06-04T10:00:00.000Z',
       partitionState: 'connected'
+    })
+    assertRoundTrip(MNetOperationalEventIngestRequestSchema, {
+      networkId: 'net-v03',
+      eventId: 'evt-1',
+      occurredAt: '2026-06-30T10:00:00.000Z',
+      event: {
+        subject: 'mnet.sidecar.health.v0',
+        payload: {
+          networkId: 'net-v03',
+          nodeId: 'node-v03-1',
+          profileVersion: 'm-net@0.3.0',
+          healthStatus: 'healthy',
+          previousHealthStatus: 'unknown',
+          signalReachable: true,
+          relayReachable: true,
+          stunReachable: true,
+          checkedAt: '2026-06-30T10:00:00.000Z',
+          correlationId: 'corr-sidecar-health-1'
+        }
+      }
+    })
+    assertRoundTrip(MNetOperationalEventIngestResponseSchema, {
+      accepted: true,
+      networkId: 'net-v03',
+      publishStatus: 'published',
+      snapshotStatus: 'healthy',
+      occurredAt: '2026-06-30T10:00:00.000Z'
+    })
+    assertRoundTrip(MNetOperationalSnapshotSchema, {
+      networkId: 'net-v03',
+      network: {
+        status: 'active',
+        memberCount: 1,
+        profileState: 'enabled',
+        lastUpdatedAt: '2026-06-30T10:00:00.000Z',
+        summary: '1 nodes tracked in the operational read model'
+      },
+      profileSelection: {
+        profileVersion: 'm-net@0.3.0',
+        displayName: 'M-Net NetBird',
+        schemaVersion: 'mnet-profile@0.3.0',
+        region: 'default',
+        controlPlaneOnly: false,
+        compatibility: 'compatible'
+      },
+      eventStream: { status: 'healthy' },
+      sidecars: [],
+      topology: {
+        nodes: [],
+        edges: [],
+        summary: 'Topology is waiting for the first relay or peer update'
+      },
+      credentials: {
+        status: 'healthy',
+        nodes: [],
+        summary: 'Current profile does not require sidecar credentials'
+      },
+      migrationRequired: {
+        required: false,
+        summary: 'No migration is required'
+      },
+      forcedRelay: {
+        active: false,
+        affectedNodeIds: [],
+        summary: 'Forced relay is not active'
+      },
+      deploymentReadiness: {
+        status: 'healthy',
+        summary: 'Deployment is ready',
+        reasons: []
+      },
+      stateSources: {
+        network: 'authoritative',
+        profileSelection: 'authoritative',
+        sidecars: 'read-model',
+        topology: 'read-model',
+        credentials: 'read-model',
+        migration: 'read-model',
+        forcedRelay: 'read-model',
+        deploymentReadiness: 'composed',
+        eventStream: 'read-model'
+      }
     })
   })
 

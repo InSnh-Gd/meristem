@@ -6,6 +6,7 @@ import type {
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
   OverviewData,
+  TaskResult,
   StateSourceMetadata
 } from '../../../src/lib/types.ts'
 
@@ -131,6 +132,45 @@ export function createControlRoomCommandState(): CommandState {
   }
 }
 
+export function createTaskResultFixture(): TaskResult {
+  return {
+    task: {
+      id: 'task-1',
+      nodeId: 'stem-1',
+      leafNodeId: 'leaf-1',
+      type: 'noop',
+      status: 'accepted',
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T00:00:05.000Z'
+    },
+    policyDecisionId: 'decision-1',
+    correlationId: 'corr-1',
+    risk: {
+      operationDangerLevel: 'high',
+      suspicionScore: 12,
+      riskFactors: ['task_type_risk', 'audit_visibility']
+    }
+  }
+}
+
+export function createForcedRelayResultFixture() {
+  return {
+    status: 'applied' as const,
+    networkId: 'network-cn-001',
+    nodeId: 'leaf-1',
+    profileVersion: 'm-net-cn@0.3.0' as const,
+    routeClass: 'forced-tcp-relay' as const,
+    selectorOwnership: 'operator' as const,
+    affectedNodeIds: ['leaf-1'],
+    policyDecisionId: 'decision-relay-1',
+    auditId: 'audit-relay-1',
+    eventId: 'event-relay-1',
+    correlationId: 'corr-relay-1',
+    publishStatus: 'published' as const,
+    snapshotStatus: 'healthy' as const
+  }
+}
+
 export function createAuditFixture(): AuditData {
   return {
     entries: [
@@ -201,18 +241,47 @@ export function createNetworkProfilesFixture(): NetworkProfileListResponseData {
   return {
     profiles: [
       {
-        profileVersion: 'm-net-cn@0.1.0',
+        profileVersion: 'm-net-cn@0.3.0',
         region: 'cn',
-        schemaVersion: 'mnet-profile@0.1.0',
+        schemaVersion: 'mnet-profile@0.3.0',
         displayName: 'CN profile',
         status: 'available',
         capabilities: {
-          controlPlaneOnly: true,
-          realWstunnelRelay: false,
-          realTcpInterconnect: false,
-          realUdpPathSwitching: false
+          controlPlaneOnly: false,
+          managementPlaneExcluded: true,
+          realNetBirdSidecar: true,
+          signalConfigRef: { configRef: 'signal/cn-primary' },
+          relayConfigRef: { configRef: 'relay/cn-primary' },
+          stunConfigRef: { configRef: 'stun/cn-primary' },
+          sidecarDesiredState: 'start',
+          sidecarCredentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/cn-sidecar',
+            version: 1
+          },
+          sidecarCredentialStatus: 'ready',
+          sidecarHealthStatus: 'healthy'
         },
         rules: {},
+        forcedTcpRelaySelector: {
+          enabled: true,
+          selectorOwnership: 'policy',
+          selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+          routeClass: 'forced-tcp-relay',
+          operatorOverrideAllowed: false,
+          operatorOverrideActive: false,
+          policyDecision: {
+            decisionId: 'fixture',
+            source: 'm-policy',
+            outcome: 'allow',
+            reason: 'fixture'
+          },
+          auditEvidence: {
+            auditId: 'fixture',
+            eventId: 'fixture',
+            eventSubject: 'mnet.forced_relay.change.v0'
+          }
+        },
         stateSource
       }
     ],
@@ -222,20 +291,49 @@ export function createNetworkProfilesFixture(): NetworkProfileListResponseData {
 
 export function createNetworkProfileDetailFixture(): NetworkProfileDetailResponseData {
   return {
-    profileVersion: 'm-net-cn@0.1.0',
+    profileVersion: 'm-net-cn@0.3.0',
     region: 'cn',
-    schemaVersion: 'mnet-profile@0.1.0',
+    schemaVersion: 'mnet-profile@0.3.0',
     displayName: 'CN profile',
     status: 'available',
     capabilities: {
-      controlPlaneOnly: true,
-      realWstunnelRelay: false,
-      realTcpInterconnect: false,
-      realUdpPathSwitching: false
+      controlPlaneOnly: false,
+      managementPlaneExcluded: true,
+      realNetBirdSidecar: true,
+      signalConfigRef: { configRef: 'signal/cn-primary' },
+      relayConfigRef: { configRef: 'relay/cn-primary' },
+      stunConfigRef: { configRef: 'stun/cn-primary' },
+      sidecarDesiredState: 'start',
+      sidecarCredentialRef: {
+        provider: 'vault-kv-v2',
+        keyPath: 'secret/data/mnet/cn-sidecar',
+        version: 1
+      },
+      sidecarCredentialStatus: 'ready',
+      sidecarHealthStatus: 'healthy'
     },
     rules: {
-      transport: 'wss',
-      mode: 'control-plane-only'
+      transport: 'netbird-sidecar',
+      residency: 'cn-only'
+    },
+    forcedTcpRelaySelector: {
+      enabled: true,
+      selectorOwnership: 'policy',
+      selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+      routeClass: 'forced-tcp-relay',
+      operatorOverrideAllowed: false,
+      operatorOverrideActive: false,
+      policyDecision: {
+        decisionId: 'fixture',
+        source: 'm-policy',
+        outcome: 'allow',
+        reason: 'fixture'
+      },
+      auditEvidence: {
+        auditId: 'fixture',
+        eventId: 'fixture',
+        eventSubject: 'mnet.forced_relay.change.v0'
+      }
     },
     stateSource
   }

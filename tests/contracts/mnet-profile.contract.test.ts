@@ -1,49 +1,91 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
+  MNetHistoricalProfileVersionSchema,
   MNetRegionalProfileSchema,
   NetworkSuspendedOperationSchema,
   SetNetworkProfileRequestSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
+import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 
 describe('M-Net profile contract schemas', () => {
   it('decodes and encodes MNetRegionalProfile for default and cn variants', () => {
     const defaultProfile = {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       region: 'default',
-      displayName: 'M-Net Default',
-      schemaVersion: 'mnet-profile@0.1.0',
+      displayName: 'M-Net Default (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
       status: 'available',
       rules: {},
       capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: true
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/default' },
+        relayConfigRef: { configRef: 'relay/default' },
+        stunConfigRef: { configRef: 'stun/default' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
       }
     } as const
 
     const cnProfile = {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       region: 'cn',
-      displayName: 'M-Net CN',
-      schemaVersion: 'mnet-profile@0.1.0',
+      displayName: 'M-Net CN (v0.3)',
+      schemaVersion: 'mnet-profile@0.3.0',
       status: 'available',
       rules: {
-        mainlandNodeWithoutPublicAccess: { interconnect: 'tcp_required' }
+        mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' },
+        residency: 'cn-only'
       },
       capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: true
+        controlPlaneOnly: false,
+        managementPlaneExcluded: true,
+        realNetBirdSidecar: true,
+        signalConfigRef: { configRef: 'signal/cn-primary' },
+        relayConfigRef: { configRef: 'relay/cn-primary' },
+        stunConfigRef: { configRef: 'stun/cn-primary' },
+        sidecarDesiredState: 'start',
+        sidecarCredentialRef: {
+          provider: 'vault-kv-v2',
+          keyPath: 'secret/data/mnet/cn-sidecar',
+          version: 1
+        },
+        sidecarCredentialStatus: 'ready',
+        sidecarHealthStatus: 'healthy'
+      },
+      forcedTcpRelaySelector: {
+        enabled: true,
+        selectorOwnership: 'policy',
+        selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+        routeClass: 'forced-tcp-relay',
+        operatorOverrideAllowed: false,
+        operatorOverrideActive: false,
+        policyDecision: {
+          decisionId: 'fixture',
+          source: 'm-policy',
+          outcome: 'allow',
+          reason: 'fixture'
+        },
+        auditEvidence: {
+          auditId: 'fixture',
+          eventId: 'fixture',
+          eventSubject: 'mnet.forced_relay.change.v0'
+        }
       }
     } as const
 
     const decodedDefault = Schema.decodeUnknownSync(MNetRegionalProfileSchema)(defaultProfile)
     const decodedCn = Schema.decodeUnknownSync(MNetRegionalProfileSchema)(cnProfile)
-    expect(decodedDefault.profileVersion).toBe('m-net-default@0.1.0')
-    expect(decodedCn.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(decodedDefault.profileVersion).toBe('m-net@0.3.0')
+    expect(decodedCn.profileVersion).toBe('m-net-cn@0.3.0')
 
     const encodedDefault = Schema.encodeSync(MNetRegionalProfileSchema)(decodedDefault)
     const encodedCn = Schema.encodeSync(MNetRegionalProfileSchema)(decodedCn)
@@ -51,65 +93,25 @@ describe('M-Net profile contract schemas', () => {
     expect(encodedCn).toEqual(cnProfile)
   })
 
-  it('decodes and encodes MNetRegionalProfile for cn production data-plane profile', () => {
-    const cnProfile = {
+  it('classifies legacy profiles as migration_required compatibility results', () => {
+    const result = decodeMNetProfileV03Compatibility({
       profileVersion: 'm-net-cn@0.2.0',
-      region: 'cn',
-      displayName: 'M-Net CN (Production Data Plane)',
-      schemaVersion: 'mnet-profile@0.2.0',
-      status: 'available',
-      rules: { residency: 'cn-only', relay: 'wstunnel' },
-      capabilities: {
-        realWstunnelRelay: false,
-        realTcpInterconnect: false,
-        realUdpPathSwitching: false,
-        controlPlaneOnly: false,
-        realWireGuardTunnel: true,
-        realRelayFallback: true
-      },
-      runtimeConfig: {
-        headscaleEndpoint: { secretRefId: 'secret-headscale-cn' },
-        routingTable: { secretRefId: 'secret-routing-cn' }
-      }
-    } as const
+      displayName: 'Legacy CN profile'
+    })
 
-    const decoded = Schema.decodeUnknownSync(MNetRegionalProfileSchema)(cnProfile)
-    expect(decoded.profileVersion).toBe('m-net-cn@0.2.0')
-    expect(decoded.capabilities.controlPlaneOnly).toBe(false)
-
-    const encoded = Schema.encodeSync(MNetRegionalProfileSchema)(decoded)
-    expect(encoded).toEqual(cnProfile)
-  })
-
-  it('rejects cn production data-plane profile without runtime config', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(MNetRegionalProfileSchema)({
-        profileVersion: 'm-net-cn@0.2.0',
-        region: 'cn',
-        displayName: 'M-Net CN (Production Data Plane)',
-        schemaVersion: 'mnet-profile@0.2.0',
-        status: 'available',
-        rules: { residency: 'cn-only' },
-        capabilities: {
-          realWstunnelRelay: false,
-          realTcpInterconnect: false,
-          realUdpPathSwitching: false,
-          controlPlaneOnly: false,
-          realWireGuardTunnel: true,
-          realRelayFallback: true
-        }
-      })
-    ).toThrow()
+    expect(result.kind).toBe('migration_required')
+    if (result.kind !== 'migration_required') throw new Error('expected migration_required')
+    expect(result.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
   })
 
   it('decodes and encodes SetNetworkProfileRequest', () => {
     const request = {
-      profileVersion: 'm-net-cn@0.1.0',
+      profileVersion: 'm-net-cn@0.3.0',
       reason: 'regional compliance rollout'
     } as const
 
     const decoded = Schema.decodeUnknownSync(SetNetworkProfileRequestSchema)(request)
-    expect(decoded.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(decoded.profileVersion).toBe('m-net-cn@0.3.0')
 
     const encoded = Schema.encodeSync(SetNetworkProfileRequestSchema)(decoded)
     expect(encoded).toEqual(request)
@@ -139,6 +141,15 @@ describe('M-Net profile contract schemas', () => {
 
     const encoded = Schema.encodeSync(NetworkSuspendedOperationSchema)(decoded)
     expect(encoded).toEqual(operation)
+  })
+
+  it('keeps historical versions decodable for migration metadata', () => {
+    expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-cn@0.1.0')).toBe(
+      'm-net-cn@0.1.0'
+    )
+    expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-cn@0.2.0')).toBe(
+      'm-net-cn@0.2.0'
+    )
   })
 
   it('exports and validates network profile permissions as literal contracts', async () => {

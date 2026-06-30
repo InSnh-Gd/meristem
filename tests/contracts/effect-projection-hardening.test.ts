@@ -26,7 +26,13 @@ function jsonRequest(path: string, init: RequestInit = {}) {
 
 describe('Effect projection hardening contracts', () => {
   it('decodes actor and permission literals from shared Effect Schema', () => {
-    expect(actorIds).toEqual(['viewer', 'operator', 'admin', 'security-admin'])
+    expect(actorIds).toEqual([
+      'viewer',
+      'operator',
+      'admin',
+      'security-admin',
+      'break-glass-reviewer'
+    ])
     expect(projectionPermissions).toEqual([
       'projection:read',
       'projection:backfill',

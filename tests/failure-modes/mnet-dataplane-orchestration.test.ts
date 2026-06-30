@@ -3,6 +3,9 @@ import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import type { DataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
 import {
+  CHINA_DATA_PLANE_PROFILE_VERSION
+} from '../../services/m-net/src/profile-workflow-types.ts'
+import {
   breakGlassFailClosed,
   enableDataPlaneProfile
 } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
@@ -71,10 +74,10 @@ function createDeps(overrides?: Partial<DataPlaneDeps>): DataPlaneDeps {
 }
 
 describe('M-Net dataplane orchestration failure modes', () => {
-  it('policy denial blocks enable with typed outcome', async () => {
+  it('legacy production profile requests fail closed with typed migration guidance before policy evaluation', async () => {
     const profileStore = createInMemoryProfileStore()
     await profileStore.setNetworkState('network-dataplane-orchestration-failure', {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net-cn@0.2.0',
       status: 'disabled'
     })
 
@@ -97,14 +100,20 @@ describe('M-Net dataplane orchestration failure modes', () => {
       {
         actor: 'admin',
         networkId: 'network-dataplane-orchestration-failure',
-        body: { profileVersion: 'm-net-cn@0.2.0', reason: 'policy deny' }
+        body: { profileVersion: 'm-net-cn@0.3.0', reason: 'policy deny' }
       }
     )
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       kind: 'failure',
-      status: 403,
-      error: { code: 'policy.denied', message: 'profile enable denied: blocked' }
+      status: 409,
+      error: {
+        code: 'migration_required',
+        migration: {
+          reasonCode: 'legacy_wstunnel_profile_v0_2',
+          targetProfileVersion: 'm-net-cn@0.3.0'
+        }
+      }
     })
   })
 
@@ -123,25 +132,27 @@ describe('M-Net dataplane orchestration failure modes', () => {
       }
     })
     await deps.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
     const result = await enableDataPlaneProfile(deps, {
       actor: 'admin',
       networkId: 'network-dataplane-orchestration-failure',
-      reason: 'audit must succeed'
+      reason: 'audit must succeed',
+      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
     })
 
     expect(result).toEqual({
       kind: 'failure',
+      ok: false,
       status: 503,
       error: { code: 'audit.write_failed', message: 'audit unavailable' }
     })
     expect(
       await deps.profileStore.getNetworkState('network-dataplane-orchestration-failure')
     ).toMatchObject({
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
     expect(
@@ -158,18 +169,20 @@ describe('M-Net dataplane orchestration failure modes', () => {
       }
     })
     await deps.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
     const result = await enableDataPlaneProfile(deps, {
       actor: 'admin',
       networkId: 'network-dataplane-orchestration-failure',
-      reason: 'event bus failure path'
+      reason: 'event bus failure path',
+      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
     })
 
     expect(result).toEqual({
       kind: 'failure',
+      ok: false,
       status: 503,
       error: { code: 'event.publish_failed', message: 'event bus offline' }
     })
@@ -181,7 +194,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   it('writes ISO tunnel allocation timestamps during enable orchestration', async () => {
     const base = createDeps()
     await base.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
-      profileVersion: 'm-net-default@0.1.0',
+      profileVersion: 'm-net@0.3.0',
       status: 'disabled'
     })
 
@@ -203,7 +216,8 @@ describe('M-Net dataplane orchestration failure modes', () => {
       {
         actor: 'admin',
         networkId: 'network-dataplane-orchestration-failure',
-        reason: 'timestamp regression coverage'
+        reason: 'timestamp regression coverage',
+        profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
       }
     )
 
@@ -227,7 +241,8 @@ describe('M-Net dataplane orchestration failure modes', () => {
     const result = await enableDataPlaneProfile(deps, {
       actor: 'admin',
       networkId: 'network-dataplane-orchestration-failure',
-      reason: 'unique tunnel allocation regression'
+      reason: 'unique tunnel allocation regression',
+      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
     })
 
     if ('kind' in result) {
@@ -264,12 +279,14 @@ describe('M-Net dataplane orchestration failure modes', () => {
       {
         actor: 'admin',
         networkId: 'network-dataplane-orchestration-failure',
-        reason: 'pg failure path'
+        reason: 'pg failure path',
+        profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
       }
     )
 
     expect(result).toEqual({
       kind: 'failure',
+      ok: false,
       status: 503,
       error: {
         code: 'dataplane.store_failed',

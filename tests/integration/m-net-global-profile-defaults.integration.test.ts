@@ -35,7 +35,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
       })
     )
     const defaults = (await defaultsRes.json()) as { defaultProfileVersion: string }
-    expect(defaults.defaultProfileVersion).toBe('m-net-default@0.1.0')
+    expect(defaults.defaultProfileVersion).toBe('m-net@0.3.0')
 
     // 设置 CN 为默认
     await app.handle(
@@ -43,7 +43,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
         method: 'PUT',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.1.0',
+          profileVersion: 'm-net-cn@0.3.0',
           reason: 'integration test: set CN default',
           idempotencyKey: crypto.randomUUID()
         })
@@ -57,7 +57,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
       })
     )
     const updated = (await updatedRes.json()) as { defaultProfileVersion: string }
-    expect(updated.defaultProfileVersion).toBe('m-net-cn@0.1.0')
+    expect(updated.defaultProfileVersion).toBe('m-net-cn@0.3.0')
   })
 
   // ──── 2. 批量迁移 plan → apply → rollback 流程 ──────────────────────
@@ -69,8 +69,8 @@ describe('integration: m-net global profile defaults lifecycle', () => {
 
     // 预先创建一些网络状态
     const networks = [
-      { id: `net-${crypto.randomUUID()}`, version: 'm-net-default@0.1.0', status: 'disabled' },
-      { id: `net-${crypto.randomUUID()}`, version: 'm-net-default@0.1.0', status: 'disabled' }
+      { id: `net-${crypto.randomUUID()}`, version: 'm-net-cn@0.1.0', status: 'disabled' },
+      { id: `net-${crypto.randomUUID()}`, version: 'm-net-cn@0.1.0', status: 'disabled' }
     ] as const
 
     for (const n of networks) {
@@ -83,7 +83,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           batchSize: 2,
           reason: 'integration test: fleet migration',
           idempotencyKey: crypto.randomUUID()
@@ -126,14 +126,14 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     // 验证所有网络都被应用了
     for (const result of applyBody.results) {
       expect(result.status).toBe('applied')
-      expect(result.targetProfileVersion).toBe('m-net-cn@0.1.0')
-      expect(result.previousProfileVersion).toBe('m-net-default@0.1.0')
+      expect(result.targetProfileVersion).toBe('m-net-cn@0.3.0')
+      expect(result.previousProfileVersion).toBe('m-net-cn@0.1.0')
     }
 
     // 验证迁移后网络状态
     for (const n of networks) {
       const state = await store.getNetworkState(n.id)
-      expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
+      expect(state?.profileVersion).toBe('m-net-cn@0.3.0')
     }
 
     // Rollback
@@ -158,7 +158,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     // 验证回滚后网络状态恢复
     for (const n of networks) {
       const state = await store.getNetworkState(n.id)
-      expect(state?.profileVersion).toBe('m-net-default@0.1.0')
+      expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
     }
 
     // 验证所有回滚结果
@@ -178,8 +178,8 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     const netA = `net-a-${crypto.randomUUID()}`
     const netB = `net-b-${crypto.randomUUID()}`
 
-    await store.setNetworkState(netA, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
-    await store.setNetworkState(netB, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
+    await store.setNetworkState(netA, { profileVersion: 'm-net-cn@0.1.0', status: 'disabled' })
+    await store.setNetworkState(netB, { profileVersion: 'm-net-cn@0.1.0', status: 'disabled' })
 
     // Plan with batchSize=1
     const planRes = await app.handle(
@@ -187,7 +187,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           batchSize: 1,
           reason: 'integration test: resumable migration',
           idempotencyKey: crypto.randomUUID()
@@ -234,8 +234,8 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     // Both networks should be on CN now
     const stateA = await store.getNetworkState(netA)
     const stateB = await store.getNetworkState(netB)
-    expect(stateA?.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(stateB?.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(stateA?.profileVersion).toBe('m-net-cn@0.3.0')
+    expect(stateB?.profileVersion).toBe('m-net-cn@0.3.0')
   })
 
   // ──── 4. 部分失败场景 ──────────────────────────────────────────────
@@ -248,8 +248,8 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     const netX = `net-x-${crypto.randomUUID()}`
     const netY = `net-y-${crypto.randomUUID()}`
 
-    await store.setNetworkState(netX, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
-    await store.setNetworkState(netY, { profileVersion: 'm-net-default@0.1.0', status: 'disabled' })
+    await store.setNetworkState(netX, { profileVersion: 'm-net-cn@0.1.0', status: 'disabled' })
+    await store.setNetworkState(netY, { profileVersion: 'm-net-cn@0.1.0', status: 'disabled' })
 
     // Plan
     const planRes = await app.handle(
@@ -257,7 +257,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           batchSize: 2,
           reason: 'test skip already-applied',
           idempotencyKey: crypto.randomUUID()
@@ -267,7 +267,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     const planBody = (await planRes.json()) as { operationId: string }
 
     // Manually update netX to already be on target
-    await store.setNetworkState(netX, { profileVersion: 'm-net-cn@0.1.0', status: 'enabled' })
+    await store.setNetworkState(netX, { profileVersion: 'm-net-cn@0.3.0', status: 'enabled' })
 
     // Apply - should skip netX, apply netY
     const applyRes = await app.handle(
@@ -299,8 +299,8 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     const token = await mintTestToken('admin')
 
     const networks = [
-      { id: `rb-${crypto.randomUUID()}`, version: 'm-net-default@0.1.0', status: 'disabled' },
-      { id: `rb-${crypto.randomUUID()}`, version: 'm-net-default@0.1.0', status: 'disabled' }
+      { id: `rb-${crypto.randomUUID()}`, version: 'm-net-cn@0.1.0', status: 'disabled' },
+      { id: `rb-${crypto.randomUUID()}`, version: 'm-net-cn@0.1.0', status: 'disabled' }
     ] as const
 
     for (const n of networks) {
@@ -313,7 +313,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
         method: 'POST',
         headers: bearerHeaders(token),
         body: JSON.stringify({
-          targetProfileVersion: 'm-net-cn@0.1.0',
+          targetProfileVersion: 'm-net-cn@0.3.0',
           batchSize: 2,
           reason: 'test rollback restore',
           idempotencyKey: crypto.randomUUID()
@@ -348,7 +348,7 @@ describe('integration: m-net global profile defaults lifecycle', () => {
     // All networks should be back on default
     for (const n of networks) {
       const state = await store.getNetworkState(n.id)
-      expect(state?.profileVersion).toBe('m-net-default@0.1.0')
+      expect(state?.profileVersion).toBe('m-net-cn@0.1.0')
     }
   })
 })

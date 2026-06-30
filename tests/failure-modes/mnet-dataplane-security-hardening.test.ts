@@ -92,7 +92,7 @@ function createDeps() {
 
 function createSignedMap(expiresAt: number) {
   const unsignedMap = {
-    profileVersion: 'm-net-cn@0.2.0' as const,
+    profileVersion: 'm-net-cn@0.3.0' as const,
     networkId: 'network-hardening',
     members: [
       {
@@ -182,7 +182,7 @@ describe('M-Net data-plane security hardening failure modes', () => {
   it('surfaces workflow duplicate detection when one node retries the same key registration', async () => {
     const deps = createDeps()
     await deps.profileStore.setNetworkState('network-hardening', {
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
     await deps.dataPlane.nodePublicKeys.upsert({
@@ -280,7 +280,7 @@ describe('M-Net data-plane security hardening failure modes', () => {
   it('returns a typed conflict when credential rotation requests race on the same node', async () => {
     const deps = createDeps()
     await deps.profileStore.setNetworkState('network-hardening', {
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       status: 'enabled'
     })
 
@@ -364,6 +364,7 @@ describe('M-Net data-plane security hardening failure modes', () => {
   it('maps event bus outages to typed event_bus.unavailable failures', () => {
     expect(eventBusUnavailable(new Error('nats unavailable'))).toEqual({
       kind: 'failure',
+      ok: false,
       status: 503,
       error: {
         code: 'event_bus.unavailable',

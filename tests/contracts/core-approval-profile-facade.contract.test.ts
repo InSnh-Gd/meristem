@@ -124,8 +124,8 @@ describe('Core approval and network profile read facade contract', () => {
     expect(response.status).toBe(200)
     const body = Schema.decodeUnknownSync(MNetProfileListResponseSchema)(await response.json())
     expect(body.profiles.map(profile => profile.profileVersion).sort()).toEqual([
-      'm-net-cn@0.1.0',
-      'm-net-default@0.1.0'
+      'm-net-cn@0.3.0',
+      'm-net@0.3.0'
     ])
   })
 
@@ -133,15 +133,15 @@ describe('Core approval and network profile read facade contract', () => {
     const app = createCoreApp(createInMemoryCoreDeps({ actor: 'admin' }))
 
     const response = await app.handle(
-      new Request('http://localhost/api/v0/network-profiles/m-net-cn@0.1.0', {
+      new Request('http://localhost/api/v0/network-profiles/m-net-cn@0.3.0', {
         headers: headers('admin-token')
       })
     )
 
     expect(response.status).toBe(200)
     const body = Schema.decodeUnknownSync(MNetProfileDetailResponseSchema)(await response.json())
-    expect(body.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(body.capabilities.controlPlaneOnly).toBe(true)
+    expect(body.profileVersion).toBe('m-net-cn@0.3.0')
+    expect(body.capabilities.controlPlaneOnly).toBe(false)
   })
 
   it('network profile facade returns Core error envelopes for auth, permission, not found, and service failure', async () => {

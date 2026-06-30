@@ -2,7 +2,7 @@
 
 > Service documents define responsibility, contracts, permissions, dependencies, lifecycle, and logging behavior.
 >
-> 本文档只做索引与阅读顺序，不额外定义 Core / M-* 的规范边界。跨服务治理规则由 `MERISTEM-DEV.md`、`docs/contracts/CONTRACT-VERSIONING.md` 与对应服务定义共同约束。
+> 本文档只做索引与阅读顺序，不额外定义 Core / 功能域的规范边界。跨服务治理规则由 `MERISTEM-DEV.md`、`docs/contracts/CONTRACT-VERSIONING.md` 与对应服务定义共同约束。
 
 ---
 

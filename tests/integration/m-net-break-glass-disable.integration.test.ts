@@ -152,7 +152,7 @@ describe('integration: M-Net break-glass disable', () => {
       correlationId: string
     }
     expect(body.status).toBe('disabled')
-    expect(body.profileVersion).toBe('m-net-default@0.1.0')
+    expect(body.profileVersion).toBe('m-net@0.3.0')
     expect(body.approvalDegraded).toBe(true)
     expect(body.degradationSource).toBe('policy-health-check')
     expect(body.auditId).toBeString()
@@ -170,7 +170,7 @@ describe('integration: M-Net break-glass disable', () => {
     // Check state
     const state = await profileStore.getNetworkState(networkId)
     expect(state?.status).toBe('disabled')
-    expect(state?.profileVersion).toBe('m-net-default@0.1.0')
+    expect(state?.profileVersion).toBe('m-net@0.3.0')
   })
 
   it('security-admin with emergency reason + healthy approval still disables with Audit', async () => {

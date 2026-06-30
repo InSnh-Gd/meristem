@@ -10,7 +10,7 @@ These concepts establish the structural predecessor for the formal workbench. Th
 
 Both concepts strictly adhere to the Meristem UI boundaries:
 *   **M-UI owns UI structure:** Svelte components, layouts, and the future `layout / modules / ui` split belong entirely to M-UI. The workbench shell is a UI concern.
-*   **Services own facts:** Capabilities, policy states, domain events, and audit logs remain the property of M-* services.
+*   **Services own facts:** Capabilities, policy states, domain events, and audit logs remain the property of capability domain services.
 *   **BFF adapts:** The M-UI BFF aggregates and annotates state sources (deriving display-only command eligibility) but does not own final authorization or UI structure.
 *   **SDUI as registry:** SDUI is used strictly as a route/component contract registry, not a dynamic runtime page renderer.
 *   **No Plugin UI:** No services, extensions, or plugins supply Svelte components or pages at runtime.

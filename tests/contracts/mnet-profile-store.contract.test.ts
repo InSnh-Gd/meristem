@@ -16,45 +16,34 @@ describe('M-Net in-memory profile store', () => {
     store = createInMemoryProfileStore()
   })
 
-  it('getDefinitions returns default, CN, and production CN profiles', async () => {
+  it('getDefinitions returns only v0.3 active profile definitions', async () => {
     const defs = await store.getDefinitions()
-    expect(defs).toHaveLength(3)
+    expect(defs).toHaveLength(2)
 
     const versions = defs.map(d => d.profileVersion).sort()
-    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-cn@0.2.0', 'm-net-default@0.1.0'])
+    expect(versions).toEqual(['m-net-cn@0.3.0', 'm-net@0.3.0'])
 
-    const cnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.1.0')
-    expect(cnProfile).toBeDefined()
-    expect(cnProfile?.capabilities.controlPlaneOnly).toBe(true)
-    expect(cnProfile?.region).toBe('cn')
+    const currentDefaultProfile = defs.find(d => d.profileVersion === 'm-net@0.3.0')
+    expect(currentDefaultProfile).toBeDefined()
+    expect(currentDefaultProfile?.capabilities.controlPlaneOnly).toBe(false)
+    expect(currentDefaultProfile?.capabilities.realNetBirdSidecar).toBe(true)
 
-    const defaultProfile = defs.find(d => d.profileVersion === 'm-net-default@0.1.0')
-    expect(defaultProfile).toBeDefined()
-    expect(defaultProfile?.capabilities.controlPlaneOnly).toBe(false)
-    expect(defaultProfile?.region).toBe('default')
-
-    const productionCnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.2.0')
-    expect(productionCnProfile).toBeDefined()
-    expect(productionCnProfile?.capabilities.controlPlaneOnly).toBe(false)
-    expect(productionCnProfile?.capabilities.realWireGuardTunnel).toBe(true)
-    expect(productionCnProfile?.capabilities.realRelayFallback).toBe(true)
-    expect(productionCnProfile?.capabilities.realWstunnelRelay).toBe(false)
-    expect(productionCnProfile?.capabilities.realTcpInterconnect).toBe(false)
-    expect(productionCnProfile?.capabilities.realUdpPathSwitching).toBe(false)
-    expect(productionCnProfile?.runtimeConfig).toBeDefined()
+    const currentCnProfile = defs.find(d => d.profileVersion === 'm-net-cn@0.3.0')
+    expect(currentCnProfile).toBeDefined()
+    expect(currentCnProfile?.capabilities.realNetBirdSidecar).toBe(true)
   })
 
   it('getDefinition returns CN profile by version', async () => {
-    const cn = await store.getDefinition('m-net-cn@0.1.0')
+    const cn = await store.getDefinition('m-net-cn@0.3.0')
     expect(cn).not.toBeNull()
-    expect(cn?.profileVersion).toBe('m-net-cn@0.1.0')
-    expect(cn?.displayName).toBe('M-Net CN')
+    expect(cn?.profileVersion).toBe('m-net-cn@0.3.0')
+    expect(cn?.displayName).toContain('v0.3')
   })
 
   it('getDefinition returns default profile by version', async () => {
-    const def = await store.getDefinition('m-net-default@0.1.0')
+    const def = await store.getDefinition('m-net@0.3.0')
     expect(def).not.toBeNull()
-    expect(def?.profileVersion).toBe('m-net-default@0.1.0')
+    expect(def?.profileVersion).toBe('m-net@0.3.0')
   })
 
   it('getDefinition returns null for unknown version', async () => {

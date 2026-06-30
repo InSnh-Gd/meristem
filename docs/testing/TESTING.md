@@ -11,7 +11,7 @@
 | typecheck | TypeScript strictness and contract type coverage | all packages |
 | unit | pure logic, Effect Schema decode/encode, and schema narrowing | contracts, policy, config, codec |
 | contract | API, Eden, event, service definition compatibility | contracts and services |
-| integration | Core with service, NATS, PostgreSQL boundaries | Core and M-* services |
+| integration | Core with service, NATS, PostgreSQL boundaries | Core and capability domain services |
 | failure-mode | degraded behavior and fail-closed behavior | policy, audit, event, storage |
 | e2e | full-stack end-to-end: Core REST, BFF, CLI, auth, RBAC | all new capabilities |
 | migration | old and new contract versions | versioned contracts |
@@ -202,7 +202,7 @@ MVP-specific contract tests:
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
 - M-UI transitional workbench contract tests prove the current M-UI BFF route registry, disabled command explanations, BFF OpenAPI output, Core error envelope mapping, and no direct M-UI -> Core dependency.
 - M-Extension contract tests prove manifest schema decode / encode, manifest versioning, supported declaration kinds, event subjects, REST route schemas, and CLI command outputs match the docs.
-- Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and M-* service auth verification contracts match the docs.
+- Identity v0.2 contract tests prove token issue / revoke / introspection schemas, `jti` revocation, and capability domain service auth verification contracts match the docs.
 - SecretRef contract tests prove secretRef metadata, versioning, rotation, and redaction contracts match the docs.
 - SecretRef schema contract tests prove `SecretRefV01`, `SecretRefVersionV01`, `SecretRefTransitionV01`, REST route schemas, and CLI command outputs match implemented names and documented redaction behavior.
 - Config Lifecycle contract tests prove config schema validation, deterministic hash, version, publish, apply-ack, rollback, and event subjects match the docs.
@@ -249,7 +249,7 @@ MVP failure-mode tests:
 - M-Extension register / enable / disable fail closed when required Audit cannot be written.
 - M-Extension does not execute Wasm, webhook, HTTP callback, script, or cloud-function behavior in the M-Extension control plane.
 - revoked actor token is denied and cannot authorize protected routes.
-- Core token introspection unavailable fails protected external M-* routes closed.
+- Core token introspection unavailable fails protected external capability domain routes closed.
 - token plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, or CLI stderr/stdout except the one-time issue response.
 - secret plaintext never appears in Timeline, Full, Audit, OpenSearch projection payloads, events, or error envelopes.
 - SecretRef failure-mode tests prove redaction across Timeline, Full, Audit, OpenSearch projection payloads, events, error envelopes, and CLI stdout/stderr, and prove M-Policy / Audit fail-closed behavior for create, rotate, disable, metadata read, and reference paths.
@@ -314,11 +314,11 @@ M-UI transitional workbench BFF contract additions:
 M-UI ownership gates:
 
 - M-UI owns route surfaces, Svelte components, layout decisions, interaction structure, and the `layout / modules / ui` split.
-- M-* services expose facts, capabilities, events, policy state, audit state, and domain state; they must not supply M-UI pages, Svelte components, layouts, or runtime frontend modules.
+- Capability domain services expose facts, capabilities, events, policy state, audit state, and domain state; they must not supply M-UI pages, Svelte components, layouts, or runtime frontend modules.
 - M-UI BFF remains a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but it must not own UI structure, final business facts, final authorization, or final policy decisions.
 - SDUI remains a route/component contract registry. UI contract tests must not treat it as a runtime page renderer or composition engine unless a future ADR and contract migration explicitly introduce that architecture.
 - M-Extension and plugin UI contribution remain deferred architecture; tests for current scope must not require plugin-provided routes, components, or layouts.
-- M-UI must continue to call M-UI BFF only; BFF must use Core public facades for Core/M-* facts and capabilities.
+- M-UI must continue to call M-UI BFF only; BFF must use Core public facades for Core and capability domain facts/capabilities.
 - Frontend modularity should happen inside M-UI-owned code, with domain modules consuming BFF-shaped data rather than service/plugin-supplied runtime UI.
 
 ### 6.0 M-UI Frontend Verification

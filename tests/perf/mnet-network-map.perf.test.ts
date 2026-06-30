@@ -46,7 +46,7 @@ function buildRenderInput(memberCount: number): NetworkMapRenderInput {
     members.push(makeMember(`leaf-${i}`))
   }
   return {
-    profileVersion: 'm-net-default@0.1.0',
+    profileVersion: 'm-net@0.3.0',
     networkId: 'perf-network',
     members,
     requestedAclRules: makeAclRules(members),

@@ -6,6 +6,8 @@ import { createMNetApp } from '../../services/m-net/src/app.ts'
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
+import { enableDataPlaneProfile } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
+import { requireDataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
@@ -57,14 +59,6 @@ function validKey(seed: string): string {
     .slice(0, 43)}=`
 }
 
-async function mintToken(actor: 'admin' | 'security-admin'): Promise<string> {
-  return mintLocalToken({ actor, secret: jwtSecret })
-}
-
-function bearerHeaders(token: string): Record<string, string> {
-  return { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
-}
-
 function internalHeaders(): Record<string, string> {
   return {
     [internalTokenHeaderName]: internalToken,
@@ -106,9 +100,24 @@ function createRouteFixture(): RouteFixture {
       async fetchLatestNetworkMap(_nodeId) {
         const latest = await dataPlane.networkMaps.getLatest('network-dataplane-test')
         return latest
-          ? { map: latest.map }
+          ? {
+              map: latest.map,
+              sidecar: {
+                signalConfigRef: { configRef: 'netbird/signal/test' },
+                relayConfigRef: { configRef: 'netbird/relay/test' },
+                stunConfigRef: { configRef: 'netbird/stun/test' },
+                sidecarCredentialRef: {
+                  provider: 'fixture',
+                  keyPath: 'netbird/sidecar/test'
+                },
+                desiredState: 'start' as const,
+                credentialStatus: 'ready' as const,
+                healthStatus: 'unknown' as const
+              }
+            }
           : {
               kind: 'failure' as const,
+              ok: false as const,
               status: 404 as const,
               error: { code: 'network_map.not_found', message: 'network map not found' }
             }
@@ -183,35 +192,61 @@ describe('M-Net dataplane route contracts', () => {
     else process.env.MERISTEM_INTERNAL_TOKEN = originalInternalToken
   })
 
-  it('profile enable for m-net-cn@0.2.0 produces network map, relay assignment, events, and log facts', async () => {
+  it('profile enable for m-net-cn@0.3.0 produces network map, relay assignment, events, and log facts', async () => {
     const fixture = createRouteFixture()
-    const token = await mintToken('admin')
+    const dataPlaneDeps = requireDataPlaneDeps({
+      profileStore: fixture.profileStore,
+      policyAuthorize: {
+        async authorize() {
+          return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
+        }
+      },
+      listMembers: async input => ({
+        ok: true as const,
+        value: members.filter(member => member.networkId === input.networkId)
+      }),
+      dataPlane: fixture.dataPlane,
+      networkUpdater: {
+        async setProfileVersion() {
+          /* noop */
+        }
+      },
+      events: {
+        async publish(subject, type, payload, correlationId) {
+          fixture.events.push({ subject, type, payload, correlationId })
+        }
+      },
+      log: {
+        async writeTimeline(summary, subject, correlationId) {
+          fixture.logs.push({ kind: 'timeline', payload: { summary, subject, correlationId } })
+        },
+        async writeFull(level, message, correlationId, payload) {
+          fixture.logs.push({ kind: 'full', payload: { level, message, correlationId, payload } })
+        },
+        async writeAudit(actor, action, resource, result, correlationId, payload) {
+          fixture.logs.push({
+            kind: 'audit',
+            payload: { actor, action, resource, result, correlationId, payload }
+          })
+        }
+      }
+    })
+    if ('kind' in dataPlaneDeps) throw new Error('expected dataplane deps in test fixture')
 
     await fixture.profileStore.setNetworkState('network-dataplane-test', {
       profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
+      status: 'enabling'
     })
 
-    const response = await fixture.app.handle(
-      new Request('http://localhost/api/v0/networks/network-dataplane-test/profile', {
-        method: 'POST',
-        headers: bearerHeaders(token),
-        body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.2.0',
-          reason: 'enable production dataplane'
-        })
-      })
-    )
+    const body = await enableDataPlaneProfile(dataPlaneDeps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-test',
+      reason: 'enable production dataplane'
+    })
 
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      status: string
-      profileVersion: string
-      mapVersion: number
-      relayAssignment: { nodeId: string; relayEndpoint: string; relayType: string }
-    }
+    if ('kind' in body) throw new Error(`expected enable success, got ${body.error.code}`)
     expect(body.status).toBe('enabled')
-    expect(body.profileVersion).toBe('m-net-cn@0.2.0')
+    expect(body.profileVersion).toBe('m-net-cn@0.3.0')
     expect(body.mapVersion).toBe(1)
     expect(body.relayAssignment.nodeId).toBe('stem-cn-1')
 
@@ -239,23 +274,53 @@ describe('M-Net dataplane route contracts', () => {
 
   it('internal dataplane routes fetch signed map and accept valid node key while rejecting invalid and duplicate keys', async () => {
     const fixture = createRouteFixture()
-    const token = await mintToken('admin')
+    const dataPlaneDeps = requireDataPlaneDeps({
+      profileStore: fixture.profileStore,
+      policyAuthorize: {
+        async authorize() {
+          return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
+        }
+      },
+      listMembers: async input => ({
+        ok: true as const,
+        value: members.filter(member => member.networkId === input.networkId)
+      }),
+      dataPlane: fixture.dataPlane,
+      events: {
+        async publish() {
+          /* noop */
+        }
+      },
+      log: {
+        async writeTimeline() {
+          /* noop */
+        },
+        async writeFull() {
+          /* noop */
+        },
+        async writeAudit() {
+          /* noop */
+        }
+      },
+      networkUpdater: {
+        async setProfileVersion() {
+          /* noop */
+        }
+      }
+    })
+    if ('kind' in dataPlaneDeps) throw new Error('expected dataplane deps in test fixture')
 
     await fixture.profileStore.setNetworkState('network-dataplane-test', {
       profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
+      status: 'enabling'
     })
 
-    await fixture.app.handle(
-      new Request('http://localhost/api/v0/networks/network-dataplane-test/profile', {
-        method: 'POST',
-        headers: bearerHeaders(token),
-        body: JSON.stringify({
-          profileVersion: 'm-net-cn@0.2.0',
-          reason: 'enable before route tests'
-        })
-      })
-    )
+    const enabled = await enableDataPlaneProfile(dataPlaneDeps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-test',
+      reason: 'enable before route tests'
+    })
+    if ('kind' in enabled) throw new Error(`expected enable success, got ${enabled.error.code}`)
 
     const mapResponse = await fixture.app.handle(
       new Request('http://localhost/internal/v0/networks/network-dataplane-test/network-map', {
@@ -374,7 +439,7 @@ describe('M-Net dataplane route contracts', () => {
     await fixture.dataPlane.networkMaps.save({
       networkId: 'network-dataplane-test',
       mapVersion: 99,
-      profileVersion: 'm-net-cn@0.2.0',
+      profileVersion: 'm-net-cn@0.3.0',
       publishedAt: '2026-06-18T00:00:00.000Z',
       expiresAt: '2026-06-18T00:00:00.000Z',
       signatureMetadata: {
@@ -384,7 +449,7 @@ describe('M-Net dataplane route contracts', () => {
         value: 'placeholder-signature:stale'
       },
       map: {
-        profileVersion: 'm-net-cn@0.2.0',
+        profileVersion: 'm-net-cn@0.3.0',
         networkId: 'network-dataplane-test',
         members: [],
         aclRules: [],
@@ -409,5 +474,104 @@ describe('M-Net dataplane route contracts', () => {
     expect((await response.json()) as { error: { code: string; message: string } }).toEqual({
       error: { code: 'network_map.stale', message: 'network map is stale or invalid' }
     })
+  })
+
+  it('node runtime public route returns typed migration_required envelope for legacy nodes', async () => {
+    const app = createMNetApp({
+      async readiness() {
+        return { ready: true }
+      },
+      async createNetwork() {
+        return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
+      },
+      async listNetworks() {
+        return { ok: true, value: [] }
+      },
+      async joinNetwork() {
+        return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
+      },
+      async listMembers() {
+        return { ok: true, value: [] }
+      },
+      async executeNoop() {
+        return { ok: false, error: { code: 'test.not_implemented', message: 'not implemented' } }
+      },
+      nodeRuntime: {
+        async authorize(_nodeId, token) {
+          return token === nodeRuntimeToken
+        },
+        async fetchLatestNetworkMap() {
+          return {
+            kind: 'failure' as const,
+            status: 409 as const,
+            error: {
+              code: 'migration_required',
+              message:
+                'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+              migration: {
+                code: 'migration_required',
+                message:
+                  'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+                targetProfileVersion: 'm-net-cn@0.3.0',
+                rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+                affectedProfileIds: ['m-net-cn@0.3.0'],
+                affectedNodeIds: ['fixture-node-legacy-agent-capability'],
+                reasonCode: 'legacy_wstunnel_node'
+              }
+            }
+          }
+        },
+        async registerNodePublicKey() {
+          return {
+            kind: 'failure' as const,
+            status: 409 as const,
+            error: {
+              code: 'migration_required',
+              message:
+                'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+              migration: {
+                code: 'migration_required',
+                message:
+                  'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+                targetProfileVersion: 'm-net-cn@0.3.0',
+                rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+                affectedProfileIds: ['m-net-cn@0.3.0'],
+                affectedNodeIds: ['fixture-node-legacy-agent-capability'],
+                reasonCode: 'legacy_wstunnel_node'
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const response = await app.handle(
+      new Request(
+        'http://localhost/api/v0/node-runtime/nodes/fixture-node-legacy-agent-capability/network-map',
+        {
+          headers: { authorization: `Bearer ${nodeRuntimeToken}` }
+        }
+      )
+    )
+
+    expect(response.status).toBe(409)
+    const body = (await response.json()) as {
+      error: {
+        code: string
+        message: string
+        migration: {
+          reasonCode: string
+          targetProfileVersion: string
+          rebuildGuidanceKey: string
+          affectedNodeIds: string[]
+        }
+      }
+    }
+    expect(body.error.code).toBe('migration_required')
+    expect(body.error.message).toContain('rebuild onto the NetBird sidecar path')
+    expect(body.error.migration.reasonCode).toBe('legacy_wstunnel_node')
+    expect(body.error.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
+    expect(body.error.migration.rebuildGuidanceKey).toBe('rebuild_node_with_netbird_sidecar')
+    expect(body.error.migration.affectedNodeIds).toEqual(['fixture-node-legacy-agent-capability'])
   })
 })

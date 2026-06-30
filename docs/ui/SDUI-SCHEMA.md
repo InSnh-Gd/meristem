@@ -2,7 +2,7 @@
 
 > M-UI is based on SvelteKit + SDUI. SDUI is allowed only if it reinforces Meristem's operational boundaries.
 >
-> In the Transitional Workbench stage, SDUI is a route/component contract registry, not a runtime page composition engine. M-UI owns route surfaces, Svelte components, and interaction structure; M-* services own facts and capabilities; M-UI BFF adapts those facts into UI-facing data. Services, M-Extension, and plugins do not supply pages or components at runtime.
+> In the Transitional Workbench stage, SDUI is a route/component contract registry, not a runtime page composition engine. M-UI owns route surfaces, Svelte components, and interaction structure; capability domain services own facts and capabilities; M-UI BFF adapts those facts into UI-facing data. Services, M-Extension, and plugins do not supply pages or components at runtime.
 
 ---
 

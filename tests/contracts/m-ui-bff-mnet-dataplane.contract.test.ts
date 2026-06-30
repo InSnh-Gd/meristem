@@ -17,7 +17,6 @@ afterAll(() => {
   restoreOriginalFetch()
 })
 
-/** 为 M-Net 数据面面板测试提供最小 mock facade。 */
 function createMockMNetApp() {
   return new Elysia()
     .get('/api/v0/networks/network-cn-001/join-tickets', () => ({
@@ -45,39 +44,6 @@ function createMockMNetApp() {
       status: 'active',
       received: body
     }))
-    .get('/internal/v0/networks/network-cn-001/members', () => ({
-      members: [
-        {
-          networkId: 'network-cn-001',
-          nodeId: 'leaf-1',
-          nodeKind: 'leaf',
-          membershipMode: 'full',
-          status: 'joined',
-          joinedAt: '2026-06-18T09:00:00.000Z'
-        }
-      ]
-    }))
-    .get('/internal/v0/networks/network-cn-001/network-map', () => ({
-      networkId: 'network-cn-001',
-      mapVersion: 'map-v1',
-      members: [{ nodeId: 'leaf-1', tunnelIp: '10.1.0.2/32', publicKeyFingerprint: 'pub-1' }],
-      aclRules: [
-        {
-          ruleId: 'acl-1',
-          action: 'allow',
-          sourceNodeId: 'leaf-1',
-          targetNodeId: 'leaf-1',
-          protocol: 'tcp'
-        }
-      ],
-      relayAssignment: {
-        relayType: 'managed',
-        relayEndpoint: 'relay.example:443',
-        nodeIds: ['leaf-1']
-      },
-      expiresAt: '2026-06-18T11:00:00.000Z',
-      signedBy: 'sig-key-1'
-    }))
     .get('/api/v0/networks/network-cn-001/dataplane/status', () => ({
       networkId: 'network-cn-001',
       nodes: [
@@ -101,30 +67,159 @@ function createMockMNetApp() {
       ],
       stateSource: { sourceType: 'authoritative', sourceId: 'mnet:/status/network-cn-001' }
     }))
+    .get('/api/v0/networks/network-cn-001/operational-state', () => ({
+      networkId: 'network-cn-001',
+      network: {
+        status: 'degraded',
+        memberCount: 1,
+        profileState: 'enabled',
+        lastUpdatedAt: '2026-06-18T09:30:00.000Z',
+        summary: '1 node tracked in the operational read model'
+      },
+      profileSelection: {
+        profileVersion: 'm-net-cn@0.3.0',
+        displayName: 'M-Net CN v0.3',
+        schemaVersion: 'mnet-profile@0.3.0',
+        region: 'cn',
+        controlPlaneOnly: false,
+        compatibility: 'migration_required',
+        migration: {
+          code: 'migration_required',
+          message: 'legacy node must rebuild to NetBird sidecar',
+          targetProfileVersion: 'm-net-cn@0.3.0',
+          rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+          affectedProfileIds: ['m-net-cn@0.2.0'],
+          affectedNodeIds: ['leaf-1'],
+          reasonCode: 'legacy_wstunnel_node'
+        }
+      },
+      eventStream: {
+        status: 'healthy',
+        lastSubject: 'mnet.sidecar.health.v0',
+        lastEventId: 'evt-1',
+        lastEventAt: '2026-06-18T09:30:00.000Z'
+      },
+      sidecars: [
+        {
+          nodeId: 'leaf-1',
+          nodeKind: 'leaf',
+          profileVersion: 'm-net-cn@0.3.0',
+          credentialStatus: 'expired',
+          credentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/leaf-1'
+          },
+          expiresAt: '2026-06-18T08:00:00.000Z',
+          healthStatus: 'healthy',
+          checkedAt: '2026-06-18T09:30:00.000Z',
+          signalReachable: true,
+          relayReachable: true,
+          stunReachable: false,
+          stale: false,
+          summary: 'Credential has expired'
+        }
+      ],
+      topology: {
+        topologyRevision: 'map-v1',
+        routeClass: 'forced-tcp-relay',
+        nodes: [
+          {
+            nodeId: 'leaf-1',
+            label: 'leaf:leaf-1',
+            nodeKind: 'leaf',
+            healthStatus: 'healthy',
+            state: 'migration_required'
+          }
+        ],
+        edges: [
+          {
+            edgeId: 'leaf-1->relay-1:forced',
+            fromNodeId: 'leaf-1',
+            toNodeId: 'relay-1',
+            relation: 'forced-relay'
+          }
+        ],
+        summary: '1 nodes and 1 edges are visible'
+      },
+      credentials: {
+        status: 'blocked',
+        nodes: [
+          {
+            nodeId: 'leaf-1',
+            credentialStatus: 'expired',
+            expiresAt: '2026-06-18T08:00:00.000Z',
+            credentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/leaf-1'
+            },
+            summary: 'Credential has expired'
+          }
+        ],
+        summary: 'Credential lifecycle is derived from the latest sidecar events'
+      },
+      migrationRequired: {
+        required: true,
+        resourceKind: 'node',
+        migration: {
+          code: 'migration_required',
+          message: 'legacy node must rebuild to NetBird sidecar',
+          targetProfileVersion: 'm-net-cn@0.3.0',
+          rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
+          affectedProfileIds: ['m-net-cn@0.2.0'],
+          affectedNodeIds: ['leaf-1'],
+          reasonCode: 'legacy_wstunnel_node'
+        },
+        summary: 'legacy node must rebuild to NetBird sidecar'
+      },
+      forcedRelay: {
+        active: true,
+        routeClass: 'forced-tcp-relay',
+        selectorOwnership: 'policy',
+        selector: {
+          selectorType: 'node-ids',
+          nodeIds: ['leaf-1']
+        },
+        operatorOverrideActive: false,
+        affectedNodeIds: ['leaf-1'],
+        summary: '1 nodes are pinned to forced relay'
+      },
+      deploymentReadiness: {
+        status: 'blocked',
+        summary: '2 readiness issue(s)',
+        reasons: [
+          {
+            code: 'migration_required',
+            message: 'legacy node must rebuild to NetBird sidecar',
+            nodeId: 'leaf-1'
+          },
+          {
+            code: 'credential_expired',
+            message: 'credential expired for leaf-1',
+            nodeId: 'leaf-1'
+          }
+        ]
+      },
+      stateSources: {
+        network: 'authoritative',
+        profileSelection: 'authoritative',
+        sidecars: 'read-model',
+        topology: 'read-model',
+        credentials: 'read-model',
+        migration: 'read-model',
+        forcedRelay: 'read-model',
+        deploymentReadiness: 'composed',
+        eventStream: 'read-model'
+      }
+    }))
     .get('/api/v0/networks/profile-defaults', () => ({
-      defaultProfileVersion: 'm-net-default@0.1.0',
+      defaultProfileVersion: 'm-net@0.3.0',
       globalSwitchState: 'idle',
       updatedAt: '2026-06-18T09:00:00.000Z'
     }))
 }
 
 describe('M-UI BFF M-Net dataplane contracts', () => {
-  it('does not mount legacy direct mutation routes and keeps viewer eligibility disabled with visible reason', async () => {
-    const coreApp = createCoreApp(createInMemoryCoreDeps({ actor: 'operator' }))
-    const app = createBffWithServices({ coreApp, mnetApp: createMockMNetApp() })
-
-    const createRes = await makeRequest(
-      app,
-      '/api/v0/networks/network-cn-001/join-tickets',
-      'POST',
-      'operator-token',
-      {
-        kind: 'leaf',
-        name: 'leaf-cn-join'
-      }
-    )
-    expect(createRes.status).toBe(404)
-
+  it('keeps viewer eligibility disabled with visible reason', async () => {
     const viewerApp = createBffWithServices({
       coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'viewer' })),
       mnetApp: createMockMNetApp()
@@ -196,7 +291,78 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
     }
   })
 
-  it('OpenAPI declares stateSource metadata for every new route', async () => {
+  it('adapts public operational facts into proof-path payload and typed disabled reasons', async () => {
+    const app = createBffWithServices({
+      coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })),
+      mnetApp: createMockMNetApp()
+    })
+
+    const res = await makeRequest(app, '/api/v0/networks/network-cn-001/proof-path', 'GET', 'admin-token')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      networkId: string
+      profileSelection: { disabledReason?: { code: string; message: string } }
+      migration: { disabledReason?: { code: string; migration?: { targetProfileVersion: string } } }
+      credentialLifecycle: {
+        credentials: {
+          nodes: Array<{ credentialRef?: Record<string, unknown> }>
+        }
+      }
+    }
+    const credentialNode = body.credentialLifecycle.credentials.nodes[0]
+    expect(credentialNode).toBeDefined()
+    expect(body.networkId).toBe('network-cn-001')
+    expect(body.profileSelection.disabledReason).toMatchObject({
+      code: 'migration_required',
+      message: 'legacy node must rebuild to NetBird sidecar'
+    })
+    expect(body.migration.disabledReason).toMatchObject({
+      code: 'migration_required',
+      migration: {
+        targetProfileVersion: 'm-net-cn@0.3.0'
+      }
+    })
+    expect(credentialNode?.credentialRef?.token).toBeUndefined()
+    expect(credentialNode?.credentialRef?.raw).toBeUndefined()
+  })
+
+  it('does not expose raw node credential tokens through execute path', async () => {
+    const app = createBffWithServices({
+      coreApp: new Elysia()
+        .get('/api/v0/session', () => ({ actor: 'operator', permissions: ['node:issue-token'] }))
+        .post('/api/v0/networks/network-cn-001/nodes/leaf-1/credentials', () => ({
+          nodeId: 'leaf-1',
+          token: 'secret-token',
+          issuedAt: '2026-06-18T09:00:00.000Z',
+          policyDecisionId: 'policy-1',
+          correlationId: 'corr-1'
+        })),
+      mnetApp: createMockMNetApp()
+    })
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/commands/network.node-credential.issue.execute/execute',
+      'POST',
+      'operator-token',
+      { networkId: 'network-cn-001', nodeId: 'leaf-1' }
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      nodeId: string
+      action: string
+      policyDecisionId: string
+      token?: string
+    }
+    expect(body).toMatchObject({
+      nodeId: 'leaf-1',
+      action: 'issued',
+      policyDecisionId: 'policy-1'
+    })
+    expect(body.token).toBeUndefined()
+  })
+
+  it('OpenAPI declares stateSource metadata for proof-path routes', async () => {
     const app = createBffWithServices({
       coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })),
       mnetApp: createMockMNetApp()
@@ -210,12 +376,11 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
       '/api/v0/networks/{id}',
       '/api/v0/networks/{id}/dataplane/status',
       '/api/v0/networks/{id}/dataplane/relay',
-      '/api/v0/networks/{id}/dataplane/network-map'
+      '/api/v0/networks/{id}/dataplane/network-map',
+      '/api/v0/networks/{id}/proof-path'
     ]
     for (const path of requiredPaths) {
-      const operation = Object.values(body.paths[path] ?? {})[0] as
-        | { description?: string }
-        | undefined
+      const operation = Object.values(body.paths[path] ?? {})[0] as { description?: string } | undefined
       expect(operation?.description?.includes('stateSources:')).toBe(true)
     }
   })

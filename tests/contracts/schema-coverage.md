@@ -31,6 +31,12 @@
 | `mnet.node_key.rotated.v0` | contract-activated data-plane subject | `MNetNodeKeyRotatedEventPayloadSchema` |
 | `mnet.relay.assigned.v0` | contract-activated data-plane subject | `MNetRelayAssignedEventPayloadSchema` |
 | `mnet.dataplane.tunnel.changed.v0` | contract-activated data-plane subject | `MNetDataplaneTunnelChangedEventPayloadSchema` |
+| `mnet.sidecar.lifecycle.v0` | contract-activated data-plane subject | `MNetSidecarLifecycleEventPayloadSchema` |
+| `mnet.sidecar.health.v0` | contract-activated data-plane subject | `MNetSidecarHealthEventPayloadSchema` |
+| `mnet.topology.update.v0` | contract-activated data-plane subject | `MNetTopologyUpdateEventPayloadSchema` |
+| `mnet.migration.required.v0` | contract-activated data-plane subject | `MNetMigrationRequiredEventPayloadSchema` |
+| `mnet.forced_relay.change.v0` | contract-activated data-plane subject | `MNetForcedRelayChangeEventPayloadSchema` |
+| `mnet.credential.expiry.v0` | contract-activated data-plane subject | `MNetCredentialExpiryEventPayloadSchema` |
 | `mnet.profile.enable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.enabled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.disable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |

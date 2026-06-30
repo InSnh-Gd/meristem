@@ -22,7 +22,7 @@ function createSignedMap(overrides?: {
   relayEndpoint?: string
 }): NetworkMap {
   const unsignedMap = {
-    profileVersion: 'm-net-cn@0.2.0' as const,
+    profileVersion: 'm-net-cn@0.3.0' as const,
     networkId: 'network-prod-a',
     members: [
       {

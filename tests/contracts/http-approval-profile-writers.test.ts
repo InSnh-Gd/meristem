@@ -92,17 +92,17 @@ describe('HTTP approval/profile writers', () => {
 
     const conflictResult = await conflict.setProfile(
       'net-1',
-      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      { profileVersion: 'm-net-cn@0.3.0', reason: 'x' },
       context
     )
     const invalidResult = await invalid.setProfile(
       'net-1',
-      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      { profileVersion: 'm-net-cn@0.3.0', reason: 'x' },
       context
     )
     const unavailableResult = await unavailable.setProfile(
       'net-1',
-      { profileVersion: 'm-net-cn@0.1.0', reason: 'x' },
+      { profileVersion: 'm-net-cn@0.3.0', reason: 'x' },
       context
     )
 

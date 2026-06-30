@@ -30,7 +30,7 @@ Current state at audit time:
   (`NodeListPanel`, `NodeDetailPanel`, `ServiceListPanel`, `TimelinePanel`).
 - The BFF client (`bff.ts`) exposes **24 endpoint methods** plus 3 helpers, all
   routed through the M-UI BFF at `localhost:3200`. M-UI does **not** call Core or
-  M-* services directly — the `M-UI → M-UI BFF → Core public facade → M-*`
+  capability domain services directly — the `M-UI → M-UI BFF → Core public facade → capability domain`
   boundary is preserved.
 - The app state store (`stores.svelte.ts`) is a single Svelte 5 runes-based
   `AppState` class holding session, domain, and command state with per-domain
@@ -207,8 +207,8 @@ carry `Authorization: Bearer <token>` (normalized via
 
 ### 4.3 Boundary Observation
 
-M-UI calls only the M-UI BFF. No direct Core or M-* calls exist in `bff.ts`.
-The data-flow ownership rule `M-UI → M-UI BFF → Core public facade → M-*` is
+M-UI calls only the M-UI BFF. No direct Core or capability domain calls exist in `bff.ts`.
+The data-flow ownership rule `M-UI → M-UI BFF → Core public facade → capability domain` is
 preserved at the client layer. Three endpoint methods (`fetchServiceDetail`,
 `fetchNetworkMapSummary`, `fetchMigrationStatus`) are exported but not wired
 into the `AppState` store, indicating available-but-unused BFF surface.

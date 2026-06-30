@@ -8,12 +8,12 @@ describe('migration engine branch coverage', () => {
   it('marks missing networks as skipped and store failures as failed', async () => {
     const profileStore = createInMemoryProfileStore()
     await profileStore.setNetworkState('net-ok', {
-      profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabled'
     })
     await profileStore.setNetworkState('net-fail', {
-      profileVersion: 'm-net-default@0.1.0',
-      status: 'disabled'
+      profileVersion: 'm-net-cn@0.1.0',
+      status: 'enabled'
     })
 
     const originalSet = profileStore.setNetworkState.bind(profileStore)
@@ -34,7 +34,7 @@ describe('migration engine branch coverage', () => {
     })
 
     const plan = await engine.plan({
-      targetProfileVersion: 'm-net-cn@0.1.0',
+      targetProfileVersion: 'm-net-cn@0.3.0',
       batchSize: 3,
       reason: 'coverage',
       idempotencyKey: 'idem-migration-1'

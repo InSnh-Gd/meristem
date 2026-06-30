@@ -137,7 +137,7 @@ Rules:
 
 - token plaintext is never stored.
 - `jti` is the revocation key.
-- M-* services must use Core introspection and must not read these tables directly.
+- Capability domain services must use Core introspection and must not read these tables directly.
 - the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`.
 
 ---

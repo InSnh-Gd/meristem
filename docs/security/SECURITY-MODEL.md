@@ -85,9 +85,9 @@ MVP uses a narrower permission set than the long-term baseline:
 | `node:isolate` | no | no | yes | yes |
 | `node:recover` | no | no | yes | yes |
 
-MVP actor selection uses locally signed JWT bearer tokens for local development. This is not a production identity provider model.
+MVP actor selection still supports locally signed JWT bearer tokens for local development. This remains a local-only provider and is not a production identity provider model.
 
-Production identity provider integration (OIDC, SSO, SAML, MFA, browser sessions, user management UI, groups/teams/departments, refresh tokens) is deferred.
+Production identity provider integration now has an OIDC/JWKS access-token verification foundation for service-to-service and API bearer validation. Browser sessions, SSO UX, SAML, MFA, refresh-token handling, and user-management UI remain deferred.
 
 ### 2.2 MVP JWT Model
 
@@ -145,12 +145,12 @@ Issue (security-admin, writes Audit)
 
 **Fail-Closed Rules**:
 
-- Core token introspection unavailable fails protected external M-* routes closed (503).
+- Core token introspection unavailable fails protected external capability domain routes closed (503).
 - Revoked token use fails closed with 403 and writes Full Log; if the actor and `jti` are known, it writes Audit Log.
 - Missing or invalid `jti` in a JWT is rejected during verification.
 - Expired tokens are treated equivalently to revoked tokens for authorization purposes.
 
-**M-* Service Verification**:
+**Capability Domain Service Verification**:
 
 ```
 external request
@@ -160,10 +160,25 @@ external request
 → service calls M-Policy for authorization only if identity is active
 ```
 
-- M-* services verify JWT shape locally and call Core internal token introspection for revocation state.
-- M-* services must not read Core token tables directly.
+- Capability domain services verify JWT shape locally and call Core internal token introspection for revocation state.
+- Capability domain services must not read Core token tables directly.
 - Positive-result caching is allowed for at most 30 seconds keyed by `jti`.
 - Revoked, denied, expired, or invalid results must not be cached as active.
+
+### 2.2.2 OIDC/JWKS Provider Foundation
+
+Production-shaped bearer-token verification uses OIDC discovery plus JWKS-backed signature validation, while local development may continue using the `local-dev` provider explicitly.
+
+Rules:
+
+- discovery validation requires exact `issuer` match plus non-empty `authorization_endpoint`, `token_endpoint`, and `jwks_uri` values.
+- accepted signing algorithms are allowlisted asymmetric algorithms only: `RS256`, `RS384`, `RS512`, `ES256`, `ES384`. `none` is always rejected.
+- services accept access tokens only. Refresh tokens must not be accepted, persisted, logged, or forwarded.
+- JWT verification enforces configured issuer and audience allowlists with 30-second clock tolerance for expiry checks.
+- JWKS cache uses stale-while-revalidate semantics: serve cached keys during refresh window, refresh in background, and fail closed with typed `stale_jwks` once cache TTL is exceeded and refresh cannot recover.
+- explicit claims mapping exports only `{ subject, groups, issuer, expiresAt }` to Meristem actor/session consumers. Raw JWTs and unmapped claims must not cross the provider boundary.
+- verification failures are typed and consumable by route handlers: `stale_jwks`, `bad_issuer`, `bad_audience`, `unsupported_algorithm`, `expired_token`, `missing_claim`, `revoked_token`, and `introspection_required`.
+- logs, Audit payloads, Full Log payloads, events, and UI/BFF responses must redact bearer tokens and raw claims. Only explicitly mapped actor/session fields may appear.
 
 ### 2.3 MVP Internal Service Authentication
 
@@ -374,9 +389,20 @@ SecretRef v0.1 rules:
 - M-Policy authorizes create, rotate, disable, metadata read, and reference operations.
 - mutating secretRef operations write Audit before mutation.
 - external services receive only `secretRef`, not plaintext secret values.
-- production KMS / Vault / cloud key-manager integration is deferred.
+- production KMS / Vault / cloud key-manager integration was deferred in v0.1, but v0.2 now defines the first production SecretProvider backend contract: Vault KV v2-compatible. This is the first production backend, not the only allowed future backend.
 - envelope encryption, key leasing, automatic rotation schedules, cross-node distribution, and backup/recovery are deferred.
 - no M-Secret service is created.
+
+SecretProvider v0.2 rules:
+
+- Meristem exposes a shared `SecretProvider` runtime interface with `read(ref)`, `list(prefix)`, and `write(ref, value)` only.
+- `SecretRef` runtime shape is `{ provider, keyPath, version?, metadata? }`; redaction output is `{ provider, keyPath, version? }` only.
+- local development uses the `local-dev-env` provider with explicit env-var mappings.
+- first production backend is `vault-kv-v2`; future KMS / cloud secret manager backends remain allowed if they satisfy the same boundary and redaction rules.
+- provider failures are typed as `provider_unavailable`, `secret_missing`, `permission_denied`, `unsupported_backend`, and `stale_secret`.
+- `stale_secret` is fail-closed: an expired cached secret must not be reused when the provider refresh is unavailable.
+- provider errors, Audit payloads, Full Log payloads, UI/BFF responses, and failure-mode evidence must never contain plaintext secret values.
+- OIDC client secret / JWKS material, NetBird Signal / Relay / STUN credentials, node sidecar credentials, and deployment env-secret bindings all consume the same SecretProvider boundary.
 
 ---
 
@@ -405,6 +431,15 @@ Redaction contract:
 - Plaintext secret fields fail decode/validation.
 - `secretRef` fields decode and redact correctly — only `secretRefId` survives.
 - Redaction covers log output, UI error envelopes, projection payloads, and approval LLM context inputs.
+
+### 8.3 Runtime SecretProvider Consumers
+
+The v0.2 SecretProvider foundation defines the following consumer bindings even where the final caller wiring lands in later tracks:
+
+- OIDC client/JWKS secret bindings are defined now so T3 can consume the same redacted SecretRef contract without inventing a second identity-only secret path.
+- NetBird Signal / Relay / STUN credentials use SecretRefs instead of inline deployment values.
+- node-agent sidecar auth/config credentials use SecretRefs instead of host-local plaintext values crossing service boundaries.
+- deployment configuration secrets are expressed as env-var-to-SecretRef bindings so NixOS / bare-metal / OCI tracks can share one contract.
 
 ### 8.1 Node Agent Tokens
 

@@ -57,7 +57,13 @@ export const contractActivatedDataPlaneSubjects = [
   'mnet.network_map.published.v0',
   'mnet.node_key.rotated.v0',
   'mnet.relay.assigned.v0',
-  'mnet.dataplane.tunnel.changed.v0'
+  'mnet.dataplane.tunnel.changed.v0',
+  'mnet.sidecar.lifecycle.v0',
+  'mnet.sidecar.health.v0',
+  'mnet.topology.update.v0',
+  'mnet.migration.required.v0',
+  'mnet.forced_relay.change.v0',
+  'mnet.credential.expiry.v0'
 ] as const
 
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {

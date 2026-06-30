@@ -24,7 +24,7 @@ describe('M-Net profile external routes', () => {
     process.env.MERISTEM_INTERNAL_TOKEN = internalToken
   })
 
-  it('GET /api/v0/network-profiles returns registered profiles with valid JWT', async () => {
+  it('GET /api/v0/network-profiles returns registered v0.3 profiles with valid JWT', async () => {
     const app = buildApp()
     const token = await mintTestToken('operator')
 
@@ -36,11 +36,14 @@ describe('M-Net profile external routes', () => {
 
     expect(response.status).toBe(200)
     const body = await decodeJson(response, MNetProfileListResponseSchema)
-    expect(body.profiles).toHaveLength(3)
+    expect(body.profiles).toHaveLength(2)
     const versions = body.profiles
       .map((p: (typeof body.profiles)[number]) => p.profileVersion)
       .sort()
-    expect(versions).toEqual(['m-net-cn@0.1.0', 'm-net-cn@0.2.0', 'm-net-default@0.1.0'])
+    expect(versions).toEqual([
+      'm-net-cn@0.3.0',
+      'm-net@0.3.0'
+    ])
   })
 
   it('GET /api/v0/network-profiles returns 401 without bearer token', async () => {
@@ -50,35 +53,35 @@ describe('M-Net profile external routes', () => {
     expect(response.status).toBe(401)
   })
 
-  it('GET /api/v0/network-profiles/m-net-cn@0.1.0 returns CN profile', async () => {
+  it('GET /api/v0/network-profiles/m-net-cn@0.3.0 returns CN profile', async () => {
     const app = buildApp()
     const actorToken = await mintTestToken('admin')
     const response = await app.handle(
-      new Request('http://localhost/api/v0/network-profiles/m-net-cn@0.1.0', {
+      new Request('http://localhost/api/v0/network-profiles/m-net-cn@0.3.0', {
         headers: bearerHeaders(actorToken)
       })
     )
 
     expect(response.status).toBe(200)
     const body = await decodeJson(response, MNetProfileDetailResponseSchema)
-    expect(body.profileVersion).toBe('m-net-cn@0.1.0')
+    expect(body.profileVersion).toBe('m-net-cn@0.3.0')
     expect(body.region).toBe('cn')
-    expect(body.displayName).toBe('M-Net CN')
-    expect(body.capabilities.controlPlaneOnly).toBe(true)
+    expect(body.displayName).toContain('v0.3')
+    expect(body.capabilities.controlPlaneOnly).toBe(false)
   })
 
-  it('GET /api/v0/network-profiles/m-net-default@0.1.0 returns default profile', async () => {
+  it('GET /api/v0/network-profiles/m-net@0.3.0 returns default profile', async () => {
     const app = buildApp()
     const actorToken = await mintTestToken('admin')
     const response = await app.handle(
-      new Request('http://localhost/api/v0/network-profiles/m-net-default@0.1.0', {
+      new Request('http://localhost/api/v0/network-profiles/m-net@0.3.0', {
         headers: bearerHeaders(actorToken)
       })
     )
 
     expect(response.status).toBe(200)
     const body = await decodeJson(response, MNetProfileDetailResponseSchema)
-    expect(body.profileVersion).toBe('m-net-default@0.1.0')
+    expect(body.profileVersion).toBe('m-net@0.3.0')
     expect(body.region).toBe('default')
   })
 
