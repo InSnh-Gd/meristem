@@ -70,7 +70,9 @@ export function createOperationalRoutes(
           })
         }
 
-        const result = await deps.ingestOperationalEvent(body as MNetOperationalEventIngestRequestFromSchema)
+        const result = await deps.ingestOperationalEvent(
+          body as MNetOperationalEventIngestRequestFromSchema
+        )
         return 'kind' in result && result.kind === 'failure'
           ? internalError(status, result.status === 404 ? 404 : 503, result.error)
           : result
@@ -85,7 +87,9 @@ export function createOperationalRoutes(
     )
 }
 
-function toOperationalSnapshotResponse(snapshot: MNetOperationalSnapshotFromSchema): Static<typeof operationalSnapshotResponseSchema> {
+function toOperationalSnapshotResponse(
+  snapshot: MNetOperationalSnapshotFromSchema
+): Static<typeof operationalSnapshotResponseSchema> {
   return {
     networkId: snapshot.networkId,
     network: {
@@ -114,9 +118,15 @@ function toOperationalSnapshotResponse(snapshot: MNetOperationalSnapshotFromSche
     },
     eventStream: {
       status: snapshot.eventStream.status,
-      ...(snapshot.eventStream.lastSubject ? { lastSubject: snapshot.eventStream.lastSubject } : {}),
-      ...(snapshot.eventStream.lastEventId ? { lastEventId: snapshot.eventStream.lastEventId } : {}),
-      ...(snapshot.eventStream.lastEventAt ? { lastEventAt: snapshot.eventStream.lastEventAt } : {}),
+      ...(snapshot.eventStream.lastSubject
+        ? { lastSubject: snapshot.eventStream.lastSubject }
+        : {}),
+      ...(snapshot.eventStream.lastEventId
+        ? { lastEventId: snapshot.eventStream.lastEventId }
+        : {}),
+      ...(snapshot.eventStream.lastEventAt
+        ? { lastEventAt: snapshot.eventStream.lastEventAt }
+        : {}),
       ...(snapshot.eventStream.degradationReason
         ? {
             degradationReason: {
@@ -158,7 +168,9 @@ function toOperationalSnapshotResponse(snapshot: MNetOperationalSnapshotFromSche
       ...(sidecar.expiresAt ? { expiresAt: sidecar.expiresAt } : {}),
       healthStatus: sidecar.healthStatus,
       ...(sidecar.checkedAt ? { checkedAt: sidecar.checkedAt } : {}),
-      ...(sidecar.signalReachable !== undefined ? { signalReachable: sidecar.signalReachable } : {}),
+      ...(sidecar.signalReachable !== undefined
+        ? { signalReachable: sidecar.signalReachable }
+        : {}),
       ...(sidecar.relayReachable !== undefined ? { relayReachable: sidecar.relayReachable } : {}),
       ...(sidecar.stunReachable !== undefined ? { stunReachable: sidecar.stunReachable } : {}),
       stale: sidecar.stale,
@@ -166,7 +178,9 @@ function toOperationalSnapshotResponse(snapshot: MNetOperationalSnapshotFromSche
       summary: sidecar.summary
     })),
     topology: {
-      ...(snapshot.topology.topologyRevision ? { topologyRevision: snapshot.topology.topologyRevision } : {}),
+      ...(snapshot.topology.topologyRevision
+        ? { topologyRevision: snapshot.topology.topologyRevision }
+        : {}),
       ...(snapshot.topology.routeClass ? { routeClass: snapshot.topology.routeClass } : {}),
       nodes: snapshot.topology.nodes.map(node => ({ ...node })),
       edges: snapshot.topology.edges.map(edge => ({ ...edge })),

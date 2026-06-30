@@ -149,7 +149,11 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
       projection,
       currentTime()
     )
-    const topologyEdges = buildTopologyEdges(members, latestRelay?.relayId, projection.forcedRelay?.affectedNodeIds)
+    const topologyEdges = buildTopologyEdges(
+      members,
+      latestRelay?.relayId,
+      projection.forcedRelay?.affectedNodeIds
+    )
     const hasObservedCompatibleRuntime = hasObservedV03Runtime(projection)
     const compatibilityMigration: MNetMigrationRequiredFromSchema | null =
       compatibility?.kind === 'migration_required' && !hasObservedCompatibleRuntime
@@ -162,14 +166,13 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
       projection,
       compatibilityMigration
     )
-    const deploymentStatus =
-      readinessReasons.some(reason =>
-        ['migration_required', 'credential_missing', 'credential_expired'].includes(reason.code)
-      )
-        ? 'blocked'
-        : readinessReasons.length > 0
-          ? 'degraded'
-          : 'healthy'
+    const deploymentStatus = readinessReasons.some(reason =>
+      ['migration_required', 'credential_missing', 'credential_expired'].includes(reason.code)
+    )
+      ? 'blocked'
+      : readinessReasons.length > 0
+        ? 'degraded'
+        : 'healthy'
 
     return {
       networkId,
@@ -187,7 +190,9 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
         profileVersion: coerceProfileVersion(networkState.profileVersion),
         displayName: profileDefinition?.displayName ?? networkState.profileVersion,
         schemaVersion: profileDefinition?.schemaVersion ?? 'unknown',
-        region: profileDefinition?.region ?? (networkState.profileVersion.includes('-cn@') ? 'cn' : 'unknown'),
+        region:
+          profileDefinition?.region ??
+          (networkState.profileVersion.includes('-cn@') ? 'cn' : 'unknown'),
         controlPlaneOnly: profileDefinition?.capabilities.controlPlaneOnly ?? false,
         compatibility:
           compatibility === null
@@ -220,7 +225,9 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
             state:
               sidecar?.credentialStatus === 'missing' || sidecar?.credentialStatus === 'expired'
                 ? 'migration_required'
-                : sidecar?.stale || sidecar?.healthStatus === 'degraded' || sidecar?.healthStatus === 'unhealthy'
+                : sidecar?.stale ||
+                    sidecar?.healthStatus === 'degraded' ||
+                    sidecar?.healthStatus === 'unhealthy'
                   ? 'degraded'
                   : sidecar?.healthStatus === 'healthy'
                     ? 'healthy'
@@ -234,15 +241,17 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
             : `${members.length} nodes and ${topologyEdges.length} edges are visible`
       },
       credentials: {
-        status:
-          sidecars.some(item => item.credentialStatus === 'missing' || item.credentialStatus === 'expired')
-            ? 'blocked'
-            : sidecars.some(
-                  item =>
-                    item.credentialStatus === 'pending' || item.credentialStatus === 'rotation_required'
-                )
-              ? 'degraded'
-              : 'healthy',
+        status: sidecars.some(
+          item => item.credentialStatus === 'missing' || item.credentialStatus === 'expired'
+        )
+          ? 'blocked'
+          : sidecars.some(
+                item =>
+                  item.credentialStatus === 'pending' ||
+                  item.credentialStatus === 'rotation_required'
+              )
+            ? 'degraded'
+            : 'healthy',
         nodes: sidecars.map(item => ({
           nodeId: item.nodeId,
           credentialStatus: item.credentialStatus,
@@ -284,7 +293,10 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
       },
       deploymentReadiness: {
         status: deploymentStatus,
-        summary: readinessReasons.length === 0 ? 'Deployment is ready' : `${readinessReasons.length} readiness issue(s)`,
+        summary:
+          readinessReasons.length === 0
+            ? 'Deployment is ready'
+            : `${readinessReasons.length} readiness issue(s)`,
         reasons: readinessReasons
       },
       stateSources: {

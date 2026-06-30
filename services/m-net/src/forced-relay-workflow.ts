@@ -12,13 +12,8 @@ import {
 } from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
 import type { ForcedRelayNodeContext } from './forced-relay-node-context.ts'
-import {
-  profileWorkflowFailure,
-  type ProfileWorkflowFailure
-} from './profile-workflow-types.ts'
-import {
-  isMigrationRequiredFailure
-} from './migration-required-support.ts'
+import { profileWorkflowFailure, type ProfileWorkflowFailure } from './profile-workflow-types.ts'
+import { isMigrationRequiredFailure } from './migration-required-support.ts'
 
 const FORCED_RELAY_COMMAND_ID = 'network.forced-relay.change.execute'
 const FORCED_RELAY_LABEL = '切换强制 Relay 类'
@@ -69,10 +64,9 @@ type ForcedRelayDisabledCode =
   | 'unreachable_node'
   | 'migration_required'
 
-function forcedRelayCommand(resource: string): Extract<
-  CommandWellEligibilityFromSchema,
-  { state: 'enabled' }
->['command'] {
+function forcedRelayCommand(
+  resource: string
+): Extract<CommandWellEligibilityFromSchema, { state: 'enabled' }>['command'] {
   return {
     id: FORCED_RELAY_COMMAND_ID,
     label: FORCED_RELAY_LABEL,
@@ -242,7 +236,9 @@ function nodeCompatibility(node: ForcedRelayNodeContext): MNetNodeV03Compatibili
   return decodeMNetNodeV03Compatibility({
     nodeId: node.nodeId,
     profileVersion:
-      node.networkProfileVersion?.startsWith('m-net-cn@') === true ? 'm-net-cn@0.3.0' : 'm-net@0.3.0',
+      node.networkProfileVersion?.startsWith('m-net-cn@') === true
+        ? 'm-net-cn@0.3.0'
+        : 'm-net@0.3.0',
     transport: node.capabilities.includes(LEGACY_NODE_AGENT_CAPABILITY)
       ? 'wstunnel'
       : 'netbird-sidecar'
@@ -254,7 +250,11 @@ async function resolveForcedRelayTarget(
   nodeId: string
 ): Promise<ResolvedForcedRelayTarget | ProfileWorkflowFailure> {
   if (!deps.profileStore || !deps.describeForcedRelayNode) {
-    return profileWorkflowFailure(503, 'feature.unavailable', 'forced relay workflow is not available')
+    return profileWorkflowFailure(
+      503,
+      'feature.unavailable',
+      'forced relay workflow is not available'
+    )
   }
 
   const node = await deps.describeForcedRelayNode(nodeId)
@@ -265,10 +265,18 @@ async function resolveForcedRelayTarget(
     return profileWorkflowFailure(404, 'node.not_in_network', 'node is not joined to a network')
   }
   if (node.nodeKind !== 'leaf') {
-    return profileWorkflowFailure(409, 'forced_relay.wrong_node_kind', 'forced relay change requires a Leaf node')
+    return profileWorkflowFailure(
+      409,
+      'forced_relay.wrong_node_kind',
+      'forced relay change requires a Leaf node'
+    )
   }
   if (!isReachable(node)) {
-    return profileWorkflowFailure(409, 'forced_relay.node_unreachable', 'selected node is not reachable')
+    return profileWorkflowFailure(
+      409,
+      'forced_relay.node_unreachable',
+      'selected node is not reachable'
+    )
   }
 
   const networkState = await deps.profileStore.getNetworkState(node.networkId)
@@ -320,7 +328,11 @@ export async function deriveForcedRelayEligibility(
       return disabledEligibility('target_missing', resolved.error.message)
     }
     if (isMigrationRequiredFailure(resolved)) {
-      return disabledEligibility('migration_required', resolved.error.message, resolved.error.migration)
+      return disabledEligibility(
+        'migration_required',
+        resolved.error.message,
+        resolved.error.migration
+      )
     }
     if (resolved.error.code === 'forced_relay.wrong_node_kind') {
       return disabledEligibility('wrong_node_kind', '目标不是 Leaf 节点')
@@ -354,7 +366,11 @@ export async function executeForcedRelayChange(
   if ('kind' in resolved) return resolved
 
   if (!deps.policyAuthorize || !deps.log || !deps.ingestOperationalEvent) {
-    return profileWorkflowFailure(503, 'feature.unavailable', 'forced relay execute path is not available')
+    return profileWorkflowFailure(
+      503,
+      'feature.unavailable',
+      'forced relay execute path is not available'
+    )
   }
 
   const resource = `network/${resolved.networkId}/node/${resolved.node.nodeId}`
@@ -378,7 +394,11 @@ export async function executeForcedRelayChange(
         reasons: [...policyDecision.reasons]
       }
     )
-    return profileWorkflowFailure(403, 'policy.denied', `forced relay denied: ${policyDecision.reasons.join(', ')}`)
+    return profileWorkflowFailure(
+      403,
+      'policy.denied',
+      `forced relay denied: ${policyDecision.reasons.join(', ')}`
+    )
   }
 
   const correlationId = (input.correlationIdFactory ?? newUuid)().trim()
@@ -418,14 +438,21 @@ export async function executeForcedRelayChange(
     correlationId
   }
 
-  await deps.log.writeAudit(input.actor, 'mnet.forced-relay.change', resource, 'pending', correlationId, {
-    auditId,
-    eventId,
-    nodeId: resolved.node.nodeId,
-    networkId: resolved.networkId,
-    policyDecisionId: policyDecision.id,
-    reason
-  })
+  await deps.log.writeAudit(
+    input.actor,
+    'mnet.forced-relay.change',
+    resource,
+    'pending',
+    correlationId,
+    {
+      auditId,
+      eventId,
+      nodeId: resolved.node.nodeId,
+      networkId: resolved.networkId,
+      policyDecisionId: policyDecision.id,
+      reason
+    }
+  )
   await deps.log.writeFull('info', 'Applying forced relay change', correlationId, {
     auditId,
     eventId,
@@ -444,7 +471,11 @@ export async function executeForcedRelayChange(
     }
   })
   if ('kind' in ingestResult) {
-    return profileWorkflowFailure(ingestResult.status, ingestResult.error.code, ingestResult.error.message)
+    return profileWorkflowFailure(
+      ingestResult.status,
+      ingestResult.error.code,
+      ingestResult.error.message
+    )
   }
 
   await deps.log.writeTimeline(
@@ -452,16 +483,23 @@ export async function executeForcedRelayChange(
     resource,
     correlationId
   )
-  await deps.log.writeAudit(input.actor, 'mnet.forced-relay.change', resource, 'success', correlationId, {
-    auditId,
-    eventId,
-    nodeId: resolved.node.nodeId,
-    networkId: resolved.networkId,
-    policyDecisionId: policyDecision.id,
-    publishStatus: ingestResult.publishStatus,
-    snapshotStatus: ingestResult.snapshotStatus,
-    reason
-  })
+  await deps.log.writeAudit(
+    input.actor,
+    'mnet.forced-relay.change',
+    resource,
+    'success',
+    correlationId,
+    {
+      auditId,
+      eventId,
+      nodeId: resolved.node.nodeId,
+      networkId: resolved.networkId,
+      policyDecisionId: policyDecision.id,
+      publishStatus: ingestResult.publishStatus,
+      snapshotStatus: ingestResult.snapshotStatus,
+      reason
+    }
+  )
 
   return {
     status: 'applied',

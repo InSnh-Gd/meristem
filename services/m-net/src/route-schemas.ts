@@ -123,10 +123,7 @@ export const executeNoopBodySchema = t.Object({
 })
 
 export const setNetworkProfileBodySchema = t.Object({
-  profileVersion: t.Union([
-    t.Literal('m-net@0.3.0'),
-    t.Literal('m-net-cn@0.3.0')
-  ]),
+  profileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
   reason: t.String({ minLength: 1 })
 })
 

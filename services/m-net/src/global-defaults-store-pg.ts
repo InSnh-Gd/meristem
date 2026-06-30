@@ -205,7 +205,7 @@ export function createPgGlobalDefaultsStore(
             snapshotRows.push({
               operationId,
               networkId,
-                previousProfileVersion: state?.profileVersion ?? 'm-net@0.3.0'
+              previousProfileVersion: state?.profileVersion ?? 'm-net@0.3.0'
             })
           }
         }

@@ -1,5 +1,9 @@
 import { and, eq } from 'drizzle-orm'
-import { mnetNetworkProfileStates, networkMemberships, nodes } from '../../../packages/db/src/schema.ts'
+import {
+  mnetNetworkProfileStates,
+  networkMemberships,
+  nodes
+} from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
 
 export type ForcedRelayNodeContext = {
@@ -13,7 +17,9 @@ export type ForcedRelayNodeContext = {
 }
 
 function asCapabilities(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 /**
@@ -38,7 +44,10 @@ export function createDbForcedRelayNodeContext(db: MNetDb) {
         networkMemberships,
         and(eq(networkMemberships.nodeId, nodes.id), eq(networkMemberships.status, 'joined'))
       )
-      .leftJoin(mnetNetworkProfileStates, eq(mnetNetworkProfileStates.networkId, networkMemberships.networkId))
+      .leftJoin(
+        mnetNetworkProfileStates,
+        eq(mnetNetworkProfileStates.networkId, networkMemberships.networkId)
+      )
       .where(eq(nodes.id, nodeId))
       .limit(1)
 

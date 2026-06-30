@@ -12,9 +12,7 @@ import type { ProfileWorkflowFailure } from './profile-workflow-types.ts'
 
 type NodeRuntimeFacade = {
   authorize(nodeId: string, token: string): Promise<boolean>
-  fetchLatestNetworkMap(
-    nodeId: string
-  ): Promise<
+  fetchLatestNetworkMap(nodeId: string): Promise<
     | {
         map: NetworkMapFromSchema
         sidecar: NodeAgentRuntimeDesiredSidecar
@@ -58,7 +56,10 @@ async function resolveSidecarRuntimeState(
       signalConfigRef: { configRef: 'netbird/signal/migration-required' },
       relayConfigRef: { configRef: 'netbird/relay/migration-required' },
       stunConfigRef: { configRef: 'netbird/stun/migration-required' },
-      sidecarCredentialRef: { provider: 'migration-required', keyPath: 'netbird/sidecar/migration-required' },
+      sidecarCredentialRef: {
+        provider: 'migration-required',
+        keyPath: 'netbird/sidecar/migration-required'
+      },
       desiredState: 'stop',
       credentialStatus: 'missing',
       healthStatus: 'degraded'

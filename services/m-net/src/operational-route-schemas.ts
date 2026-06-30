@@ -39,7 +39,10 @@ export const operationalDegradedReasonSchema = t.Object({
 export const operationalSelectorSchema = t.Union([
   t.Object({ selectorType: t.Literal('all-leaf-nodes'), includeAllLeafNodes: t.Literal(true) }),
   t.Object({ selectorType: t.Literal('node-ids'), nodeIds: t.Array(t.String()) }),
-  t.Object({ selectorType: t.Literal('label-selector'), matchLabels: t.Record(t.String(), t.String()) })
+  t.Object({
+    selectorType: t.Literal('label-selector'),
+    matchLabels: t.Record(t.String(), t.String())
+  })
 ])
 
 export const operationalMigrationSchema = t.Object({
@@ -142,11 +145,7 @@ export const operationalSnapshotResponseSchema = t.Object({
   topology: t.Object({
     topologyRevision: t.Optional(t.String()),
     routeClass: t.Optional(
-      t.Union([
-        t.Literal('standard'),
-        t.Literal('cn-resident'),
-        t.Literal('forced-tcp-relay')
-      ])
+      t.Union([t.Literal('standard'), t.Literal('cn-resident'), t.Literal('forced-tcp-relay')])
     ),
     nodes: t.Array(
       t.Object({
@@ -207,11 +206,7 @@ export const operationalSnapshotResponseSchema = t.Object({
   forcedRelay: t.Object({
     active: t.Boolean(),
     routeClass: t.Optional(
-      t.Union([
-        t.Literal('standard'),
-        t.Literal('cn-resident'),
-        t.Literal('forced-tcp-relay')
-      ])
+      t.Union([t.Literal('standard'), t.Literal('cn-resident'), t.Literal('forced-tcp-relay')])
     ),
     selectorOwnership: t.Optional(t.Union([t.Literal('operator'), t.Literal('policy')])),
     selector: t.Optional(operationalSelectorSchema),

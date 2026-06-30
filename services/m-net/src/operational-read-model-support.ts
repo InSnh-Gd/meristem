@@ -20,19 +20,37 @@ export type ProjectionState = {
   }
   sidecarLifecycleByNode: Map<
     string,
-    Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.sidecar.lifecycle.v0' }>['payload']
+    Extract<
+      MNetOperationalEventIngestRequestFromSchema['event'],
+      { subject: 'mnet.sidecar.lifecycle.v0' }
+    >['payload']
   >
   sidecarHealthByNode: Map<
     string,
-    Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.sidecar.health.v0' }>['payload']
+    Extract<
+      MNetOperationalEventIngestRequestFromSchema['event'],
+      { subject: 'mnet.sidecar.health.v0' }
+    >['payload']
   >
   credentialByNode: Map<
     string,
-    Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.credential.expiry.v0' }>['payload']
+    Extract<
+      MNetOperationalEventIngestRequestFromSchema['event'],
+      { subject: 'mnet.credential.expiry.v0' }
+    >['payload']
   >
-  topology?: Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.topology.update.v0' }>['payload']
-  migration?: Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.migration.required.v0' }>['payload']
-  forcedRelay?: Extract<MNetOperationalEventIngestRequestFromSchema['event'], { subject: 'mnet.forced_relay.change.v0' }>['payload']
+  topology?: Extract<
+    MNetOperationalEventIngestRequestFromSchema['event'],
+    { subject: 'mnet.topology.update.v0' }
+  >['payload']
+  migration?: Extract<
+    MNetOperationalEventIngestRequestFromSchema['event'],
+    { subject: 'mnet.migration.required.v0' }
+  >['payload']
+  forcedRelay?: Extract<
+    MNetOperationalEventIngestRequestFromSchema['event'],
+    { subject: 'mnet.forced_relay.change.v0' }
+  >['payload']
 }
 
 export type OperationalSnapshotFailure = {
@@ -68,16 +86,22 @@ export function buildSidecars(
       ? Math.max(0, observedAt.getTime() - Date.parse(health.checkedAt))
       : undefined
     const stale = staleForMs !== undefined && staleForMs > STALE_REPORT_MS
-    const credentialStatus = credential?.credentialStatus ?? lifecycle?.credentialStatus ?? inferCredentialStatus({
-      expectsSidecar,
-      hasHealthReport: Boolean(health)
-    })
+    const credentialStatus =
+      credential?.credentialStatus ??
+      lifecycle?.credentialStatus ??
+      inferCredentialStatus({
+        expectsSidecar,
+        hasHealthReport: Boolean(health)
+      })
 
     return {
       nodeId: member.nodeId,
       nodeKind: member.nodeKind,
       profileVersion: coerceProfileVersion(
-        health?.profileVersion ?? credential?.profileVersion ?? lifecycle?.profileVersion ?? profileVersion
+        health?.profileVersion ??
+          credential?.profileVersion ??
+          lifecycle?.profileVersion ??
+          profileVersion
       ),
       ...(lifecycle ? { desiredState: lifecycle.desiredState } : {}),
       credentialStatus,
@@ -90,7 +114,12 @@ export function buildSidecars(
       ...(health ? { stunReachable: health.stunReachable } : {}),
       stale,
       ...(staleForMs !== undefined ? { staleForMs } : {}),
-      summary: summarizeSidecar(health?.healthStatus, credentialStatus, stale, lifecycle?.desiredState)
+      summary: summarizeSidecar(
+        health?.healthStatus,
+        credentialStatus,
+        stale,
+        lifecycle?.desiredState
+      )
     }
   })
 }
@@ -138,7 +167,8 @@ export function buildReadinessReasons(
   const reasons: ReadinessReason[] = []
 
   if (projection.degradedReason) reasons.push(projection.degradedReason)
-  if (members.length === 0) reasons.push({ code: 'network_not_ready', message: 'network has no joined nodes' })
+  if (members.length === 0)
+    reasons.push({ code: 'network_not_ready', message: 'network has no joined nodes' })
   if (sidecars.length > 0 && topologyEdgeCount === 0) {
     reasons.push({ code: 'topology_missing', message: 'topology has no edges yet' })
   }
@@ -167,10 +197,16 @@ export function buildReadinessReasons(
       })
     }
     if (sidecar.credentialStatus === 'missing') {
-      reasons.push({ code: 'credential_missing', message: `credential missing for ${sidecar.nodeId}` })
+      reasons.push({
+        code: 'credential_missing',
+        message: `credential missing for ${sidecar.nodeId}`
+      })
     }
     if (sidecar.credentialStatus === 'expired') {
-      reasons.push({ code: 'credential_expired', message: `credential expired for ${sidecar.nodeId}` })
+      reasons.push({
+        code: 'credential_expired',
+        message: `credential expired for ${sidecar.nodeId}`
+      })
     }
     if (sidecar.credentialStatus === 'rotation_required') {
       reasons.push({
@@ -234,7 +270,8 @@ export function hasObservedV03Runtime(projection: ProjectionState): boolean {
 }
 
 export function readCorrelationId(payload: unknown): string | undefined {
-  if (typeof payload !== 'object' || payload === null || !('correlationId' in payload)) return undefined
+  if (typeof payload !== 'object' || payload === null || !('correlationId' in payload))
+    return undefined
   const value = payload.correlationId
   return typeof value === 'string' ? value : undefined
 }
@@ -251,7 +288,9 @@ function summarizeSidecar(
   if (credentialStatus === 'missing') return 'Credential is missing'
   if (credentialStatus === 'expired') return 'Credential has expired'
   if (credentialStatus === 'rotation_required') return 'Credential rotation is required'
-  return desiredState ? `Desired sidecar state is ${desiredState}` : 'Waiting for first runtime report'
+  return desiredState
+    ? `Desired sidecar state is ${desiredState}`
+    : 'Waiting for first runtime report'
 }
 
 function inferCredentialStatus(input: {

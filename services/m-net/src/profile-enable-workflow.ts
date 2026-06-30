@@ -70,13 +70,15 @@ export async function requestEnableProfile(
       ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
     })
     if (isProfileWorkflowFailure(dataPlaneDeps)) return dataPlaneDeps
-      return enableDataPlaneProfile(dataPlaneDeps, {
-        actor: input.actor,
-        networkId: input.networkId,
-        reason: input.reason,
-        profileVersion: input.profileVersion as typeof CHINA_DATA_PLANE_PROFILE_VERSION | 'm-net-cn@0.3.0'
-      })
-    }
+    return enableDataPlaneProfile(dataPlaneDeps, {
+      actor: input.actor,
+      networkId: input.networkId,
+      reason: input.reason,
+      profileVersion: input.profileVersion as
+        | typeof CHINA_DATA_PLANE_PROFILE_VERSION
+        | 'm-net-cn@0.3.0'
+    })
+  }
 
   const pending = await createPendingApprovalFlow(deps, {
     actor: input.actor,

@@ -50,9 +50,7 @@ export type MNetAppDeps = {
         error: { code: string; message: string }
       }
   >
-  ingestOperationalEvent?: (
-    input: MNetOperationalEventIngestRequestFromSchema
-  ) => Promise<
+  ingestOperationalEvent?: (input: MNetOperationalEventIngestRequestFromSchema) => Promise<
     | MNetOperationalEventIngestResponseFromSchema
     | {
         kind: 'failure'
@@ -185,9 +183,7 @@ export type MNetAppDeps = {
   /** node-agent runtime-token authenticated boundary for map reads and key registration */
   nodeRuntime?: {
     authorize(nodeId: string, token: string): Promise<boolean>
-    fetchLatestNetworkMap(
-      nodeId: string
-    ): Promise<
+    fetchLatestNetworkMap(nodeId: string): Promise<
       | {
           map: NetworkMapFromSchema
           sidecar: NodeAgentRuntimeDesiredSidecar

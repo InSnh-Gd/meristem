@@ -13,7 +13,11 @@ import {
   MNetProfileV03VersionSchema
 } from '../../../packages/contracts/src/index.ts'
 import * as Schema from 'effect/Schema'
-import { mnetNetworkProfileStates, networkMemberships, nodes } from '../../../packages/db/src/schema.ts'
+import {
+  mnetNetworkProfileStates,
+  networkMemberships,
+  nodes
+} from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
 import {
   type ProfileWorkflowFailure,
@@ -51,7 +55,9 @@ type MigrationReportDeps = {
 }
 
 function asCapabilities(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 function hasLegacyNodeAgentCapability(node: JoinedNodeRow): boolean {
@@ -62,7 +68,10 @@ function targetProfileVersionFor(profileVersion: string): 'm-net@0.3.0' | 'm-net
   return profileVersion.startsWith('m-net-cn@') ? 'm-net-cn@0.3.0' : 'm-net@0.3.0'
 }
 
-function profileMigrationFor(profileId: string, profileVersion: string): MNetMigrationRequired | null {
+function profileMigrationFor(
+  profileId: string,
+  profileVersion: string
+): MNetMigrationRequired | null {
   try {
     Schema.decodeUnknownSync(MNetProfileV03VersionSchema)(profileVersion)
     return null
@@ -70,10 +79,11 @@ function profileMigrationFor(profileId: string, profileVersion: string): MNetMig
     // keep legacy compatibility path
   }
 
-  const compatibility: MNetProfileV03CompatibilityResultFromSchema = decodeMNetProfileV03Compatibility({
-    profileId,
-    profileVersion
-  })
+  const compatibility: MNetProfileV03CompatibilityResultFromSchema =
+    decodeMNetProfileV03Compatibility({
+      profileId,
+      profileVersion
+    })
   return compatibility.kind === 'migration_required' ? compatibility.migration : null
 }
 
@@ -89,7 +99,11 @@ function nodeMigrationFor(node: JoinedNodeRow): MNetMigrationRequired | null {
   return compatibility.kind === 'migration_required' ? compatibility.migration : null
 }
 
-function resourceItem(resourceKind: 'profile' | 'node', resourceId: string, migration: MNetMigrationRequired) {
+function resourceItem(
+  resourceKind: 'profile' | 'node',
+  resourceId: string,
+  migration: MNetMigrationRequired
+) {
   const item: MNetMigrationReportItemFromSchema = { resourceKind, resourceId, migration }
   return item
 }
@@ -112,7 +126,10 @@ async function listJoinedNodes(db: MNetDb): Promise<JoinedNodeRow[]> {
       networkMemberships,
       and(eq(networkMemberships.nodeId, nodes.id), eq(networkMemberships.status, 'joined'))
     )
-    .leftJoin(mnetNetworkProfileStates, eq(mnetNetworkProfileStates.networkId, networkMemberships.networkId))
+    .leftJoin(
+      mnetNetworkProfileStates,
+      eq(mnetNetworkProfileStates.networkId, networkMemberships.networkId)
+    )
 }
 
 function migrationFailure(
@@ -131,7 +148,9 @@ function migrationFailure(
   }
 }
 
-export async function buildMigrationReport(deps: MigrationReportDeps): Promise<MNetMigrationReportFromSchema> {
+export async function buildMigrationReport(
+  deps: MigrationReportDeps
+): Promise<MNetMigrationReportFromSchema> {
   const generatedAt = new Date().toISOString()
   const items: MNetMigrationReportItemFromSchema[] = []
 

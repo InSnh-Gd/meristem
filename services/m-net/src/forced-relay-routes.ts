@@ -20,7 +20,12 @@ const forcedRelayEligibilitySchema = t.Union([
       label: t.String(),
       action: t.String(),
       resource: t.String(),
-      risk: t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Literal('critical')]),
+      risk: t.Union([
+        t.Literal('low'),
+        t.Literal('medium'),
+        t.Literal('high'),
+        t.Literal('critical')
+      ]),
       requiredPermissions: t.Array(t.String()),
       requiresPolicy: t.Boolean(),
       requiresAudit: t.Boolean()
@@ -51,7 +56,12 @@ const forcedRelayResultSchema = t.Object({
   eventId: t.String(),
   correlationId: t.String(),
   publishStatus: t.Union([t.Literal('published'), t.Literal('degraded')]),
-  snapshotStatus: t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('blocked'), t.Literal('unknown')])
+  snapshotStatus: t.Union([
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('blocked'),
+    t.Literal('unknown')
+  ])
 })
 
 const externalErrorSchema = t.Object({
@@ -121,14 +131,17 @@ export function createForcedRelayRoutes(
           401: externalErrorSchema,
           403: externalErrorSchema,
           404: externalErrorSchema,
-          409: t.Union([externalErrorSchema, t.Object({
-            error: t.Object({
-              code: t.Literal('migration_required'),
-              message: t.String(),
-              correlationId: t.Optional(t.String()),
-              migration: t.Any()
+          409: t.Union([
+            externalErrorSchema,
+            t.Object({
+              error: t.Object({
+                code: t.Literal('migration_required'),
+                message: t.String(),
+                correlationId: t.Optional(t.String()),
+                migration: t.Any()
+              })
             })
-          })]),
+          ]),
           503: externalErrorSchema
         }
       }
