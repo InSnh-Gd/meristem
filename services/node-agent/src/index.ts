@@ -9,6 +9,11 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import {
+  applySidecarDesiredState,
+  stopSidecarLifecycle,
+  type NodeAgentLifecycleState
+} from './node-agent-sidecar-lifecycle.ts'
+import {
   createInitialEnforcementState,
   type LocalOverlayEnv,
   loadLocalOverlayEnv,
@@ -52,6 +57,12 @@ let currentWireGuardKey: WireGuardKeyMaterial | null = null
 let currentPublicEndpoint: string | null = null
 let stunDiscoveryAttempted = false
 let currentEnforcementState = createInitialEnforcementState('network-pending')
+let currentLifecycleState: NodeAgentLifecycleState = stopSidecarLifecycle({
+  desiredState: 'stop',
+  observedAt: new Date(0).toISOString(),
+  correlationId: 'node-agent-bootstrap',
+  reason: 'profile_disabled'
+})
 const localOverlayEnv: LocalOverlayEnv = loadLocalOverlayEnv()
 let socket: WebSocket | null = null
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -105,8 +116,9 @@ function startHeartbeat(): void {
       type: 'heartbeat',
       sessionId: currentSessionId,
       agentVersion,
-      reportedStatus: 'healthy',
-      timestamp: new Date().toISOString()
+      reportedStatus: currentLifecycleState.runtimeStatus.kind === 'healthy' ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      runtimeStatus: currentLifecycleState.runtimeStatus
     })
   }, heartbeatIntervalMs())
 }
@@ -220,6 +232,26 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     return
   }
 
+  const observedAt = new Date().toISOString()
+  const lifecycleCorrelationId = crypto.randomUUID()
+  currentLifecycleState = await applySidecarDesiredState({
+    nodeId,
+    correlationId: lifecycleCorrelationId,
+    observedAt,
+    desired: latestMap.sidecar,
+    runtimeMap: {
+      networkId: latestMap.map.networkId,
+      mapVersion: latestMap.map.mapVersion
+    }
+  })
+
+  if (currentLifecycleState.runtimeStatus.kind !== 'healthy') {
+    forwardLog('warn', 'node sidecar lifecycle is degraded', lifecycleCorrelationId, {
+      nodeId,
+      runtimeStatus: currentLifecycleState.runtimeStatus
+    })
+  }
+
   const localOverlay = await reconcileLocalOverlay({
     env: localOverlayEnv,
     map: latestMap.map,
@@ -252,6 +284,7 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     mapVersion: latestMap.map.mapVersion,
     mode,
     configHash: localOverlay.configHash,
+    sidecarStatus: currentLifecycleState.runtimeStatus,
     interfaceName: localOverlayEnv.interfaceName,
     localTunnelIp: localOverlay.localTunnelIp
   })
@@ -290,6 +323,16 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
   )
   triggerRuntimeSync(message.type === 'join.accepted' ? 'join' : 'resume')
   startRuntimeSyncLoop()
+}
+
+function stopLifecycle(reason: 'break_glass_stop' | 'profile_disabled'): void {
+  currentLifecycleState = stopSidecarLifecycle({
+    desiredState: currentLifecycleState.runtimeStatus.desiredState,
+    observedAt: new Date().toISOString(),
+    correlationId: crypto.randomUUID(),
+    reason,
+    process: currentLifecycleState.process
+  })
 }
 
 /**
@@ -386,6 +429,7 @@ function connect(): void {
             message.code === 'nodeagent.invalid_token' ||
             (!runtimeToken && message.code.startsWith('node.join_ticket_'))
           ) {
+            stopLifecycle('profile_disabled')
             stopping = true
             ws.close()
           }
@@ -407,6 +451,7 @@ function connect(): void {
   ws.onclose = () => {
     stopHeartbeat()
     stopRuntimeSyncLoop()
+    stopLifecycle('break_glass_stop')
     currentSessionId = null
     if (!stopping) scheduleReconnect()
   }

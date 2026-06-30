@@ -2,12 +2,17 @@ import * as Either from 'effect/Either'
 import * as Schema from 'effect/Schema'
 import type {
   JoinAcceptedMessage,
+  NodeAgentRuntimeDesiredSidecar,
   SessionErrorMessage
 } from '../../../packages/contracts/src/index.ts'
 import {
+  MNetSidecarCredentialStatusSchema,
+  MNetSidecarDesiredStateSchema,
+  MNetSidecarHealthStatusSchema,
   type NetworkMapFromSchema,
-  NetworkMapSchema
-} from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+  NetworkMapSchema,
+  SecretRefSchema
+} from '../../../packages/contracts/src/index.ts'
 
 export type SessionAckMessage = {
   type: 'session.ack'
@@ -69,6 +74,7 @@ export type RuntimeNetworkMapResult =
   | {
       kind: 'runtime.network_map.fetched'
       map: NetworkMapFromSchema
+      sidecar: NodeAgentRuntimeDesiredSidecar
     }
   | {
       kind: 'runtime.request_failed'
@@ -183,7 +189,17 @@ const NodeRuntimeKeyRegistrationResponseSchema = Schema.Struct({
 })
 
 const NodeRuntimeNetworkMapResponseSchema = Schema.Struct({
-  map: NetworkMapSchema
+  map: NetworkMapSchema,
+  sidecar: Schema.Struct({
+    signalConfigRef: Schema.Struct({ configRef: Schema.String }),
+    relayConfigRef: Schema.Struct({ configRef: Schema.String }),
+    stunConfigRef: Schema.Struct({ configRef: Schema.String }),
+    sidecarCredentialRef: SecretRefSchema,
+    desiredState: MNetSidecarDesiredStateSchema,
+    credentialStatus: MNetSidecarCredentialStatusSchema,
+    healthStatus: MNetSidecarHealthStatusSchema,
+    configHash: Schema.optional(Schema.String)
+  })
 })
 
 const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownEither(
@@ -192,6 +208,28 @@ const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownEither(
 const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownEither(
   NodeRuntimeNetworkMapResponseSchema
 )
+
+function normalizeDesiredSidecar(payload: {
+  signalConfigRef: { configRef: string }
+  relayConfigRef: { configRef: string }
+  stunConfigRef: { configRef: string }
+  sidecarCredentialRef: NodeAgentRuntimeDesiredSidecar['sidecarCredentialRef']
+  desiredState: NodeAgentRuntimeDesiredSidecar['desiredState']
+  credentialStatus: NodeAgentRuntimeDesiredSidecar['credentialStatus']
+  healthStatus: NodeAgentRuntimeDesiredSidecar['healthStatus']
+  configHash?: string | undefined
+}): NodeAgentRuntimeDesiredSidecar {
+  return {
+    signalConfigRef: payload.signalConfigRef,
+    relayConfigRef: payload.relayConfigRef,
+    stunConfigRef: payload.stunConfigRef,
+    sidecarCredentialRef: payload.sidecarCredentialRef,
+    desiredState: payload.desiredState,
+    credentialStatus: payload.credentialStatus,
+    healthStatus: payload.healthStatus,
+    ...(typeof payload.configHash === 'string' ? { configHash: payload.configHash } : {})
+  }
+}
 
 function isNonEmptyString(value: string): boolean {
   return value.trim().length > 0
@@ -299,7 +337,11 @@ export async function fetchLatestNodeRuntimeNetworkMap(
       return { kind: 'runtime.request_failed', reason: 'runtime network-map response is invalid' }
     }
 
-    return { kind: 'runtime.network_map.fetched', map: payload.right.map }
+    return {
+      kind: 'runtime.network_map.fetched',
+      map: payload.right.map,
+      sidecar: normalizeDesiredSidecar(payload.right.sidecar)
+    }
   } catch (error) {
     return {
       kind: 'runtime.request_failed',
