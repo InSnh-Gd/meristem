@@ -11,7 +11,9 @@ if (!secret) {
 }
 
 if (!isActorId(actor)) {
-  console.error('Usage: bun run token:mint --actor viewer|operator|admin|security-admin')
+  console.error(
+    'Usage: bun run token:mint --actor viewer|operator|admin|security-admin|break-glass-reviewer'
+  )
   process.exit(1)
 }
 

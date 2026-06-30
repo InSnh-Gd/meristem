@@ -17,4 +17,23 @@ export {
   verifyLocalToken
 } from './actor-tokens.ts'
 export { hashNodeToken, mintNodeToken } from './node-tokens.ts'
+export {
+  createOidcAuthProvider,
+  oidcSupportedAlgorithms,
+  redactOidcAuthMaterial
+} from './oidc-provider.ts'
+export type {
+  OidcAuthConfig,
+  OidcAuthProvider,
+  OidcAuthProviderDeps,
+  OidcActorSession,
+  OidcAuthFailure,
+  OidcDiscoveryDocument,
+  OidcDiscoveryResult,
+  OidcProviderDependencies,
+  OidcRedactedLogContext,
+  OidcSupportedAlgorithm,
+  OidcTokenState,
+  VerifyOidcAccessTokenInput
+} from './oidc-provider.ts'
 export { extractBearerToken, isActorId } from './shared.ts'

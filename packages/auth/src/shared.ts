@@ -6,7 +6,13 @@ export const defaultAudience = 'meristem-core'
 export const serviceAudience = 'meristem-service'
 export const alg = 'HS256'
 
-const actors: readonly ActorId[] = ['viewer', 'operator', 'admin', 'security-admin']
+const actors: readonly ActorId[] = [
+  'viewer',
+  'operator',
+  'admin',
+  'security-admin',
+  'break-glass-reviewer'
+]
 
 export function isActorId(value: unknown): value is ActorId {
   return typeof value === 'string' && actors.includes(value as ActorId)
