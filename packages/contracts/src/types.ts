@@ -1,4 +1,8 @@
 import type { ActorId, Permission } from './literals.ts'
+import type {
+  RedactedSecretRefFromSchema,
+  SecretRefFromSchema
+} from './schemas/secret-provider.ts'
 
 export type { ActorId, Permission } from './literals.ts'
 export type {
@@ -12,6 +16,59 @@ export type {
   RevokeNodeCredentialResponse
 } from './types/core-node-credentials.ts'
 export type DependencyState = 'ready' | 'unavailable'
+
+export type NodeAgentRuntimeStatusKind = 'starting' | 'healthy' | 'degraded' | 'stopped' | 'failed'
+
+export type NodeAgentDegradedReasonCode =
+  | 'expired_credentials'
+  | 'missing_signal'
+  | 'missing_relay'
+  | 'missing_stun'
+  | 'sidecar_crash'
+  | 'config_drift'
+  | 'secret_resolution_failed'
+  | 'break_glass_stop'
+  | 'profile_disabled'
+
+export type NodeAgentRedactedSecretRef = RedactedSecretRefFromSchema
+
+export type NodeAgentRuntimeDesiredSidecar = {
+  signalConfigRef: { configRef: string }
+  relayConfigRef: { configRef: string }
+  stunConfigRef: { configRef: string }
+  sidecarCredentialRef: SecretRefFromSchema
+  desiredState: 'install' | 'configure' | 'start' | 'drain' | 'stop'
+  credentialStatus: 'missing' | 'pending' | 'ready' | 'expired' | 'rotation_required'
+  healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  configHash?: string
+}
+
+export type NodeAgentRuntimeDependencyStatus = {
+  signal: DependencyState
+  relay: DependencyState
+  stun: DependencyState
+}
+
+export type NodeAgentRuntimeDegradedReason = {
+  code: NodeAgentDegradedReasonCode
+  message: string
+  detail?: string
+}
+
+export type NodeAgentRuntimeStatus = {
+  kind: NodeAgentRuntimeStatusKind
+  desiredState: 'install' | 'configure' | 'start' | 'drain' | 'stop'
+  credentialStatus: 'missing' | 'pending' | 'ready' | 'expired' | 'rotation_required'
+  healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  configHash?: string
+  sidecarConfigPath?: string
+  processRef?: string
+  correlationId: string
+  observedAt: string
+  dependencies: NodeAgentRuntimeDependencyStatus
+  degradedReasons: NodeAgentRuntimeDegradedReason[]
+  credentialRef?: NodeAgentRedactedSecretRef
+}
 
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。
 export type CoreDependencyName = 'postgres' | 'nats' | 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net'
@@ -78,7 +135,7 @@ export type IdentityActorStatus = 'active' | 'disabled'
 export type IdentityTokenStatus = 'active' | 'revoked' | 'expired'
 
 export interface IdentityActorV02 {
-  readonly id: 'viewer' | 'operator' | 'admin' | 'security-admin'
+  readonly id: ActorId
   readonly displayName: string
   readonly status: IdentityActorStatus
   readonly createdAt: string
@@ -87,22 +144,22 @@ export interface IdentityActorV02 {
 
 export interface ActorTokenV02 {
   readonly jti: string
-  readonly actor: IdentityActorV02['id']
+  readonly actor: ActorId
   readonly issuer: 'meristem-local'
   readonly audience: 'meristem-core' | 'meristem-service'
   readonly issuedAt: string
   readonly expiresAt: string
-  readonly issuedBy: IdentityActorV02['id']
+  readonly issuedBy: ActorId
   readonly purpose: string
   readonly status: IdentityTokenStatus
   readonly revokedAt?: string
-  readonly revokedBy?: IdentityActorV02['id']
+  readonly revokedBy?: ActorId
   readonly revokeReason?: string
 }
 
 export interface TokenIntrospectionResult {
   readonly active: boolean
-  readonly actor?: IdentityActorV02['id']
+  readonly actor?: ActorId
   readonly jti?: string
   readonly status?: IdentityTokenStatus
   readonly expiresAt?: string
@@ -335,6 +392,7 @@ export type SessionHeartbeatMessage = {
   agentVersion: string
   reportedStatus: 'healthy' | 'degraded'
   timestamp: string
+  runtimeStatus?: NodeAgentRuntimeStatus
 }
 
 export type SessionLogForwardMessage = {

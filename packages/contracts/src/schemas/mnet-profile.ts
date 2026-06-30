@@ -1,117 +1,49 @@
 import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
-import { MNetRuntimeConfigSchema } from './runtime-config.ts'
+import { MNetRegionalProfileV03Schema } from './mnet-profile-v03.ts'
 
-export const MNetProfileVersionSchema = Schema.Literal(
+export const MNetActiveProfileVersionSchema = Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0')
+export type MNetActiveProfileVersionFromSchema = typeof MNetActiveProfileVersionSchema.Type
+
+export const MNetProfileVersionSchema = Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0')
+export type MNetProfileVersionFromSchema = typeof MNetProfileVersionSchema.Type
+
+export const MNetHistoricalProfileVersionSchema = Schema.Literal(
+  'm-net-default@0.1.0',
   'm-net-cn@0.1.0',
   'm-net-cn@0.2.0',
-  'm-net-default@0.1.0'
+  'm-net@0.3.0',
+  'm-net-cn@0.3.0'
 )
-export type MNetProfileVersionFromSchema = typeof MNetProfileVersionSchema.Type
+export type MNetHistoricalProfileVersionFromSchema = typeof MNetHistoricalProfileVersionSchema.Type
 
 export const MNetProfileRegionSchema = Schema.Literal('cn', 'default')
 export type MNetProfileRegionFromSchema = typeof MNetProfileRegionSchema.Type
 
 export const MNetProfileSchemaVersionSchema = Schema.Literal(
   'mnet-profile@0.1.0',
-  'mnet-profile@0.2.0'
+  'mnet-profile@0.2.0',
+  'mnet-profile@0.3.0'
 )
 export type MNetProfileSchemaVersionFromSchema = typeof MNetProfileSchemaVersionSchema.Type
 
-export const MNetRegionalProfileCapabilitiesSchema = Schema.Struct({
-  realWstunnelRelay: Schema.Literal(false),
-  realTcpInterconnect: Schema.Literal(false),
-  realUdpPathSwitching: Schema.Literal(false),
-  controlPlaneOnly: Schema.Boolean,
-  realWireGuardTunnel: Schema.optional(Schema.Boolean),
-  realRelayFallback: Schema.optional(Schema.Boolean)
-})
-export type MNetRegionalProfileCapabilitiesFromSchema =
-  typeof MNetRegionalProfileCapabilitiesSchema.Type
-
-const MNetRegionalProfileBaseSchema = Schema.Struct({
-  profileVersion: MNetProfileVersionSchema,
-  region: MNetProfileRegionSchema,
-  displayName: Schema.String,
-  schemaVersion: MNetProfileSchemaVersionSchema,
-  status: Schema.Literal('available', 'deprecated'),
-  rules: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  capabilities: MNetRegionalProfileCapabilitiesSchema,
-  runtimeConfig: Schema.optional(MNetRuntimeConfigSchema)
-})
-
-export const MNetRegionalProfileSchema = MNetRegionalProfileBaseSchema.pipe(
+export const LegacyMNetRegionalProfileSchema = MNetRegionalProfileV03Schema.pipe(
   Schema.filter(profile => {
     const issues: Array<Schema.FilterIssue> = []
 
-    if (profile.profileVersion === 'm-net-cn@0.2.0') {
-      if (profile.schemaVersion !== 'mnet-profile@0.2.0') {
-        issues.push({
-          path: ['schemaVersion'],
-          message: '0.2.0 profiles require mnet-profile@0.2.0'
-        })
-      }
-      if (profile.capabilities.controlPlaneOnly !== false) {
-        issues.push({
-          path: ['capabilities', 'controlPlaneOnly'],
-          message: '0.2.0 profiles enable the data plane'
-        })
-      }
-      if (profile.capabilities.realWireGuardTunnel !== true) {
-        issues.push({
-          path: ['capabilities', 'realWireGuardTunnel'],
-          message: '0.2.0 profiles require WireGuard tunnel capability'
-        })
-      }
-      if (profile.capabilities.realRelayFallback !== true) {
-        issues.push({
-          path: ['capabilities', 'realRelayFallback'],
-          message: '0.2.0 profiles require relay fallback capability'
-        })
-      }
-      if (profile.runtimeConfig === undefined) {
-        issues.push({ path: ['runtimeConfig'], message: '0.2.0 profiles require runtimeConfig' })
-      }
-      return issues
-    }
-
-    if (profile.schemaVersion !== 'mnet-profile@0.1.0') {
-      issues.push({ path: ['schemaVersion'], message: '0.1.0 profiles require mnet-profile@0.1.0' })
-    }
-    if (
-      profile.profileVersion === 'm-net-cn@0.1.0' &&
-      profile.capabilities.controlPlaneOnly !== true
-    ) {
-      issues.push({
-        path: ['capabilities', 'controlPlaneOnly'],
-        message: 'm-net-cn@0.1.0 stays control-plane only'
-      })
-    }
-    if (profile.capabilities.realWireGuardTunnel !== undefined) {
-      issues.push({
-        path: ['capabilities', 'realWireGuardTunnel'],
-        message: '0.1.x profiles do not expose WireGuard capability'
-      })
-    }
-    if (profile.capabilities.realRelayFallback !== undefined) {
-      issues.push({
-        path: ['capabilities', 'realRelayFallback'],
-        message: '0.1.x profiles do not expose relay fallback capability'
-      })
-    }
-    if (profile.runtimeConfig !== undefined) {
-      issues.push({
-        path: ['runtimeConfig'],
-        message: '0.1.x profiles do not expose runtimeConfig'
-      })
+    if (profile.schemaVersion !== 'mnet-profile@0.3.0') {
+      issues.push({ path: ['schemaVersion'], message: 'v0.3 profiles require mnet-profile@0.3.0' })
     }
     return issues
   })
 )
+export type LegacyMNetRegionalProfileFromSchema = typeof LegacyMNetRegionalProfileSchema.Type
+
+export const MNetRegionalProfileSchema = MNetRegionalProfileV03Schema
 export type MNetRegionalProfileFromSchema = typeof MNetRegionalProfileSchema.Type
 
 export const SetNetworkProfileRequestSchema = Schema.Struct({
-  profileVersion: MNetProfileVersionSchema,
+  profileVersion: MNetActiveProfileVersionSchema,
   reason: Schema.String
 })
 export type SetNetworkProfileRequestFromSchema = typeof SetNetworkProfileRequestSchema.Type
@@ -127,7 +59,7 @@ export type NetworkProfileStateFromSchema = typeof NetworkProfileStateSchema.Typ
 
 export const NetworkProfileSummarySchema = Schema.Struct({
   networkId: Schema.String,
-  profileVersion: MNetProfileVersionSchema,
+  profileVersion: MNetHistoricalProfileVersionSchema,
   status: NetworkProfileStateSchema,
   enabledBy: Schema.optional(Schema.Literal(...actorIds)),
   policyDecisionId: Schema.optional(Schema.String),
@@ -154,8 +86,8 @@ export const NetworkSuspendedOperationSchema = Schema.Struct({
   policyDecisionId: Schema.String,
   action: Schema.Literal('mnet.profile.enable', 'mnet.profile.disable'),
   networkId: Schema.String,
-  fromProfileVersion: MNetProfileVersionSchema,
-  toProfileVersion: MNetProfileVersionSchema,
+  fromProfileVersion: MNetHistoricalProfileVersionSchema,
+  toProfileVersion: MNetHistoricalProfileVersionSchema,
   requestedBy: Schema.Literal(...actorIds),
   reason: Schema.String,
   correlationId: Schema.String,
@@ -187,8 +119,8 @@ export type MNetProfileEventSubjectFromSchema = typeof MNetProfileEventSubjectSc
 
 export const MNetProfileEventPayloadSchema = Schema.Struct({
   networkId: Schema.String,
-  fromProfileVersion: MNetProfileVersionSchema,
-  toProfileVersion: MNetProfileVersionSchema,
+  fromProfileVersion: MNetHistoricalProfileVersionSchema,
+  toProfileVersion: MNetHistoricalProfileVersionSchema,
   actor: Schema.Union(Schema.Literal(...actorIds), Schema.Literal('system')),
   policyDecisionId: Schema.String,
   approvalId: Schema.optional(Schema.String),
@@ -201,7 +133,7 @@ export type MNetProfileEventPayloadFromSchema = typeof MNetProfileEventPayloadSc
 
 /** 全局默认 Profile 更新事件 payload（DFW-014） */
 export const MNetProfileDefaultsUpdatedEventPayloadSchema = Schema.Struct({
-  defaultProfileVersion: MNetProfileVersionSchema,
+  defaultProfileVersion: MNetActiveProfileVersionSchema,
   actor: Schema.Literal(...actorIds),
   reason: Schema.String,
   correlationId: Schema.String,
@@ -275,7 +207,7 @@ export const NetworkMapSigningMetadataSchema = Schema.Struct({
 export type NetworkMapSigningMetadataFromSchema = typeof NetworkMapSigningMetadataSchema.Type
 
 export const NetworkMapSchema = Schema.Struct({
-  profileVersion: MNetProfileVersionSchema,
+  profileVersion: MNetActiveProfileVersionSchema,
   networkId: Schema.String,
   members: Schema.Array(NetworkMapMemberSchema),
   aclRules: Schema.Array(AclRuleSchema),
@@ -402,7 +334,7 @@ export type SetNetworkProfilePendingApprovalResponseFromSchema =
 
 export const SetNetworkProfileDisabledResponseSchema = Schema.Struct({
   status: Schema.Literal('disabled'),
-  profileVersion: MNetProfileVersionSchema,
+  profileVersion: MNetActiveProfileVersionSchema,
   correlationId: Schema.String
 })
 export type SetNetworkProfileDisabledResponseFromSchema =
@@ -418,7 +350,7 @@ export type MNetDataPlaneActivationStatusFromSchema =
 
 export const SetNetworkProfileDataPlaneActivatedResponseSchema = Schema.Struct({
   status: Schema.Literal('activated'),
-  profileVersion: Schema.Literal('m-net-cn@0.2.0'),
+  profileVersion: Schema.Literal('m-net-cn@0.3.0'),
   operationId: Schema.String,
   networkMap: MNetNetworkMapReferenceSchema,
   dataPlaneActivationStatus: MNetDataPlaneActivationStatusSchema,

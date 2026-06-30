@@ -2,6 +2,18 @@ import * as Schema from 'effect/Schema'
 import { ServiceSummarySchema } from './core.ts'
 import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
 import { ActorIdSchema } from './identity.ts'
+import { MNetMigrationRequiredSchema } from './mnet-profile-v03.ts'
+import {
+  MNetOperationalCredentialLifecycleSchema,
+  MNetOperationalDeploymentReadinessSchema,
+  MNetOperationalEventStreamSchema,
+  MNetOperationalMigrationStateSchema,
+  MNetOperationalNodeKindSchema,
+  MNetOperationalProfileSelectionSchema,
+  MNetOperationalSidecarNodeSchema,
+  MNetOperationalStatusSchema,
+  MNetOperationalTopologySchema
+} from './mnet-operational.ts'
 import {
   MNetProfileRegionSchema,
   MNetProfileVersionSchema,
@@ -22,18 +34,24 @@ export const DisabledCommandExplanationSchema = Schema.Struct({
     'missing_permission',
     'target_missing',
     'wrong_node_kind',
-    'node_unreachable'
+    'node_unreachable',
+    'unreachable_node',
+    'migration_required',
+    'missing_secret_provider',
+    'stale_jwks',
+    'missing_signal_relay'
   ),
   message: Schema.String,
-  missingPermission: Schema.optional(PermissionSchema)
+  missingPermission: Schema.optional(PermissionSchema),
+  migration: Schema.optional(MNetMigrationRequiredSchema)
 })
 
 export const CommandWellCommandSchema = Schema.Struct({
-  id: Schema.Literal('task.noop.run', 'task.noop.submit'),
+  id: Schema.String,
   label: Schema.String,
   action: PermissionSchema,
   resource: Schema.NonEmptyString,
-  risk: Schema.Literal('medium'),
+  risk: Schema.Literal('low', 'medium', 'high', 'critical'),
   requiredPermissions: Schema.Array(PermissionSchema),
   requiresPolicy: Schema.Boolean,
   requiresAudit: Schema.Boolean
@@ -150,6 +168,93 @@ export const OperationalCommandPreviewSchema = Schema.Struct({
   displayOnly: Schema.Literal(true)
 })
 
+export const BffOperationalCreateManageStatusSchema = Schema.Struct({
+  mode: Schema.Literal('manage'),
+  networkId: Schema.String,
+  networkStatus: Schema.Literal('active', 'degraded'),
+  profileState: Schema.String,
+  memberCount: Schema.Number,
+  lastUpdatedAt: Schema.String,
+  summary: Schema.String,
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalProfileSelectionResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  profileSelection: MNetOperationalProfileSelectionSchema,
+  summary: Schema.String,
+  disabledReason: Schema.optional(DisabledCommandExplanationSchema),
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalTopologyResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  topology: MNetOperationalTopologySchema,
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalSidecarHealthSummarySchema = Schema.Struct({
+  networkId: Schema.String,
+  status: MNetOperationalStatusSchema,
+  summary: Schema.String,
+  nodes: Schema.Array(MNetOperationalSidecarNodeSchema),
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalCredentialLifecycleResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  credentials: MNetOperationalCredentialLifecycleSchema,
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalMigrationResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  migration: MNetOperationalMigrationStateSchema,
+  disabledReason: Schema.optional(DisabledCommandExplanationSchema),
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalCommandEligibilitySchema = Schema.Struct({
+  commandId: Schema.String,
+  label: Schema.String,
+  action: Schema.String,
+  resource: Schema.String,
+  requiredPermissions: Schema.Array(PermissionSchema),
+  requiresPolicy: Schema.Boolean,
+  requiresAudit: Schema.Boolean,
+  state: Schema.Literal('enabled', 'disabled'),
+  disabledReason: Schema.optional(DisabledCommandExplanationSchema),
+  summary: Schema.String,
+  targetNodeId: Schema.optional(Schema.String),
+  targetNodeKind: Schema.optional(MNetOperationalNodeKindSchema)
+})
+
+export const BffOperationalPolicyEligibilitySchema = Schema.Struct({
+  networkId: Schema.String,
+  commands: Schema.Array(BffOperationalCommandEligibilitySchema),
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalProgressFeedResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  eventStream: MNetOperationalEventStreamSchema,
+  deploymentReadiness: MNetOperationalDeploymentReadinessSchema,
+  summary: Schema.String,
+  stateSource: StateSourceMetadataSchema
+})
+
+export const BffOperationalProofPathResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  createManageStatus: BffOperationalCreateManageStatusSchema,
+  profileSelection: BffOperationalProfileSelectionResponseSchema,
+  topology: BffOperationalTopologyResponseSchema,
+  sidecarHealth: BffOperationalSidecarHealthSummarySchema,
+  credentialLifecycle: BffOperationalCredentialLifecycleResponseSchema,
+  migration: BffOperationalMigrationResponseSchema,
+  policyEligibility: BffOperationalPolicyEligibilitySchema,
+  progressFeed: BffOperationalProgressFeedResponseSchema
+})
+
 /** 组件种类白名单，不在名单内的 kind 解码时被拒绝 */
 export const SduiV02ComponentKindSchema = Schema.Literal(
   'AuditLedger',
@@ -212,6 +317,26 @@ export type OperationalCommandPreviewActionFromSchema =
 export type OperationalCommandPreviewStateFromSchema =
   typeof OperationalCommandPreviewStateSchema.Type
 export type OperationalCommandPreviewFromSchema = typeof OperationalCommandPreviewSchema.Type
+export type BffOperationalCreateManageStatusFromSchema =
+  typeof BffOperationalCreateManageStatusSchema.Type
+export type BffOperationalProfileSelectionResponseFromSchema =
+  typeof BffOperationalProfileSelectionResponseSchema.Type
+export type BffOperationalTopologyResponseFromSchema =
+  typeof BffOperationalTopologyResponseSchema.Type
+export type BffOperationalSidecarHealthSummaryFromSchema =
+  typeof BffOperationalSidecarHealthSummarySchema.Type
+export type BffOperationalCredentialLifecycleResponseFromSchema =
+  typeof BffOperationalCredentialLifecycleResponseSchema.Type
+export type BffOperationalMigrationResponseFromSchema =
+  typeof BffOperationalMigrationResponseSchema.Type
+export type BffOperationalCommandEligibilityFromSchema =
+  typeof BffOperationalCommandEligibilitySchema.Type
+export type BffOperationalPolicyEligibilityFromSchema =
+  typeof BffOperationalPolicyEligibilitySchema.Type
+export type BffOperationalProgressFeedResponseFromSchema =
+  typeof BffOperationalProgressFeedResponseSchema.Type
+export type BffOperationalProofPathResponseFromSchema =
+  typeof BffOperationalProofPathResponseSchema.Type
 export type DisabledCommandExplanationFromSchema = typeof DisabledCommandExplanationSchema.Type
 export type CommandWellEligibilityFromSchema = typeof CommandWellEligibilitySchema.Type
 export type SduiV02ComponentKindFromSchema = typeof SduiV02ComponentKindSchema.Type

@@ -11,6 +11,11 @@ import {
   SetNetworkProfileRequestSchema,
   SetNetworkProfileResponseSchema
 } from '../schemas/mnet-profile.ts'
+import {
+  MNetOperationalEventIngestRequestSchema,
+  MNetOperationalEventIngestResponseSchema,
+  MNetOperationalSnapshotSchema
+} from '../schemas/mnet-operational.ts'
 
 export const mNetProfileApiRoutes = {
   collection: '/api/v0/network-profiles',
@@ -20,6 +25,8 @@ export const mNetProfileApiRoutes = {
   networkMap: '/api/v0/networks/:id/network-map',
   registerNodeKey: '/api/v0/networks/:id/nodes/:nodeId/key',
   dataPlaneStatus: '/api/v0/networks/:id/dataplane/status',
+  operationalState: '/api/v0/networks/:id/operational-state',
+  ingestOperationalEvent: '/internal/v0/operational-events',
   resumeOperation: '/internal/v0/network-profile-operations/:id/resume',
   rejectOperation: '/internal/v0/network-profile-operations/:id/reject'
 } as const
@@ -91,6 +98,18 @@ export const mNetProfileRouteContracts = {
     path: mNetProfileApiRoutes.dataPlaneStatus,
     paramsSchema: NetworkProfileRouteParamsSchema,
     responseSchema: DataPlaneStatusResponseSchema
+  },
+  operationalState: {
+    method: 'GET',
+    path: mNetProfileApiRoutes.operationalState,
+    paramsSchema: NetworkProfileRouteParamsSchema,
+    responseSchema: MNetOperationalSnapshotSchema
+  },
+  ingestOperationalEvent: {
+    method: 'POST',
+    path: mNetProfileApiRoutes.ingestOperationalEvent,
+    requestSchema: MNetOperationalEventIngestRequestSchema,
+    responseSchema: MNetOperationalEventIngestResponseSchema
   },
   resumeOperation: {
     method: 'POST',

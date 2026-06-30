@@ -2,6 +2,7 @@ import type {
   DataPlaneStatusResponseSchema,
   InternalNetworkProfileRejectResponseSchema,
   InternalNetworkProfileResumeResponseSchema,
+  MNetActiveProfileVersionSchema,
   MNetAclRuleSchema,
   MNetDataPlaneActivationStatusSchema,
   MNetDataplaneTunnelChangedEventPayloadSchema,
@@ -16,12 +17,12 @@ import type {
   MNetProfileDefaultsUpdatedEventPayloadSchema,
   MNetProfileEventPayloadSchema,
   MNetProfileEventSubjectSchema,
+  MNetHistoricalProfileVersionSchema,
   MNetProfileListResponseSchema,
   MNetProfileRegionSchema,
   MNetProfileSchemaVersionSchema,
   MNetProfileVersionSchema,
   MNetReachabilityChangedEventPayloadSchema,
-  MNetRegionalProfileCapabilitiesSchema,
   MNetRegionalProfileSchema,
   MNetRelayAssignedEventPayloadSchema,
   MNetRelayAssignmentSchema,
@@ -41,12 +42,62 @@ import type {
   SetNetworkProfileRequestSchema,
   SetNetworkProfileResponseSchema
 } from '../schemas/mnet-profile.ts'
+import type {
+  MNetCnProfileV03Schema,
+  MNetCredentialExpiryEventPayloadSchema,
+  MNetForcedRelayChangeEventPayloadSchema,
+  MNetForcedTcpRelaySelectorSchema,
+  MNetMigrationReportItemSchema,
+  MNetMigrationReportSchema,
+  MNetMigrationRequiredCliOutputSchema,
+  MNetMigrationRequiredDisabledReasonSchema,
+  MNetMigrationRequiredErrorSchema,
+  MNetMigrationRequiredEventPayloadSchema,
+  MNetMigrationRequiredGuidanceKeySchema,
+  MNetMigrationRequiredReasonCodeSchema,
+  MNetMigrationRequiredSchema,
+  MNetNetBirdDataPlaneCapabilitiesSchema,
+  MNetNodeRuntimeProfileSchema,
+  MNetNodeSelectorSchema,
+  MNetNodeV03CompatibilityResultSchema,
+  MNetPolicyDecisionRefSchema,
+  MNetProfileV03CompatibilityResultSchema,
+  MNetProfileV03EventSubjectSchema,
+  MNetProfileV03Schema,
+  MNetProfileV03SchemaVersionSchema,
+  MNetProfileV03VersionSchema,
+  MNetRegionalProfileV03Schema,
+  MNetRouteClassSchema,
+  MNetSelectorOwnershipSchema,
+  MNetSidecarCredentialStatusSchema,
+  MNetSidecarDesiredStateSchema,
+  MNetSidecarHealthEventPayloadSchema,
+  MNetSidecarHealthStatusSchema,
+  MNetSidecarLifecycleEventPayloadSchema,
+  MNetTopologyUpdateEventPayloadSchema
+} from '../schemas/mnet-profile-v03.ts'
 
 export type MNetProfileVersion = typeof MNetProfileVersionSchema.Type
+export type MNetActiveProfileVersion = typeof MNetActiveProfileVersionSchema.Type
+export type MNetHistoricalProfileVersion = typeof MNetHistoricalProfileVersionSchema.Type
+export type MNetProfileV03Version = typeof MNetProfileV03VersionSchema.Type
 export type MNetProfileRegion = typeof MNetProfileRegionSchema.Type
 export type MNetProfileSchemaVersion = typeof MNetProfileSchemaVersionSchema.Type
-export type MNetRegionalProfileCapabilities = typeof MNetRegionalProfileCapabilitiesSchema.Type
+export type MNetProfileV03SchemaVersion = typeof MNetProfileV03SchemaVersionSchema.Type
+export type MNetRegionalProfileCapabilities = typeof MNetNetBirdDataPlaneCapabilitiesSchema.Type
 export type MNetRegionalProfile = typeof MNetRegionalProfileSchema.Type
+export type MNetNetBirdDataPlaneCapabilities = typeof MNetNetBirdDataPlaneCapabilitiesSchema.Type
+export type MNetProfileV03 = typeof MNetProfileV03Schema.Type
+export type MNetCnProfileV03 = typeof MNetCnProfileV03Schema.Type
+export type MNetRegionalProfileV03 = typeof MNetRegionalProfileV03Schema.Type
+export type MNetRouteClass = typeof MNetRouteClassSchema.Type
+export type MNetSelectorOwnership = typeof MNetSelectorOwnershipSchema.Type
+export type MNetNodeSelector = typeof MNetNodeSelectorSchema.Type
+export type MNetForcedTcpRelaySelector = typeof MNetForcedTcpRelaySelectorSchema.Type
+export type MNetPolicyDecisionRef = typeof MNetPolicyDecisionRefSchema.Type
+export type MNetSidecarDesiredState = typeof MNetSidecarDesiredStateSchema.Type
+export type MNetSidecarCredentialStatus = typeof MNetSidecarCredentialStatusSchema.Type
+export type MNetSidecarHealthStatus = typeof MNetSidecarHealthStatusSchema.Type
 
 export type SetNetworkProfileRequest = typeof SetNetworkProfileRequestSchema.Type
 
@@ -60,6 +111,7 @@ export type NetworkSuspendedOperation = MutableSchemaType<
 >
 
 export type MNetProfileEventSubject = typeof MNetProfileEventSubjectSchema.Type
+export type MNetProfileV03EventSubject = typeof MNetProfileV03EventSubjectSchema.Type
 export type MNetProfileEventPayload = typeof MNetProfileEventPayloadSchema.Type
 
 export type MNetProfileEnableRequestedEventPayload = MNetProfileEventPayload
@@ -90,6 +142,27 @@ export type MNetNodeKeyRotatedEventPayload = typeof MNetNodeKeyRotatedEventPaylo
 export type MNetRelayAssignedEventPayload = typeof MNetRelayAssignedEventPayloadSchema.Type
 export type MNetDataplaneTunnelChangedEventPayload =
   typeof MNetDataplaneTunnelChangedEventPayloadSchema.Type
+export type MNetSidecarLifecycleEventPayload = typeof MNetSidecarLifecycleEventPayloadSchema.Type
+export type MNetSidecarHealthEventPayload = typeof MNetSidecarHealthEventPayloadSchema.Type
+export type MNetTopologyUpdateEventPayload = typeof MNetTopologyUpdateEventPayloadSchema.Type
+export type MNetMigrationRequiredReasonCode = typeof MNetMigrationRequiredReasonCodeSchema.Type
+export type MNetMigrationRequiredGuidanceKey =
+  typeof MNetMigrationRequiredGuidanceKeySchema.Type
+export type MNetMigrationRequired = typeof MNetMigrationRequiredSchema.Type
+export type MNetMigrationRequiredError = typeof MNetMigrationRequiredErrorSchema.Type
+export type MNetMigrationRequiredCliOutput = typeof MNetMigrationRequiredCliOutputSchema.Type
+export type MNetMigrationReportItem = typeof MNetMigrationReportItemSchema.Type
+export type MNetMigrationReport = typeof MNetMigrationReportSchema.Type
+export type MNetMigrationRequiredDisabledReason =
+  typeof MNetMigrationRequiredDisabledReasonSchema.Type
+export type MNetMigrationRequiredEventPayload =
+  typeof MNetMigrationRequiredEventPayloadSchema.Type
+export type MNetForcedRelayChangeEventPayload = typeof MNetForcedRelayChangeEventPayloadSchema.Type
+export type MNetCredentialExpiryEventPayload = typeof MNetCredentialExpiryEventPayloadSchema.Type
+export type MNetProfileV03CompatibilityResult =
+  typeof MNetProfileV03CompatibilityResultSchema.Type
+export type MNetNodeRuntimeProfile = typeof MNetNodeRuntimeProfileSchema.Type
+export type MNetNodeV03CompatibilityResult = typeof MNetNodeV03CompatibilityResultSchema.Type
 
 export type MNetProfileListResponse = typeof MNetProfileListResponseSchema.Type
 export type SetNetworkProfilePendingApprovalResponse =
