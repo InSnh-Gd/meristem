@@ -115,7 +115,10 @@ function redactedCredentialRef(ref: SecretRefFromSchema) {
   return redacted.version === undefined ? redacted : { ...redacted, version: redacted.version }
 }
 
-function toInfraBindings(config: DeploymentConfigV02FromSchema, desired: RuntimeSidecarDesiredState) {
+function toInfraBindings(
+  config: DeploymentConfigV02FromSchema,
+  desired: RuntimeSidecarDesiredState
+) {
   return {
     signalCredentialRef: {
       provider: config.secretProvider.providerName,
@@ -179,7 +182,9 @@ function buildStatus(input: {
     credentialStatus: input.desired.credentialStatus,
     healthStatus: input.desired.healthStatus,
     ...(input.process?.configHash ? { configHash: input.process.configHash } : {}),
-    ...(input.process?.sidecarConfigPath ? { sidecarConfigPath: input.process.sidecarConfigPath } : {}),
+    ...(input.process?.sidecarConfigPath
+      ? { sidecarConfigPath: input.process.sidecarConfigPath }
+      : {}),
     ...(input.process?.processRef ? { processRef: input.process.processRef } : {}),
     correlationId: input.correlationId,
     observedAt: input.observedAt,
@@ -235,7 +240,8 @@ async function writeLocalSidecarConfig(
   correlationId: string
 ): Promise<SidecarProcessState> {
   const env = deps.env ?? process.env
-  const sidecarConfigPath = env.MERISTEM_NODE_AGENT_SIDECAR_CONFIG_PATH ?? DEFAULT_SIDECAR_CONFIG_PATH
+  const sidecarConfigPath =
+    env.MERISTEM_NODE_AGENT_SIDECAR_CONFIG_PATH ?? DEFAULT_SIDECAR_CONFIG_PATH
   const writeTextFile = deps.writeTextFile ?? defaultWriteTextFile
   const mkdir = deps.mkdir ?? defaultMkdir
   const directory = sidecarConfigPath.replace(/\/[^/]+$/, '')

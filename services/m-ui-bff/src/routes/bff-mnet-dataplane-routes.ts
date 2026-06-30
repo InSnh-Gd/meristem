@@ -32,9 +32,11 @@ function relayEndpointFromOperationalSnapshot(snapshot: MNetOperationalSnapshotF
     case 'node-ids':
       return selector.nodeIds.join(',') || 'node-ids'
     case 'label-selector':
-      return Object.entries(selector.matchLabels)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(',') || 'label-selector'
+      return (
+        Object.entries(selector.matchLabels)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(',') || 'label-selector'
+      )
   }
 }
 
@@ -312,14 +314,16 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
           cf('/api/v0/session', token),
           mf(`/api/v0/networks/${params.id}/operational-state`, token)
         ])
-        if (!sessionRes.ok) return new Response(JSON.stringify(sessionRes.data), {
-          status: sessionRes.status || 502,
-          headers: { 'content-type': 'application/json' }
-        })
-        if (!operationalRes.ok) return new Response(JSON.stringify(operationalRes.data), {
-          status: operationalRes.status || 502,
-          headers: { 'content-type': 'application/json' }
-        })
+        if (!sessionRes.ok)
+          return new Response(JSON.stringify(sessionRes.data), {
+            status: sessionRes.status || 502,
+            headers: { 'content-type': 'application/json' }
+          })
+        if (!operationalRes.ok)
+          return new Response(JSON.stringify(operationalRes.data), {
+            status: operationalRes.status || 502,
+            headers: { 'content-type': 'application/json' }
+          })
 
         const session = decodeUpstreamData(
           SessionResponseSchema,

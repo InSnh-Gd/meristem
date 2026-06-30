@@ -204,7 +204,9 @@ export function redactCredentialMutationResponse(
   const action = revokedAt
     ? 'revoked'
     : issuedAt
-      ? (typeof value.token === 'string' ? 'issued' : 'rotated')
+      ? typeof value.token === 'string'
+        ? 'issued'
+        : 'rotated'
       : 'rotated'
 
   return {
@@ -223,13 +225,14 @@ export function mapOperationalSnapshotToProofPath(
   snapshot: MNetOperationalSnapshotFromSchema,
   permissions: readonly Permission[]
 ): BffOperationalProofPathResponseFromSchema {
-  const migrationReason = snapshot.migrationRequired.required && snapshot.migrationRequired.migration
-    ? disabledExplanation({
-        code: 'migration_required',
-        message: snapshot.migrationRequired.summary,
-        migration: snapshot.migrationRequired.migration
-      })
-    : undefined
+  const migrationReason =
+    snapshot.migrationRequired.required && snapshot.migrationRequired.migration
+      ? disabledExplanation({
+          code: 'migration_required',
+          message: snapshot.migrationRequired.summary,
+          migration: snapshot.migrationRequired.migration
+        })
+      : undefined
   const missingPermissionReason = permissions.includes('network:profile-enable')
     ? undefined
     : disabledExplanation({

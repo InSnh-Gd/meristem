@@ -108,7 +108,11 @@ export async function handleMNetExecuteCommand(input: {
     if (response.status >= 400) return response
     const payload = await response.json()
     if (typeof payload !== 'object' || payload === null) {
-      return bffError(502, 'bff.invalid_upstream_response', 'Upstream credential mutation returned invalid JSON')
+      return bffError(
+        502,
+        'bff.invalid_upstream_response',
+        'Upstream credential mutation returned invalid JSON'
+      )
     }
     return redactCredentialMutationResponse(payload as Record<string, unknown>)
   }
@@ -212,14 +216,10 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.cfRaw(
-        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`,
-        token,
-        {
-          method: 'POST',
-          body: JSON.stringify(profileBody)
-        }
-      )
+      deps.cfRaw(`/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`, token, {
+        method: 'POST',
+        body: JSON.stringify(profileBody)
+      })
     )
   }
 
@@ -233,14 +233,10 @@ export async function handleMNetExecuteCommand(input: {
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
     return forwardCoreExecute(
-      deps.cfRaw(
-        `/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`,
-        token,
-        {
-          method: 'POST',
-          body: JSON.stringify(profileBody)
-        }
-      )
+      deps.cfRaw(`/api/v0/networks/${encodeURIComponent(profileBody.networkId)}/profile`, token, {
+        method: 'POST',
+        body: JSON.stringify(profileBody)
+      })
     )
   }
 
@@ -294,7 +290,9 @@ export async function handleMNetExecuteCommand(input: {
   if (commandId === MNET_FORCED_RELAY_CHANGE_EXECUTE_COMMAND_ID) {
     const forcedRelayBody = readForcedRelayChangeBody(body)
     if (!forcedRelayBody) {
-      return invalidExecuteBody('nodeId is required; reason must be a non-empty string when provided')
+      return invalidExecuteBody(
+        'nodeId is required; reason must be a non-empty string when provided'
+      )
     }
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck

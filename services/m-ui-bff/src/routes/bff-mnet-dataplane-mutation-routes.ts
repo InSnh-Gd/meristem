@@ -38,7 +38,10 @@ export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps)
     const response = await responsePromise
     if (response.status >= 400) return response
     const body = await response.json()
-    const record = requireObjectRecord(body, 'Upstream credential mutation returned invalid payload')
+    const record = requireObjectRecord(
+      body,
+      'Upstream credential mutation returned invalid payload'
+    )
     if (record instanceof Response) return record
     return redactCredentialMutationResponse(record)
   }

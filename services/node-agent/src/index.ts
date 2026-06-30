@@ -116,7 +116,8 @@ function startHeartbeat(): void {
       type: 'heartbeat',
       sessionId: currentSessionId,
       agentVersion,
-      reportedStatus: currentLifecycleState.runtimeStatus.kind === 'healthy' ? 'healthy' : 'degraded',
+      reportedStatus:
+        currentLifecycleState.runtimeStatus.kind === 'healthy' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       runtimeStatus: currentLifecycleState.runtimeStatus
     })
