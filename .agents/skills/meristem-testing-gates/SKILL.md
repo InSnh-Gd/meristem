@@ -99,10 +99,10 @@ Do not claim a capability complete until the relevant gates pass or a documented
 For M-UI, SDUI, BFF display contract, CommandWell, or M-Extension UI-adjacent changes:
 
 - M-UI owns route surfaces, Svelte components, layout decisions, interaction structure, and the `layout / modules / ui` split.
-- M-* services, M-Extension, and plugins must not supply M-UI pages, components, layouts, or runtime frontend modules.
+- Capability domain services, M-Extension, and plugins must not supply M-UI pages, components, layouts, or runtime frontend modules.
 - SDUI remains a route/component contract registry; it must not become a runtime page renderer or composition engine without a new ADR and contract migration.
 - M-UI BFF remains a UI-facing adaptation layer; it must not own UI component structure, final business facts, final authorization, or final policy decisions.
-- Design exploration, tests, and implementation must respect `M-UI -> M-UI BFF -> Core public facade -> M-* services`.
+- Design exploration, tests, and implementation must respect `M-UI -> M-UI BFF -> Core public facade -> capability domain services`.
 
 ### Type Safety Hard Gates
 
@@ -144,11 +144,11 @@ When reviewing or claiming completion for M-UI, SDUI, BFF display contracts, Com
 | # | Check | Pass Criteria |
 |---|-------|---------------|
 | 1 | UI ownership | M-UI-owned files implement route surfaces, components, layout, and interaction structure |
-| 2 | Service boundary | M-* services expose facts/capabilities/contracts only; they do not declare or ship frontend pages/components |
+| 2 | Service boundary | Capability domain services expose facts/capabilities/contracts only; they do not declare or ship frontend pages/components |
 | 3 | BFF boundary | BFF adapts UI-facing data but does not own UI structure, final facts, final authorization, or final policy decisions |
 | 4 | SDUI boundary | SDUI changes update route/component inventory and validation only; runtime rendering/composition is not introduced without ADR |
 | 5 | Plugin boundary | M-Extension/plugin UI contribution remains deferred unless a dedicated ADR, security model, and SDUI extension track are present |
-| 6 | Data flow | M-UI calls M-UI BFF only; BFF uses Core public facades for Core/M-* facts and capabilities |
+| 6 | Data flow | M-UI calls M-UI BFF only; BFF uses Core public facades for Core and capability domain facts/capabilities |
 | 7 | Modular frontend | New frontend modularity happens inside M-UI `layout / modules / ui`, not through service/plugin-supplied runtime UI |
 
 ### M-UI Frontend Review Gates

@@ -27,7 +27,7 @@ The transitional workbench starts carrying real workbench structure, operation f
 ## Ownership Principles
 
 - M-UI owns route surfaces, Svelte components, layout decisions, interaction structure, and the future `layout / modules / ui` component split.
-- M-* services own facts, capabilities, events, policy state, audit state, and domain state; services do not own frontend pages or components.
+- Capability domain services own facts, capabilities, events, policy state, audit state, and domain state; services do not own frontend pages or components.
 - M-UI BFF adapts facts into UI-facing data by aggregating, trimming, ordering, annotating `stateSource`, and deriving display-oriented command eligibility; it must not own final facts, final authorization, final policy decisions, or UI component structure.
 - SDUI is a route/component contract registry, not a runtime page renderer or page composition engine.
 - M-Extension and plugin UI contribution are deferred architecture and require a future ADR, security model, SDUI extension, BFF boundary, and component/page registration design.

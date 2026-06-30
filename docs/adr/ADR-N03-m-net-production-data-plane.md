@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted
+Accepted (data-plane scope superseded by ADR-N04)
 
 ## 上下文
 
@@ -27,7 +27,7 @@ ADR-N01 和 ADR-N02 限制 M-Net 仅进行 control-plane 逻辑和 mock data-pla
 
 通过这个决策，M-Net 具备了实现真实数据面控制能力的架构授权；具体生产级能力必须由对应验收证据证明。
 节点之间的通信通过 host-local 的 sidecar 组件（WireGuard, wstunnel）完成，Core 本身不承担数据包的路由、转发等消耗 CPU/内存的重负载任务。
-保持了 Core 作为轻量微服务的定位。
+保持了 Core 作为微内核的定位。
 
 ## 重访条件
 

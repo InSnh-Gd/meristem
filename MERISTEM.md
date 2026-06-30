@@ -14,10 +14,10 @@
 
 本产品的核心假设：
 
-1. **控制系统必须先有边界，再有能力** - Core 只能是微内核，复杂能力必须进入明确的 M-* 功能域或微服务。
+1. **控制系统必须先有边界，再有能力** - Core 只能是微内核，复杂能力必须进入明确的功能域服务（M-* Capability Domain Services）。
 2. **分布式节点默认不可信** - Leaf Node 默认低权限、受限 API、受限互联，任何能力扩展都必须可授权、可审计、可撤销。
 3. **契约和日志比框架更重要** - Eden、REST/OpenAPI、Event Schema、Service Definition、Audit Log 和 M-Policy 是系统长期可维护性的基础。
-4. **现代微服务应轻量可读** - Meristem 采用微服务优先，但拒绝默认引入重型微服务栈、每服务独立数据库和复杂编排平台。
+4. **功能域服务应轻量可读** - Meristem 采用微内核多服务架构（Microkernel Multi-Service Architecture），但拒绝默认引入重型微服务栈、每服务独立数据库和复杂编排平台。
 
 所有设计决策从这几条出发。如果某个改动让 Core 变重、让节点默认变强、让契约不可追踪，默认是改动有问题。
 
@@ -25,7 +25,7 @@
 
 ## 1. 一句话定位
 
-MERISTEM 是一个 TypeScript-first、Elysia-first、Eden-first 但非 Eden-only、微服务优先的 Monorepo 分布式 Meristem 网络控制系统。
+MERISTEM 是一个 TypeScript-first、Elysia-first、Eden-first 但非 Eden-only、采用微内核多服务架构的 Monorepo 分布式 Meristem 网络控制系统。
 
 它不是 Wasm-first 项目，不是插件优先系统，不是 Kubernetes 替代品，也不是把所有能力塞进 Core 的平台单体。
 
@@ -137,8 +137,8 @@ M-* 功能域通过明确契约、事件 schema、配置 schema 和 Service Defi
 
 - 自动化能力必须能落到可审计的操作、契约和日志事实。
 - LLM 表述保持在总结、解释、归因、建议和审批辅助范围内。
-- M-Extension 表述为补充扩展机制，主能力仍由 M-* 功能域和微服务承载。
-- 微服务表述为 M-* 功能域内的实现形态，强调契约协作而不是系统割裂。
+- M-Extension 表述为补充扩展机制，主能力仍由功能域服务承载。
+- 微服务是功能域服务的实现形态，强调契约协作而不是系统割裂。
 
 ### 5.3 人称与视角
 
@@ -152,10 +152,10 @@ M-* 功能域通过明确契约、事件 schema、配置 schema 和 Service Defi
 
 Meristem 的产品边界由以下默认选择定义。任何偏离这些默认选择的方案，都需要先说明产品收益、审计影响、权限影响和迁移成本：
 
-- Core 保持微内核职责，复杂能力进入明确的 M-* 功能域或微服务。
-- M-Extension 是补充扩展机制，主功能由 M-* 功能域和微服务承载。
+- Core 保持微内核职责，复杂能力进入明确的功能域服务。
+- M-Extension 是补充扩展机制，主功能由功能域服务承载。
 - 外部 API 默认使用 REST + OpenAPI，内部 TypeScript 调用优先 Eden，跨服务异步协作使用事件 schema。
-- 微服务共享统一 Monorepo、契约、测试和数据边界，默认共享权威写模型而不是割裂为每服务独立数据库。
+- 功能域服务共享统一 Monorepo、契约、测试和数据边界，默认共享权威写模型而不是割裂为每服务独立数据库。
 - PostgreSQL 承载权威写模型；OpenSearch、NATS KV、M-EventBus 和 Yjs 分别承载读模型、缓存、事件和协作草稿态。
 - Leaf Node 默认低权限、受限 API、受限互联，能力扩展必须显式授权、可审计、可撤销。
 - 高权限和高风险操作由 M-Policy 决策，并写入对应 M-Log / Audit Log 事实。

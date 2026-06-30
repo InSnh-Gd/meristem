@@ -18,7 +18,7 @@ The current SDUI v0.2 surface is a route/component registry:
   `layout / modules / ui` split.
 - The BFF adapts UI-facing facts and display eligibility; it does not own final
   facts, authorization, policy decisions, or UI structure.
-- M-* services, M-Extension, and plugins do not supply pages, components,
+- Capability domain services, M-Extension, and plugins do not supply pages, components,
   layouts, or runtime frontend modules.
 
 Ponytail challenge: SDUI runtime rendering does **not** need to exist today. The

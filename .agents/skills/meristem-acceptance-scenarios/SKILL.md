@@ -9,7 +9,7 @@ description: Converts high-risk Meristem work into lightweight BDD-style accepta
 
 在实现、审查或拆分以下 Meristem 工作前使用本 skill：
 
-- 跨 Core / M-* 服务的行为切片。
+- 跨 Core / 功能域服务的行为切片。
 - M-Policy、Audit Log、M-Log、OpenTelemetry 或 fail-closed 行为。
 - M-UI Transitional Workbench、CommandWell、CommandWell Eligibility、Audit Access State。
 - M-Net profile、M-Task lifecycle、SecretRef、Config lifecycle、token revoke、投影控制动作。
@@ -65,7 +65,7 @@ Test mapping:
 - Scenario 必须通过公开边界验证行为，不验证私有实现细节。
 - 高风险或权限相关 scenario 必须说明 M-Policy、Audit Log、M-Log 的预期证据。
 - 跨服务 HTTP / event / BFF scenario 必须说明契约来源和 drift 防线。
-- M-UI scenario 必须遵守 M-UI ownership：M-UI 拥有结构与交互，BFF 只适配显示数据，M-* 服务不供应前端组件。
+- M-UI scenario 必须遵守 M-UI ownership：M-UI 拥有结构与交互，BFF 只适配显示数据，功能域服务不供应前端组件。
 - 禁止把 `.omo/` 路径写入 scenario、测试、文档或 delegation prompt。
 
 ## 输出要求

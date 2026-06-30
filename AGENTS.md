@@ -16,7 +16,7 @@
 
 触及具体执行边界时，继续加载对应细分项目 skill：
 
-- `.agents/skills/meristem-service-definition/SKILL.md` - 新增、修改或审查 Core、M-* 服务、node service、task service、extension service、BFF 或 service definition。
+- `.agents/skills/meristem-service-definition/SKILL.md` - 新增、修改或审查 Core、功能域服务、node service、task service、extension service、BFF 或 service definition。
 - `.agents/skills/meristem-contract-versioning/SKILL.md` - 修改 REST、OpenAPI、Eden、事件、Effect Schema、服务定义、配置、策略、日志、Webhook、BFF、SDUI 或 M-Net Profile 契约。
 - `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF workbench contract、CommandWell、审计/策略/日志可见性或过渡型工作台行为。
 - `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
@@ -87,14 +87,14 @@ Issues and PRDs are tracked in GitHub Issues for `InSnh-Gd/meristem`. See `docs/
 
 Triage uses the default five-label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
-### `.omo/` isolation constraint
+### Internal Orchestration Directory Isolation Constraint
 
-The `.omo/` directory is internal orchestration state (plans, drafts, evidence, notepad). It MUST NOT leak into source code, tests, or production docs:
+The internal orchestration directory that stores plans, drafts, evidence, and notepad state MUST NOT leak into source code, tests, or production docs:
 
-- **Tests**: evidence output paths must use `tests/evidence/` or temp directories, never `.omo/evidence/`.
-- **Docs** (RUNBOOK, TESTING, etc.): must not reference `.omo/` paths in commands, examples, or assertions.
-- **Delegation prompts**: extract task specs from `.omo/plans/` and inline them directly — never pass `.omo/` file paths to subagents.
-- **Route assertions**: contract tests must not assert that docs contain `.omo/` paths.
+- **Tests**: evidence output paths must use `tests/evidence/` or temp directories, never the internal orchestration directory.
+- **Docs** (RUNBOOK, TESTING, etc.): must not reference internal orchestration paths in commands, examples, or assertions.
+- **Delegation prompts**: extract task specs from internal orchestration plans and inline them directly — never pass internal orchestration file paths to subagents.
+- **Route assertions**: contract tests must not assert that docs contain internal orchestration paths.
 
 Violations will be caught during review and must be fixed before submission.
 
@@ -103,11 +103,11 @@ Violations will be caught during review and must be fixed before submission.
 Evidence files, test output paths, and documentation references MUST follow standardized naming. No hardcoded ad-hoc paths.
 
 - **Evidence directory**: `tests/evidence/` — the only location for test-produced evidence artifacts.
-- **File naming**: `<feature>-<scenario>.<ext>` — describe the feature and scenario, never the task number. Example: `mnet-harness-preflight.txt`, not `task-15-harness-preflight.txt`.
-- **Test code**: derive evidence paths from `import.meta.dir` relative joins or `mkdtemp`, never hardcode absolute paths or `.omo/` paths.
-- **Documentation**: reference commands only, not evidence output paths. Example: write `bun run mnet:harness:preflight`, not `bun run mnet:harness:preflight | tee .omo/evidence/task-15-...`.
+- **File naming**: `<feature>-<scenario>.<ext>` — describe the feature and scenario, never use task-number-prefixed evidence names.
+- **Test code**: derive evidence paths from `import.meta.dir` relative joins or `mkdtemp`, never hardcode absolute paths or internal orchestration paths.
+- **Documentation**: reference commands only, not evidence output paths. Example: write `bun run mnet:harness:preflight`, not piping command output into an internal orchestration evidence file.
 - **Contract test assertions**: must not assert that docs contain specific evidence file paths.
-- **Forbidden**: `task-N-*` prefixes, `.omo/` paths, hardcoded absolute paths, plan-internal identifiers in source code.
+- **Forbidden**: task-number-prefixed evidence names, internal orchestration paths, hardcoded absolute paths, and plan-internal identifiers in source code.
 
 ### Domain docs
 

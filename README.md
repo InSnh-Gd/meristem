@@ -3,7 +3,7 @@
 # Meristem
 
 <p align="center">
-  一个基于微内核核心、微服务架构，显式服务边界和可审计操作契约构建的分布式节点网络控制平面。
+  一个基于微内核核心、微内核多服务架构（Microkernel Multi-Service Architecture），显式服务边界和可审计操作契约构建的分布式节点网络控制平面。
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
 
 ## 概述
 
-Meristem 是一个以 TypeScript 为核心、仅支持 Bun 运行时、并以 Elysia 作为首选框架的控制平面，用于运行分布式 Meristem 网络。它有意保持 Core 简洁，将复杂能力下沉到明确的子 Meristem 域中，并将契约、策略决策和审计事实视为一级系统边界。
+Meristem 是一个以 TypeScript 为核心、仅支持 Bun 运行时、并以 Elysia 作为首选框架的控制平面，用于运行分布式 Meristem 网络。它有意保持 Core 简洁，将复杂能力下沉到明确的功能域中，并将契约、策略决策和审计事实视为一级系统边界。
 
 ### 主要特性
 
@@ -31,7 +31,7 @@ Meristem 是一个以 TypeScript 为核心、仅支持 Bun 运行时、并以 El
 | **网络控制** | Core / Stem / Leaf 节点模型、逻辑网络、M-Net 配置文件生命周期、受控加入入口 |
 | **策略与审计** | RBAC 优先的策略检查、高风险操作审批门、Timeline / Full / Audit 日志事实 |
 | **契约** | REST、OpenAPI、Eden、Effect Schema、服务定义、事件目录、与漂移测试对齐的文档 |
-| **运行时拓扑** | 专用 M-* 服务负责策略、日志、网络、任务、扩展、UI BFF 与节点代理 |
+| **运行时拓扑** | 各功能域负责策略、日志、网络、任务、扩展、UI BFF 与节点代理 |
 | **运维接口** | M-CLI、M-UI BFF、SvelteKit UI、基于 SDUI 的运维面板 |
 
 ## 技术栈
@@ -129,6 +129,7 @@ bun run dev:all
 | `bun run dev:m-ui` | 启动 SvelteKit UI |
 | `bun run db:migrate` | 应用 PostgreSQL 迁移 |
 | `bun run db:seed` | 填充本地开发数据 |
+| `bun run mnet:v02:sidecar-proof` | 执行 ADR-N04 NetBird sidecar viability gate；未证明无 Management 依赖时输出 typed fallback |
 | `bun run lint` | 运行 Biome lint 和仓库规范检查 |
 | `bun run typecheck` | 运行 TypeScript 类型检查 |
 

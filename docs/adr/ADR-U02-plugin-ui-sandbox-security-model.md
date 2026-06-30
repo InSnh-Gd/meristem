@@ -15,14 +15,14 @@ are accepted.
 The current M-UI surface is the M-UI Transitional Workbench. M-UI owns Svelte
 routes, components, layout, interaction flow, and the `layout / modules / ui`
 split. The M-UI BFF adapts facts into UI-facing display data and display-only
-command eligibility. M-* services own facts, capabilities, events, policy state,
+command eligibility. Capability domain services own facts, capabilities, events, policy state,
 audit state, and domain state.
 
 ADR-F02 positions M-Extension as a supplemental, low-permission control plane,
 not a plugin-first application platform. M-Extension currently owns extension
 definition / instance lifecycle and manifest validation only. It must not become
 an arbitrary UI execution surface, runtime module loader, marketplace, permission
-namespace owner, or replacement for first-class M-* services.
+namespace owner, or replacement for first-class capability domain services.
 
 ADR-U01 keeps SDUI v0.2 as the implemented route/component registry and defines
 SDUI v0.3 runtime rendering as a proposed migration path only. ADR-U01 also
@@ -68,7 +68,7 @@ removing the need for SDUI, BFF, policy, audit, signing, and fail-closed gates.
 - No extension-defined permissions or permission namespace registration.
 - No marketplace install / update / uninstall flow.
 - No Core, BFF, or service route changes to accept plugin UI manifests.
-- No plugin iframe direct access to Core, M-* services, internal routes, or
+- No plugin iframe direct access to Core, capability domain services, internal routes, or
   browser credentials.
 
 ## Ownership Boundaries
@@ -78,7 +78,7 @@ removing the need for SDUI, BFF, policy, audit, signing, and fail-closed gates.
 | Extension definition / instance lifecycle | M-Extension | Control-plane catalog only; current manifests reject runtime UI fields. |
 | Workbench routes, containers, slots, and fallback UI | M-UI | M-UI owns visible structure and must render a degraded state when plugin UI is blocked. |
 | Display data adaptation | M-UI BFF | BFF returns minimal, redacted, schema-decoded display projections only. |
-| Final facts | Owning M-* service | Plugin UI never becomes an authoritative fact source. |
+| Final facts | Owning capability domain service | Plugin UI never becomes an authoritative fact source. |
 | Final authorization | Core / M-Policy | UI eligibility remains display-only. |
 | Audit facts | M-Log / Audit Log | Plugin code cannot write or suppress Audit facts. |
 | SDUI placement contract | M-UI / contracts | Plugin slots require a future versioned SDUI extension after ADR-U01 acceptance. |
@@ -195,7 +195,7 @@ Parent requirements:
 - `frame-src` is restricted to the Meristem plugin UI sandbox origin or another
   explicitly versioned artifact gateway after signing / provenance gates exist.
 - `connect-src` for M-UI remains limited to approved M-UI BFF endpoints; plugin
-  UI must not add Core, M-* service, or arbitrary external origins.
+  UI must not add Core, capability domain service, or arbitrary external origins.
 - `frame-ancestors` remains controlled by the normal M-UI deployment policy.
 
 Plugin document requirements:
@@ -373,11 +373,11 @@ visibility, and audit / policy evidence rendered outside the iframe.
 
 ## BFF Boundary
 
-Plugin UI never calls Core or M-* services directly. It also never calls BFF
+Plugin UI never calls Core or capability domain services directly. It also never calls BFF
 directly because it has no Meristem credentials. The only path is:
 
 ```text
-plugin iframe -> postMessage -> M-UI container -> M-UI BFF -> Core public facade -> owning M-* service
+plugin iframe -> postMessage -> M-UI container -> M-UI BFF -> Core public facade -> owning capability domain service
 ```
 
 Rules:

@@ -28,3 +28,4 @@ doc-driven-ai/
 *.dependency-cruiser-*.html
 playwright-report/
 test-results/
+tests/evidence/

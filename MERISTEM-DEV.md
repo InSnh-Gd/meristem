@@ -19,12 +19,12 @@
 | 文档总索引 | `docs/README.md` |
 | v0.1 范围与验收 | `MERISTEM-ROADMAP.md` |
 | 架构决策 | `docs/adr/README.md` |
-| 微服务定义 | `docs/services/SERVICE-DEFINITION-TEMPLATE.md` |
+| 服务定义 | `docs/services/SERVICE-DEFINITION-TEMPLATE.md` |
 | Core 服务边界 | `docs/services/core.md` |
-| M-Net 服务边界 | `docs/services/m-net.md` |
-| M-EventBus 服务边界 | `docs/services/m-eventbus.md` |
-| M-Log 服务边界 | `docs/services/m-log.md` |
-| M-Policy 服务边界 | `docs/services/m-policy.md` |
+| M-Net 功能域边界 | `docs/services/m-net.md` |
+| M-EventBus 功能域边界 | `docs/services/m-eventbus.md` |
+| M-Log 功能域边界 | `docs/services/m-log.md` |
+| M-Policy 功能域边界 | `docs/services/m-policy.md` |
 | 事件目录 | `docs/events/EVENT-CATALOG.md` |
 | 契约版本 | `docs/contracts/CONTRACT-VERSIONING.md` |
 | MVP REST API | `docs/contracts/REST-API-MVP.md` |
@@ -93,7 +93,7 @@ gRPC everywhere
 
 - Core 与核心微服务位于同一 Monorepo。
 - 统一工程规范、契约管理、测试体系、文档规范、代码风格、构建和发布流程。
-- 微服务不是独立一级模块，而是各 M-* 子系统的主要实现形态。
+- 微服务不是独立一级模块，而是各功能域的主要实现形态。
 - 共享包只承载纯函数、schema、validator、policy、parser、event envelope helper 等无隐式状态的能力。
 
 建议目录结构：
@@ -201,7 +201,7 @@ OpenSearch 读模型实现
 复杂性能 hot path 实现
 ```
 
-Core 禁止通过私有对象直接耦合所有 M-* 子系统。跨子系统通信优先使用明确 Eden 契约、事件 schema、Service Definition 和配置 schema。
+Core 禁止通过私有对象直接耦合所有功能域。跨服务通信优先使用明确 Eden 契约、事件 schema、Service Definition 和配置 schema。
 
 ### 1.5 状态管理与存储边界
 
@@ -592,7 +592,7 @@ BFF Contract
 以下条款在产品上线、产生可持久化用户数据或跨节点协议后不应随意更改。更改任何一条都需要明确迁移策略。
 
 1. **节点类型集合** - `core | stem | leaf` 是 Meristem 网络基础模型，不能在无迁移方案时重命名或改变语义。
-2. **Core 微内核边界** - Core 不能扩张为业务单体；新增复杂能力必须先声明 M-* 功能域或微服务边界。
+2. **Core 微内核边界** - Core 不能扩张为业务单体；新增复杂能力必须先声明功能域服务边界。
 3. **Service Definition 基础字段** - `name/version/domain/kind/contracts/permissions/dependencies/health/lifecycle/logs` 是微服务最低契约，不得移除。
 4. **MEventEnvelope 基础字段** - `id/type/version/source/timestamp/payload` 必须保留，payload 只能通过 schema 收窄。
 5. **三级日志语义** - Timeline / Full / Audit 的职责不能互相替代；Audit Log 必须保持独立高权限语义。

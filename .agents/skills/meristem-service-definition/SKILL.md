@@ -1,6 +1,6 @@
 ---
 name: meristem-service-definition
-description: Use when adding, changing, reviewing, or documenting a Meristem Core, M-* service, node service, task service, extension service, BFF, service lifecycle behavior, or service definition.
+description: Use when adding, changing, reviewing, or documenting a Meristem Core, capability domain service, node service, task service, extension service, BFF, service lifecycle behavior, or service definition.
 ---
 
 # Meristem Service Definition
@@ -38,7 +38,7 @@ If any item is unknown, update the service definition before coding.
 
 ## Boundary Rules
 
-- Core stays a microkernel. Move complex capability into the correct M-* service.
+- Core stays a microkernel. Move complex capability into the correct capability domain service.
 - A service must not read another service's private state.
 - A service must not publish events absent from `docs/events/EVENT-CATALOG.md`.
 - A service must not introduce unversioned contracts.

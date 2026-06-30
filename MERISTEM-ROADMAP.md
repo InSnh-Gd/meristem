@@ -1,4 +1,4 @@
-# MERISTEM-ROADMAP - v0.1 Delivery Scope
+# MERISTEM-ROADMAP - v0.1 Delivery Scope (v0.2 Direction Declared)
 
 > This document is the single active roadmap for Meristem. It replaces the old per-phase files with one v0.1 scope, one acceptance matrix, and one post-v0.1 track list.
 >
@@ -30,7 +30,7 @@ v0.1 is intentionally narrow:
 Core remains a microkernel.
 M-Policy implements RBAC and bounded approval primitives only.
 LLM remains auxiliary explanation space, not an authorization root.
-M-Net proves control-plane and logical-network behavior before real data-plane routing (historical for `m-net-cn@0.1.x`; superseded by ADR-N03 for `m-net-cn@0.2.0` production data-plane).
+M-Net proves control-plane and logical-network behavior; v0.2 data-plane direction is NetBird-only (ADR-N04).
 M-Extension is supplemental, not a primary capability host.
 PostgreSQL is the authoritative write model.
 OpenSearch is a read model / projection target, not authority.
@@ -50,7 +50,7 @@ Any change that expands Core responsibility, creates implicit service coupling, 
 | REST / Eden | REST v0 routes and internal Eden contract stay aligned | `docs/contracts/REST-API-MVP.md`, `docs/contracts/EDEN-MVP.md`, `docs/contracts/CONTRACT-VERSIONING.md` |
 | CLI | Official CLI covers health, node, network, task, service, log, and policy flows | `docs/contracts/CLI-COMMANDS.md`, `docs/services/m-cli.md` |
 | Service lifecycle | Service definitions, dependency checks, lifecycle events, reload behavior are declared and tested | `docs/services/SERVICE-DEFINITION-TEMPLATE.md`, `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md` |
-| Nodes and M-Net | Stem / Leaf records, logical networks, profile lifecycle boundaries, and node-agent sessions are auditable | `docs/services/m-net.md`, `docs/services/node-agent.md`, `docs/adr/ADR-N01-m-net-default-network.md`, `docs/adr/ADR-N02-m-net-cn-profile.md` |
+| Nodes and M-Net | Stem / Leaf records, logical networks, profile lifecycle boundaries, and node-agent sessions are auditable | `docs/services/m-net.md`, `docs/services/node-agent.md`, `docs/adr/ADR-N01-m-net-default-network.md`, `docs/adr/ADR-N02-m-net-cn-profile.md`, `docs/adr/ADR-N03-m-net-production-data-plane.md` |
 | M-Task | Task submission and lifecycle state are owned by M-Task, not ad hoc Core fields | `docs/services/m-task.md`, `docs/adr/ADR-T01-m-task-canonical-service.md` |
 | Events | Event envelopes, subjects, schema versions, correlation, and causation are stable | `docs/events/EVENT-CATALOG.md`, `packages/events/` tests |
 | Logs | Timeline / Full / Audit facts remain distinct and trace-correlated | `docs/services/m-log.md`, `docs/security/SECURITY-MODEL.md` |
@@ -80,6 +80,32 @@ Each slice must update its owning service, contract, security, data, operation, 
 
 ---
 
+## 4.1 v0.2 M-Net Data-Plane Direction
+
+v0.2 数据面方向由 ADR-N04 声明：**NetBird-only at runtime**，排除 NetBird Management。
+
+### 关键 Gate
+
+在 Meristem 对 NetBird 客户端 sidecar 集成做出实施承诺之前，必须先通过 viability proof：
+
+```bash
+bun run mnet:v02:sidecar-proof
+```
+
+该 proof 验证 NetBird 客户端可在无 Management 模式下运行，并通过 Signal + Relay/STUN 建立 WireGuard 隧道。
+
+### Profile 迁移
+
+- `m-net@0.3.0` 和 `m-net-cn@0.3.0`：NetBird 数据面语义（v0.2 目标 profile）。
+- `m-net-cn@0.2.0`（WireGuard + wstunnel）：旧版 profile，供已部署节点迁移窗口内使用（ADR-N03 旧版路径）。
+- v0.2 是 breaking change：旧节点获得 typed migration-required / rebuild 指导。
+
+### 回退
+
+如果 sidecar-proof 未通过，回退方案为 Meristem 自有 WireGuard 渲染 + NetBird Signal/Relay/STUN 基础设施，仍排除 NetBird Management。见 ADR-N04 第 4 节。
+
+---
+
 ## 5. Post-v0.1 Tracks
 
 These tracks are not default v0.1 scope. Start them only by reopening a specific item in `DEFERRED-WORK.md` or by adding a new root roadmap section with acceptance criteria.
@@ -88,7 +114,7 @@ These tracks are not default v0.1 scope. Start them only by reopening a specific
 |-------|----------|
 | LLM-assisted review | Auxiliary explanation only; never final authorization |
 | Formal approval UI | BFF + SDUI + CommandWell contract first |
-| Real M-Net data plane | Control-plane profile lifecycle must stay separate from endpoint / route / secret data |
+| Real M-Net data plane | v0.2 NetBird-only runtime direction per ADR-N04; control-plane profile lifecycle stays separate from endpoint / route / secret data |
 | M-Extension runtime depth | Registry, manifest, policy, lifecycle, and sandbox contracts before execution depth |
 | Deployment hardening | Optional pack first; no default Kubernetes / Service Mesh assumption |
 | Identity hardening | Core-owned local identity lifecycle and revocation before external IdP complexity |

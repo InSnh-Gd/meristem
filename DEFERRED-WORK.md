@@ -144,8 +144,8 @@ Deferred work:
 
 Reason deferred:
 
-- Current identity model only has `viewer`, `operator`, `admin`, and `security-admin`.
-- Approval flow quorum is intentionally fixed: manual review requires one `security-admin`; multi approval requires two distinct `security-admin` actors.
+- Current identity model is still a fixed actor set (`viewer`, `operator`, `admin`, `security-admin`, `break-glass-reviewer`) rather than groups or teams.
+- Approval flow quorum is intentionally fixed: manual review requires one eligible approval actor; high-risk `security-admin` operations can be reviewed by the distinct `break-glass-reviewer` actor, while multi approval still requires distinct eligible actors.
 
 Reopen trigger:
 
@@ -171,7 +171,7 @@ Source: Approval flow and M-Policy contract docs.
 
 Deferred work:
 
-- extracting approval records, votes, quorum, and queue APIs into a new M-* service.
+- extracting approval records, votes, quorum, and queue APIs into a new capability domain service.
 
 Reason deferred:
 
@@ -667,7 +667,7 @@ Reason deferred:
 
 Reopen trigger:
 
-- a concrete extension use case requires isolated code execution that cannot be modeled as an M-* service.
+- a concrete extension use case requires isolated code execution that cannot be modeled as a capability domain service.
 - M-Extension control plane is implemented and audited.
 
 Required before implementation:
@@ -943,7 +943,7 @@ Source: `ops/compose/full-stack.example.yml`.
 
 Deferred work:
 
-- production images for Core and M-* services.
+- production images for Core and capability domain services.
 - split-container internal service URL configuration.
 - container health checks for every service.
 - image publishing and registry workflow.
