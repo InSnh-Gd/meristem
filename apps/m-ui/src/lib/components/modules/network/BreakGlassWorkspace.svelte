@@ -45,12 +45,12 @@
 <section class="break-glass-page">
   <RouteHeader routeName="紧急预案 (Break-glass)" {stateSources} />
 
-  <div class="panel alert-panel">
+  <div class="panel alert-panel workbench-panel">
     <h3>⚠ 警告：破坏性操作</h3>
     <p>此操作将绕过正常的策略检查强制执行控制面下发。仅在 Core 异常、网络不可用或正常策略阻断了紧急恢复流程时使用。此操作会被强制审计记录。</p>
   </div>
 
-  <div class="panel form-panel">
+  <div class="panel form-panel workbench-panel">
     <h3>参数配置</h3>
     <div class="form-group">
       <label for="network-id">网络 ID</label>
@@ -101,8 +101,17 @@
   }
 
   .panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--glass-panel-radius);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--surface-panel) 96%, var(--surface-chrome)),
+        color-mix(in srgb, var(--surface-root) 96%, black)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 32%, transparent),
+      0 var(--space-2) var(--space-4) color-mix(in srgb, var(--surface-root) 78%, var(--surface-panel));
     padding: var(--space-4);
     display: flex;
     flex-direction: column;
@@ -110,12 +119,17 @@
   }
 
   .alert-panel {
-    border-color: var(--signal-error);
-    background: color-mix(in srgb, var(--signal-error) 10%, var(--surface-root));
+    border-color: var(--signal-block);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--signal-block) 12%, var(--surface-panel)),
+        color-mix(in srgb, var(--surface-root) 96%, black)
+      );
   }
 
   .alert-panel h3 {
-    color: var(--signal-error);
+    color: var(--signal-block);
   }
 
   .alert-panel p {
@@ -147,14 +161,15 @@
   input {
     padding: var(--space-2);
     border: 1px solid var(--line-soft);
+    border-radius: var(--control-radius);
     background: var(--surface-root);
     color: var(--text-100);
     font-size: var(--text-sm);
   }
 
   input:focus {
-    outline: 1px solid var(--signal-error);
-    border-color: var(--signal-error);
+    outline: 1px solid var(--signal-block);
+    border-color: var(--signal-block);
   }
 
   .mono {
@@ -168,11 +183,15 @@
   .check-btn {
     padding: var(--space-2) var(--space-4);
     background: var(--surface-root);
-    border: 1px solid var(--signal-error);
-    color: var(--signal-error);
+    border: 1px solid var(--signal-block);
+    border-radius: var(--control-radius);
+    color: var(--signal-block);
     cursor: pointer;
     font-size: var(--text-sm);
     font-weight: var(--fw-medium);
+    transition:
+      background var(--duration-fast) var(--easing-ui),
+      color var(--duration-fast) var(--easing-ui);
   }
 
   .check-btn:disabled {
@@ -183,7 +202,7 @@
   }
 
   .check-btn:not(:disabled):hover {
-    background: var(--signal-error);
+    background: var(--signal-block);
     color: var(--surface-root);
   }
 
@@ -193,7 +212,7 @@
     bottom: 0;
     left: var(--nav-rail-width);
     z-index: 10;
-    border-top: 1px solid var(--signal-error);
+    border-top: 1px solid var(--signal-block);
     background: var(--surface-root);
     padding: var(--space-3) var(--shell-padding-x);
   }

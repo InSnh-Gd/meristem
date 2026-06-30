@@ -28,8 +28,8 @@
     align-items: flex-start;
     gap: var(--space-2);
     border: 1px solid var(--alert-color);
-    border-radius: var(--space-1);
-    background: var(--surface-sunken);
+    border-radius: var(--operational-card-radius);
+    background: color-mix(in srgb, var(--alert-color) 8%, var(--surface-root));
     color: var(--text-100);
     font-size: var(--text-sm);
     padding: var(--space-2) var(--space-3);
@@ -38,5 +38,6 @@
   .alert-icon {
     color: var(--alert-color);
     line-height: var(--lh-tight);
+    font-weight: var(--fw-semibold);
   }
 </style>

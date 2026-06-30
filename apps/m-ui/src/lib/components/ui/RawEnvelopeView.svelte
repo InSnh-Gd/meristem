@@ -20,9 +20,11 @@
 
 <style>
   .raw-envelope-view {
-    border: 1px solid var(--line-soft);
-    border-radius: var(--space-1);
-    background: var(--surface-sunken);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--glass-panel-radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised)), color-mix(in srgb, var(--surface-root) 96%, black));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 24%, transparent);
+    overflow: hidden;
   }
 
   button {
@@ -38,8 +40,14 @@
     font-family: var(--font-body);
     font-size: var(--text-sm);
     font-weight: var(--fw-medium);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-3);
     text-align: left;
+    transition:
+      background var(--duration-fast) var(--easing-ui);
+  }
+
+  button:hover {
+    background: color-mix(in srgb, var(--surface-raised) 50%, transparent);
   }
 
   button:focus-visible {

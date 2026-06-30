@@ -40,13 +40,19 @@
   {#if node}
     <div class="detail-layout">
       <div class="detail-stack">
-        <section class="panel" aria-labelledby="node-state-title">
-          <h2 id="node-state-title">节点状态</h2>
+        <section class="panel workbench-panel" aria-labelledby="node-state-title">
+          <div class="zone-titles">
+            <span class="zone-eyebrow">Node state</span>
+            <h2 id="node-state-title">节点状态</h2>
+          </div>
           <KeyValueInspector item={node} />
         </section>
 
-        <section class="panel" aria-labelledby="node-timeline-title">
-          <h2 id="node-timeline-title">节点时间线</h2>
+        <section class="panel workbench-panel" aria-labelledby="node-timeline-title">
+          <div class="zone-titles">
+            <span class="zone-eyebrow">Timeline stream</span>
+            <h2 id="node-timeline-title">节点时间线</h2>
+          </div>
           <TimelineStream entries={nodeTimeline} />
         </section>
       </div>
@@ -56,11 +62,11 @@
       </aside>
     </div>
   {:else if appState.loading}
-    <section class="empty-panel">
+    <section class="empty-panel workbench-panel">
       <p>正在加载节点详情。</p>
     </section>
   {:else}
-    <section class="empty-panel">
+    <section class="empty-panel workbench-panel">
       <p>未找到节点：<span class="mono">{nodeId}</span></p>
     </section>
   {/if}
@@ -90,9 +96,6 @@
   .raw-panel,
   .empty-panel {
     min-width: 0;
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
   }
 
   .panel {
@@ -101,11 +104,18 @@
     gap: var(--space-3);
   }
 
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   h2 {
     color: var(--text-100);
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .empty-panel {

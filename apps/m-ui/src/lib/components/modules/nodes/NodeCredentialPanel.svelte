@@ -84,8 +84,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    background: var(--surface-float);
-    border: 1px solid var(--line-soft);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--glass-panel-radius);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--surface-panel) 96%, var(--surface-chrome)),
+        color-mix(in srgb, var(--surface-root) 96%, black)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 32%, transparent),
+      0 var(--space-2) var(--space-4) color-mix(in srgb, var(--surface-root) 78%, var(--surface-panel));
     padding: var(--space-4);
   }
 
@@ -105,6 +114,7 @@
   select {
     padding: var(--space-2) var(--space-3);
     border: 1px solid var(--line-soft);
+    border-radius: var(--control-radius);
     background: var(--surface-root);
     color: var(--text-100);
     font-size: var(--text-sm);
@@ -128,9 +138,13 @@
     padding: var(--space-2) var(--space-4);
     background: var(--surface-root);
     border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
     color: var(--text-100);
     cursor: pointer;
     font-size: var(--text-sm);
+    transition:
+      border-color var(--duration-fast) var(--easing-ui),
+      background var(--duration-fast) var(--easing-ui);
   }
 
   .check-btn:disabled {
@@ -139,6 +153,7 @@
   }
 
   .check-btn:not(:disabled):hover {
-    background: var(--surface-float);
+    border-color: var(--signal-info);
+    background: var(--surface-raised);
   }
 </style>

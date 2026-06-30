@@ -2,9 +2,11 @@ import type {
   ApprovalDetailResponseData,
   ApprovalQueueResponseData,
   AuditData,
+  AuditEntry,
   BffNetworkMapSummary,
   CommandState,
   DataPlaneStatusResponseData,
+  ForcedRelayCommandResult,
   GenericCommandParams,
   GlobalDefaultsResponseData,
   JoinTicketListResponseData,
@@ -14,6 +16,7 @@ import type {
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
   NodeListData,
+  OperationalStateData,
   OverviewData,
   PolicyDecisionData,
   PolicyDecisionSummary,
@@ -123,6 +126,10 @@ export function fetchCommandState(token: string, leafNodeId: string) {
   return fetchCommandEligibility(token, 'task.noop.submit', { leafNodeId })
 }
 
+export function fetchForcedRelayCommandState(token: string, nodeId: string) {
+  return fetchCommandEligibility(token, 'network.forced-relay.change.execute', { nodeId })
+}
+
 export function fetchCommandEligibility(
   token: string,
   commandId: string,
@@ -140,6 +147,13 @@ export function fetchCommandEligibility(
 
 export function executeNoop(token: string, leafNodeId: string) {
   return executeCommand<TaskResult>(token, 'task.noop.submit', { leafNodeId })
+}
+
+export function executeForcedRelayChange(token: string, nodeId: string, reason?: string) {
+  return executeCommand<ForcedRelayCommandResult>(token, 'network.forced-relay.change.execute', {
+    nodeId,
+    ...(reason ? { reason } : {})
+  })
 }
 
 export function executeCommand<T = unknown>(
@@ -225,4 +239,27 @@ export function fetchNetworkMapSummary(token: string, networkId: string) {
   )
 }
 
-// Change fetchGlobalDefaults to point to /api/v0/networks/defaults
+export function fetchOperationalState(token: string, networkId: string) {
+  return bffFetch<OperationalStateData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/operational-state`,
+    token
+  )
+}
+
+export function createNetwork(token: string, name: string, profileVersion?: string) {
+  type Res = {
+    network: {
+      id: string
+      name: string
+      profileVersion: string
+      status: string
+      createdAt: string
+    }
+    policyDecisionId: string
+    correlationId: string
+  }
+  return bffFetch<Res>('/api/v0/networks', token, {
+    method: 'POST',
+    body: JSON.stringify({ name, ...(profileVersion ? { profileVersion } : {}) })
+  })
+}

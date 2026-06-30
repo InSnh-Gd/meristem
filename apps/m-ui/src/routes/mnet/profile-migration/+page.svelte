@@ -72,8 +72,11 @@
 <section class="migration-page">
   <RouteHeader routeName="Profile 迁移" {stateSources} />
 
-  <div class="panel status-panel">
-    <h3>全局配置状态</h3>
+  <div class="panel status-panel workbench-panel">
+    <div class="zone-titles">
+      <span class="zone-eyebrow">Global config state</span>
+      <h3>全局配置状态</h3>
+    </div>
     {#if appState.globalDefaultsLoading}
       <p class="empty-state">加载中...</p>
     {:else if appState.globalDefaultsError}
@@ -107,8 +110,11 @@
     {/if}
   </div>
 
-  <div class="panel form-panel">
-    <h3>迁移操作验证</h3>
+  <div class="panel form-panel workbench-panel">
+    <div class="zone-titles">
+      <span class="zone-eyebrow">Migration command</span>
+      <h3>迁移操作验证</h3>
+    </div>
     <div class="form-group">
       <label for="command-select">操作类型</label>
       <select id="command-select" bind:value={commandId}>
@@ -122,7 +128,7 @@
       <div class="form-row">
         <div class="form-group">
           <label for="target-profile">目标 Profile 版本</label>
-          <input id="target-profile" type="text" bind:value={targetProfileVersion} class="mono" placeholder="如 m-net-cn@0.2.0" />
+          <input id="target-profile" type="text" bind:value={targetProfileVersion} class="mono" placeholder="如 m-net-cn@0.3.0" />
         </div>
         <div class="form-group">
           <label for="batch-size">批次大小</label>
@@ -147,7 +153,7 @@
     {/if}
 
     <div class="action-row">
-      <button class="check-btn" onclick={checkEligibility}>验证操作资格</button>
+      <button class="workbench-btn workbench-btn-primary" onclick={checkEligibility}>验证操作资格</button>
     </div>
   </div>
 </section>
@@ -179,12 +185,16 @@
   }
 
   .panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   h3 {
@@ -205,6 +215,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
   dt {
@@ -252,6 +266,7 @@
   input, select {
     padding: var(--space-2);
     border: 1px solid var(--line-soft);
+    border-radius: var(--control-radius);
     background: var(--surface-root);
     color: var(--text-100);
     font-size: var(--text-sm);
@@ -264,19 +279,6 @@
 
   .action-row {
     margin-top: var(--space-2);
-  }
-
-  .check-btn {
-    padding: var(--space-2) var(--space-4);
-    background: var(--surface-root);
-    border: 1px solid var(--line-strong);
-    color: var(--text-100);
-    cursor: pointer;
-    font-size: var(--text-sm);
-  }
-
-  .check-btn:hover {
-    background: var(--surface-raised);
   }
 
   .command-region {

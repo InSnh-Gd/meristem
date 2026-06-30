@@ -51,8 +51,11 @@
   <FilterBar placeholder="按节点名称、状态、可达性或能力筛选" onFilter={(value: string) => query = value} />
 
   <div class="nodes-layout">
-    <section class="nodes-panel" aria-labelledby="node-list-title">
-      <h2 id="node-list-title">节点列表</h2>
+    <section class="nodes-panel workbench-panel" aria-labelledby="node-list-title">
+      <div class="zone-titles">
+        <span class="zone-eyebrow">Topology nodes</span>
+        <h2 id="node-list-title">节点列表</h2>
+      </div>
 
       {#if filteredNodes.length === 0}
         <p class="empty-state">暂无匹配节点。</p>
@@ -84,7 +87,7 @@
       {/if}
     </section>
 
-    <aside class="inspector-panel" aria-label="节点检查器">
+    <aside class="inspector-panel workbench-panel" aria-label="节点检查器">
       <KeyValueInspector item={selectedNode} />
     </aside>
   </div>
@@ -106,9 +109,6 @@
   .nodes-panel,
   .inspector-panel {
     min-width: 0;
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
   }
 
   .nodes-panel {
@@ -117,11 +117,18 @@
     gap: var(--space-3);
   }
 
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   h2 {
     color: var(--text-100);
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .node-table {
@@ -129,6 +136,8 @@
     flex-direction: column;
     overflow-x: auto;
     border: 1px solid var(--line-soft);
+    border-radius: var(--operational-card-radius);
+    background: color-mix(in srgb, var(--surface-root) 60%, var(--surface-panel));
   }
 
   .node-row {
@@ -138,7 +147,7 @@
     min-width: var(--service-table-min-width);
     border: 0;
     border-bottom: 1px solid var(--line-soft);
-    background: var(--surface-root);
+    background: transparent;
     color: var(--text-100);
     font-family: var(--font-body);
     font-size: var(--text-sm);
@@ -153,6 +162,9 @@
   .node-heading {
     font-size: var(--text-xs);
     font-weight: var(--fw-semibold);
+    color: var(--text-60);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .node-entry {
@@ -162,9 +174,7 @@
   .node-entry:hover,
   .node-entry:focus-visible,
   .node-entry.selected {
-    border-color: var(--line-strong);
-    outline: 1px solid var(--signal-info);
-    outline-offset: 0;
+    background: color-mix(in srgb, var(--signal-info) 8%, var(--surface-raised));
   }
 
   .mono {
@@ -172,7 +182,7 @@
   }
 
   .empty-state {
-    color: var(--text-100);
+    color: var(--text-60);
     font-size: var(--text-sm);
   }
 

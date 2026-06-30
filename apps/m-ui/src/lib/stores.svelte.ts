@@ -16,9 +16,12 @@ import {
   fetchServices as fetchBffServices,
   fetchTimeline as fetchBffTimeline,
   fetchCommandState,
+  fetchForcedRelayCommandState,
   fetchOverview,
   fetchPolicySummary,
-  formatBffError
+  formatBffError,
+  fetchOperationalState,
+  createNetwork
 } from './bff'
 import type {
   ApprovalDetailResponseData,
@@ -26,6 +29,7 @@ import type {
   AuditData,
   AuditEntry,
   CommandState,
+  CommandResult,
   DataPlaneStatusResponseData,
   GenericCommandParams,
   GlobalDefaultsResponseData,
@@ -40,8 +44,8 @@ import type {
   PolicyDecisionSummary,
   RouteRegistry,
   ServiceListData,
-  TaskResult,
-  TimelineData
+  TimelineData,
+  OperationalStateData
 } from './types'
 
 declare const $state: <T>(initial: T) => T
@@ -58,8 +62,9 @@ class AppState {
   selectedNodeId = $state<string | null>(null)
   commandState = $state<CommandState | null>(null)
   commandStateError = $state<string | null>(null)
+  commandExecutionError = $state<string | null>(null)
   commandParams = $state<Record<string, unknown> | null>(null)
-  taskResult = $state<TaskResult | null>(null)
+  taskResult = $state<CommandResult | null>(null)
   commandConfirming = $state(false)
   policySummary = $state<PolicyDecisionSummary | null>(null)
   policySummaryError = $state<string | null>(null)
@@ -94,6 +99,9 @@ class AppState {
   globalDefaults = $state<GlobalDefaultsResponseData | null>(null)
   globalDefaultsLoading = $state(false)
   globalDefaultsError = $state<string | null>(null)
+  operationalState = $state<OperationalStateData | null>(null)
+  operationalStateLoading = $state(false)
+  operationalStateError = $state<string | null>(null)
 
   actor = $derived(this.overview?.session.actor ?? null)
   permissions = $derived(this.overview?.session.permissions ?? [])
@@ -278,6 +286,36 @@ class AppState {
     }
   }
 
+  async fetchOperationalState(networkId: string) {
+    if (!this.token || !networkId) return
+    this.operationalStateLoading = true
+    this.operationalStateError = null
+    try {
+      this.operationalState = await fetchOperationalState(this.token, networkId)
+    } catch (e: unknown) {
+      this.operationalState = null
+      this.operationalStateError = formatBffError(e, '运营状态加载失败')
+    } finally {
+      this.operationalStateLoading = false
+    }
+  }
+
+  async createNetwork(name: string, profileVersion?: string) {
+    if (!this.token) return
+    this.loading = true
+    this.error = null
+    try {
+      const res = await createNetwork(this.token, name, profileVersion)
+      await this.fetchNetworks()
+      return res
+    } catch (e: unknown) {
+      this.error = formatBffError(e, '创建网络失败')
+      throw e
+    } finally {
+      this.loading = false
+    }
+  }
+
   clearAudit() {
     this.audit = null
   }
@@ -285,14 +323,19 @@ class AppState {
   async selectNode(nodeId: string) {
     this.selectedNodeId = nodeId
     this.taskResult = null
+    this.commandExecutionError = null
     this.commandConfirming = false
     this.commandStateError = null
     if (this.token && nodeId) {
       try {
-        this.commandState = await fetchCommandState(this.token, nodeId)
+        this.commandState = await fetchForcedRelayCommandState(this.token, nodeId)
       } catch (e: unknown) {
-        this.commandState = null
-        this.commandStateError = formatBffError(e, '操作状态加载失败')
+        try {
+          this.commandState = await fetchCommandState(this.token, nodeId)
+        } catch (fallbackError: unknown) {
+          this.commandState = null
+          this.commandStateError = formatBffError(fallbackError, '操作状态加载失败')
+        }
       }
     }
   }
@@ -302,6 +345,8 @@ class AppState {
     this.commandConfirming = false
     this.loading = true
     this.error = null
+    this.commandExecutionError = null
+    this.taskResult = null
     try {
       this.taskResult = await executeCommand(
         this.token,
@@ -313,7 +358,7 @@ class AppState {
         await this.fetchPolicySummary(this.taskResult.policyDecisionId)
       }
     } catch (e: unknown) {
-      this.error = formatBffError(e, '操作执行失败')
+      this.commandExecutionError = formatBffError(e, '操作执行失败')
     } finally {
       this.loading = false
     }

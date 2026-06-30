@@ -33,13 +33,16 @@
   <h2 id="timeline-title" class="section-title">事件与日志流</h2>
   <p class="section-copy">按事件、日志摘要或 correlationId 过滤运行事实。</p>
 
-  <div class="panel">
+  <div class="panel workbench-panel">
     <FilterBar placeholder="过滤时间线事件" onFilter={(value) => query = value} />
     <TimelineStream entries={filteredEntries} />
   </div>
 
-  <section class="panel trace-panel" aria-label="关联追踪">
-    <h3>关联追踪</h3>
+  <section class="panel trace-panel workbench-panel" aria-label="关联追踪">
+    <div class="zone-titles">
+      <span class="zone-eyebrow">Trace links</span>
+      <h3>关联追踪</h3>
+    </div>
     {#if traceableEntries.length === 0}
       <p class="empty-state">当前筛选结果暂无 correlationId</p>
     {:else}
@@ -70,29 +73,36 @@
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .section-copy,
   .empty-state {
-    color: var(--text-100);
+    color: var(--text-60);
     font-size: var(--text-sm);
     line-height: var(--lh-log);
+    margin: 0;
   }
 
   .panel {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
+    min-width: 0;
   }
 
-  .trace-panel h3 {
-    color: var(--signal-info);
-    font-size: var(--text-sm);
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .zone-titles h3 {
+    color: var(--text-100);
+    font-size: var(--text-base);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .trace-list {
@@ -108,6 +118,10 @@
     gap: var(--space-3);
     border-bottom: 1px solid var(--line-soft);
     padding: var(--space-2) 0;
+  }
+
+  .trace-row:last-child {
+    border-bottom: 0;
   }
 
   .trace-summary {

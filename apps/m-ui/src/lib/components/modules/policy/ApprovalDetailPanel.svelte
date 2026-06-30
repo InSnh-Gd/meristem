@@ -29,10 +29,10 @@
   }
 </script>
 
-<section class="approval-detail-panel" aria-label="审批详情面板">
+<section class="approval-detail-panel workbench-panel" aria-label="审批详情面板">
   <div class="approval-header">
-    <div>
-      <p class="eyebrow">审批详情</p>
+    <div class="zone-titles">
+      <p class="zone-eyebrow">审批详情</p>
       <h3>{approval.id}</h3>
     </div>
     <div class="header-badges">
@@ -93,11 +93,11 @@
     </div>
 
     {#if approval.votes.length === 0}
-      <p class="empty-state">暂无投票记录。</p>
+      <p class="workbench-empty">暂无投票记录。</p>
     {:else}
       <div class="vote-list">
         {#each approval.votes as vote}
-          <article class="vote-card">
+          <article class="vote-card workbench-card">
             <div class="vote-topline">
               <span class="mono">{vote.actor}</span>
               <span class="vote-result">{voteLabel[vote.vote]}</span>
@@ -126,18 +126,10 @@
 </section>
 
 <style>
-  .approval-detail-panel,
-  .vote-card,
-  .empty-state {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-  }
-
   .approval-detail-panel {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    padding: var(--space-4);
   }
 
   .approval-header,
@@ -156,18 +148,24 @@
     flex-wrap: wrap;
   }
 
-  .eyebrow,
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .zone-eyebrow,
   .approval-status,
   .vote-count,
   .approval-meta dt,
   .approval-meta dd,
   .vote-meta dt,
   .vote-meta dd,
-  .empty-state {
+  .workbench-empty {
     font-size: var(--text-xs);
   }
 
-  .eyebrow,
+  .zone-eyebrow,
   .approval-meta dt,
   .vote-meta dt {
     color: var(--text-60);
@@ -209,11 +207,15 @@
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+    padding: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
   .approval-meta dd,
   .vote-meta dd,
-  .empty-state {
+  .workbench-empty {
     color: var(--text-100);
     font-family: var(--font-mono);
     line-height: var(--lh-log);
@@ -233,8 +235,7 @@
     gap: var(--space-3);
   }
 
-  .vote-card,
-  .empty-state {
+  .vote-card {
     padding: var(--space-3);
   }
 

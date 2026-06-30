@@ -12,6 +12,7 @@ import type {
   MNetProfileVersion,
   MNetRegionalProfile,
   MNode,
+  MNetOperationalSnapshotFromSchema,
   NetworkProfileState,
   NetworkSummary,
   OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
@@ -34,6 +35,8 @@ export type StateSourceMetadata = {
 }
 
 export type WithStateSource<T extends object> = T & { stateSource: StateSourceMetadata }
+
+export type OperationalStateData = WithStateSource<MNetOperationalSnapshotFromSchema>
 
 export type RouteDefinition = SduiV02Route
 
@@ -163,6 +166,7 @@ export interface CommandPreviewResult {
 
 export type GenericCommandParams =
   | { leafNodeId: string }
+  | { nodeId: string; reason?: string }
   | { approvalId: string; reason?: string }
   | { networkId: string; profileVersion: string; reason?: string }
   | { profileVersion: string; reason?: string; idempotencyKey?: string }
@@ -223,6 +227,24 @@ export type CommandState = {
 }
 
 export type TaskResult = SubmitTaskResponse
+
+export type ForcedRelayCommandResult = {
+  status: 'applied'
+  networkId: string
+  nodeId: string
+  profileVersion: 'm-net-cn@0.3.0'
+  routeClass: 'forced-tcp-relay'
+  selectorOwnership: 'operator'
+  affectedNodeIds: string[]
+  policyDecisionId: string
+  auditId: string
+  eventId: string
+  correlationId: string
+  publishStatus: 'published' | 'degraded'
+  snapshotStatus: 'healthy' | 'degraded' | 'blocked' | 'unknown'
+}
+
+export type CommandResult = TaskResult | ForcedRelayCommandResult
 
 export type ApprovalCommandResult = ApprovalActionResponse & {
   correlationId?: string

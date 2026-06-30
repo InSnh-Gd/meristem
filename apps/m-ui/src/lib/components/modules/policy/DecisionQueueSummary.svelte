@@ -13,13 +13,15 @@
     width: fit-content;
     border: 1px solid var(--line-soft);
     border-radius: var(--space-1);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
     color: var(--text-60);
     font-size: var(--text-xs);
-    padding: 0 var(--space-2);
+    padding: var(--space-1) var(--space-2);
   }
 
   .decision-queue-summary.pending {
     border-color: var(--signal-warn);
+    background: color-mix(in srgb, var(--signal-warn) 10%, var(--surface-root));
     color: var(--signal-warn);
   }
 </style>

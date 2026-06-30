@@ -70,20 +70,31 @@
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .section-copy {
-    color: var(--text-100);
+    color: var(--text-60);
     font-size: var(--text-sm);
     line-height: var(--lh-log);
+    margin: 0;
   }
 
   .panel {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--glass-panel-radius);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--surface-panel) 96%, var(--surface-chrome)),
+        color-mix(in srgb, var(--surface-root) 96%, black)
+      );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 32%, transparent),
+      0 var(--space-2) var(--space-4) color-mix(in srgb, var(--surface-root) 78%, var(--surface-panel));
     padding: var(--space-4);
   }
 </style>

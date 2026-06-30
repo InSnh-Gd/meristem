@@ -76,8 +76,10 @@
   }
 
   .card {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-float);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--operational-card-radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised)), color-mix(in srgb, var(--surface-root) 96%, black));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 24%, transparent);
     padding: var(--space-3);
     display: flex;
     flex-direction: column;
@@ -108,6 +110,8 @@
   .table-container {
     overflow-x: auto;
     border: 1px solid var(--line-soft);
+    border-radius: var(--operational-card-radius);
+    background: color-mix(in srgb, var(--surface-root) 60%, var(--surface-panel));
   }
 
   .status-table {
@@ -126,7 +130,11 @@
   .status-table th {
     font-weight: var(--fw-semibold);
     color: var(--text-60);
-    background: var(--surface-float);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
+  }
+
+  .status-table tbody tr:hover td {
+    background: color-mix(in srgb, var(--surface-raised) 50%, transparent);
   }
 
   .status-table tbody tr:last-child td {

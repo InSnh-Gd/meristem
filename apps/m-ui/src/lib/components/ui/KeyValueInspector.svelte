@@ -24,11 +24,42 @@
 </div>
 
 <style>
-  .inspector { display: flex; flex-direction: column; gap: var(--space-1); }
-  .empty { color: var(--text-40); font-size: var(--text-sm); }
-  .inspector-title { font-size: var(--text-sm); font-weight: var(--fw-medium); color: var(--text-60); margin-bottom: var(--space-2); }
-  .kv-row { display: flex; gap: var(--space-2); font-size: var(--text-xs); padding: var(--space-1) 0; }
-  .kv-key { color: var(--text-60); min-width: 120px; flex-shrink: 0; }
-  .kv-value { color: var(--text-80); word-break: break-all; }
-  .mono { font-family: var(--font-mono); }
+  .inspector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .empty {
+    color: var(--text-40);
+    font-size: var(--text-sm);
+  }
+  .inspector-title {
+    font-size: var(--text-sm);
+    font-weight: var(--fw-medium);
+    color: var(--text-60);
+    margin: 0 0 var(--space-2) 0;
+  }
+  .kv-row {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 64%, transparent);
+  }
+  .kv-row:last-child {
+    border-bottom: 0;
+  }
+  .kv-key {
+    color: var(--text-60);
+    min-width: 120px;
+    flex-shrink: 0;
+    font-weight: var(--fw-medium);
+  }
+  .kv-value {
+    color: var(--text-80);
+    word-break: break-all;
+  }
+  .mono {
+    font-family: var(--font-mono);
+  }
 </style>

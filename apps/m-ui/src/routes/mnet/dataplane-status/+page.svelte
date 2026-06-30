@@ -37,15 +37,15 @@
 
 <RouteHeader routeName="mnet.dataplane.status" {stateSources} />
 
-<div class="dataplane-status-page">
-  <div class="network-input-row">
+<section class="dataplane-status-page">
+  <div class="network-input-row workbench-panel">
     <input
       type="text"
       placeholder="输入网络 ID"
       bind:value={networkId}
       onkeydown={(e) => e.key === 'Enter' && loadStatus()}
     />
-    <button onclick={loadStatus} disabled={!networkId || loading}>
+    <button class="workbench-btn workbench-btn-primary" onclick={loadStatus} disabled={!networkId || loading}>
       {loading ? '加载中...' : '查询'}
     </button>
   </div>
@@ -57,51 +57,67 @@
   {#if status && mapSummary}
     <DataplaneStatusPanel statusData={status} mapSummary={mapSummary} />
   {:else if status && !mapSummary}
-    <div class="status-only">
+    <div class="status-only workbench-panel">
       <p>数据面状态已加载，但网络地图摘要不可用。</p>
       <pre>{JSON.stringify(status, null, 2)}</pre>
     </div>
   {:else if !loading && !error}
     <div class="empty-hint">输入网络 ID 并点击查询以查看数据面状态</div>
   {/if}
-</div>
+</section>
 
 <style>
   .dataplane-status-page {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
+    gap: var(--panel-gap);
   }
 
   .network-input-row {
     display: flex;
-    gap: 0.5rem;
+    flex-direction: row;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-3);
   }
 
   .network-input-row input {
     flex: 1;
-    padding: 0.5rem;
+    padding: var(--space-2) var(--space-3);
     border: 1px solid var(--line-soft);
-    border-radius: 4px;
+    border-radius: var(--control-radius);
+    background: var(--surface-root);
+    color: var(--text-100);
+    font-size: var(--text-sm);
   }
 
-  .network-input-row button {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--line-soft);
-    border-radius: 4px;
-    cursor: pointer;
-    background: var(--surface-raised);
+  .network-input-row input:focus {
+    border-color: var(--signal-info);
+    outline: 1px solid var(--signal-info);
+    outline-offset: 0;
   }
 
-  .network-input-row button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .status-only,
+  .empty-hint {
+    color: var(--text-100);
+  }
+
+  .status-only pre {
+    overflow-x: auto;
+    margin: var(--space-3) 0 0;
+    padding: var(--space-3);
+    border-top: 1px solid var(--line-soft);
+    color: var(--text-80);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: var(--lh-log);
+    white-space: pre-wrap;
   }
 
   .empty-hint {
-    color: var(--text-60);
-    padding: 2rem;
+    padding: var(--space-8) var(--space-4);
     text-align: center;
+    color: var(--text-60);
+    font-size: var(--text-sm);
   }
 </style>

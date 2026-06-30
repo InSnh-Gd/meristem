@@ -36,7 +36,7 @@
 <section class="credentials-page">
   <RouteHeader routeName="节点凭证" {stateSources} />
 
-  <div class="panel">
+  <div class="panel workbench-panel">
     <NodeCredentialPanel initialNodeId={nodeId} />
   </div>
 </section>
@@ -67,9 +67,7 @@
   }
 
   .panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
+    min-width: 0;
   }
 
   .command-region {

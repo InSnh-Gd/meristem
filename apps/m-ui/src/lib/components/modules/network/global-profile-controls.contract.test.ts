@@ -13,7 +13,7 @@ describe('GlobalProfileControls source contract', () => {
     expect(source).toContain('fetchGlobalDefaults')
     expect(source).toContain('fetchMigrationStatus')
     expect(source).toContain('muiStores.token')
-    expect(source).toContain('页面不直接命中 Core 或 M-Net')
+    expect(source).toContain('页面不直接命中 Core public facade 或功能域服务')
   })
 
   it('keeps degraded and status failure alerts visible', () => {

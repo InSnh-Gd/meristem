@@ -89,6 +89,8 @@
   .table-container {
     overflow-x: auto;
     border: 1px solid var(--line-soft);
+    border-radius: var(--operational-card-radius);
+    background: color-mix(in srgb, var(--surface-root) 60%, var(--surface-panel));
   }
 
   .member-table {
@@ -107,7 +109,11 @@
   .member-table th {
     font-weight: var(--fw-semibold);
     color: var(--text-60);
-    background: var(--surface-float);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
+  }
+
+  .member-table tbody tr:hover td {
+    background: color-mix(in srgb, var(--surface-raised) 50%, transparent);
   }
 
   .member-table tbody tr:last-child td {

@@ -37,7 +37,7 @@
     <InlineOperationalAlert message={muiStores.approvalQueueError} severity="block" />
   {/if}
 
-  <section class="panel" aria-label="审批列表">
+  <section class="panel workbench-panel" aria-label="审批列表">
     {#if muiStores.approvalQueueLoading}
       <p class="empty-state">正在加载审批队列。</p>
     {:else}
@@ -73,22 +73,17 @@
     gap: var(--space-4);
   }
 
-  .panel,
-  .preview-grid {
+  .panel {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-  }
-
-  .panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
+    min-width: 0;
   }
 
   .preview-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
   }
 
   .section-title,
@@ -101,12 +96,14 @@
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .section-copy,
   .empty-state {
     font-size: var(--text-sm);
     line-height: var(--lh-log);
+    margin: 0;
   }
 
   @media (max-width: 760px) {

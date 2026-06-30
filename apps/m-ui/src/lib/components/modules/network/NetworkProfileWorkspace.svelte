@@ -11,6 +11,15 @@
   import { appState as muiStores } from '$lib/stores.svelte.ts'
   import type { NetworkListResponseData, ProfileCommandResult } from '$lib/types.ts'
 
+  const PROFILE_ICONS: Record<string, string> = {
+    profile:
+      '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5z" fill="currentColor" fill-opacity="0.12"/><path d="M4 13a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2z" fill="currentColor" fill-opacity="0.12"/><path d="M8 8h8"/><path d="M8 16h8"/></svg>',
+    network:
+      '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.5" fill="currentColor" fill-opacity="0.18"/><circle cx="6" cy="18" r="2.5" fill="currentColor" fill-opacity="0.18"/><circle cx="18" cy="18" r="2.5" fill="currentColor" fill-opacity="0.18"/><path d="m11 7-4 9"/><path d="m13 7 4 9"/><path d="M7.5 15h9"/></svg>',
+    command:
+      '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5" fill="currentColor" fill-opacity="0.12"/><path d="m9 8 5 4-5 4z" fill="currentColor" stroke="none"/></svg>'
+  }
+
   const stateSources = ['authoritative', 'policy', 'audit', 'log']
   const profileVersion = $derived(page.params.profileVersion)
   const missingNetworkReason = '请先选择目标网络'
@@ -40,7 +49,7 @@
     void fetchNetworks()
   })
 
-  /** 通过 M-UI BFF 读取网络列表，前端不直接访问 Core/M-Net。 */
+  /** 通过 M-UI BFF 读取网络列表，前端不直接访问 Core public facade 或功能域服务。 */
   async function fetchNetworks() {
     if (!muiStores.token) return
     networksLoading = true
@@ -68,11 +77,11 @@
   }
 
   /** Profile 命令必须带显式 networkId，并通过 BFF CommandWell 执行端点提交。 */
-  async function confirmProfileCommand() {
-    if (!pendingProfileCommand || !selectedNetworkId || !muiStores.token) return
-    const kind = pendingProfileCommand
-    const commandId = `network.profile.${kind}.execute`
-    const targetProfileVersion = kind === 'enable' ? 'm-net-cn@0.1.0' : 'm-net-default@0.1.0'
+	async function confirmProfileCommand() {
+		if (!pendingProfileCommand || !selectedNetworkId || !muiStores.token) return
+		const kind = pendingProfileCommand
+		const commandId = `network.profile.${kind}.execute`
+		const targetProfileVersion = kind === 'enable' ? 'm-net-cn@0.3.0' : 'm-net@0.3.0'
 
     commandRunning = true
     commandError = null
@@ -99,9 +108,15 @@
 <section class="route-page" aria-labelledby="network-profile-detail-title">
   <RouteHeader routeName="Profile 详情" {stateSources} />
 
-  <div>
-    <h2 id="network-profile-detail-title" class="section-title">Profile 详情</h2>
-    <p class="section-copy">保留 Profile 能力、规则与只读命令预览，避免在前端发起直接切换。</p>
+  <div class="page-title-block">
+    <div class="page-titles">
+      <h2 class="page-eyebrow">Network profile</h2>
+      <h1 id="network-profile-detail-title" class="page-title">Profile 详情</h1>
+      <p class="page-subtitle">观察 Profile 版本、能力、目标网络与只读命令预览。</p>
+    </div>
+    <div class="page-meta">
+      <span class="status-badge">profile: {profileVersion}</span>
+    </div>
   </div>
 
   {#if muiStores.selectedProfileError}
@@ -109,21 +124,22 @@
   {/if}
 
   {#if muiStores.selectedProfileLoading}
-    <section class="empty-panel">
-      <p>正在加载 Profile 详情。</p>
+    <section class="zone-panel empty-panel">
+      <p class="workbench-empty">正在加载 Profile 详情。</p>
     </section>
   {:else if muiStores.selectedProfile}
-    <div class="detail-layout">
-      <div class="detail-stack">
+    <div class="profile-layout">
+      <div class="workspace-zones">
         <NetworkProfileDetailPanel profile={muiStores.selectedProfile} />
         <GlobalProfileControls {profileVersion} />
-        <section class="network-target-panel" aria-labelledby="network-target-title">
-          <div class="command-header-block">
-            <div>
-              <p class="eyebrow">目标网络</p>
+
+        <section class="zone-panel network-target-panel" aria-labelledby="network-target-title">
+          <div class="zone-header">
+            <div class="zone-titles">
+              <span class="zone-eyebrow">Target network</span>
               <h3 id="network-target-title">选择 Profile 命令目标</h3>
             </div>
-            <span class="source-chip">source: authoritative</span>
+            <span class="meta-chip">authoritative</span>
           </div>
 
           <label class="network-select-label" for="network-target-select">目标网络</label>
@@ -145,33 +161,41 @@
           {#if networksError}
             <InlineOperationalAlert message={networksError} severity="block" />
           {:else if networksLoading}
-            <p class="command-copy">正在加载目标网络。</p>
+            <p class="workbench-empty">正在加载目标网络。</p>
           {:else if networks.length === 0}
-            <p class="command-copy">暂无可选目标网络。</p>
+            <p class="workbench-empty">暂无可选目标网络。</p>
           {/if}
         </section>
 
         <!-- Profile 只读预览：保留操作元数据可见性 -->
-        <section class="preview-grid" aria-label="Profile 命令预览">
-          <OperationalCommandPreview
-            commandId="network.profile.enable.preview"
-            disabledReason={profilePreviewReason}
-            resource={`network/${selectedNetworkId || '未选择'}`}
-          />
-          <OperationalCommandPreview
-            commandId="network.profile.disable.preview"
-            disabledReason={profilePreviewReason}
-            resource={`network/${selectedNetworkId || '未选择'}`}
-          />
+        <section class="zone-panel preview-zone" aria-labelledby="preview-title">
+          <div class="zone-header">
+            <div class="zone-titles">
+              <span class="zone-eyebrow">Command preview</span>
+              <h3 id="preview-title">Profile 命令预览</h3>
+            </div>
+          </div>
+          <div class="command-deck">
+            <OperationalCommandPreview
+              commandId="network.profile.enable.preview"
+              disabledReason={profilePreviewReason}
+              resource={`network/${selectedNetworkId || '未选择'}`}
+            />
+            <OperationalCommandPreview
+              commandId="network.profile.disable.preview"
+              disabledReason={profilePreviewReason}
+              resource={`network/${selectedNetworkId || '未选择'}`}
+            />
+          </div>
         </section>
 
-        <section class="command-well-panel" aria-label="Profile CommandWell">
-          <div class="command-header-block">
-            <div>
-              <p class="eyebrow">CommandWell</p>
+        <section class="zone-panel command-zone" aria-label="Profile CommandWell">
+          <div class="zone-header">
+            <div class="zone-titles">
+              <span class="zone-eyebrow">CommandWell</span>
               <h3>Profile 启停命令</h3>
             </div>
-            <span class="risk-chip">high risk</span>
+            <span class="status-badge ready">high risk</span>
           </div>
 
           {#if !selectedNetworkId}
@@ -184,52 +208,69 @@
             </p>
           {/if}
 
-          <div class="profile-command-actions">
-            <button
-              type="button"
-              class="btn-command"
-              disabled={!canRunProfileCommand}
-              onclick={() => requestProfileCommand('enable')}
-            >
-              {selectedNetworkId ? '启用 m-net-cn@0.1.0' : missingNetworkReason}
-            </button>
-            <button
-              type="button"
-              class="btn-command btn-risk"
-              disabled={!canRunProfileCommand}
-              onclick={() => requestProfileCommand('disable')}
-            >
-              {selectedNetworkId ? '停用并恢复 m-net-default@0.1.0' : missingNetworkReason}
-            </button>
-          </div>
+          <div class="command-deck">
+			<article class="command-card primary" class:confirming={pendingProfileCommand === 'enable'}>
+				<div class="command-card-title">
+					<span class="command-card-icon" aria-hidden="true">{@html PROFILE_ICONS.profile}</span>
+					启用 m-net-cn@0.3.0
+				</div>
+              <div class="command-card-target">target: {selectedNetworkId ? selectedNetwork?.name ?? selectedNetworkId : missingNetworkReason}</div>
+              <div class="command-card-requirements">
+                <span>requires: network:profile-enable</span>
+                <span>policy: required</span>
+                <span>audit: required</span>
+              </div>
+              {#if pendingProfileCommand === 'enable'}
+                <div class="command-card-status attention">
+                  <span class="confirm-label">状态: 需要确认</span>
+                  <div class="confirm-actions">
+                    <button type="button" class="btn-execute primary" disabled={commandRunning} onclick={confirmProfileCommand}>确认执行</button>
+                    <button type="button" class="btn-execute" disabled={commandRunning} onclick={cancelProfileCommand}>取消</button>
+                  </div>
+                </div>
+              {:else}
+                <div class="command-card-status {selectedNetworkId ? 'ready' : 'block'}">
+                  状态: {selectedNetworkId ? '就绪' : '禁用'}
+                  {#if selectedNetworkId}
+                    <button type="button" class="btn-execute primary" onclick={() => requestProfileCommand('enable')}>执行</button>
+                  {:else}
+                    <span class="command-reason">{missingNetworkReason}</span>
+                  {/if}
+                </div>
+              {/if}
+            </article>
 
-          {#if pendingProfileCommand}
-            <div class="command-confirm" role="group" aria-label="Profile 命令确认">
-              <div class="confirm-details">
-                <div>目标网络: {selectedNetwork?.name ?? selectedNetworkId}</div>
-                <div>
-                  Profile: {pendingProfileCommand === 'enable'
-                    ? 'm-net-cn@0.1.0'
-                    : 'm-net-default@0.1.0'}
-                </div>
-                <div>
-                  权限: {pendingProfileCommand === 'enable'
-                    ? 'network:profile-enable'
-                    : 'network:profile-disable'}
-                </div>
-                <div>策略: 需要</div>
-                <div>审计: 需要</div>
+			<article class="command-card primary" class:confirming={pendingProfileCommand === 'disable'}>
+				<div class="command-card-title">
+					<span class="command-card-icon" aria-hidden="true">{@html PROFILE_ICONS.profile}</span>
+					停用并恢复 m-net@0.3.0
+				</div>
+              <div class="command-card-target">target: {selectedNetworkId ? selectedNetwork?.name ?? selectedNetworkId : missingNetworkReason}</div>
+              <div class="command-card-requirements">
+                <span>requires: network:profile-disable</span>
+                <span>policy: required</span>
+                <span>audit: required</span>
               </div>
-              <div class="confirm-actions">
-                <button type="button" class="btn-confirm" disabled={commandRunning} onclick={confirmProfileCommand}>
-                  确认执行
-                </button>
-                <button type="button" class="btn-cancel" disabled={commandRunning} onclick={cancelProfileCommand}>
-                  取消
-                </button>
-              </div>
-            </div>
-          {/if}
+              {#if pendingProfileCommand === 'disable'}
+                <div class="command-card-status attention">
+                  <span class="confirm-label">状态: 需要确认</span>
+                  <div class="confirm-actions">
+                    <button type="button" class="btn-execute primary" disabled={commandRunning} onclick={confirmProfileCommand}>确认执行</button>
+                    <button type="button" class="btn-execute" disabled={commandRunning} onclick={cancelProfileCommand}>取消</button>
+                  </div>
+                </div>
+              {:else}
+                <div class="command-card-status {selectedNetworkId ? 'ready' : 'block'}">
+                  状态: {selectedNetworkId ? '就绪' : '禁用'}
+                  {#if selectedNetworkId}
+                    <button type="button" class="btn-execute primary" onclick={() => requestProfileCommand('disable')}>执行</button>
+                  {:else}
+                    <span class="command-reason">{missingNetworkReason}</span>
+                  {/if}
+                </div>
+              {/if}
+            </article>
+          </div>
 
           {#if commandError}
             <InlineOperationalAlert message={commandError} severity="block" />
@@ -269,131 +310,209 @@
         </section>
       </div>
 
-      <aside class="raw-panel" aria-label="Profile 原始数据">
+      <aside class="raw-panel zone-panel" aria-label="Profile 原始数据">
+        <div class="zone-header">
+          <div class="zone-titles">
+            <span class="zone-eyebrow">Raw envelope</span>
+            <h3>原始 Profile 数据</h3>
+          </div>
+        </div>
         <RawEnvelopeView title="原始 Profile 数据" data={muiStores.selectedProfile} />
       </aside>
     </div>
   {:else}
-    <section class="empty-panel">
-      <p>未找到 Profile：<span class="mono">{profileVersion}</span></p>
-    </section>
+    <div class="profile-layout gated-profile-layout">
+      <div class="workspace-zones">
+        <section class="zone-panel empty-panel gated-profile-panel" aria-label="Profile gated preview">
+          <div class="zone-header">
+            <div class="zone-titles">
+              <span class="zone-eyebrow">Network profile</span>
+              <h3>Profile 需要授权加载</h3>
+            </div>
+            <span class="status-badge">gated</span>
+          </div>
+          <div class="summary-card-grid compact-preview-grid">
+            <article class="summary-card core-health">
+              <div class="summary-card-glow-icon" aria-hidden="true">{@html PROFILE_ICONS.profile}</div>
+              <div class="summary-card-main">
+                <div class="summary-card-title">目标 Profile</div>
+                <div class="summary-card-value">{profileVersion}</div>
+                <div class="summary-card-chips">
+                  <span class="meta-chip">stateSource: gated</span>
+                </div>
+              </div>
+              <div class="summary-card-footer"><span class="summary-card-footer-left">需要 Bearer JWT</span></div>
+            </article>
+            <article class="summary-card event-bus">
+              <div class="summary-card-glow-icon" aria-hidden="true">{@html PROFILE_ICONS.network}</div>
+              <div class="summary-card-main">
+                <div class="summary-card-title">目标网络</div>
+                <div class="summary-card-value">pending auth</div>
+                <div class="summary-card-chips">
+                  <span class="meta-chip">network list gated</span>
+                </div>
+              </div>
+              <div class="summary-card-footer"><span class="summary-card-footer-left">Profile 命令必须显式选择网络</span></div>
+            </article>
+            <article class="summary-card audit-visibility">
+              <div class="summary-card-glow-icon" aria-hidden="true">{@html PROFILE_ICONS.command}</div>
+              <div class="summary-card-main">
+                <div class="summary-card-title">命令预览</div>
+                <div class="summary-card-value">read-only</div>
+                <div class="summary-card-chips">
+                  <span class="meta-chip">confirm required</span>
+                </div>
+              </div>
+              <div class="summary-card-footer"><span class="summary-card-footer-left">不会在无授权状态执行切换</span></div>
+            </article>
+          </div>
+        </section>
+      </div>
+      <aside class="raw-panel zone-panel" aria-label="Profile gated context">
+        <div class="zone-header">
+          <div class="zone-titles">
+            <span class="zone-eyebrow">Selected context</span>
+            <h3>未加载 Profile</h3>
+          </div>
+        </div>
+        <div class="inspector-section">
+          <span class="inspector-section-title">访问边界</span>
+          <div class="inspector-row">
+            <span class="inspector-key">profileVersion</span>
+            <span class="inspector-value">{profileVersion}</span>
+          </div>
+          <div class="inspector-row">
+            <span class="inspector-key">required</span>
+            <span class="inspector-value">Bearer JWT</span>
+          </div>
+        </div>
+      </aside>
+    </div>
   {/if}
 </section>
 
 <style>
-  .route-page,
-  .detail-stack {
+  .route-page {
     display: flex;
     flex-direction: column;
     gap: var(--panel-gap);
   }
 
-  .detail-layout {
-    display: grid;
-    grid-template-columns: 1fr var(--inspector-width);
-    gap: var(--panel-gap);
-  }
-
-  .profile-command-actions,
-  .command-result {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .page-title-block {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: var(--space-3);
+    padding-bottom: var(--space-1);
   }
 
-  .raw-panel,
-  .empty-panel,
-  .network-target-panel,
-  .command-well-panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
-  }
-
-  .preview-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-  }
-
-  .network-target-panel,
-  .command-well-panel {
+  .page-titles {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: 2px;
   }
 
-  .command-header-block,
-  .command-confirm {
+  .page-title {
+    color: var(--text-100);
+    font-size: var(--text-2xl);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-tight);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .page-eyebrow {
+    color: var(--text-60);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.06em;
+    margin: 0;
+  }
+
+  .page-subtitle {
+    color: var(--text-60);
+    font-size: var(--text-sm);
+    margin-top: var(--space-1);
+  }
+
+  .page-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--inspector-width);
+    gap: var(--panel-gap);
+    align-items: start;
+  }
+
+  .workspace-zones {
+    display: flex;
+    flex-direction: column;
+    gap: var(--panel-gap);
+    min-width: 0;
+  }
+
+  .zone-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
   }
 
-  .section-title,
-  .section-copy,
-  .empty-panel,
-  h3,
-  .command-copy,
-  .control-plane-warning,
-  .command-result dd {
-    color: var(--text-100);
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .section-title,
   h3 {
+    color: var(--text-100);
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
-  }
-
-  h3 {
     margin: 0;
   }
 
-  .section-copy,
-  .empty-panel,
+  .network-target-panel,
+  .command-zone,
+  .preview-zone {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .command-zone {
+    border-color: color-mix(in srgb, var(--signal-info) 24%, var(--line-soft));
+  }
+
+  .network-select-label,
   .command-copy,
-  .control-plane-warning {
+  .control-plane-warning,
+  .disabled-reason {
     font-size: var(--text-sm);
     line-height: var(--lh-log);
   }
 
-  .eyebrow,
-  .source-chip,
-  .risk-chip,
   .network-select-label,
-  .disabled-reason,
-  .confirm-details,
-  .command-result dt,
-  .command-result dd {
-    font-size: var(--text-xs);
+  .command-copy,
+  .control-plane-warning {
+    color: var(--text-100);
   }
 
-  .eyebrow,
-  .network-select-label,
-  .command-result dt {
+  .network-select-label {
     color: var(--text-60);
-  }
-
-  .source-chip,
-  .risk-chip {
-    border: 1px solid var(--line-strong);
-    color: var(--text-80);
-    padding: 0 var(--space-2);
-    white-space: nowrap;
-  }
-
-  .risk-chip,
-  .disabled-reason {
-    color: var(--signal-warn);
+    font-weight: var(--fw-semibold);
   }
 
   select {
     width: 100%;
     border: 1px solid var(--line-soft);
-    border-radius: var(--space-1);
+    border-radius: var(--control-radius);
     background: var(--surface-sunken);
     color: var(--text-100);
     font-family: var(--font-body);
@@ -414,93 +533,314 @@
   .control-plane-warning {
     border-left: 1px solid var(--signal-warn);
     padding-left: var(--space-3);
+    margin: 0;
   }
 
-  .btn-command,
-  .btn-confirm,
-  .btn-cancel {
-    border: 1px solid var(--line-soft);
-    border-radius: var(--space-1);
-    cursor: pointer;
-    font-size: var(--text-sm);
-    padding: var(--space-2) var(--space-3);
+  .disabled-reason {
+    color: var(--signal-warn);
+    margin: 0;
   }
 
-  .btn-command,
-  .btn-confirm {
-    background: var(--signal-info);
-    color: var(--surface-root);
-    font-weight: var(--fw-medium);
+  .command-deck {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
   }
 
-  .btn-risk {
-    background: var(--signal-risk);
+  .command-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);
+    border-radius: var(--operational-card-radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised)), color-mix(in srgb, var(--surface-root) 96%, black));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 24%, transparent);
   }
 
-  .btn-cancel {
-    background: var(--surface-raised);
+  .command-card.primary {
+    border-color: color-mix(in srgb, var(--line-soft) 86%, transparent);
+    background:
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised)),
+        var(--surface-panel)
+      );
+  }
+
+  .command-card.confirming {
+    border-color: color-mix(in srgb, var(--signal-attention) 82%, var(--line-soft));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--signal-attention) 24%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--signal-attention) 28%, transparent);
+  }
+
+  .command-card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text-100);
+    font-size: var(--text-base);
+    font-weight: var(--fw-semibold);
+  }
+
+  .command-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-xs);
+    background: var(--surface-chrome-raised);
     color: var(--text-80);
   }
 
-  .btn-command:disabled,
-  .btn-confirm:disabled,
-  .btn-cancel:disabled {
-    background: var(--surface-raised);
-    color: var(--text-40);
-    cursor: not-allowed;
+  .command-card-target {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-60);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
   }
 
-  .confirm-details {
+  .command-card-requirements {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: 2px;
     color: var(--text-60);
+    font-size: var(--text-xs);
+  }
+
+  .command-card-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: auto;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--line-soft);
+    color: var(--text-60);
+    font-size: var(--text-xs);
+  }
+
+  .command-card.confirming .command-card-status.attention {
+    margin-right: -14px;
+    margin-bottom: -14px;
+    margin-left: -14px;
+    padding: var(--space-2) 14px;
+    border-top: 1px solid color-mix(in srgb, var(--signal-attention) 34%, var(--line-soft));
+    border-radius: 0 0 var(--operational-card-radius) var(--operational-card-radius);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--signal-attention) 20%, transparent), color-mix(in srgb, var(--signal-attention) 7%, transparent));
+  }
+
+  .command-card-status.ready {
+    color: var(--signal-ok);
+  }
+
+  .command-card-status.block {
+    color: var(--signal-block);
+  }
+
+  .command-card-status.attention {
+    color: var(--signal-attention);
+  }
+
+  .command-reason {
+    margin-left: auto;
+    border: 1px solid color-mix(in srgb, var(--signal-block) 40%, var(--line-soft));
+    border-radius: var(--control-radius);
+    color: var(--signal-block);
+    font-size: var(--text-xs);
+    padding: 1px var(--space-1);
+  }
+
+  .confirm-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--signal-warn);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.04em;
   }
 
   .confirm-actions {
     display: flex;
     gap: var(--space-2);
+    margin-left: auto;
+  }
+
+  .btn-execute {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line-chrome-strong);
+    border-radius: var(--control-radius);
+    background: var(--surface-chrome-raised);
+    color: var(--text-80);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--easing-ui),
+      background var(--duration-fast) var(--easing-ui),
+      color var(--duration-fast) var(--easing-ui);
+  }
+
+  .btn-execute:hover:not(:disabled) {
+    border-color: var(--signal-info);
+    background: var(--surface-raised);
+    color: var(--text-100);
+  }
+
+  .btn-execute:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-execute.primary {
+    border-color: var(--signal-ok);
+    background: var(--signal-ok);
+    color: var(--surface-root);
+  }
+
+  .btn-execute.primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--signal-ok) 90%, white);
   }
 
   .command-result {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-2);
+    width: 100%;
     margin: 0;
   }
 
-  .command-result div {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    min-width: 0;
+  .command-result > div {
+    border: 1px solid color-mix(in srgb, var(--signal-info) 28%, var(--line-soft));
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-raised) 60%, var(--surface-root));
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .command-result dt {
+    color: var(--text-60);
+    font-size: var(--text-xs);
+    letter-spacing: 0.06em;
+    margin: 0;
+    text-transform: uppercase;
   }
 
   .command-result dd {
-    margin: 0;
-    word-break: break-word;
+    color: var(--text-100);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--lh-tight);
+    margin: var(--space-1) 0 0;
+    word-break: break-all;
+  }
+
+  .raw-panel,
+  .empty-panel {
+    min-width: 0;
+  }
+
+  .gated-profile-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .compact-preview-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .inspector-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .inspector-section-title {
+    color: var(--text-60);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .inspector-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: var(--text-xs);
+  }
+
+  .inspector-key {
+    color: var(--text-60);
+  }
+
+  .inspector-value {
+    color: var(--text-80);
+    font-family: var(--font-mono);
+  }
+
+  .raw-panel {
+    position: sticky;
+    top: var(--space-4);
+    align-self: start;
+    max-height: calc(100vh - var(--app-bar-height) - var(--space-6));
+    overflow-y: auto;
+    padding: var(--space-3);
   }
 
   .mono {
     font-family: var(--font-mono);
   }
 
-  @media (max-width: 960px) {
-    .detail-layout {
+  @media (max-width: 1200px) {
+    .profile-layout {
       grid-template-columns: 1fr;
+    }
+
+    .raw-panel {
+      position: static;
+      max-height: none;
+    }
+  }
+
+  @media (max-width: 960px) {
+    .page-title-block {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 
   @media (max-width: 760px) {
-    .preview-grid {
-      grid-template-columns: 1fr;
+    .command-card-status {
+      flex-direction: column;
+      align-items: flex-start;
     }
 
-    .profile-command-actions,
+    .command-reason,
+    .btn-execute {
+      margin-left: 0;
+    }
+
+    .confirm-actions {
+      margin-left: 0;
+      width: 100%;
+    }
+
     .command-result {
       grid-template-columns: 1fr;
-    }
-
-    .command-header-block,
-    .command-confirm {
-      flex-direction: column;
     }
   }
 </style>

@@ -34,13 +34,13 @@
   </script>
 
 {#if approvals.length === 0}
-  <p class="empty-state">暂无审批记录。</p>
+  <p class="workbench-empty">暂无审批记录。</p>
 {:else}
   <div class="approval-list" role="list" aria-label="审批队列">
     {#each approvals as approval}
         <a
           class:selected={selectedApprovalId === approval.id}
-          class="approval-card"
+          class="approval-card workbench-card"
           href={`${detailBasePath}/${encodeURIComponent(approval.id)}`}
         >
           <div class="approval-header">
@@ -99,17 +99,7 @@
     gap: var(--space-3);
   }
 
-  .approval-card,
-  .empty-state {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-3);
-  }
-
   .approval-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
     color: var(--text-100);
     text-decoration: none;
   }
@@ -117,9 +107,13 @@
   .approval-card:hover,
   .approval-card:focus-visible,
   .approval-card.selected {
-    border-color: var(--line-strong);
-    outline: 1px solid var(--signal-info);
-    outline-offset: 0;
+    border-color: color-mix(in srgb, var(--signal-info) 40%, var(--line-soft));
+    background:
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--signal-info) 8%, var(--surface-panel)),
+        var(--surface-panel)
+      );
   }
 
   .approval-header,
@@ -147,7 +141,7 @@
   .approval-meta dt,
   .approval-meta dd,
   .state-source-copy,
-  .empty-state {
+  .workbench-empty {
     font-size: var(--text-xs);
   }
 
@@ -175,7 +169,7 @@
 
   .approval-meta dd,
   .state-source-copy,
-  .empty-state {
+  .workbench-empty {
     margin: 0;
     color: var(--text-100);
     line-height: var(--lh-log);

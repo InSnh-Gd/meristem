@@ -27,7 +27,7 @@
       selectedServiceDetail = await fetchServiceDetail(appState.token, serviceId)
     } catch (error: unknown) {
       selectedServiceDetail = null
-      selectedServiceDetailError = formatBffError(error, '服务详情加载失败')
+      selectedServiceDetailError = formatBffError(error, '功能域服务详情加载失败')
     } finally {
       selectedServiceDetailLoading = false
     }
@@ -50,23 +50,26 @@
 </script>
 
 <svelte:head>
-  <title>服务 | Meristem</title>
+  <title>功能域服务 | Meristem</title>
 </svelte:head>
 
 <section class="services-page">
-  <RouteHeader routeName="服务" {stateSources} />
+  <RouteHeader routeName="功能域服务" {stateSources} />
 
   <div class="services-layout">
-    <section class="panel" aria-labelledby="service-registry-title">
+    <section class="workbench-panel" aria-labelledby="service-registry-title">
       <div class="panel-header">
-        <h2 id="service-registry-title">服务注册表</h2>
-        <span class="service-count">{serviceList.length} 个服务</span>
+        <div class="zone-titles">
+          <span class="zone-eyebrow">Capability domains</span>
+          <h2 id="service-registry-title">功能域服务注册表</h2>
+        </div>
+        <span class="zone-count">{serviceList.length}</span>
       </div>
 
       <ServiceRegistryTable services={serviceList} />
 
       {#if serviceList.length > 0}
-        <div class="service-selector" aria-label="服务选择器">
+        <div class="service-selector" aria-label="功能域服务选择器">
           {#each serviceList as service}
             <button
               type="button"
@@ -81,21 +84,24 @@
       {/if}
     </section>
 
-    <aside class="inspector-panel" aria-label="服务检查器">
+    <aside class="inspector-panel workbench-panel" aria-label="功能域服务检查器">
       {#if selectedServiceDetailLoading}
-        <p class="inspector-status">正在加载服务详情…</p>
+        <p class="workbench-empty">正在加载功能域服务详情…</p>
       {:else if selectedServiceDetailError}
         <p class="inspector-status error">{selectedServiceDetailError}</p>
       {:else if selectedServiceDetail}
         <section class="inspector-section" aria-labelledby="service-detail-title">
           <div class="panel-header compact">
-            <h2 id="service-detail-title">服务详情</h2>
-            <span class="service-runtime">
+            <div class="zone-titles">
+              <span class="zone-eyebrow">Capability domain detail</span>
+              <h2 id="service-detail-title">功能域服务详情</h2>
+            </div>
+            <span class="status-badge {selectedServiceDetail.service.runtime?.mode === 'normal' ? 'ready' : ''}">
               {selectedServiceDetail.service.runtime?.mode === 'degraded' ? '降级' : '正常'}
             </span>
           </div>
 
-          <dl class="summary-grid">
+          <dl class="workbench-meta-grid">
             <div>
               <dt>ID</dt>
               <dd class="mono">{selectedServiceDetail.service.id}</dd>
@@ -118,8 +124,11 @@
         {#if selectedServiceDetail.eventBusMetrics}
           <section class="inspector-section" aria-labelledby="eventbus-metrics-title">
             <div class="panel-header compact">
-              <h2 id="eventbus-metrics-title">EventBus 发布健康</h2>
-              <span class="state-source-badge">read-model</span>
+              <div class="zone-titles">
+                <span class="zone-eyebrow">EventBus publish health</span>
+                <h2 id="eventbus-metrics-title">EventBus 发布健康</h2>
+              </div>
+              <span class="meta-chip">read-model</span>
             </div>
 
             <div class="metrics-grid">
@@ -160,11 +169,14 @@
         {/if}
 
         <section class="inspector-section" aria-labelledby="service-raw-title">
-          <h2 id="service-raw-title">原始详情</h2>
+          <div class="zone-titles">
+            <span class="zone-eyebrow">Raw envelope</span>
+            <h2 id="service-raw-title">原始详情</h2>
+          </div>
           <KeyValueInspector item={selectedServiceDetail} />
         </section>
       {:else}
-        <p class="inspector-status">暂无服务详情</p>
+        <p class="workbench-empty">暂无功能域服务详情</p>
       {/if}
     </aside>
   </div>
@@ -183,20 +195,6 @@
     gap: var(--panel-gap);
   }
 
-  .panel,
-  .inspector-panel {
-    min-width: 0;
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
-  }
-
-  .panel {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
   .inspector-panel {
     display: flex;
     flex-direction: column;
@@ -205,7 +203,7 @@
 
   .panel-header {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
   }
@@ -214,17 +212,18 @@
     align-items: center;
   }
 
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   h2 {
     color: var(--text-100);
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
-  }
-
-  .service-count {
-    color: var(--text-100);
-    font-size: var(--text-xs);
-    font-weight: var(--fw-medium);
+    margin: 0;
   }
 
   .service-selector {
@@ -237,21 +236,25 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    color: var(--text-100);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--surface-chrome-raised) 88%, black);
+    color: var(--text-80);
     cursor: pointer;
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    padding: var(--space-2) var(--space-3);
+    transition:
+      border-color var(--duration-fast) var(--easing-ui),
+      background var(--duration-fast) var(--easing-ui);
   }
 
   .service-selector button:hover,
   .service-selector button:focus-visible,
   .service-selector button.selected {
-    border-color: var(--line-strong);
-    outline: 1px solid var(--signal-info);
-    outline-offset: 0;
+    border-color: color-mix(in srgb, var(--signal-info) 50%, var(--line-soft));
+    background: color-mix(in srgb, var(--signal-info) 12%, var(--surface-raised));
+    outline: none;
   }
 
   .mono {
@@ -262,26 +265,31 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 82%, transparent);
   }
 
-  .summary-grid,
+  .inspector-section:last-of-type {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
   .metrics-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
 
-  .summary-grid div,
   .metrics-grid div {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
     padding: var(--space-2);
-    border: 1px solid var(--line-soft);
-    background: var(--surface-panel);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
-  dt,
   .metrics-grid span {
     color: var(--text-60);
     font-size: var(--text-xs);
@@ -289,7 +297,6 @@
     letter-spacing: 0.04em;
   }
 
-  dd,
   .metrics-grid strong {
     margin: 0;
     color: var(--text-100);
@@ -297,17 +304,10 @@
     font-weight: var(--fw-semibold);
   }
 
-  .service-runtime,
-  .state-source-badge {
-    color: var(--text-200);
-    font-size: var(--text-xs);
-    font-weight: var(--fw-medium);
-  }
-
   .event-summary {
     margin: 0;
     font-size: var(--text-sm);
-    color: var(--text-200);
+    color: var(--text-80);
   }
 
   .event-summary.error {
@@ -320,7 +320,7 @@
 
   .inspector-status {
     margin: 0;
-    color: var(--text-200);
+    color: var(--text-60);
     font-size: var(--text-sm);
   }
 
@@ -333,7 +333,6 @@
       grid-template-columns: 1fr;
     }
 
-    .summary-grid,
     .metrics-grid {
       grid-template-columns: 1fr;
     }

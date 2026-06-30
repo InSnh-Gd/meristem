@@ -61,8 +61,10 @@
 
   .network-card,
   .empty-state {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
+    border-radius: var(--operational-card-radius);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 94%, var(--surface-raised)), color-mix(in srgb, var(--surface-root) 96%, black));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-panel-highlight) 24%, transparent);
     padding: var(--space-3);
   }
 
@@ -72,14 +74,18 @@
     gap: var(--space-3);
     color: var(--text-100);
     text-decoration: none;
+    transition:
+      border-color var(--duration-fast) var(--easing-ui),
+      box-shadow var(--duration-fast) var(--easing-ui);
   }
 
   .network-card:hover,
   .network-card:focus-visible,
   .network-card.selected {
-    border-color: var(--line-strong);
+    border-color: var(--signal-info);
     outline: 1px solid var(--signal-info);
     outline-offset: 0;
+    box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--signal-info) 18%, transparent);
   }
 
   .network-header {
@@ -128,6 +134,10 @@
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+    padding: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
   .network-meta dd,

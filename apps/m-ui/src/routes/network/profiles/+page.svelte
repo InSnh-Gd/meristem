@@ -33,7 +33,7 @@
     <InlineOperationalAlert message={muiStores.networkProfilesError} severity="block" />
   {/if}
 
-  <section class="panel" aria-label="网络 Profile 列表">
+  <section class="panel workbench-panel" aria-label="网络 Profile 列表">
     {#if muiStores.networkProfilesLoading}
       <p class="empty-state">正在加载网络 Profile。</p>
     {:else}
@@ -50,9 +50,9 @@
   }
 
   .panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
   }
 
   .section-title,
@@ -65,11 +65,16 @@
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .section-copy,
   .empty-state {
     font-size: var(--text-sm);
     line-height: var(--lh-log);
+  }
+
+  .empty-state {
+    margin: 0;
   }
 </style>

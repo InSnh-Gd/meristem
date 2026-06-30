@@ -80,7 +80,7 @@
   {/if}
 
   {#if muiStores.selectedApprovalLoading}
-    <section class="empty-panel">
+    <section class="empty-panel workbench-panel">
       <p>正在加载审批详情。</p>
     </section>
   {:else if muiStores.selectedApproval}
@@ -103,10 +103,10 @@
         </section>
 
         <!-- 审批 CommandWell 执行区 -->
-        <section class="command-well-panel" aria-label="审批 CommandWell">
+        <section class="command-well-panel workbench-panel" aria-label="审批 CommandWell">
           <div class="command-header-block">
-            <div>
-              <p class="eyebrow">CommandWell</p>
+            <div class="zone-titles">
+              <span class="zone-eyebrow">CommandWell</span>
               <h3>审批执行命令</h3>
             </div>
             <span class="risk-chip">high risk</span>
@@ -123,7 +123,7 @@
           <div class="approval-command-actions">
             <button
               type="button"
-              class="btn-command btn-ok"
+              class="workbench-btn workbench-btn-primary"
               disabled={!canRunApprovalCommand}
               onclick={() => requestApprovalCommand('approve')}
             >
@@ -131,7 +131,7 @@
             </button>
             <button
               type="button"
-              class="btn-command btn-risk"
+              class="workbench-btn workbench-btn-risk"
               disabled={!canRunApprovalCommand}
               onclick={() => requestApprovalCommand('reject')}
             >
@@ -153,10 +153,10 @@
                 <div>审计: 需要</div>
               </div>
               <div class="confirm-actions">
-                <button type="button" class="btn-confirm" disabled={commandRunning} onclick={confirmApprovalCommand}>
+                <button type="button" class="workbench-btn workbench-btn-primary" disabled={commandRunning} onclick={confirmApprovalCommand}>
                   确认执行
                 </button>
-                <button type="button" class="btn-cancel" disabled={commandRunning} onclick={cancelApprovalCommand}>
+                <button type="button" class="workbench-btn" disabled={commandRunning} onclick={cancelApprovalCommand}>
                   取消
                 </button>
               </div>
@@ -198,7 +198,7 @@
       </aside>
     </div>
   {:else}
-    <section class="empty-panel">
+    <section class="empty-panel workbench-panel">
       <p>未找到审批：<span class="mono">{approvalId}</span></p>
     </section>
   {/if}
@@ -226,9 +226,7 @@
 
   .raw-panel,
   .empty-panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
+    min-width: 0;
   }
 
   .section-title,
@@ -241,6 +239,7 @@
     font-size: var(--text-lg);
     font-weight: var(--fw-semibold);
     line-height: var(--lh-tight);
+    margin: 0;
   }
 
   .section-copy,
@@ -255,12 +254,10 @@
 
   /* CommandWell 执行区样式 */
   .command-well-panel {
-    border: 1px solid var(--line-soft);
-    background: var(--surface-root);
-    padding: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    min-width: 0;
   }
 
   .command-header-block {
@@ -270,17 +267,9 @@
     gap: var(--space-3);
   }
 
-  .eyebrow {
-    font-size: var(--text-xs);
-    color: var(--text-40);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0;
-  }
-
   .command-header-block h3 {
-    margin: var(--space-1) 0 0;
-    font-size: var(--text-sm);
+    margin: 0;
+    font-size: var(--text-base);
     font-weight: var(--fw-semibold);
     color: var(--text-100);
   }
@@ -290,7 +279,7 @@
     background: var(--signal-warn);
     color: var(--surface-root);
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     font-weight: var(--fw-medium);
   }
 
@@ -306,35 +295,11 @@
     flex-wrap: wrap;
   }
 
-  .btn-command {
-    padding: var(--space-2) var(--space-4);
-    border-radius: 4px;
-    font-size: var(--text-sm);
-    font-weight: var(--fw-medium);
-    cursor: pointer;
-    border: none;
-  }
-
-  .btn-command:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .btn-ok {
-    background: var(--signal-ok);
-    color: var(--surface-root);
-  }
-
-  .btn-risk {
-    background: var(--signal-err);
-    color: var(--surface-root);
-  }
-
   .command-confirm {
     border: 1px solid var(--signal-warn);
-    background: var(--surface-raised);
+    border-radius: var(--operational-card-radius);
+    background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-root));
     padding: var(--space-3);
-    border-radius: 4px;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -351,26 +316,6 @@
   .confirm-actions {
     display: flex;
     gap: var(--space-2);
-  }
-
-  .btn-confirm {
-    background: var(--signal-ok);
-    color: var(--surface-root);
-    border: none;
-    padding: var(--space-1) var(--space-3);
-    border-radius: 4px;
-    font-size: var(--text-sm);
-    cursor: pointer;
-  }
-
-  .btn-cancel {
-    background: var(--surface-raised);
-    color: var(--text-80);
-    border: 1px solid var(--line-soft);
-    padding: var(--space-1) var(--space-3);
-    border-radius: 4px;
-    font-size: var(--text-sm);
-    cursor: pointer;
   }
 
   .command-result {

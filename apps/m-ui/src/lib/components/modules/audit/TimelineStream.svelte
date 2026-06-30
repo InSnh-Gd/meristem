@@ -23,10 +23,11 @@
 </div>
 
 <style>
-  .timeline { display: flex; flex-direction: column; gap: var(--space-1); max-height: 40vh; overflow-y: auto; }
-  .empty { color: var(--text-40); font-size: var(--text-sm); }
-  .timeline-entry { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-1) var(--space-2); font-size: var(--text-sm); background: var(--surface-panel); }
-  .timeline-entry:hover { background: var(--surface-raised); }
+  .timeline { display: flex; flex-direction: column; gap: 1px; max-height: 40vh; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: var(--operational-card-radius); background: color-mix(in srgb, var(--surface-root) 60%, var(--surface-panel)); }
+  .empty { color: var(--text-40); font-size: var(--text-sm); padding: var(--space-3); }
+  .timeline-entry { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); background: transparent; border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 64%, transparent); }
+  .timeline-entry:last-child { border-bottom: 0; }
+  .timeline-entry:hover { background: color-mix(in srgb, var(--surface-raised) 50%, transparent); }
   .entry-time { color: var(--text-60); font-size: var(--text-xs); flex-shrink: 0; }
   .entry-summary { color: var(--text-80); flex: 1; }
   .entry-subject { color: var(--text-40); font-size: var(--text-xs); }

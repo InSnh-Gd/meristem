@@ -53,21 +53,31 @@
     grid-template-columns: 2fr 1fr 1fr 2fr 1fr;
     gap: var(--space-2);
     align-items: center;
+    padding: var(--space-2) var(--space-3);
   }
 
   .audit-header {
-    border-bottom: 1px solid var(--line-strong);
-    color: var(--text-100);
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--text-60);
     font-weight: var(--fw-semibold);
-    padding: var(--space-2) 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
   .audit-row {
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 64%, transparent);
     color: var(--text-80);
     font-family: var(--font-mono);
     line-height: var(--lh-log);
-    padding: var(--space-2) 0;
+  }
+
+  .audit-row:last-child {
+    border-bottom: 0;
+  }
+
+  .audit-row:hover {
+    background: color-mix(in srgb, var(--surface-raised) 50%, transparent);
   }
 
   .empty-state {

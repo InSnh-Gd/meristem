@@ -62,10 +62,10 @@
   const visibleLabel = $derived(label ?? definition.label)
 </script>
 
-<section class="command-preview" aria-label="操作预览">
+<section class="command-preview workbench-card" aria-label="操作预览">
   <div class="command-header">
-    <div>
-      <p class="eyebrow">禁用命令预览</p>
+    <div class="zone-titles">
+      <p class="zone-eyebrow">禁用命令预览</p>
       <h3>{visibleLabel}</h3>
     </div>
     <span class="disabled-chip">不可执行</span>
@@ -112,12 +112,7 @@
 
 <style>
   .command-preview {
-    display: flex;
-    flex-direction: column;
     gap: var(--space-3);
-    border: 1px solid var(--line-soft);
-    background: var(--surface-sunken);
-    padding: var(--space-4);
   }
 
   .command-header {
@@ -127,7 +122,13 @@
     gap: var(--space-3);
   }
 
-  .eyebrow,
+  .zone-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .zone-eyebrow,
   .reason,
   .disabled-chip,
   .command-meta dt,
@@ -137,7 +138,7 @@
     font-size: var(--text-xs);
   }
 
-  .eyebrow,
+  .zone-eyebrow,
   .command-meta dt,
   .permission-title {
     color: var(--text-60);
@@ -156,6 +157,7 @@
     color: var(--signal-block);
     padding: 0 var(--space-2);
     white-space: nowrap;
+    border-radius: var(--radius-pill);
   }
 
   .reason,
@@ -178,6 +180,10 @@
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+    padding: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line-soft) 72%, transparent);
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--surface-root) 70%, var(--surface-panel));
   }
 
   .command-meta dd {

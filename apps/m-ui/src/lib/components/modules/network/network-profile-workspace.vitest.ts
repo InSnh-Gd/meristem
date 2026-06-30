@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('$app/state', () => ({
   page: {
-    params: { profileVersion: 'm-net-cn@0.1.0' }
+    params: { profileVersion: 'm-net-cn@0.3.0' }
   }
 }))
 
