@@ -32,7 +32,9 @@ function isoAt(ms: number): string {
 
 export type SecretManager = {
   read(ref: SecretRefFromSchema): Promise<Result<string, SecretFailureFromSchema>>
-  list(prefix: SecretListPrefixFromSchema): Promise<Result<readonly string[], SecretFailureFromSchema>>
+  list(
+    prefix: SecretListPrefixFromSchema
+  ): Promise<Result<readonly string[], SecretFailureFromSchema>>
   write(ref: SecretRefFromSchema, value: string): Promise<Result<void, SecretFailureFromSchema>>
 }
 
@@ -49,7 +51,9 @@ export function createSecretManager(input: {
   const policy: SecretCachePolicyFromSchema = { ...defaultCachePolicy, ...(input.cache ?? {}) }
   const clock = input.clock ?? { now: () => Date.now() }
 
-  function resolveProvider(ref: SecretRefFromSchema): Result<SecretProviderAdapter, SecretFailureFromSchema> {
+  function resolveProvider(
+    ref: SecretRefFromSchema
+  ): Result<SecretProviderAdapter, SecretFailureFromSchema> {
     const provider = providers.get(ref.provider)
     return provider
       ? ok(provider)

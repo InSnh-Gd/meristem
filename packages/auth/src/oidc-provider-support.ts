@@ -179,9 +179,10 @@ function normalizeDiscoveryUrl(issuer: string, discoveryUrl?: string): string {
 
   const issuerUrl = new URL(issuer)
   const issuerPath = issuerUrl.pathname.replace(/\/$/, '')
-  issuerUrl.pathname = issuerPath.length === 0
-    ? '/.well-known/openid-configuration'
-    : `/.well-known/openid-configuration${issuerPath}`
+  issuerUrl.pathname =
+    issuerPath.length === 0
+      ? '/.well-known/openid-configuration'
+      : `/.well-known/openid-configuration${issuerPath}`
   return issuerUrl.toString()
 }
 
@@ -260,10 +261,7 @@ function validateAbsoluteUrl(value: unknown): string | null {
 /**
  * discovery 文档必须完整给出 issuer / authorization / token / jwks 四个关键入口。
  */
-export function validateDiscoveryDocument(
-  issuer: string,
-  payload: unknown
-): OidcDiscoveryResult {
+export function validateDiscoveryDocument(issuer: string, payload: unknown): OidcDiscoveryResult {
   if (!isRecord(payload)) {
     return invalidDiscovery('issuer', 'OIDC discovery document must be an object')
   }
@@ -307,7 +305,10 @@ function missingClaim(claim: string): OidcMissingClaimFailure {
   }
 }
 
-function mapGroupsClaim(value: unknown, claimName: string): readonly string[] | OidcMissingClaimFailure {
+function mapGroupsClaim(
+  value: unknown,
+  claimName: string
+): readonly string[] | OidcMissingClaimFailure {
   if (typeof value === 'string') {
     return [value]
   }

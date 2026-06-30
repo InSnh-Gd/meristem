@@ -53,7 +53,9 @@ const JwksResponseSchema = Type.Object(
 type OidcDiscoveryDocumentPayload = Static<typeof OidcDiscoveryDocumentSchema>
 type JwksResponse = Static<typeof JwksResponseSchema>
 
-function decodeOidcDiscoveryDocument(payload: unknown): OidcDiscoveryDocumentPayload | OidcDiscoveryFailure {
+function decodeOidcDiscoveryDocument(
+  payload: unknown
+): OidcDiscoveryDocumentPayload | OidcDiscoveryFailure {
   try {
     return Value.Cast(OidcDiscoveryDocumentSchema, payload)
   } catch {
@@ -154,7 +156,9 @@ export function createOidcAuthProvider(
   /**
    * cache 进入 refresh window 时继续提供旧 key，并在后台刷新；超过 hard TTL 后刷新失败则 fail closed。
    */
-  async function ensureUsableJwks(): Promise<CachedJwks | OidcStaleJwksFailure | OidcDiscoveryFailure> {
+  async function ensureUsableJwks(): Promise<
+    CachedJwks | OidcStaleJwksFailure | OidcDiscoveryFailure
+  > {
     const nowMs = now().getTime()
 
     if (!cachedJwks) {

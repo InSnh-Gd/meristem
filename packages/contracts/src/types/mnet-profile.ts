@@ -146,8 +146,7 @@ export type MNetSidecarLifecycleEventPayload = typeof MNetSidecarLifecycleEventP
 export type MNetSidecarHealthEventPayload = typeof MNetSidecarHealthEventPayloadSchema.Type
 export type MNetTopologyUpdateEventPayload = typeof MNetTopologyUpdateEventPayloadSchema.Type
 export type MNetMigrationRequiredReasonCode = typeof MNetMigrationRequiredReasonCodeSchema.Type
-export type MNetMigrationRequiredGuidanceKey =
-  typeof MNetMigrationRequiredGuidanceKeySchema.Type
+export type MNetMigrationRequiredGuidanceKey = typeof MNetMigrationRequiredGuidanceKeySchema.Type
 export type MNetMigrationRequired = typeof MNetMigrationRequiredSchema.Type
 export type MNetMigrationRequiredError = typeof MNetMigrationRequiredErrorSchema.Type
 export type MNetMigrationRequiredCliOutput = typeof MNetMigrationRequiredCliOutputSchema.Type
@@ -155,12 +154,10 @@ export type MNetMigrationReportItem = typeof MNetMigrationReportItemSchema.Type
 export type MNetMigrationReport = typeof MNetMigrationReportSchema.Type
 export type MNetMigrationRequiredDisabledReason =
   typeof MNetMigrationRequiredDisabledReasonSchema.Type
-export type MNetMigrationRequiredEventPayload =
-  typeof MNetMigrationRequiredEventPayloadSchema.Type
+export type MNetMigrationRequiredEventPayload = typeof MNetMigrationRequiredEventPayloadSchema.Type
 export type MNetForcedRelayChangeEventPayload = typeof MNetForcedRelayChangeEventPayloadSchema.Type
 export type MNetCredentialExpiryEventPayload = typeof MNetCredentialExpiryEventPayloadSchema.Type
-export type MNetProfileV03CompatibilityResult =
-  typeof MNetProfileV03CompatibilityResultSchema.Type
+export type MNetProfileV03CompatibilityResult = typeof MNetProfileV03CompatibilityResultSchema.Type
 export type MNetNodeRuntimeProfile = typeof MNetNodeRuntimeProfileSchema.Type
 export type MNetNodeV03CompatibilityResult = typeof MNetNodeV03CompatibilityResultSchema.Type
 

@@ -1,8 +1,5 @@
 import type { ActorId, Permission } from './literals.ts'
-import type {
-  RedactedSecretRefFromSchema,
-  SecretRefFromSchema
-} from './schemas/secret-provider.ts'
+import type { RedactedSecretRefFromSchema, SecretRefFromSchema } from './schemas/secret-provider.ts'
 
 export type { ActorId, Permission } from './literals.ts'
 export type {

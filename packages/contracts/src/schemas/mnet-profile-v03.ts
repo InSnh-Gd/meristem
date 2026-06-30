@@ -29,8 +29,7 @@ export const MNetSidecarCredentialStatusSchema = Schema.Literal(
   'expired',
   'rotation_required'
 )
-export type MNetSidecarCredentialStatusFromSchema =
-  typeof MNetSidecarCredentialStatusSchema.Type
+export type MNetSidecarCredentialStatusFromSchema = typeof MNetSidecarCredentialStatusSchema.Type
 
 export const MNetSidecarHealthStatusSchema = Schema.Literal(
   'unknown',
@@ -131,7 +130,10 @@ export const MNetCnProfileV03Schema = Schema.Struct({
 })
 export type MNetCnProfileV03FromSchema = typeof MNetCnProfileV03Schema.Type
 
-export const MNetRegionalProfileV03Schema = Schema.Union(MNetProfileV03Schema, MNetCnProfileV03Schema)
+export const MNetRegionalProfileV03Schema = Schema.Union(
+  MNetProfileV03Schema,
+  MNetCnProfileV03Schema
+)
 export type MNetRegionalProfileV03FromSchema = typeof MNetRegionalProfileV03Schema.Type
 
 export const MNetMigrationRequiredReasonCodeSchema = Schema.Literal(
@@ -209,14 +211,20 @@ export type MNetNodeRuntimeProfileFromSchema = typeof MNetNodeRuntimeProfileSche
 
 export const MNetProfileV03CompatibilityResultSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal('profile'), profile: MNetRegionalProfileV03Schema }),
-  Schema.Struct({ kind: Schema.Literal('migration_required'), migration: MNetMigrationRequiredSchema })
+  Schema.Struct({
+    kind: Schema.Literal('migration_required'),
+    migration: MNetMigrationRequiredSchema
+  })
 )
 export type MNetProfileV03CompatibilityResultFromSchema =
   typeof MNetProfileV03CompatibilityResultSchema.Type
 
 export const MNetNodeV03CompatibilityResultSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal('node-ready'), node: MNetNodeRuntimeProfileSchema }),
-  Schema.Struct({ kind: Schema.Literal('migration_required'), migration: MNetMigrationRequiredSchema })
+  Schema.Struct({
+    kind: Schema.Literal('migration_required'),
+    migration: MNetMigrationRequiredSchema
+  })
 )
 export type MNetNodeV03CompatibilityResultFromSchema =
   typeof MNetNodeV03CompatibilityResultSchema.Type
@@ -259,7 +267,8 @@ export const MNetSidecarHealthEventPayloadSchema = Schema.Struct({
   checkedAt: Schema.String,
   correlationId: Schema.String
 })
-export type MNetSidecarHealthEventPayloadFromSchema = typeof MNetSidecarHealthEventPayloadSchema.Type
+export type MNetSidecarHealthEventPayloadFromSchema =
+  typeof MNetSidecarHealthEventPayloadSchema.Type
 
 export const MNetTopologyUpdateEventPayloadSchema = Schema.Struct({
   networkId: Schema.String,
@@ -272,7 +281,8 @@ export const MNetTopologyUpdateEventPayloadSchema = Schema.Struct({
   auditId: Schema.String,
   correlationId: Schema.String
 })
-export type MNetTopologyUpdateEventPayloadFromSchema = typeof MNetTopologyUpdateEventPayloadSchema.Type
+export type MNetTopologyUpdateEventPayloadFromSchema =
+  typeof MNetTopologyUpdateEventPayloadSchema.Type
 
 export const MNetMigrationRequiredEventPayloadSchema = Schema.Struct({
   resourceKind: Schema.Literal('profile', 'node'),
@@ -338,7 +348,9 @@ const legacyProfileMigrations = {
 type LegacyProfileVersion = keyof typeof legacyProfileMigrations
 
 function readRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined
 }
 
 function readStringField(value: unknown, field: string): string | undefined {
@@ -392,7 +404,11 @@ export function decodeMNetProfileV03Compatibility(
             relayConfigRef: { configRef: 'relay/default' },
             stunConfigRef: { configRef: 'stun/default' },
             sidecarDesiredState: 'start',
-            sidecarCredentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/sidecar', version: 1 },
+            sidecarCredentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/sidecar',
+              version: 1
+            },
             sidecarCredentialStatus: 'ready',
             sidecarHealthStatus: 'healthy'
           }
@@ -416,7 +432,11 @@ export function decodeMNetProfileV03Compatibility(
           relayConfigRef: { configRef: 'relay/cn-primary' },
           stunConfigRef: { configRef: 'stun/cn-primary' },
           sidecarDesiredState: 'start',
-          sidecarCredentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/cn-sidecar', version: 1 },
+          sidecarCredentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/cn-sidecar',
+            version: 1
+          },
           sidecarCredentialStatus: 'ready',
           sidecarHealthStatus: 'healthy'
         },
@@ -427,8 +447,17 @@ export function decodeMNetProfileV03Compatibility(
           routeClass: 'forced-tcp-relay',
           operatorOverrideAllowed: false,
           operatorOverrideActive: false,
-          policyDecision: { decisionId: 'migration', source: 'm-policy', outcome: 'allow', reason: 'migration' },
-          auditEvidence: { auditId: 'migration', eventId: 'migration', eventSubject: 'mnet.forced_relay.change.v0' }
+          policyDecision: {
+            decisionId: 'migration',
+            source: 'm-policy',
+            outcome: 'allow',
+            reason: 'migration'
+          },
+          auditEvidence: {
+            auditId: 'migration',
+            eventId: 'migration',
+            eventSubject: 'mnet.forced_relay.change.v0'
+          }
         }
       }
     }
@@ -441,7 +470,9 @@ export function decodeMNetProfileV03Compatibility(
     }
   } catch {
     if (profileVersion === undefined || !(profileVersion in legacyProfileMigrations)) {
-      throw new Error('profile is neither a valid m-net v0.3 profile nor a supported legacy profile')
+      throw new Error(
+        'profile is neither a valid m-net v0.3 profile nor a supported legacy profile'
+      )
     }
     return {
       kind: 'migration_required',
@@ -469,15 +500,19 @@ export function decodeMNetNodeV03Compatibility(
     return { kind: 'node-ready', node }
   }
 
-  const targetProfileVersion = node.profileVersion === 'm-net-cn@0.3.0' ? 'm-net-cn@0.3.0' : 'm-net@0.3.0'
+  const targetProfileVersion =
+    node.profileVersion === 'm-net-cn@0.3.0' ? 'm-net-cn@0.3.0' : 'm-net@0.3.0'
   return {
     kind: 'migration_required',
     migration: {
       code: 'migration_required',
-      message: 'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
+      message:
+        'node runtime must rebuild onto the NetBird sidecar path before it can join v0.3.0 data plane',
       targetProfileVersion,
       rebuildGuidanceKey: 'rebuild_node_with_netbird_sidecar',
-      affectedProfileIds: node.profileVersion.startsWith('m-net-cn@') ? ['m-net-cn@0.3.0'] : ['m-net@0.3.0'],
+      affectedProfileIds: node.profileVersion.startsWith('m-net-cn@')
+        ? ['m-net-cn@0.3.0']
+        : ['m-net@0.3.0'],
       affectedNodeIds: [node.nodeId],
       reasonCode: 'legacy_wstunnel_node'
     }

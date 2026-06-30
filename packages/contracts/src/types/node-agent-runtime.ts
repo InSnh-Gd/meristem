@@ -18,11 +18,7 @@ export type NodeAgentRuntimeDesiredSidecar = {
 }
 
 /** Runtime status kind discriminated by health and workflow phase. */
-export type NodeAgentRuntimeStatusKind =
-  | 'healthy'
-  | 'degraded'
-  | 'starting'
-  | 'stopped'
+export type NodeAgentRuntimeStatusKind = 'healthy' | 'degraded' | 'starting' | 'stopped'
 
 /** Agent runtime status — emitted as node-agent lifecycle state, not persisted. */
 export type NodeAgentRuntimeStatus = {

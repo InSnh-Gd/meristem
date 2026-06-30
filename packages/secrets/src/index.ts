@@ -7,7 +7,11 @@ export {
   type VaultAuthHeadersResolver,
   type VaultFetch
 } from './providers.ts'
-export { createSecretManager, createSecretManagerFromConfigs, type SecretManager } from './manager.ts'
+export {
+  createSecretManager,
+  createSecretManagerFromConfigs,
+  type SecretManager
+} from './manager.ts'
 export {
   resolveDeploymentSecretBindings,
   resolveNetBirdInfrastructureSecrets,

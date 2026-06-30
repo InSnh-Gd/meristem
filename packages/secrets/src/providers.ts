@@ -43,7 +43,9 @@ export type SecretProviderAdapter = {
   readonly name: string
   readonly backend: string
   read(ref: SecretRefFromSchema): Promise<Result<string, SecretFailureFromSchema>>
-  list(prefix: SecretListPrefixFromSchema): Promise<Result<readonly string[], SecretFailureFromSchema>>
+  list(
+    prefix: SecretListPrefixFromSchema
+  ): Promise<Result<readonly string[], SecretFailureFromSchema>>
   write(ref: SecretRefFromSchema, value: string): Promise<Result<void, SecretFailureFromSchema>>
 }
 
@@ -136,7 +138,9 @@ export function createLocalDevEnvSecretProvider(
     async read(ref) {
       const envVar = envVarFor(ref)
       if (!envVar) {
-        return err(secretMissing(name, ref, `No env mapping configured for keyPath "${ref.keyPath}"`))
+        return err(
+          secretMissing(name, ref, `No env mapping configured for keyPath "${ref.keyPath}"`)
+        )
       }
 
       const value = env[envVar]
@@ -153,7 +157,9 @@ export function createLocalDevEnvSecretProvider(
     async write(ref, value) {
       const envVar = envVarFor(ref)
       if (!envVar) {
-        return err(secretMissing(name, ref, `No env mapping configured for keyPath "${ref.keyPath}"`))
+        return err(
+          secretMissing(name, ref, `No env mapping configured for keyPath "${ref.keyPath}"`)
+        )
       }
 
       env[envVar] = value
@@ -162,7 +168,12 @@ export function createLocalDevEnvSecretProvider(
   }
 }
 
-function joinVaultPath(address: string, mountPath: string, section: 'data' | 'metadata', keyPath: string): URL {
+function joinVaultPath(
+  address: string,
+  mountPath: string,
+  section: 'data' | 'metadata',
+  keyPath: string
+): URL {
   const normalizedAddress = address.endsWith('/') ? address : `${address}/`
   return new URL(`v1/${mountPath}/${section}/${keyPath}`, normalizedAddress)
 }
@@ -186,7 +197,9 @@ function decodeVaultListResponse(payload: unknown): VaultListResponse | null {
 function extractVaultValue(payload: VaultKvV2ReadResponse): string | null {
   const explicitValue = payload.data.data.value
   if (typeof explicitValue === 'string') return explicitValue
-  const entries = Object.values(payload.data.data).filter((candidate): candidate is string => typeof candidate === 'string')
+  const entries = Object.values(payload.data.data).filter(
+    (candidate): candidate is string => typeof candidate === 'string'
+  )
   return entries.length === 1 ? (entries[0] ?? null) : null
 }
 
@@ -250,11 +263,20 @@ export function createVaultKvV2SecretProvider(
       })
       return ok(response)
     } catch (error) {
-      return err(providerUnavailable(name, ref, error instanceof Error ? error.message : 'Vault request failed'))
+      return err(
+        providerUnavailable(
+          name,
+          ref,
+          error instanceof Error ? error.message : 'Vault request failed'
+        )
+      )
     }
   }
 
-  function mapVaultStatus(ref: SecretRefFromSchema, response: Response): SecretFailureFromSchema | null {
+  function mapVaultStatus(
+    ref: SecretRefFromSchema,
+    response: Response
+  ): SecretFailureFromSchema | null {
     if (response.ok) return null
     if (response.status === 401 || response.status === 403) {
       return permissionDenied(name, ref, `Vault denied access with status ${response.status}`)
@@ -283,11 +305,23 @@ export function createVaultKvV2SecretProvider(
       if (failure) return err(failure)
       const payload = decodeVaultKvV2ReadResponse(await response.value.json())
       if (payload === null) {
-        return err(providerUnavailable(name, ref, 'Vault KV v2 response did not contain a scalar secret value'))
+        return err(
+          providerUnavailable(
+            name,
+            ref,
+            'Vault KV v2 response did not contain a scalar secret value'
+          )
+        )
       }
       const value = extractVaultValue(payload)
       return value === null
-        ? err(providerUnavailable(name, ref, 'Vault KV v2 response did not contain a scalar secret value'))
+        ? err(
+            providerUnavailable(
+              name,
+              ref,
+              'Vault KV v2 response did not contain a scalar secret value'
+            )
+          )
         : ok(value)
     },
     async list(prefix) {
@@ -302,7 +336,9 @@ export function createVaultKvV2SecretProvider(
       if (failure) return err(failure)
       const payload = decodeVaultListResponse(await response.value.json())
       if (payload === null) {
-        return err(providerUnavailable(name, ref, 'Vault KV v2 list response did not contain keys[]'))
+        return err(
+          providerUnavailable(name, ref, 'Vault KV v2 list response did not contain keys[]')
+        )
       }
       return ok(extractVaultListKeys(payload))
     },
@@ -321,7 +357,9 @@ export function createVaultKvV2SecretProvider(
 
 export function createSecretProviderFromConfig(
   name: string,
-  config: (SecretProviderConfigFromSchema & { backend: string }) | { backend: string; [key: string]: unknown },
+  config:
+    | (SecretProviderConfigFromSchema & { backend: string })
+    | { backend: string; [key: string]: unknown },
   options: {
     env?: NodeJS.ProcessEnv
     fetchImpl?: VaultFetch
@@ -330,12 +368,20 @@ export function createSecretProviderFromConfig(
 ): SecretProviderAdapter {
   switch (config.backend) {
     case 'local-dev-env':
-      return createLocalDevEnvSecretProvider(name, config as LocalDevEnvSecretProviderConfigFromSchema, options.env)
+      return createLocalDevEnvSecretProvider(
+        name,
+        config as LocalDevEnvSecretProviderConfigFromSchema,
+        options.env
+      )
     case 'vault-kv-v2':
-      return createVaultKvV2SecretProvider(name, config as VaultKvV2SecretProviderConfigFromSchema, {
-        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-        ...(options.resolveAuthHeaders ? { resolveAuthHeaders: options.resolveAuthHeaders } : {})
-      })
+      return createVaultKvV2SecretProvider(
+        name,
+        config as VaultKvV2SecretProviderConfigFromSchema,
+        {
+          ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+          ...(options.resolveAuthHeaders ? { resolveAuthHeaders: options.resolveAuthHeaders } : {})
+        }
+      )
     default:
       return createUnsupportedSecretProvider(name, config.backend)
   }
