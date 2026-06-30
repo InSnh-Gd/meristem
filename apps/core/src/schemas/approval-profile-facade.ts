@@ -108,9 +108,16 @@ const mNetForcedTcpRelaySelectorSchema = t.Object({
   selector: t.Union([
     t.Object({ selectorType: t.Literal('all-leaf-nodes'), includeAllLeafNodes: t.Literal(true) }),
     t.Object({ selectorType: t.Literal('node-ids'), nodeIds: t.Array(t.String()) }),
-    t.Object({ selectorType: t.Literal('label-selector'), matchLabels: t.Record(t.String(), t.String()) })
+    t.Object({
+      selectorType: t.Literal('label-selector'),
+      matchLabels: t.Record(t.String(), t.String())
+    })
   ]),
-  routeClass: t.Union([t.Literal('standard'), t.Literal('cn-resident'), t.Literal('forced-tcp-relay')]),
+  routeClass: t.Union([
+    t.Literal('standard'),
+    t.Literal('cn-resident'),
+    t.Literal('forced-tcp-relay')
+  ]),
   operatorOverrideAllowed: t.Boolean(),
   operatorOverrideActive: t.Boolean(),
   operatorOverrideActor: t.Optional(actorIdSchema),

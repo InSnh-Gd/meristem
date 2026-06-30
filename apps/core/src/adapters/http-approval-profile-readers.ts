@@ -3,7 +3,7 @@ import * as Schema from 'effect/Schema'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type {
   ApprovalDetailResponse,
-  ApprovalListResponse,
+  ApprovalListResponse
 } from '../../../../packages/contracts/src/index.ts'
 import {
   ApprovalDetailResponseSchema,
