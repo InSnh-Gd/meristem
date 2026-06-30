@@ -2,9 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import type { DataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
-import {
-  CHINA_DATA_PLANE_PROFILE_VERSION
-} from '../../services/m-net/src/profile-workflow-types.ts'
+import { CHINA_DATA_PLANE_PROFILE_VERSION } from '../../services/m-net/src/profile-workflow-types.ts'
 import {
   breakGlassFailClosed,
   enableDataPlaneProfile

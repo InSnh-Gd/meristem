@@ -37,9 +37,12 @@ const productionCnProfile = {
   displayName: 'M-Net CN (v0.3)',
   schemaVersion: 'mnet-profile@0.3.0',
   status: 'available',
-  rules: { residency: 'cn-only', mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' } },
+  rules: {
+    residency: 'cn-only',
+    mainlandNodeWithoutPublicAccess: { interconnect: 'netbird_sidecar' }
+  },
   capabilities: {
-            controlPlaneOnly: false,
+    controlPlaneOnly: false,
     managementPlaneExcluded: true,
     realNetBirdSidecar: true,
     signalConfigRef: { configRef: 'signal/cn-primary' },
@@ -484,9 +487,9 @@ export const mnetResponseContracts: ResponseContract[] = [
         summary: '1 nodes tracked in the operational read model'
       },
       profileSelection: {
-          profileVersion: 'm-net-cn@0.3.0',
-          displayName: 'M-Net CN (v0.3)',
-          schemaVersion: 'mnet-profile@0.3.0',
+        profileVersion: 'm-net-cn@0.3.0',
+        displayName: 'M-Net CN (v0.3)',
+        schemaVersion: 'mnet-profile@0.3.0',
         region: 'cn',
         controlPlaneOnly: false,
         compatibility: 'migration_required',

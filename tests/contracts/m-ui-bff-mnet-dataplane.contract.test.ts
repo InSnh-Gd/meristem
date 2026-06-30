@@ -297,7 +297,12 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
       mnetApp: createMockMNetApp()
     })
 
-    const res = await makeRequest(app, '/api/v0/networks/network-cn-001/proof-path', 'GET', 'admin-token')
+    const res = await makeRequest(
+      app,
+      '/api/v0/networks/network-cn-001/proof-path',
+      'GET',
+      'admin-token'
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       networkId: string
@@ -380,7 +385,9 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
       '/api/v0/networks/{id}/proof-path'
     ]
     for (const path of requiredPaths) {
-      const operation = Object.values(body.paths[path] ?? {})[0] as { description?: string } | undefined
+      const operation = Object.values(body.paths[path] ?? {})[0] as
+        | { description?: string }
+        | undefined
       expect(operation?.description?.includes('stateSources:')).toBe(true)
     }
   })

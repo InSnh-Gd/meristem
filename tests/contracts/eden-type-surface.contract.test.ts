@@ -38,7 +38,10 @@ import type {
   MNetRegionalProfile,
   NetworkSuspendedOperation
 } from '../../packages/contracts/src/types/mnet-profile.ts'
-import type { NodeAgentRuntimeDesiredSidecar, NodeAgentRuntimeStatus } from '../../packages/contracts/src/types.ts'
+import type {
+  NodeAgentRuntimeDesiredSidecar,
+  NodeAgentRuntimeStatus
+} from '../../packages/contracts/src/types.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
@@ -213,9 +216,7 @@ type ExpectedMNetAppDeps = {
         error: { code: string; message: string }
       }
   >
-  ingestOperationalEvent?: (
-    input: MNetOperationalEventIngestRequestFromSchema
-  ) => Promise<
+  ingestOperationalEvent?: (input: MNetOperationalEventIngestRequestFromSchema) => Promise<
     | MNetOperationalEventIngestResponseFromSchema
     | {
         kind: 'failure'
@@ -370,10 +371,7 @@ type ExpectedMNetAppDeps = {
           error: { code: string; message: string; migration?: unknown }
         }
     >
-    reportStatus?(input: {
-      nodeId: string
-      runtimeStatus: NodeAgentRuntimeStatus
-    }): Promise<void>
+    reportStatus?(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
   }
 }
 

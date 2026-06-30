@@ -105,13 +105,13 @@ describe('deriveNoopCommandEligibility', () => {
         node({ status, reachability: 'reachable' })
       )
 
-        expect(eligibility).toEqual({
-          state: 'disabled',
-          disabled: {
-            code: 'unreachable_node',
-            message: disabledReason
-          },
-          disabledReason
+      expect(eligibility).toEqual({
+        state: 'disabled',
+        disabled: {
+          code: 'unreachable_node',
+          message: disabledReason
+        },
+        disabledReason
       })
     }
   })
@@ -152,13 +152,13 @@ describe('deriveNodeControlCommandEligibility', () => {
         node({ status: 'disabled' }),
         NODE_ISOLATE_EXECUTE_COMMAND_ID
       )
-      ).toEqual({
-        state: 'disabled',
-        disabled: {
-          code: 'unreachable_node',
-          message: '节点当前为 disabled，不能执行 isolate'
-        },
-        disabledReason: '节点当前为 disabled，不能执行 isolate'
+    ).toEqual({
+      state: 'disabled',
+      disabled: {
+        code: 'unreachable_node',
+        message: '节点当前为 disabled，不能执行 isolate'
+      },
+      disabledReason: '节点当前为 disabled，不能执行 isolate'
     })
   })
 
@@ -189,13 +189,13 @@ describe('deriveNodeControlCommandEligibility', () => {
         node({ status: 'recovering' }),
         NODE_RECOVER_EXECUTE_COMMAND_ID
       )
-      ).toEqual({
-        state: 'disabled',
-        disabled: {
-          code: 'unreachable_node',
-          message: '节点当前为 recovering，不能执行 recover'
-        },
-        disabledReason: '节点当前为 recovering，不能执行 recover'
+    ).toEqual({
+      state: 'disabled',
+      disabled: {
+        code: 'unreachable_node',
+        message: '节点当前为 recovering，不能执行 recover'
+      },
+      disabledReason: '节点当前为 recovering，不能执行 recover'
     })
   })
 

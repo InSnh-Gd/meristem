@@ -120,9 +120,9 @@ describe('M-Net data-plane skeleton contract', () => {
   })
 
   it('historical profile versions remain decodable for migration metadata', () => {
-    expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-default@0.1.0')).toBe(
-      'm-net-default@0.1.0'
-    )
+    expect(
+      Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-default@0.1.0')
+    ).toBe('m-net-default@0.1.0')
     expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-cn@0.2.0')).toBe(
       'm-net-cn@0.2.0'
     )

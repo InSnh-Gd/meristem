@@ -128,7 +128,7 @@ describe('M-Net PostgreSQL state persistence', () => {
       {
         networkId: 'net-a',
         previousProfileVersion: 'm-net-default@0.1.0',
-      targetProfileVersion: 'm-net-cn@0.3.0',
+        targetProfileVersion: 'm-net-cn@0.3.0',
         status: 'applied'
       }
     ])

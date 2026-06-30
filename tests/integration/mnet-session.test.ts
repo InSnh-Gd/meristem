@@ -234,38 +234,40 @@ function closeManagedSessionSocket(socket: ManagedSessionSocket | null): void {
  * against Bun WebSockets, PostgreSQL, and the internal log/event callers together.
  */
 describe('M-Net join ingress session handling', () => {
-async function startHarness(): Promise<{
-  logMock: ManagedProcess
-  eventBusMock: ManagedProcess
-  mnet: ManagedProcess
-} | null> {
-  if (!pgAvailable) return null
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-  await import('../../packages/db/src/migrate.ts')
-  const eventBusMock = createMockInternalService(3103, 'm-eventbus')
-  const logMock = createMockInternalService(3102, 'm-log')
-  let mnet: ManagedProcess | null = null
-
-  try {
-    await waitForServiceReady(eventBusMock, 'm-eventbus ready')
-    await waitForServiceReady(logMock, 'm-log ready')
-
-    mnet = await startMNetService()
-    await waitForServiceReady(mnet, 'm-net join ingress listening')
-    return { logMock, eventBusMock, mnet }
-  } catch (error) {
-    await stopProcess(mnet)
-    await stopProcess(logMock)
-    await stopProcess(eventBusMock)
-    throw error
-  }
-}
-
-  async function stopHarness(processes: {
+  async function startHarness(): Promise<{
     logMock: ManagedProcess
     eventBusMock: ManagedProcess
     mnet: ManagedProcess
-  } | null): Promise<void> {
+  } | null> {
+    if (!pgAvailable) return null
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+    await import('../../packages/db/src/migrate.ts')
+    const eventBusMock = createMockInternalService(3103, 'm-eventbus')
+    const logMock = createMockInternalService(3102, 'm-log')
+    let mnet: ManagedProcess | null = null
+
+    try {
+      await waitForServiceReady(eventBusMock, 'm-eventbus ready')
+      await waitForServiceReady(logMock, 'm-log ready')
+
+      mnet = await startMNetService()
+      await waitForServiceReady(mnet, 'm-net join ingress listening')
+      return { logMock, eventBusMock, mnet }
+    } catch (error) {
+      await stopProcess(mnet)
+      await stopProcess(logMock)
+      await stopProcess(eventBusMock)
+      throw error
+    }
+  }
+
+  async function stopHarness(
+    processes: {
+      logMock: ManagedProcess
+      eventBusMock: ManagedProcess
+      mnet: ManagedProcess
+    } | null
+  ): Promise<void> {
     if (!processes) return
     for (const process of [processes.mnet, processes.logMock, processes.eventBusMock]) {
       await stopProcess(process)

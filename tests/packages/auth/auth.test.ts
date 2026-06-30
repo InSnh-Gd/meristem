@@ -171,9 +171,9 @@ describe('mintLocalToken', () => {
     expect(typeof (await mintLocalToken({ actor: 'security-admin', secret: testSecret }))).toBe(
       'string'
     )
-    expect(typeof (await mintLocalToken({ actor: 'break-glass-reviewer', secret: testSecret }))).toBe(
-      'string'
-    )
+    expect(
+      typeof (await mintLocalToken({ actor: 'break-glass-reviewer', secret: testSecret }))
+    ).toBe('string')
   })
 
   it('honors supported expiresIn values', async () => {

@@ -243,9 +243,7 @@ describe('integration: m-net profile PostgreSQL persistence smoke', () => {
           .where(eq(mnetNetworkProfileStates.networkId, networkId))
         await db
           .delete(networks)
-          .where(
-            and(eq(networks.id, networkId), eq(networks.profileVersion, 'm-net@0.3.0'))
-          )
+          .where(and(eq(networks.id, networkId), eq(networks.profileVersion, 'm-net@0.3.0')))
         await client.end()
       }
     }

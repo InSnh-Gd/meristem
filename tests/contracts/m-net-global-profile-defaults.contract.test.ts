@@ -284,7 +284,7 @@ describe('M-Net global profile defaults contract', () => {
   // ──── 2. 新网络使用配置的默认 Profile ───────────────────────────────
 
   describe('New network creation uses configured default', () => {
-      it('new network uses m-net@0.3.0 when no override set', async () => {
+    it('new network uses m-net@0.3.0 when no override set', async () => {
       const app = buildApp()
       const token = await mintTestToken('admin')
 
@@ -533,7 +533,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test',
             idempotencyKey: crypto.randomUUID()
@@ -589,7 +589,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             profileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
@@ -603,7 +603,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             profileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
@@ -624,7 +624,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
@@ -638,7 +638,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-switches/plan', {
           method: 'POST',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             targetProfileVersion: 'm-net-cn@0.3.0',
             reason: 'test idempotency',
             idempotencyKey: key
@@ -671,7 +671,7 @@ describe('M-Net global profile defaults contract', () => {
         new Request('http://localhost/api/v0/networks/profile-defaults', {
           method: 'PUT',
           headers: bearerHeaders(token),
-            body: JSON.stringify({
+          body: JSON.stringify({
             profileVersion: 'm-net-cn@0.3.0',
             reason: 'should be denied',
             idempotencyKey: crypto.randomUUID()

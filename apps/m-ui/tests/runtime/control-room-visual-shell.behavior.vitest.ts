@@ -80,7 +80,9 @@ describe('control-room visual shell contract', () => {
     expect(screen.getByText('控制面就绪')).toBeTruthy()
     expect(screen.getByRole('navigation')).toBeTruthy()
     expect(screen.getByRole('link', { name: '控制室概览' })).toBeTruthy()
-    const missingHooks = [visualShellHooks.topAppBar, visualShellHooks.compactNavRail].filter(hook => !screen.queryByTestId(hook))
+    const missingHooks = [visualShellHooks.topAppBar, visualShellHooks.compactNavRail].filter(
+      hook => !screen.queryByTestId(hook)
+    )
     expect(missingHooks).toEqual([])
   })
 
@@ -91,13 +93,26 @@ describe('control-room visual shell contract', () => {
     expect(screen.getByText('运行 noop 任务')).toBeTruthy()
     expect(screen.getByText('stateSource: authoritative')).toBeTruthy()
     expect(screen.getAllByText('stateSource: read-model').length).toBeGreaterThan(0)
-    const requiredHooks = [visualShellHooks.metricsPanel, visualShellHooks.operationsPanel, visualShellHooks.recentActivityPanel, visualShellHooks.quickActionsPanel]
+    const requiredHooks = [
+      visualShellHooks.metricsPanel,
+      visualShellHooks.operationsPanel,
+      visualShellHooks.recentActivityPanel,
+      visualShellHooks.quickActionsPanel
+    ]
     const missingHooks = requiredHooks.filter(hook => !screen.queryByTestId(hook))
     expect(missingHooks).toEqual([])
-    expect(screen.getByTestId(visualShellHooks.metricsPanel).textContent).toMatch(/事件与审计账本|功能域服务状态/)
-    expect(screen.getByTestId(visualShellHooks.operationsPanel).textContent).toMatch(/节点|Node inventory/)
-    expect(screen.getByTestId(visualShellHooks.recentActivityPanel).textContent).toMatch(/事件与审计账本|leaf node joined test-network|task.submit/)
-    expect(screen.getByTestId(visualShellHooks.quickActionsPanel).textContent).toContain('运行 noop 任务')
+    expect(screen.getByTestId(visualShellHooks.metricsPanel).textContent).toMatch(
+      /事件与审计账本|功能域服务状态/
+    )
+    expect(screen.getByTestId(visualShellHooks.operationsPanel).textContent).toMatch(
+      /节点|Node inventory/
+    )
+    expect(screen.getByTestId(visualShellHooks.recentActivityPanel).textContent).toMatch(
+      /事件与审计账本|leaf node joined test-network|task.submit/
+    )
+    expect(screen.getByTestId(visualShellHooks.quickActionsPanel).textContent).toContain(
+      '运行 noop 任务'
+    )
     expect(screen.getByTestId(visualShellHooks.quickActionsPanel).textContent).toContain('命令中心')
   })
 

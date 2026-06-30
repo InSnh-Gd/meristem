@@ -40,10 +40,7 @@ describe('M-Net profile external routes', () => {
     const versions = body.profiles
       .map((p: (typeof body.profiles)[number]) => p.profileVersion)
       .sort()
-    expect(versions).toEqual([
-      'm-net-cn@0.3.0',
-      'm-net@0.3.0'
-    ])
+    expect(versions).toEqual(['m-net-cn@0.3.0', 'm-net@0.3.0'])
   })
 
   it('GET /api/v0/network-profiles returns 401 without bearer token', async () => {
