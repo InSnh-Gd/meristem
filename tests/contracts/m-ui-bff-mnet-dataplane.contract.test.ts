@@ -69,6 +69,7 @@ function createMockMNetApp() {
     }))
     .get('/api/v0/networks/network-cn-001/operational-state', () => ({
       networkId: 'network-cn-001',
+      authMode: 'oidc',
       network: {
         status: 'degraded',
         memberCount: 1,
@@ -199,6 +200,26 @@ function createMockMNetApp() {
           }
         ]
       },
+      netbirdProcessHealth: [
+        {
+          host: 'node-a',
+          status: 'healthy',
+          detail: 'netbird status connected on node-a'
+        },
+        {
+          host: 'node-b',
+          status: 'healthy',
+          detail: 'netbird status connected on node-b'
+        }
+      ],
+      packetReachability: {
+        status: 'success',
+        probe: 'tcp',
+        source: 'node-a',
+        target: 'node-b',
+        targetOverlayIp: '100.64.0.20',
+        detail: 'node-a reached node-b overlay TCP probe'
+      },
       stateSources: {
         network: 'authoritative',
         profileSelection: 'authoritative',
@@ -216,6 +237,26 @@ function createMockMNetApp() {
       globalSwitchState: 'idle',
       updatedAt: '2026-06-18T09:00:00.000Z'
     }))
+}
+
+function createPolicyApp(decision: 'allow' | 'deny') {
+  return new Elysia().post('/internal/v0/authorize', () => ({
+    decision: {
+      id: `policy-${decision}`,
+      actor: 'admin',
+      action: 'network:profile-enable',
+      resource: 'network:network-cn-001',
+      result: decision,
+      reasons:
+        decision === 'deny'
+          ? ['M-Policy denied forced relay repair for this actor']
+          : ['repair preview allowed'],
+      operationDangerLevel: 'high',
+      suspicionScore: decision === 'deny' ? 0.91 : 0.1,
+      riskFactors: ['outside_expected_scope'],
+      createdAt: '2026-06-18T09:31:00.000Z'
+    }
+  }))
 }
 
 describe('M-UI BFF M-Net dataplane contracts', () => {
@@ -294,7 +335,8 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
   it('adapts public operational facts into proof-path payload and typed disabled reasons', async () => {
     const app = createBffWithServices({
       coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })),
-      mnetApp: createMockMNetApp()
+      mnetApp: createMockMNetApp(),
+      policyApp: createPolicyApp('allow')
     })
 
     const res = await makeRequest(
@@ -313,6 +355,13 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
           nodes: Array<{ credentialRef?: Record<string, unknown> }>
         }
       }
+      runtimeTruth: {
+        auth: { mode: string }
+        secretProvider: { status: string }
+        netbirdProcess: { status: string; nodes: Array<{ observed: string; status: string }> }
+        packetProof: { status: string; targetOverlayIp?: string }
+        profile: { state: string; reason?: string }
+      }
     }
     const credentialNode = body.credentialLifecycle.credentials.nodes[0]
     expect(credentialNode).toBeDefined()
@@ -329,6 +378,55 @@ describe('M-UI BFF M-Net dataplane contracts', () => {
     })
     expect(credentialNode?.credentialRef?.token).toBeUndefined()
     expect(credentialNode?.credentialRef?.raw).toBeUndefined()
+    expect(body.runtimeTruth.auth.mode).toBe('oidc')
+    expect(body.runtimeTruth.secretProvider.status).toBe('resolved')
+    expect(body.runtimeTruth.netbirdProcess).toMatchObject({
+      status: 'healthy',
+      nodes: [
+        { observed: 'running', status: 'healthy' },
+        { observed: 'running', status: 'healthy' }
+      ]
+    })
+    expect(body.runtimeTruth.packetProof).toMatchObject({
+      status: 'success',
+      targetOverlayIp: '100.64.0.20'
+    })
+    expect(body.runtimeTruth.profile).toMatchObject({
+      state: 'degraded',
+      reason: 'legacy node must rebuild to NetBird sidecar'
+    })
+  })
+
+  it('preserves denied repair display state when M-Policy denies preview authorization', async () => {
+    const app = createBffWithServices({
+      coreApp: createCoreApp(createInMemoryCoreDeps({ actor: 'admin' })),
+      mnetApp: createMockMNetApp(),
+      policyApp: createPolicyApp('deny')
+    })
+
+    const res = await makeRequest(
+      app,
+      '/api/v0/networks/network-cn-001/proof-path',
+      'GET',
+      'admin-token'
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      runtimeTruth: {
+        repairActions: Array<{
+          commandId: string
+          state: string
+          disabledReason?: { message: string }
+        }>
+      }
+    }
+    expect(body.runtimeTruth.repairActions[0]).toMatchObject({
+      commandId: 'network.forced-relay.change.execute',
+      state: 'disabled',
+      disabledReason: {
+        message: 'M-Policy denied forced relay repair for this actor'
+      }
+    })
   })
 
   it('does not expose raw node credential tokens through execute path', async () => {

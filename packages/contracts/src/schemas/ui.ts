@@ -243,6 +243,57 @@ export const BffOperationalProgressFeedResponseSchema = Schema.Struct({
   stateSource: StateSourceMetadataSchema
 })
 
+export const BffOperationalRuntimeTruthSchema = Schema.Struct({
+  auth: Schema.Struct({
+    mode: Schema.Literal('oidc', 'local-dev'),
+    summary: Schema.String,
+    stateSource: StateSourceMetadataSchema
+  }),
+  secretProvider: Schema.Struct({
+    status: Schema.Literal('resolved', 'missing', 'denied'),
+    summary: Schema.String,
+    stateSource: StateSourceMetadataSchema
+  }),
+  netbirdProcess: Schema.Struct({
+    desired: Schema.Literal('running', 'stopped', 'unknown'),
+    observed: Schema.Literal('running', 'stopped', 'not-run', 'unknown'),
+    status: Schema.Literal('healthy', 'degraded'),
+    summary: Schema.String,
+    nodes: Schema.Array(
+      Schema.Struct({
+        nodeId: Schema.String,
+        desired: Schema.Literal('running', 'stopped', 'unknown'),
+        observed: Schema.Literal('running', 'stopped', 'not-run', 'unknown'),
+        status: Schema.Literal('healthy', 'degraded'),
+        detail: Schema.String
+      })
+    ),
+    stateSource: StateSourceMetadataSchema
+  }),
+  packetProof: Schema.Struct({
+    status: Schema.Literal('success', 'failure', 'not-run'),
+    summary: Schema.String,
+    source: Schema.optional(Schema.String),
+    target: Schema.optional(Schema.String),
+    probe: Schema.optional(Schema.String),
+    targetOverlayIp: Schema.optional(Schema.String),
+    stateSource: StateSourceMetadataSchema
+  }),
+  profile: Schema.Struct({
+    state: Schema.Literal('enabled', 'disabled', 'degraded'),
+    reason: Schema.optional(Schema.String),
+    stateSource: StateSourceMetadataSchema
+  }),
+  repairActions: Schema.Array(
+    Schema.Struct({
+      commandId: Schema.String,
+      state: Schema.Literal('enabled', 'disabled'),
+      disabledReason: Schema.optional(DisabledCommandExplanationSchema),
+      stateSource: StateSourceMetadataSchema
+    })
+  )
+})
+
 export const BffOperationalProofPathResponseSchema = Schema.Struct({
   networkId: Schema.String,
   createManageStatus: BffOperationalCreateManageStatusSchema,
@@ -252,7 +303,8 @@ export const BffOperationalProofPathResponseSchema = Schema.Struct({
   credentialLifecycle: BffOperationalCredentialLifecycleResponseSchema,
   migration: BffOperationalMigrationResponseSchema,
   policyEligibility: BffOperationalPolicyEligibilitySchema,
-  progressFeed: BffOperationalProgressFeedResponseSchema
+  progressFeed: BffOperationalProgressFeedResponseSchema,
+  runtimeTruth: BffOperationalRuntimeTruthSchema
 })
 
 /** 组件种类白名单，不在名单内的 kind 解码时被拒绝 */
@@ -335,6 +387,7 @@ export type BffOperationalPolicyEligibilityFromSchema =
   typeof BffOperationalPolicyEligibilitySchema.Type
 export type BffOperationalProgressFeedResponseFromSchema =
   typeof BffOperationalProgressFeedResponseSchema.Type
+export type BffOperationalRuntimeTruthFromSchema = typeof BffOperationalRuntimeTruthSchema.Type
 export type BffOperationalProofPathResponseFromSchema =
   typeof BffOperationalProofPathResponseSchema.Type
 export type DisabledCommandExplanationFromSchema = typeof DisabledCommandExplanationSchema.Type

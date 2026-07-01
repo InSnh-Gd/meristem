@@ -5,6 +5,7 @@ import type {
   DisabledCommandExplanationFromSchema as DisabledCommandExplanation,
   MNetMigrationRequired,
   MNetOperationalSnapshotFromSchema,
+  PolicyDecisionFromSchema,
   Permission
 } from '../../../../packages/contracts/src/index.ts'
 import type {
@@ -19,6 +20,7 @@ import type {
   MNetNodeControlBody,
   MNetProfileToggleBody
 } from '../types.ts'
+import { aggregateRuntimeTruth } from './mnet-proof-path-runtime-support.ts'
 
 export const BffJoinTicketRecordSchema = Schema.Struct({
   ticketId: Schema.String,
@@ -223,7 +225,8 @@ export function redactCredentialMutationResponse(
 /** 将公开 operational snapshot 适配成 proof-path 读模型，不在 BFF 内合成授权或最终状态。 */
 export function mapOperationalSnapshotToProofPath(
   snapshot: MNetOperationalSnapshotFromSchema,
-  permissions: readonly Permission[]
+  permissions: readonly Permission[],
+  policyDecision?: PolicyDecisionFromSchema
 ): BffOperationalProofPathResponseFromSchema {
   const migrationReason =
     snapshot.migrationRequired.required && snapshot.migrationRequired.migration
@@ -336,7 +339,12 @@ export function mapOperationalSnapshotToProofPath(
       deploymentReadiness: snapshot.deploymentReadiness,
       summary: snapshot.deploymentReadiness.summary,
       stateSource: operationalStateSource(snapshot.networkId, 'progressFeed')
-    }
+    },
+    runtimeTruth: aggregateRuntimeTruth({
+      snapshot,
+      permissions,
+      ...(policyDecision ? { policyDecision } : {})
+    })
   }
 }
 
@@ -501,12 +509,12 @@ export function readMigrationRollbackBody(body: unknown): MNetMigrationRollbackB
   return reason === undefined ? operation : { ...operation, reason }
 }
 
-/** 用 actor 语义补充高敏命令 eligibility，避免把最终授权硬编码进 BFF。 */
+/** 用 actor 语义补充高敏命令 eligibility，最终授权仍由 M-Net/M-Policy 执行。 */
 export function isSecurityAdminActor(actor: string) {
   return actor === 'security-admin'
 }
 
-/** 用 admin/security-admin 近似 network-admin 运营角色，用于展示态提示。 */
+/** 用 admin/security-admin 近似 network-admin 运营角色，仅用于展示态提示。 */
 export function isNetworkAdminActor(actor: string) {
   return actor === 'admin' || actor === 'security-admin'
 }

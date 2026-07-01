@@ -202,6 +202,30 @@ export const MNetOperationalStateSourcesSchema = Schema.Struct({
 })
 export type MNetOperationalStateSourcesFromSchema = typeof MNetOperationalStateSourcesSchema.Type
 
+export const MNetOperationalLiveProofAuthModeSchema = Schema.Literal('oidc', 'local-dev')
+export type MNetOperationalLiveProofAuthModeFromSchema =
+  typeof MNetOperationalLiveProofAuthModeSchema.Type
+
+export const MNetOperationalNetBirdProcessHealthSchema = Schema.Struct({
+  host: Schema.optional(Schema.String),
+  nodeId: Schema.optional(Schema.String),
+  status: Schema.Literal('healthy', 'degraded', 'not-run'),
+  detail: Schema.String
+})
+export type MNetOperationalNetBirdProcessHealthFromSchema =
+  typeof MNetOperationalNetBirdProcessHealthSchema.Type
+
+export const MNetOperationalPacketReachabilitySchema = Schema.Struct({
+  status: Schema.Literal('success', 'failure', 'not-run'),
+  probe: Schema.optional(Schema.Literal('tcp', 'icmp')),
+  source: Schema.optional(Schema.String),
+  target: Schema.optional(Schema.String),
+  targetOverlayIp: Schema.optional(Schema.String),
+  detail: Schema.String
+})
+export type MNetOperationalPacketReachabilityFromSchema =
+  typeof MNetOperationalPacketReachabilitySchema.Type
+
 export const MNetOperationalSnapshotSchema = Schema.Struct({
   networkId: Schema.String,
   network: MNetOperationalNetworkStatusSchema,
@@ -213,6 +237,9 @@ export const MNetOperationalSnapshotSchema = Schema.Struct({
   migrationRequired: MNetOperationalMigrationStateSchema,
   forcedRelay: MNetOperationalForcedRelayStateSchema,
   deploymentReadiness: MNetOperationalDeploymentReadinessSchema,
+  authMode: Schema.optional(MNetOperationalLiveProofAuthModeSchema),
+  netbirdProcessHealth: Schema.optional(Schema.Array(MNetOperationalNetBirdProcessHealthSchema)),
+  packetReachability: Schema.optional(MNetOperationalPacketReachabilitySchema),
   stateSources: MNetOperationalStateSourcesSchema
 })
 export type MNetOperationalSnapshotFromSchema = typeof MNetOperationalSnapshotSchema.Type

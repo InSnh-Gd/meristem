@@ -6,6 +6,7 @@ import {
   MNetOperationalSnapshotSchema,
   NetworkListResponseSchema,
   NetworkMembersResponseSchema,
+  PolicyDecisionResponseSchema,
   SessionResponseSchema
 } from '../../../../packages/contracts/src/index.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
@@ -44,7 +45,7 @@ function relayEndpointFromOperationalSnapshot(snapshot: MNetOperationalSnapshotF
  * createBffMNetDataplaneRoutes 聚合 M-Net proof-path 面板所需公开读模型。
  * BFF 只消费公开 REST fact，并把 UI 需要的组合形状下沉到 support mapper。
  */
-export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
+export function createBffMNetDataplaneRoutes({ cf, mf, pf }: MUiBffRouteDeps) {
   return new Elysia()
     .get(
       '/api/v0/networks/:id',
@@ -338,8 +339,26 @@ export function createBffMNetDataplaneRoutes({ cf, mf }: MUiBffRouteDeps) {
         )
         if (operational instanceof Response) return operational
 
+        const policyRes = await pf('/internal/v0/authorize', {
+          method: 'POST',
+          body: JSON.stringify({
+            actor: session.actor,
+            action: 'network:profile-enable',
+            resource: `network:${params.id}`
+          })
+        })
+
+        const policyDecision = policyRes.ok
+          ? decodeUpstreamData(
+              PolicyDecisionResponseSchema,
+              policyRes.data,
+              'M-Policy returned invalid authorization payload'
+            )
+          : undefined
+        if (policyDecision instanceof Response) return policyDecision
+
         return Schema.decodeUnknownSync(BffOperationalProofPathResponseSchema)(
-          mapOperationalSnapshotToProofPath(operational, session.permissions)
+          mapOperationalSnapshotToProofPath(operational, session.permissions, policyDecision?.decision)
         )
       },
       {
