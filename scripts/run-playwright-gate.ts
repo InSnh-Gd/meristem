@@ -47,6 +47,6 @@ if (ready) {
 }
 const verdict = results.every(r => r.status === 'pass') ? 'pass' : 'prerequisite-missing'
 process.stdout.write(
-  JSON.stringify({ gate: 'playwright-v02-proof', results, verdict }, null, 2) + '\n'
+  `${JSON.stringify({ gate: 'playwright-v02-proof', results, verdict }, null, 2)}\n`
 )
 process.exit(0)

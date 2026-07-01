@@ -34,7 +34,6 @@ import {
   V03_PROFILE_VERSION,
   isProfileWorkflowFailure,
   type ProfileWorkflowFailure,
-  type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
 

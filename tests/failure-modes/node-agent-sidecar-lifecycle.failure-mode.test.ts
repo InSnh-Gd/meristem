@@ -91,7 +91,7 @@ function managerWithSecrets(secrets: Readonly<Record<string, string>>): SecretMa
     async list() {
       return { ok: true as const, value: Object.keys(secrets) }
     },
-    async write(ref, value) {
+    async write(_ref, _value) {
       return { ok: true as const, value: undefined }
     }
   }

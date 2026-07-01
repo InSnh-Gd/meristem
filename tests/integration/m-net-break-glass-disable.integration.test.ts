@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { mintLocalToken } from '../../packages/auth/src/index.ts'
+import { mintLocalToken, verifyLocalToken } from '../../packages/auth/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
@@ -7,7 +7,7 @@ import {
 } from '../../services/m-net/src/profile-disable-policy.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
-import type { ActorId } from '../../packages/contracts/src/index.ts'
+
 
 const jwtSecret = 'test-jwt-secret'
 
@@ -112,8 +112,8 @@ function createTestApp(overrides: {
       async publish() {}
     },
     auth: {
-      async verify(_token: string) {
-        return { ok: true as const, actor: 'operator' as ActorId }
+      async verify(token: string) {
+        return verifyLocalToken({ token, secret: jwtSecret })
       }
     }
   })

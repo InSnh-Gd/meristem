@@ -51,6 +51,9 @@ export type WgConfigError =
       readonly kind: 'wg.endpoint_invalid'
       readonly endpoint: string
     }
+  | {
+      readonly kind: 'wg.wstunnel_not_supported'
+    }
 
 export type WgConfigResult = Result<WgConfigOutput, WgConfigError>
 
@@ -131,7 +134,7 @@ function defaultPortForProtocol(protocol: string): string | null {
 }
 
 function buildInterfaceLines(
-  localMember: NetworkMapMember,
+  _localMember: NetworkMapMember,
   privateKey: string,
   listenPort: number
 ) {
@@ -159,10 +162,8 @@ function resolveRelayEndpoint(input: WgConfigInput): Result<string, WgConfigErro
   }
 
   if (relayAssignment.relayType === 'wstunnel') {
-    const localEndpoint =
-      input.localRelayEndpoint ??
-      `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`
-    return normalizePeerEndpoint(localEndpoint)
+    // legacy: v0.1 wstunnel relay is not supported in v0.2 runtime
+    return { ok: false, error: { kind: 'wg.wstunnel_not_supported' } }
   }
 
   if (!isNonEmpty(relayAssignment.relayEndpoint)) {

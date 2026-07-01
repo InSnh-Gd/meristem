@@ -11,8 +11,6 @@ import {
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
   DEFAULT_WG_PRIVATE_KEY_PATH,
-  DEFAULT_WSTUNNEL_UDP_BIND_HOST,
-  DEFAULT_WSTUNNEL_UDP_BIND_PORT,
   renderWireGuardConfig
 } from './node-agent-wg-config.ts'
 import type { WireGuardKeyMaterial } from './node-agent-wireguard-keys.ts'
@@ -87,9 +85,8 @@ export function loadLocalOverlayEnv(env: NodeJS.ProcessEnv = process.env): Local
   return {
     interfaceName: env.MERISTEM_WG_INTERFACE_NAME ?? DEFAULT_WG_INTERFACE_NAME,
     listenPort: parseNumberEnv(env.MERISTEM_WG_LISTEN_PORT, DEFAULT_WG_LISTEN_PORT),
-    localRelayEndpoint:
-      env.MERISTEM_WSTUNNEL_LOCAL_ENDPOINT ??
-      `${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${parseNumberEnv(env.MERISTEM_WSTUNNEL_UDP_BIND_PORT, DEFAULT_WSTUNNEL_UDP_BIND_PORT)}`,
+    // legacy: v0.1 wstunnel relay endpoint ignored in v0.2 runtime (fenced in resolveRelayEndpoint)
+    localRelayEndpoint: env.MERISTEM_WSTUNNEL_LOCAL_ENDPOINT ?? '',
     forceRelayEndpoint:
       env.MERISTEM_NODE_AGENT_FORCE_RELAY === 'true' || env.MERISTEM_NODE_AGENT_FORCE_RELAY === '1',
     expectedSigningKeyId:

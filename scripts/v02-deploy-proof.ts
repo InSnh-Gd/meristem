@@ -219,7 +219,7 @@ function normalizeEnv(source: NodeJS.ProcessEnv): Record<string, string> {
   )
 }
 
-function requiredEnv(env: Record<string, string>, key: string): string {
+function _requiredEnv(env: Record<string, string>, key: string): string {
   const value = env[key]
   if (!value) throw new Error(`${key} is required`)
   return value

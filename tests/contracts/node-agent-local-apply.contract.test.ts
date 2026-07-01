@@ -46,8 +46,9 @@ function createSignedMap(overrides?: {
       }
     ],
     relayAssignment: {
-      relayType: overrides?.relayType ?? 'wstunnel',
-      relayEndpoint: overrides?.relayEndpoint ?? 'wss://relay.example',
+      // legacy: v0.1 used 'wstunnel' — v0.2 tests use 'direct'
+      relayType: overrides?.relayType ?? 'direct',
+      relayEndpoint: overrides?.relayEndpoint ?? 'relay.example:51820',
       nodeIds: ['leaf-cn-1', 'leaf-cn-2']
     },
     expiresAt: overrides?.expiresAt ?? Date.now() + 60_000,
@@ -66,7 +67,8 @@ async function createEnv(commandLog: string[][]): Promise<LocalOverlayEnv> {
   return {
     interfaceName: 'meristem-wg0',
     listenPort: 51820,
-    localRelayEndpoint: '127.0.0.1:51821',
+    // legacy: v0.1 wstunnel local relay endpoint — unused in v0.2
+    localRelayEndpoint: '',
     forceRelayEndpoint: false,
     expectedSigningKeyId: signingKey.keyId,
     ...(signingKey.publicKey ? { expectedSigningPublicKey: signingKey.publicKey } : {}),
@@ -90,7 +92,7 @@ async function createEnv(commandLog: string[][]): Promise<LocalOverlayEnv> {
 }
 
 describe('node-agent local overlay apply', () => {
-  it('writes config and applies WireGuard using local loopback relay for wstunnel maps', async () => {
+  it('writes config and applies WireGuard using relay endpoint from map', async () => {
     const commandLog: string[][] = []
     const env = await createEnv(commandLog)
     const result = await reconcileLocalOverlay({
@@ -114,7 +116,7 @@ describe('node-agent local overlay apply', () => {
     ])
     expect(await stat(env.paths.configPath)).toBeDefined()
     const renderedConfig = await readFile(env.paths.configPath, 'utf8')
-    expect(renderedConfig.includes('Endpoint = 127.0.0.1:51821')).toBe(true)
+    expect(renderedConfig.includes('Endpoint = relay.example:51820')).toBe(true)
 
     const flattenedCommandLog = commandLog.map(command => command.join(' ')).join('\n')
     for (const forbiddenToken of FORBIDDEN_HOST_REDIRECT_TOKENS) {

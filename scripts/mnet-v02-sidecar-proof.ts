@@ -122,7 +122,7 @@ for (const step of PROOF_STEPS) {
     case 'config-acquisition': {
       const configPresent =
         existsSync('/etc/netbird/config.json') ||
-        existsSync(process.env.HOME + '/.netbird/config.json') ||
+        existsSync(`${process.env.HOME}/.netbird/config.json`) ||
         !!process.env.NETBIRD_CONFIG
       if (configPresent) {
         results.push(success(step, 'NetBird client configuration found'))
@@ -168,5 +168,5 @@ const output = {
   results,
   verdict: allSuccess ? 'pass' : 'prerequisite-missing'
 }
-process.stdout.write(JSON.stringify(output, null, 2) + '\n')
+process.stdout.write(`${JSON.stringify(output, null, 2)}\n`)
 process.exit(0)

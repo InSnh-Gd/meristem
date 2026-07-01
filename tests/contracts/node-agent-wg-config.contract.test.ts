@@ -8,9 +8,7 @@ import {
   checkWgTooling,
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
-  DEFAULT_WSTUNNEL_UDP_BIND_HOST,
-  DEFAULT_WSTUNNEL_UDP_BIND_PORT,
-  renderWireGuardConfig
+  renderWireGuardConfig,
 } from '../../services/node-agent/src/node-agent-wg-config.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
@@ -43,8 +41,8 @@ function createNetworkMap(overrides?: {
     ],
     aclRules: [],
     relayAssignment: overrides?.relayAssignment ?? {
-      relayType: 'wstunnel' as const,
-      relayEndpoint: 'wss://relay.example',
+      relayType: 'direct' as const,
+      relayEndpoint: 'relay.example:51820',
       nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
     },
     expiresAt: Date.parse('2026-06-18T12:15:00.000Z'),
@@ -79,12 +77,12 @@ describe('node-agent WireGuard config contract', () => {
         '[Peer]',
         'PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
         'AllowedIPs = 100.96.0.2/32',
-        `Endpoint = ${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`,
+        'Endpoint = relay.example:51820',
         '',
         '[Peer]',
         'PublicKey = CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=',
         'AllowedIPs = 100.96.0.3/32',
-        `Endpoint = ${DEFAULT_WSTUNNEL_UDP_BIND_HOST}:${DEFAULT_WSTUNNEL_UDP_BIND_PORT}`
+        'Endpoint = relay.example:51820'
       ].join('\n')
     )
   })
@@ -217,14 +215,14 @@ describe('node-agent WireGuard config contract', () => {
 
     expect(rendered.ok).toBe(true)
     if (!rendered.ok) throw new Error(rendered.error.kind)
-    // 所有对等节点都强制使用 relay endpoint
-    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+    // 所有对等节点都强制使用 relay endpoint（来自 relayAssignment）
+    expect(rendered.value.config).toContain('Endpoint = relay.example:51820')
     // 不应出现任何 direct endpoint
     expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.20:51820')
     expect(rendered.value.config).not.toContain('Endpoint = 203.0.113.30:51820')
   })
 
-  it('falls back to wstunnel relay for peers missing direct endpoint', () => {
+  it('falls back to relay endpoint for peers missing direct endpoint', () => {
     const map = createNetworkMap({
       members: [
         {
@@ -249,16 +247,15 @@ describe('node-agent WireGuard config contract', () => {
     const rendered = renderWireGuardConfig({
       map,
       agentNodeId: 'node-agent-1',
-      privateKey: TEST_PRIVATE_KEY,
-      localRelayEndpoint: '127.0.0.1:51821'
+      privateKey: TEST_PRIVATE_KEY
     })
 
     expect(rendered.ok).toBe(true)
     if (!rendered.ok) throw new Error(rendered.error.kind)
     // peer-2 has direct endpoint
     expect(rendered.value.config).toContain('Endpoint = 203.0.113.20:51820')
-    // peer-3 falls back to relay
-    expect(rendered.value.config).toContain('Endpoint = 127.0.0.1:51821')
+    // peer-3 falls back to relay endpoint from relayAssignment
+    expect(rendered.value.config).toContain('Endpoint = relay.example:51820')
   })
 
   it('inlines the private key content into the config for wg setconf consumption', () => {
@@ -340,8 +337,8 @@ describe('node-agent WireGuard config contract', () => {
           }
         ],
         relayAssignment: {
-          relayType: 'wstunnel',
-          relayEndpoint: 'wss://relay.example',
+          relayType: 'direct',
+          relayEndpoint: 'relay.example:51820',
           nodeIds: ['node-agent-1', 'node-peer-2']
         }
       }),
@@ -362,6 +359,24 @@ describe('node-agent WireGuard config contract', () => {
     expect(firstHash).toHaveLength(64)
     expect(changedHash).toHaveLength(64)
     expect(firstHash).not.toBe(changedHash)
+  })
+
+  it('returns wg.wstunnel_not_supported for legacy wstunnel relay type', () => {
+    const rendered = renderWireGuardConfig({
+      map: createNetworkMap({
+        relayAssignment: {
+          relayType: 'wstunnel',
+          relayEndpoint: 'wss://relay.example',
+          nodeIds: ['node-agent-1', 'node-peer-2', 'node-peer-3']
+        }
+      }),
+      agentNodeId: 'node-agent-1',
+      privateKey: TEST_PRIVATE_KEY
+    })
+
+    expect(rendered.ok).toBe(false)
+    if (rendered.ok) throw new Error('expected error')
+    expect(rendered.error.kind).toBe('wg.wstunnel_not_supported')
   })
 
   it('renders a valid interface-only config when the peer set is empty', () => {

@@ -1,5 +1,4 @@
 import type {
-  CHINA_DATA_PLANE_PROFILE_VERSION,
   KnownNetworkState,
   ProfileWriteBody,
   ProfileWorkflowFailure,

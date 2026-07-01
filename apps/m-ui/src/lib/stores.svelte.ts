@@ -370,7 +370,7 @@ class AppState {
     if (this.token && nodeId) {
       try {
         this.commandState = await fetchForcedRelayCommandState(this.token, nodeId)
-      } catch (e: unknown) {
+      } catch (_e: unknown) {
         try {
           this.commandState = await fetchCommandState(this.token, nodeId)
         } catch (fallbackError: unknown) {

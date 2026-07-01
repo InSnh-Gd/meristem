@@ -24,7 +24,7 @@ type LiveProofDeps = {
   readonly stopPid: (pid: number) => void
 }
 
-const topology = ['control', 'node-a', 'node-b'] as const
+const _topology = ['control', 'node-a', 'node-b'] as const
 const workspaceDir = join(rootDir, '.local', 'mnet-v02-live-proof')
 
 function success(step: string, detail: string): ProofResult {
@@ -135,7 +135,7 @@ function capabilityFailures(capabilities: HostCapabilities): ProofResult[] {
   return failures
 }
 
-async function mintOperatorToken(deploy: DeployProofReport): Promise<string> {
+async function mintOperatorToken(_deploy: DeployProofReport): Promise<string> {
   const statePath = join(rootDir, '.local', 'keycloak-dev-realm', 'state.json')
   const state = JSON.parse(await Bun.file(statePath).text()) as Parameters<typeof mintKeycloakTokenForActor>[0]
   return (await mintKeycloakTokenForActor(state, 'operator')).accessToken

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { mintLocalToken } from '../../packages/auth/src/index.ts'
 import type { ActorId, MNetworkMember } from '../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'

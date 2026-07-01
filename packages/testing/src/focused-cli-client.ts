@@ -1,4 +1,4 @@
-import type { CliClient } from '../../../apps/m-cli/src/commands/types.ts'
+import type { CliClient } from '../../contracts/src/index.ts'
 import { createCliStatusMock } from './cli-status-mock.ts'
 
 /**

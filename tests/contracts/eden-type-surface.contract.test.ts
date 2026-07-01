@@ -7,23 +7,13 @@ import type {
   AuditSearchQuery,
   BackfillParams,
   BackfillResult,
-  CreateNetworkRequest,
   DLQRecord,
   EventBusPublishMetricsSummaryFromSchema,
   FullLog,
   FullLogSearchQuery,
   LogSearchResult,
-  MNetOperationalEventIngestRequestFromSchema,
-  MNetOperationalEventIngestResponseFromSchema,
-  MNetOperationalSnapshotFromSchema,
-  MNetwork,
-  MNetworkMember,
   MTask,
   MTaskPolicyDecision,
-  NetworkSummary,
-  NodeAgentTaskExecuteResponse,
-  NodeControlAction,
-  NodeControlResponse,
   Permission,
   ProjectionHealth,
   SubmitTaskRequest,
@@ -32,16 +22,6 @@ import type {
   TimelineLog,
   TimelineSearchQuery
 } from '../../packages/contracts/src/index.ts'
-import type { MNetOperationalEvent } from '../../packages/contracts/src/index.ts'
-import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import type {
-  MNetRegionalProfile,
-  NetworkSuspendedOperation
-} from '../../packages/contracts/src/types/mnet-profile.ts'
-import type {
-  NodeAgentRuntimeDesiredSidecar,
-  NodeAgentRuntimeStatus
-} from '../../packages/contracts/src/types.ts'
 import type { MEventEnvelope } from '../../packages/events/src/index.ts'
 import type { createEventBusApp, EventBusAppDeps } from '../../services/m-eventbus/src/app.ts'
 import type { EventBusApp as PublicEventBusApp } from '../../services/m-eventbus/src/public-types.ts'
@@ -58,12 +38,6 @@ import type {
   MNetServiceError,
   MNetServiceResult
 } from '../../services/m-net/src/app.ts'
-import type { MNetDb } from '../../services/m-net/src/clients.ts'
-import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
-import type { GlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
-import type { MigrationEngine } from '../../services/m-net/src/migration-engine.ts'
-import type { NodeKeyRegistrationSuccess } from '../../services/m-net/src/mnet-dataplane-support.ts'
-import type { ProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
 import type { MNetApp as PublicMNetApp } from '../../services/m-net/src/public-types.ts'
 import type {
   createMTaskApp,
@@ -183,197 +157,6 @@ type ExpectedMNetServiceError = {
 type ExpectedMNetServiceResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: ExpectedMNetServiceError }
-
-type ExpectedMNetAppDeps = {
-  db?: MNetDb
-  readiness(): Promise<{ ready: boolean }>
-  createNetwork(input: CreateNetworkRequest): Promise<ExpectedMNetServiceResult<MNetwork>>
-  listNetworks(): Promise<ExpectedMNetServiceResult<NetworkSummary[]>>
-  joinNetwork(input: {
-    networkId: string
-    nodeId: string
-  }): Promise<ExpectedMNetServiceResult<MNetworkMember>>
-  listMembers(input: { networkId: string }): Promise<ExpectedMNetServiceResult<MNetworkMember[]>>
-  describeForcedRelayNode?: (nodeId: string) => Promise<{
-    nodeId: string
-    nodeKind: 'stem' | 'leaf'
-    status: string
-    reachability: string
-    capabilities: string[]
-    networkId: string | null
-    networkProfileVersion: string | null
-  } | null>
-  executeNoop(input: {
-    nodeId: string
-    taskId: string
-    correlationId: string
-  }): Promise<ExpectedMNetServiceResult<NodeAgentTaskExecuteResponse>>
-  getOperationalState?: (networkId: string) => Promise<
-    | MNetOperationalSnapshotFromSchema
-    | {
-        kind: 'failure'
-        status: 400 | 401 | 403 | 404 | 409 | 503
-        error: { code: string; message: string }
-      }
-  >
-  ingestOperationalEvent?: (input: MNetOperationalEventIngestRequestFromSchema) => Promise<
-    | MNetOperationalEventIngestResponseFromSchema
-    | {
-        kind: 'failure'
-        status: 400 | 401 | 403 | 404 | 409 | 503
-        error: { code: string; message: string }
-      }
-  >
-  controlNode?: (input: {
-    actor: ActorId
-    nodeId: string
-    action: NodeControlAction
-    reason: string
-    targetKind?: 'stem' | 'leaf'
-  }) => Promise<
-    | NodeControlResponse
-    | {
-        kind: 'failure'
-        status: 403 | 404 | 409 | 503
-        error: { code: string; message: string }
-      }
-  >
-  profileStore?: {
-    getDefinitions(): Promise<MNetRegionalProfile[]>
-    getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>
-    getNetworkState(networkId: string): Promise<{
-      networkId: string
-      profileVersion: string
-      status: string
-      updatedAt: string
-    } | null>
-    setNetworkState(
-      networkId: string,
-      state: { profileVersion: string; status: string }
-    ): Promise<void>
-    recordTransition(record: {
-      networkId: string
-      fromVersion: string
-      toVersion: string
-      fromStatus: string
-      toStatus: string
-      actor: string
-      reason?: string
-      policyDecisionId?: string
-      correlationId?: string
-    }): Promise<void>
-    listNetworkStates(): Promise<
-      Array<{ networkId: string; profileVersion: string; status: string; updatedAt: string }>
-    >
-  }
-  networkUpdater?: {
-    setProfileVersion(networkId: string, profileVersion: string): Promise<void>
-  }
-  policyAuthorize?: {
-    authorize(
-      actor: string,
-      action: string,
-      resource: string
-    ): Promise<{
-      result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
-      id: string
-      reasons: string[]
-    }>
-  }
-  suspendedOps?: {
-    create(input: {
-      policyDecisionId: string
-      action: string
-      networkId: string
-      fromProfileVersion: string
-      toProfileVersion: string
-      requestedBy: string
-      reason?: string
-      correlationId: string
-      idempotencyKey: string
-      expiresAt: string
-    }): Promise<NetworkSuspendedOperation>
-    get(id: string): Promise<NetworkSuspendedOperation | null>
-    transition(
-      id: string,
-      status: string,
-      terminalReason?: string
-    ): Promise<NetworkSuspendedOperation | null>
-  }
-  approvals?: {
-    create(input: {
-      policyDecisionId: string
-      originService: string
-      operationId: string
-      requestedBy: string
-      requiredAction: string
-      quorumRequired: number
-      expiresAt: string
-    }): Promise<
-      | { ok: true; value: { approvalId: string } }
-      | { ok: false; error: { code: string; message: string } }
-    >
-  }
-  events?: {
-    publish(subject: string, type: string, payload: unknown, correlationId?: string): Promise<void>
-  }
-  log?: {
-    writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void>
-    writeFull(
-      level: string,
-      message: string,
-      correlationId?: string,
-      payload?: unknown
-    ): Promise<void>
-    writeAudit(
-      actor: string,
-      action: string,
-      resource: string,
-      result: string,
-      correlationId?: string,
-      payload?: unknown
-    ): Promise<void>
-  }
-  profileDisablePolicy?: ProfileDisablePolicyStore
-  policyHealthCheck?: {
-    checkHealth(): Promise<{ healthy: boolean }>
-  }
-  /** 数据面存储（NATS KV/PostgreSQL 分区状态、操作锁、迁移记录） */
-  dataPlane?: DataPlaneStores
-  globalDefaultsStore?: GlobalDefaultsStore
-  migrationEngine?: MigrationEngine
-  nodeRuntime?: {
-    authorize(nodeId: string, token: string): Promise<boolean>
-    fetchLatestNetworkMap(nodeId: string): Promise<
-      | {
-          map: NetworkMapFromSchema
-          sidecar: NodeAgentRuntimeDesiredSidecar
-        }
-      | {
-          kind: 'failure'
-          ok: false
-          status: 400 | 401 | 403 | 404 | 409 | 503
-          error: { code: string; message: string; migration?: unknown }
-        }
-    >
-    registerNodePublicKey(input: {
-      nodeId: string
-      keyId: string
-      publicKey: string
-      createdAt: string
-      endpoint?: string
-    }): Promise<
-      | NodeKeyRegistrationSuccess
-      | {
-          kind: 'failure'
-          ok: false
-          status: 400 | 401 | 403 | 404 | 409 | 503
-          error: { code: string; message: string; migration?: unknown }
-        }
-    >
-    reportStatus?(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
-  }
-}
 
 type ExpectedEventBusAppDeps = {
   readiness(): Promise<{ ready: boolean }>

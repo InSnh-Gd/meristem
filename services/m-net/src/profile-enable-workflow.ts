@@ -4,8 +4,7 @@ import { createPendingApprovalFlow } from './profile-approval-workflow.ts'
 import { migrateLegacyCnProfileBeforeEnable } from './profile-enable-migration.ts'
 import { canRequestEnable } from './profile-state-machine.ts'
 import {
-  CHINA_DATA_PLANE_PROFILE_VERSION,
-  type CHINA_PROFILE_VERSION,
+  type CHINA_DATA_PLANE_PROFILE_VERSION,
   type ProfileWriteBody,
   isProfileWorkflowFailure,
   type KnownNetworkState,

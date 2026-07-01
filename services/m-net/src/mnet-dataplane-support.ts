@@ -84,7 +84,8 @@ function relayForMembers(members: readonly MNetworkMember[]): RelayAssignment {
   const preferred = members.find(member => member.nodeKind === 'stem') ?? members[0]
   return {
     nodeId: preferred?.nodeId ?? 'relay-missing',
-    relayType: 'wstunnel',
+    // legacy: v0.1 used 'wstunnel' relay type — v0.2 runtime uses direct relay endpoint
+    relayType: 'direct',
     relayEndpoint: `https://relay.${preferred?.nodeId ?? 'missing'}.meristem.internal:443`
   }
 }

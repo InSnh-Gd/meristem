@@ -3,7 +3,6 @@ import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   NetworkMapFromSchema,
   NodeAgentRuntimeDesiredSidecar,
-  NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
 import {

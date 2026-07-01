@@ -3,7 +3,6 @@ import type {
   MNetMigrationReportFromSchema,
   MNetMigrationReportItemFromSchema,
   MNetMigrationRequired,
-  MNetMigrationRequiredReasonCodeFromSchema,
   MNetProfileV03CompatibilityResultFromSchema,
   MNetNodeV03CompatibilityResultFromSchema
 } from '../../../packages/contracts/src/index.ts'

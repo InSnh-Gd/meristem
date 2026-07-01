@@ -260,7 +260,7 @@ describe('runtime failure matrix', () => {
       caughtError = error instanceof Error ? error : new Error(String(error))
     }
     expect(caughtError).not.toBeNull()
-    expect(caughtError!.message).toContain('spawn failed')
+    expect(caughtError?.message).toContain('spawn failed')
   })
 
   // --- Inline gap-coverage: NetBird client probe failure (class 7) ---

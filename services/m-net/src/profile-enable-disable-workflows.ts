@@ -5,7 +5,6 @@ import { requestEnableProfile } from './profile-enable-workflow.ts'
 import { requireSupportedProfileVersion } from './migration-required-support.ts'
 import { canDisable } from './profile-state-machine.ts'
 import {
-  CHINA_DATA_PLANE_PROFILE_VERSION,
   CHINA_PROFILE_VERSION,
   DEFAULT_PROFILE_VERSION,
   isProfileWorkflowFailure,

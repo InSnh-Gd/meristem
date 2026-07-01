@@ -1,6 +1,6 @@
 import { fromUnixTime } from 'date-fns'
 import {
-  createLocalJWKSet,
+  type createLocalJWKSet,
   decodeJwt,
   decodeProtectedHeader,
   jwtVerify,
