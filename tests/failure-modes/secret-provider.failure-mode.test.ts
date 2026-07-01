@@ -12,7 +12,13 @@ function runtimeConfigWithSecretBindings(
   const oidc: RuntimeDeploymentConfig['oidc'] = {
     provider: 'oidc',
     issuer: 'https://keycloak.test/realms/meristem',
-    audiences: ['meristem-core']
+    audiences: ['meristem-core'],
+    claims: {
+      subjectClaim: 'sub',
+      groupsClaim: 'realm_access.roles',
+      displayNameClaim: 'preferred_username',
+      emailClaim: 'email'
+    }
   }
   const raw: RuntimeDeploymentConfig['raw'] = {
     track: 'nixos',

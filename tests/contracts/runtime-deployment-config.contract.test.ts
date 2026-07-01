@@ -29,6 +29,12 @@ function validDeploymentConfig() {
       issuer: 'https://identity.control-plane.example.com',
       audiences: ['meristem-core'],
       allowedAlgorithms: ['RS256'],
+      claims: {
+        subjectClaim: 'sub',
+        groupsClaim: 'realm_access.roles',
+        displayNameClaim: 'preferred_username',
+        emailClaim: 'email'
+      },
       jwksCache: {
         refreshIntervalMs: 300_000,
         ttlMs: 900_000

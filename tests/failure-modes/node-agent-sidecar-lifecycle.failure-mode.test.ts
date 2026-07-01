@@ -120,6 +120,13 @@ describe('node-agent SecretProvider sidecar lifecycle failure modes', () => {
         async mkdir() {},
         async writeTextFile(_path, contents) {
           writes.push(contents)
+        },
+        async spawnProcess() {
+          return { pid: 42_001 }
+        },
+        isProcessRunning: () => true,
+        async runCommand() {
+          return { exitCode: 0, stdout: 'connected', stderr: '' }
         }
       }
     )

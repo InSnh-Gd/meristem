@@ -29,6 +29,11 @@ export type NodeAgentRuntimeStatus = {
   configHash?: string
   sidecarConfigPath?: string
   processRef?: string
+  processPid?: number
+  processStartedAt?: string
+  lastProbeAt?: string
+  observedHealth?: 'healthy' | 'degraded' | 'unknown'
+  degradedReason?: { code: string; message: string; detail?: string }
   correlationId: string
   observedAt: string
   dependencies: {

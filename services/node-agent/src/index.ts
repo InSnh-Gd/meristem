@@ -61,7 +61,7 @@ let currentWireGuardKey: WireGuardKeyMaterial | null = null
 let currentPublicEndpoint: string | null = null
 let stunDiscoveryAttempted = false
 let currentEnforcementState = createInitialEnforcementState('network-pending')
-let currentLifecycleState: NodeAgentLifecycleState = stopSidecarLifecycle({
+let currentLifecycleState: NodeAgentLifecycleState = await stopSidecarLifecycle({
   desiredState: 'stop',
   observedAt: new Date(0).toISOString(),
   correlationId: 'node-agent-bootstrap',
@@ -243,12 +243,13 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     nodeId,
     correlationId: lifecycleCorrelationId,
     observedAt,
-    desired: latestMap.sidecar,
-    runtimeMap: {
-      networkId: latestMap.map.networkId,
-      mapVersion: latestMap.map.mapVersion
-    }
-  }, {
+ 	  desired: latestMap.sidecar,
+	  runtimeMap: {
+	    networkId: latestMap.map.networkId,
+	    mapVersion: latestMap.map.mapVersion
+	  },
+	  currentProcess: currentLifecycleState.process
+	}, {
     deploymentConfig: runtimeDeploymentConfig.raw,
     secretManager: nodeAgentSecretManager
   })
@@ -334,12 +335,14 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
 }
 
 function stopLifecycle(reason: 'break_glass_stop' | 'profile_disabled'): void {
-  currentLifecycleState = stopSidecarLifecycle({
+  void stopSidecarLifecycle({
     desiredState: currentLifecycleState.runtimeStatus.desiredState,
     observedAt: new Date().toISOString(),
     correlationId: crypto.randomUUID(),
     reason,
     process: currentLifecycleState.process
+  }).then(nextState => {
+    currentLifecycleState = nextState
   })
 }
 

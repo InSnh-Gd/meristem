@@ -31,6 +31,15 @@ export type NodeAgentDegradedReasonCode =
   | 'secret_resolution_failed'
   | 'break_glass_stop'
   | 'profile_disabled'
+  | 'netbird.binary.invalid'
+  | 'netbird.setup_key.missing'
+  | 'netbird.start_failed'
+  | 'netbird.process.not_running'
+  | 'netbird.config_drift_repaired'
+  | 'netbird.process_restarted'
+  | 'netbird.probe.timeout'
+  | 'netbird.probe.failed'
+  | 'netbird.endpoint.unreachable'
 
 export type NodeAgentRedactedSecretRef = RedactedSecretRefFromSchema
 
@@ -65,6 +74,11 @@ export type NodeAgentRuntimeStatus = {
   configHash?: string
   sidecarConfigPath?: string
   processRef?: string
+  processPid?: number
+  processStartedAt?: string
+  lastProbeAt?: string
+  observedHealth?: 'healthy' | 'degraded' | 'unknown'
+  degradedReason?: NodeAgentRuntimeDegradedReason
   correlationId: string
   observedAt: string
   dependencies: NodeAgentRuntimeDependencyStatus
