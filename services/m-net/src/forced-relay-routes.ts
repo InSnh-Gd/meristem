@@ -78,6 +78,7 @@ const externalErrorSchema = t.Object({
 export function createForcedRelayRoutes(
   deps: Pick<
     MNetAppDeps,
+    | 'auth'
     | 'profileStore'
     | 'policyAuthorize'
     | 'log'
@@ -89,7 +90,7 @@ export function createForcedRelayRoutes(
     .post(
       '/forced-relay/eligibility',
       async ({ body, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
+        const actor = await verifyBearerAuth(headers, deps.auth)
         if (!actor) {
           return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
         }
@@ -109,7 +110,7 @@ export function createForcedRelayRoutes(
     .post(
       '/forced-relay/change',
       async ({ body, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
+        const actor = await verifyBearerAuth(headers, deps.auth)
         if (!actor) {
           return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
         }

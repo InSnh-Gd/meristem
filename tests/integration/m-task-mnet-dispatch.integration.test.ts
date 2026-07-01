@@ -10,6 +10,7 @@ import { createMTaskApp } from '../../services/m-task/src/app.ts'
 import { createHttpMNetTaskDeliveryPort } from '../../services/m-task/src/mnet-delivery-port.ts'
 import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
 import { createJoinTlsEnv } from '../helpers/tls.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import { waitFor } from '../helpers/wait.ts'
 
 type ParsedSessionMessage = {
@@ -91,7 +92,12 @@ function createMNetFixtureApp(runtime: ReturnType<typeof createAgentRuntime>) {
     async listMembers() {
       return { ok: false, error: { code: 'network.unavailable', message: 'not used' } }
     },
-    executeNoop: runtime.executeNoop
+    executeNoop: runtime.executeNoop,
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
+    }
   })
 }
 

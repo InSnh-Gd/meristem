@@ -28,6 +28,12 @@ import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { MNetServiceResult } from './types.ts'
 
 export type MNetAppDeps = {
+  auth: {
+    verify(token: string): Promise<
+      | { ok: true; actor: ActorId }
+      | { ok: false; code: string; message: string }
+    >
+  }
   db?: MNetDb
   readiness(): Promise<{ ready: boolean }>
   createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>>

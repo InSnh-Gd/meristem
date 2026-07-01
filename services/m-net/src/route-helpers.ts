@@ -1,6 +1,7 @@
-import { extractBearerToken, verifyLocalToken } from '../../../packages/auth/src/index.ts'
+import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
+import type { MNetAppDeps } from './deps.ts'
 import type { MNetServiceError } from './types.ts'
 
 /**
@@ -35,13 +36,12 @@ export function internalError<TStatus extends (code: never, body: never) => unkn
  * 返回 null 表示认证失败，调用方必须返回 401。
  */
 export async function verifyBearerAuth(
-  headers: Record<string, string | undefined>
+  headers: Record<string, string | undefined>,
+  auth: MNetAppDeps['auth']
 ): Promise<ActorId | null> {
   const token = extractBearerToken(headers.authorization)
   if (!token) return null
-  const secret = process.env.MERISTEM_JWT_SECRET
-  if (!secret) return null
-  const verified = await verifyLocalToken({ token, secret })
+  const verified = await auth.verify(token)
   if (!verified.ok) return null
   return verified.actor
 }

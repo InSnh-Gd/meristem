@@ -7,6 +7,7 @@ import {
 } from '../../services/m-net/src/profile-disable-policy.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 
 const jwtSecret = 'test-jwt-secret'
 
@@ -66,6 +67,11 @@ function createTestApp(overrides: {
     policyHealthCheck: {
       async checkHealth() {
         return { healthy }
+      }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   })

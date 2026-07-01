@@ -17,10 +17,10 @@ export type NodeControlRouteContext = {
  * 节点控制外部路由统一做 JWT actor 校验与依赖存在性守卫，避免 handler 内重复样板逻辑。
  */
 export async function requireAuthorizedNodeControlContext(
-  deps: Pick<MNetAppDeps, 'controlNode'>,
+  deps: Pick<MNetAppDeps, 'auth' | 'controlNode'>,
   headers: Record<string, string | undefined>
 ): Promise<NodeControlRouteContext | NodeControlRouteFailure> {
-  const actor = await verifyBearerAuth(headers)
+  const actor = await verifyBearerAuth(headers, deps.auth)
   if (!actor) {
     return {
       status: 401,

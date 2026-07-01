@@ -62,10 +62,11 @@ function routeFailure(status: RouteFailure['status'], code: string, message: str
 }
 
 export async function requireGlobalDefaultsActor(
+  deps: Pick<MNetAppDeps, 'auth'>,
   headers: Record<string, string | undefined>,
   _set: RouteSet
 ): Promise<ActorId | RouteFailure> {
-  const actor = await verifyBearerAuth(headers)
+  const actor = await verifyBearerAuth(headers, deps.auth)
   if (!actor) {
     return routeFailure(401, 'auth.invalid_token', 'invalid or missing bearer token')
   }
@@ -145,7 +146,7 @@ export async function requireGlobalDefaultsPolicy(
  * migration 路由都共享同一套 actor + deps + policy unwrap；收在这里避免每条 handler 重复 fail-closed 样板。
  */
 export async function requireAuthorizedMigrationContext(
-  deps: Pick<MNetAppDeps, 'migrationEngine' | 'policyAuthorize'>,
+  deps: Pick<MNetAppDeps, 'auth' | 'migrationEngine' | 'policyAuthorize'>,
   input: {
     headers: Record<string, string | undefined>
     set: RouteSet
@@ -154,7 +155,7 @@ export async function requireAuthorizedMigrationContext(
     deniedPrefix: string
   }
 ): Promise<{ actor: ActorId; migrationDeps: MigrationDeps } | RouteFailure> {
-  const actor = await requireGlobalDefaultsActor(input.headers, input.set)
+  const actor = await requireGlobalDefaultsActor(deps, input.headers, input.set)
   if (isGlobalDefaultsFailure(actor)) return actor
 
   const migrationDeps = requireMigrationDeps(deps, input.set)

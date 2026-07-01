@@ -43,10 +43,10 @@ const migrationRequiredErrorSchema = t.Object({
 })
 
 async function requireAuthorizedProfileReadContext(
-  deps: Pick<MNetAppDeps, 'profileStore' | 'policyAuthorize'>,
+  deps: Pick<MNetAppDeps, 'auth' | 'profileStore' | 'policyAuthorize'>,
   input: { headers: Record<string, string | undefined>; resource: string }
 ): Promise<{ profileDeps: ProfileReadDeps } | ProfileReadRouteFailure> {
-  const actor = await verifyBearerAuth(input.headers)
+  const actor = await verifyBearerAuth(input.headers, deps.auth)
   if (!actor) {
     return {
       status: 401,
@@ -84,6 +84,7 @@ async function requireAuthorizedProfileReadContext(
 export function createProfileRoutes(
   deps: Pick<
     MNetAppDeps,
+    | 'auth'
     | 'profileStore'
     | 'suspendedOps'
     | 'approvals'
@@ -102,7 +103,7 @@ export function createProfileRoutes(
       .put(
         '/networks/profile-disable-policy',
         async ({ body, headers, set }) => {
-          const actor = await verifyBearerAuth(headers)
+          const actor = await verifyBearerAuth(headers, deps.auth)
           if (!actor)
             return externalApiError(
               set,
@@ -193,7 +194,7 @@ export function createProfileRoutes(
       .post(
         '/networks/:id/profile',
         async ({ params, body, headers, set }) => {
-          const actor = await verifyBearerAuth(headers)
+          const actor = await verifyBearerAuth(headers, deps.auth)
           if (!actor)
             return externalApiError(
               set,
@@ -236,7 +237,7 @@ export function createProfileRoutes(
       .post(
         '/networks/:id/profile/disable-break-glass',
         async ({ params, body, headers, set }) => {
-          const actor = await verifyBearerAuth(headers)
+          const actor = await verifyBearerAuth(headers, deps.auth)
           if (!actor)
             return externalApiError(
               set,

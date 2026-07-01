@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import {
   MNetMigrationRequiredErrorSchema,
   SetNetworkProfileResponseSchema
@@ -102,6 +103,11 @@ describe('M-Net profile external routes', () => {
             ok: false as const,
             error: { code: 'approval.unavailable', message: 'approval service unavailable' }
           }
+        }
+      },
+      auth: {
+        async verify(_token: string) {
+          return { ok: true as const, actor: 'operator' as ActorId }
         }
       }
     })

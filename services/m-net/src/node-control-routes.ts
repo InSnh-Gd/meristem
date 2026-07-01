@@ -17,7 +17,7 @@ function applyNodeControlFailure(set: { status?: unknown }, failure: NodeControl
 /**
  * 节点行政控制对外归 M-Net 所有：handler 只做鉴权、schema 校验和结果映射，业务流程全部下沉到 workflow。
  */
-export function createNodeControlRoutes(deps: Pick<MNetAppDeps, 'controlNode'>) {
+export function createNodeControlRoutes(deps: Pick<MNetAppDeps, 'auth' | 'controlNode'>) {
   return new Elysia({ prefix: '/api/v0' }).post(
     '/nodes/:nodeId/control',
     async ({ params, body, headers, set }) => {

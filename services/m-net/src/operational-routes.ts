@@ -25,13 +25,13 @@ import {
  * 运营快照路由保持薄：鉴权、错误映射、调用 read-model seam。
  */
 export function createOperationalRoutes(
-  deps: Pick<MNetAppDeps, 'getOperationalState' | 'ingestOperationalEvent'>
+  deps: Pick<MNetAppDeps, 'auth' | 'getOperationalState' | 'ingestOperationalEvent'>
 ) {
   return new Elysia()
     .get(
       '/api/v0/networks/:id/operational-state',
       async ({ params, headers, set }) => {
-        const actor = await verifyBearerAuth(headers)
+        const actor = await verifyBearerAuth(headers, deps.auth)
         if (!actor) {
           return externalApiError(set, 401, 'auth.invalid_token', 'invalid or missing bearer token')
         }

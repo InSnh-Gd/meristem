@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
-import type { MNode } from '../../packages/contracts/src/index.ts'
+import type { ActorId, MNode } from '../../packages/contracts/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 
@@ -49,6 +49,11 @@ function createNodeControlFixture(node: MNode, statuses: string[] = []) {
             : { ...node, status: input.action === 'recover' ? 'recovering' : 'disabled' },
         policyDecisionId: 'decision-1',
         correlationId: 'corr-1'
+      }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   } satisfies MNetAppDeps)

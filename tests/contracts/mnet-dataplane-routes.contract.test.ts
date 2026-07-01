@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
-import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
+import type { ActorId, MNetworkMember } from '../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
@@ -168,6 +168,11 @@ function createRouteFixture(): RouteFixture {
           kind: 'audit',
           payload: { actor, action, resource, result, correlationId, payload }
         })
+      }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   })
@@ -541,6 +546,11 @@ describe('M-Net dataplane route contracts', () => {
               }
             }
           }
+        }
+      },
+      auth: {
+        async verify(_token: string) {
+          return { ok: true as const, actor: 'operator' as ActorId }
         }
       }
     })

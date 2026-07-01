@@ -7,6 +7,7 @@ import { createPgDataPlaneStores } from '../../services/m-net/src/data-plane-sto
 import { createPgGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store-pg.ts'
 import { createWiredMigrationEngine } from '../../services/m-net/src/migration-engine-factory.ts'
 import { createPgProfileStore } from '../../services/m-net/src/profile-store.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 
 const jwtSecret = 'test-jwt-secret'
 const internalToken = 'internal-test-token'
@@ -199,6 +200,11 @@ function createFixture(listedMembers: Record<string, ListedMember[]>) {
             ? { subject, type, payload }
             : { subject, type, payload, correlationId }
         )
+      }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   })

@@ -9,6 +9,7 @@ import {
 } from '../../packages/db/src/schema.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import {
   createInMemoryProfileStore,
   type ProfileStore,
@@ -106,6 +107,11 @@ function createIntegrationApp(profileStore: ProfileStore) {
       },
       async writeAudit() {
         /* no-op for integration fixture */
+      }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   })

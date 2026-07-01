@@ -5,6 +5,7 @@ import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 import { createMTaskApp } from '../../services/m-task/src/app.ts'
 import { createHttpMNetTaskDeliveryPort } from '../../services/m-task/src/mnet-delivery-port.ts'
 import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 
 type LocalFetchApp = {
   handle(request: Request): Response | Promise<Response>
@@ -48,7 +49,12 @@ function createMNetDeps(executeNoop: MNetAppDeps['executeNoop']): MNetAppDeps {
     async listMembers() {
       return { ok: false, error: { code: 'network.unavailable', message: 'not used' } }
     },
-    executeNoop
+    executeNoop,
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
+    }
   }
 }
 

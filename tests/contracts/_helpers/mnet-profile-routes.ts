@@ -195,6 +195,11 @@ export function createTestApp(
       async publish() {
         /* noop for tests */
       }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
     }
   })
 }

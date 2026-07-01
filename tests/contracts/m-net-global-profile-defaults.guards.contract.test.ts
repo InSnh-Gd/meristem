@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
@@ -40,6 +41,11 @@ function createDeps(overrides: Partial<MNetAppDeps> = {}): MNetAppDeps {
     approvals: inMemoryApprovalClient,
     log,
     events: { async publish() {} },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
+    },
     ...overrides
   }
 }

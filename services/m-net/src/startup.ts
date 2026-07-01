@@ -12,6 +12,8 @@ import { executeNodeControl } from './node-control-workflow.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
 import { createReadinessProbe } from './readiness.ts'
 import { createDbForcedRelayNodeContext } from './forced-relay-node-context.ts'
+import { verifyLocalToken } from '../../../packages/auth/src/actor-tokens.ts'
+import type { ActorId } from '../../../packages/contracts/src/index.ts'
 
 /**
  * M-Net 启动装配统一放在这里：入口文件只触发启动，不再直接持有依赖接线与关闭序列。
@@ -107,7 +109,18 @@ export async function startMNetService(): Promise<void> {
     policyHealthCheck: { checkHealth: checkPolicyHealth },
     getOperationalState: operationalReadModel.getSnapshot,
     ingestOperationalEvent: operationalReadModel.ingestEvent,
-    ...(agentRuntime.nodeRuntime ? { nodeRuntime: agentRuntime.nodeRuntime } : {})
+    ...(agentRuntime.nodeRuntime ? { nodeRuntime: agentRuntime.nodeRuntime } : {}),
+    auth: {
+      async verify(token: string) {
+        const secret = process.env.MERISTEM_JWT_SECRET
+        if (!secret) {
+          return { ok: false as const, code: 'invalid_token', message: 'JWT secret not configured' }
+        }
+        const result = await verifyLocalToken({ token, secret })
+        if (!result.ok) return result
+        return { ok: true as const, actor: result.actor }
+      }
+    }
   })
 
   const internalServer = serveHttpApp('m-net', app.fetch)

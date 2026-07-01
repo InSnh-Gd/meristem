@@ -145,6 +145,11 @@ function createTestApp(
         }
         return { result: 'require_manual_review' as const, id: crypto.randomUUID(), reasons: [] }
       }
+    },
+    auth: {
+      async verify(_token: string) {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
     }
   })
 }

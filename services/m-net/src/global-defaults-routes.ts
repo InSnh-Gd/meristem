@@ -43,6 +43,7 @@ function toMigrationReportResponse(report: Awaited<ReturnType<typeof buildMigrat
 export function createGlobalDefaultsRoutes(
   deps: Pick<
     MNetAppDeps,
+    | 'auth'
     | 'db'
     | 'globalDefaultsStore'
     | 'migrationEngine'
@@ -56,7 +57,7 @@ export function createGlobalDefaultsRoutes(
     new Elysia({ prefix: '/api/v0' })
       // ── 全局默认 Profile 读写 ──────────────────────────────────────────
       .get('/networks/profile-defaults', async ({ headers, set }) => {
-        const actor = await requireGlobalDefaultsActor(headers, set)
+        const actor = await requireGlobalDefaultsActor(deps, headers, set)
         if (isGlobalDefaultsFailure(actor)) {
           return externalApiError(set, actor.status, actor.error.code, actor.error.message)
         }
@@ -83,7 +84,7 @@ export function createGlobalDefaultsRoutes(
       .get(
         '/networks/profile-switches/report',
         async ({ headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
+          const actor = await requireGlobalDefaultsActor(deps, headers, set)
           if (isGlobalDefaultsFailure(actor)) {
             return externalApiError(set, actor.status, actor.error.code, actor.error.message)
           }
@@ -127,7 +128,7 @@ export function createGlobalDefaultsRoutes(
       .put(
         '/networks/profile-defaults',
         async ({ body, headers, set }) => {
-          const actor = await requireGlobalDefaultsActor(headers, set)
+          const actor = await requireGlobalDefaultsActor(deps, headers, set)
           if (isGlobalDefaultsFailure(actor)) {
             return externalApiError(set, actor.status, actor.error.code, actor.error.message)
           }

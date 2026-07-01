@@ -1,6 +1,6 @@
 import { isBefore, parseISO } from 'date-fns'
 import {
-  createOidcAuthProvider,
+  createSharedAuthVerifier,
   extractBearerToken,
   mintActorToken
 } from '../../../packages/auth/src/index.ts'
@@ -22,7 +22,7 @@ import {
   resolveOidcSecretBindings,
   type SecretManager
 } from '../../../packages/secrets/src/index.ts'
-import { createSessionAuthPort } from './adapters/auth.ts'
+import { createPermissionReader, createSessionAuthPort } from './adapters/auth.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import {
   createHttpApprovalReaderPort,
@@ -184,22 +184,15 @@ export async function createCoreAuthPortFromRuntimeConfig(
   }
 
   await resolveCoreOidcStartupSecrets(runtimeConfig, manager)
-  const provider = createOidcAuthProvider(runtimeConfig.auth)
-  const permissions = createSessionAuthPort(db)
+  const verifier = createSharedAuthVerifier({ auth: runtimeConfig.auth })
+  const permissions = createPermissionReader(db)
   return {
     async verify(token: string) {
-      const verified = await provider.verifyAccessToken({ token })
+      const verified = await verifier.verify(token)
       if (!verified.ok) {
         return { ok: false as const, code: verified.code, message: verified.message }
       }
-      const actor: ActorId = verified.session.groups.includes('security-admin')
-        ? 'security-admin'
-        : verified.session.groups.includes('admin')
-          ? 'admin'
-          : verified.session.groups.includes('operator')
-            ? 'operator'
-            : 'viewer'
-      return ok({ actor })
+      return ok({ actor: verified.session.actor.id })
     },
     async getPermissions(actor: ActorId) {
       return permissions.getPermissions(actor)
