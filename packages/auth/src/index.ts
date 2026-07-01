@@ -36,4 +36,13 @@ export type {
   OidcTokenState,
   VerifyOidcAccessTokenInput
 } from './oidc-provider.ts'
+export { createSharedAuthVerifier } from './shared-verifier.ts'
+export type {
+  SharedAuthSession,
+  SharedAuthVerifier,
+  SharedAuthVerifierFailure,
+  SharedAuthVerifierInput,
+  SharedAuthVerifierReadiness,
+  SharedAuthVerifierResult
+} from './shared-verifier.ts'
 export { extractBearerToken, isActorId } from './shared.ts'

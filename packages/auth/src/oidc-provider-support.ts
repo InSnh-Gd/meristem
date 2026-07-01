@@ -23,6 +23,9 @@ export type OidcActorSession = {
   groups: readonly string[]
   issuer: string
   expiresAt: string
+  displayName?: string
+  email?: string
+  audience?: string
 }
 
 export type OidcDiscoveryDocument = {
@@ -151,6 +154,9 @@ export type CachedJwks = {
 export type ClaimsMapping = {
   subjectClaim: string
   groupsClaim: string
+  displayNameClaim?: string | undefined
+  emailClaim?: string | undefined
+  audienceClaim?: string | undefined
 }
 
 export type ProviderConfig = {
@@ -229,7 +235,10 @@ export function normalizeProviderConfig(config: OidcAuthProviderConfigFromSchema
     allowedAlgorithms: [...configuredAlgorithms],
     claims: {
       subjectClaim: config.claims?.subjectClaim ?? 'sub',
-      groupsClaim: config.claims?.groupsClaim ?? 'groups'
+      groupsClaim: config.claims?.groupsClaim ?? 'groups',
+      displayNameClaim: config.claims?.displayNameClaim ?? 'preferred_username',
+      emailClaim: config.claims?.emailClaim ?? 'email',
+      audienceClaim: config.claims?.audienceClaim ?? 'aud'
     },
     clockToleranceSeconds,
     jwksRefreshIntervalMs: refreshIntervalMs,
@@ -320,6 +329,32 @@ function mapGroupsClaim(
   return missingClaim(claimName)
 }
 
+function getClaimPath(payload: JWTPayload, claimPath: string): unknown {
+  const segments = claimPath.split('.')
+  let current: unknown = payload
+  for (const segment of segments) {
+    if (!isRecord(current) || !(segment in current)) return undefined
+    current = current[segment]
+  }
+  return current
+}
+
+function optionalStringClaim(payload: JWTPayload, claimPath: string | undefined): string | undefined {
+  if (!claimPath) return undefined
+  const value = getClaimPath(payload, claimPath)
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+function mapAudienceClaim(payload: JWTPayload, claimPath: string | undefined): string | undefined {
+  const value = claimPath ? getClaimPath(payload, claimPath) : payload.aud
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    const first = value.find(item => typeof item === 'string')
+    return typeof first === 'string' ? first : undefined
+  }
+  return undefined
+}
+
 /**
  * claims mapper 只暴露 subject / groups / issuer / expiry，禁止把原始 token claims 继续带出 provider。
  */
@@ -327,12 +362,12 @@ export function mapVerifiedPayloadToSession(
   payload: JWTPayload,
   claims: ClaimsMapping
 ): OidcActorSession | OidcMissingClaimFailure {
-  const subjectValue = payload[claims.subjectClaim]
+  const subjectValue = getClaimPath(payload, claims.subjectClaim)
   if (typeof subjectValue !== 'string' || subjectValue.length === 0) {
     return missingClaim(claims.subjectClaim)
   }
 
-  const groups = mapGroupsClaim(payload[claims.groupsClaim], claims.groupsClaim)
+  const groups = mapGroupsClaim(getClaimPath(payload, claims.groupsClaim), claims.groupsClaim)
   if (isOidcFailure(groups)) {
     return groups
   }
@@ -345,11 +380,18 @@ export function mapVerifiedPayloadToSession(
     return missingClaim('exp')
   }
 
+  const displayName = optionalStringClaim(payload, claims.displayNameClaim)
+  const email = optionalStringClaim(payload, claims.emailClaim)
+  const audience = mapAudienceClaim(payload, claims.audienceClaim)
+
   return {
     subject: subjectValue,
     groups,
     issuer: payload.iss,
-    expiresAt: fromUnixTime(payload.exp).toISOString()
+    expiresAt: fromUnixTime(payload.exp).toISOString(),
+    ...(displayName ? { displayName } : {}),
+    ...(email ? { email } : {}),
+    ...(audience ? { audience } : {})
   }
 }
 

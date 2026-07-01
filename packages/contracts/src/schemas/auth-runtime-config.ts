@@ -27,7 +27,10 @@ export type LocalDevAuthProviderConfigFromSchema = typeof LocalDevAuthProviderCo
  */
 export const OidcClaimsMappingSchema = Schema.Struct({
   subjectClaim: Schema.optional(NonEmptyStringSchema),
-  groupsClaim: Schema.optional(NonEmptyStringSchema)
+  groupsClaim: Schema.optional(NonEmptyStringSchema),
+  displayNameClaim: Schema.optional(NonEmptyStringSchema),
+  emailClaim: Schema.optional(NonEmptyStringSchema),
+  audienceClaim: Schema.optional(NonEmptyStringSchema)
 })
 export type OidcClaimsMappingFromSchema = typeof OidcClaimsMappingSchema.Type
 

@@ -98,18 +98,29 @@ export function createOidcAuthProvider(
     }
 
     if (!discoveryPromise) {
-      discoveryPromise = (async () => {
-        const response = await fetchImpl(config.discoveryUrl)
-        const payload = await response.json()
-        const decoded = decodeOidcDiscoveryDocument(payload)
-        if ('ok' in decoded) {
-          return decoded
+      discoveryPromise = (async (): Promise<OidcDiscoveryResult> => {
+        try {
+          const response = await fetchImpl(config.discoveryUrl)
+          const payload = await response.json()
+          const decoded = decodeOidcDiscoveryDocument(payload)
+          if ('ok' in decoded) {
+            return decoded
+          }
+          const validated = validateDiscoveryDocument(config.issuer, decoded)
+          if (validated.ok) {
+            cachedDiscovery = validated.configuration
+          }
+          return validated
+        } catch (error) {
+          return {
+            ok: false,
+            code: 'invalid_discovery',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'OIDC discovery document could not be fetched'
+          }
         }
-        const validated = validateDiscoveryDocument(config.issuer, decoded)
-        if (validated.ok) {
-          cachedDiscovery = validated.configuration
-        }
-        return validated
       })().finally(() => {
         discoveryPromise = null
       })

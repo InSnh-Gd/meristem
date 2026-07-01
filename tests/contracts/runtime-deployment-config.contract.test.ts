@@ -103,6 +103,8 @@ describe('runtime deployment config loader', () => {
     if (!result.ok) return
     expect(result.value.deploymentTarget).toBe('nixos')
     expect(result.value.auth.provider).toBe('oidc')
+    expect(result.value.oidc).toBeDefined()
+    if (result.value.oidc === undefined) return
     expect(result.value.oidc.issuer).toBe('https://identity.control-plane.example.com')
     expect(result.value.secretProvider.backend).toBe('local-dev-env')
     expect(result.value.netbird.signalEndpoint).toBe('https://signal.control-plane.example.com:443')
@@ -132,9 +134,24 @@ describe('runtime deployment config loader', () => {
     expect(result.error.code).toBe('runtime_deployment_config.malformed_json')
   })
 
-  test('fails when the auth provider is not oidc', async () => {
+  test('loads local-dev auth provider selection', async () => {
     const config = validDeploymentConfig()
-    config.oidc.provider = 'local-dev'
+    Object.assign(config, { oidc: { provider: 'local-dev' } })
+
+    const result = await loadRuntimeDeploymentConfig({
+      env: envWithConfigPath(),
+      readTextFile: readConfig(config)
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.auth.provider).toBe('local-dev')
+    expect(result.value.oidc).toBeUndefined()
+  })
+
+  test('fails when the auth provider is unsupported', async () => {
+    const config = validDeploymentConfig()
+    config.oidc.provider = 'internal'
 
     const result = await loadRuntimeDeploymentConfig({
       env: envWithConfigPath(),
@@ -145,7 +162,7 @@ describe('runtime deployment config loader', () => {
     if (result.ok) return
     expect(result.error.code).toBe('runtime_deployment_config.invalid_provider')
     if (result.error.code !== 'runtime_deployment_config.invalid_provider') return
-    expect(result.error.provider).toBe('local-dev')
+    expect(result.error.provider).toBe('internal')
   })
 
   test('fails when oidc issuer is missing', async () => {

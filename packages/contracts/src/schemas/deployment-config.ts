@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 import {
-  OidcAuthProviderConfigSchema,
+  AuthProviderRuntimeConfigSchema,
   OidcSupportedAlgorithmSchema
 } from './auth-runtime-config.ts'
 import {
@@ -117,7 +117,7 @@ export const NixosDeploymentConfigV02Schema = Schema.Struct({
   track: Schema.Literal('nixos'),
   serviceUrls: DeploymentServiceUrlsSchema,
   internalAuth: InternalAuthDeploymentConfigSchema,
-  oidc: OidcAuthProviderConfigSchema,
+  oidc: AuthProviderRuntimeConfigSchema,
   secretProvider: DeploymentSecretProviderConfigSchema,
   secretBindings: DeploymentSecretBindingsSchema,
   netbird: NetBirdInfrastructureRefsSchema,
@@ -133,7 +133,7 @@ export const OciDeploymentConfigV02Schema = Schema.Struct({
   track: Schema.Literal('oci'),
   serviceUrls: DeploymentServiceUrlsSchema,
   internalAuth: InternalAuthDeploymentConfigSchema,
-  oidc: OidcAuthProviderConfigSchema,
+  oidc: AuthProviderRuntimeConfigSchema,
   secretProvider: DeploymentSecretProviderConfigSchema,
   secretBindings: DeploymentSecretBindingsSchema,
   netbird: NetBirdInfrastructureRefsSchema,
