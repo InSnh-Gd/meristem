@@ -19,18 +19,19 @@ describe('M-Net data-plane feature gate failure modes', () => {
     expect(adapter.enabled).toBe(false)
   })
 
-  it('noop adapter reports noop status even when gate is on (no real transport)', () => {
+  it('noop adapter reports deferred status only for explicit local fallback', () => {
     const adapter = createDataPlaneAdapter({ enabled: true })
-    expect(adapter.status).toBe('noop')
+    expect(adapter.status).toBe('deferred')
     expect(adapter.enabled).toBe(false)
+    expect(adapter.mode).toBe('local')
   })
 
   it('cannot mutate runtime transport paths when gate is off', () => {
     const adapter = createDataPlaneAdapter({ enabled: false })
     // The adapter result has no methods or fields that could mutate transport
-    expect(adapter).toEqual({ enabled: false, status: 'noop' })
+    expect(adapter).toEqual({ enabled: false, status: 'noop', mode: 'disabled' })
     // No transport, endpoints, or port fields exist on the result
-    expect(Object.keys(adapter)).toEqual(['enabled', 'status'])
+    expect(Object.keys(adapter)).toEqual(['enabled', 'status', 'mode'])
   })
 
   it('m-net-cn@0.3.0 keeps runtime sidecar profile data stable regardless of adapter state', async () => {

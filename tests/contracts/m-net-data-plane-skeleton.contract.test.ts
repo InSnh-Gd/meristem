@@ -113,10 +113,11 @@ describe('M-Net data-plane skeleton contract', () => {
     expect(adapter.status).toBe('noop')
   })
 
-  it('noop adapter returns disabled noop even when gate is on (skeleton)', () => {
+  it('noop adapter reports deferred local fallback when explicitly requested', () => {
     const adapter = createDataPlaneAdapter({ enabled: true })
     expect(adapter.enabled).toBe(false)
-    expect(adapter.status).toBe('noop')
+    expect(adapter.status).toBe('deferred')
+    expect(adapter.mode).toBe('local')
   })
 
   it('historical profile versions remain decodable for migration metadata', () => {

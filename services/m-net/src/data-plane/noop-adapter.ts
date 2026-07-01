@@ -1,35 +1,33 @@
 /**
  * M-Net data-plane noop adapter.
  *
- * Feature-gated boundary that returns noop/deferred when the data-plane feature
- * gate is off (the default). This preserves `controlPlaneOnly: true` for
- * legacy decode-only profiles and prevents any runtime transport path mutation.
- *
- * Real wstunnel relay / TCP / UDP / Headscale data-plane implementation remains deferred.
- * See ADR-N02 and docs/services/m-net.md for the current scope.
+ * 显式 disabled/local 回退边界，不能作为 live-proof 数据面实现。
  */
 
-export type DataPlaneAdapterStatus = 'noop' | 'deferred'
+export type DataPlaneAdapterStatus = 'noop' | 'deferred' | 'enabled' | 'rejected'
 
-export interface DataPlaneAdapterResult {
+export interface DisabledDataPlaneAdapterResult {
   readonly enabled: false
-  readonly status: DataPlaneAdapterStatus
+  readonly status: 'noop' | 'deferred'
+  readonly mode: 'disabled' | 'local'
 }
 
+export type DataPlaneAdapterResult = DisabledDataPlaneAdapterResult
+
+export type DataPlaneFallbackMode = DisabledDataPlaneAdapterResult['mode']
+
 /**
- * Create a data-plane adapter gated by the feature flag.
- *
- * When `config.enabled` is false (the default), the adapter returns noop status
- * and cannot mutate any runtime transport paths. When the gate is on, it still
- * returns noop for now, since real data-plane transport is not yet implemented.
+ * 创建显式回退数据面 adapter。
  */
-export function createDataPlaneAdapter(config: { enabled: boolean }): DataPlaneAdapterResult {
-  if (!config.enabled) {
-    return { enabled: false, status: 'noop' }
+export function createDataPlaneAdapter(config: {
+  enabled: boolean
+  mode?: DataPlaneFallbackMode
+}): DataPlaneAdapterResult {
+  return {
+    enabled: false,
+    status: config.enabled ? 'deferred' : 'noop',
+    mode: config.mode ?? (config.enabled ? 'local' : 'disabled')
   }
-  // Skeleton for future real implementation.
-  // Even with the gate on, no real transport paths are exposed yet.
-  return { enabled: false, status: 'noop' }
 }
 
 /** Default feature gate state: OFF. */

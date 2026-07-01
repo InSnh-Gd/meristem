@@ -19,14 +19,48 @@ import {
   releaseOperationLock
 } from './operation-locks.ts'
 import { transitionPartitionState } from './partition-state.ts'
+import { createDataPlaneAdapter } from './data-plane/noop-adapter.ts'
+import { createNetBirdAdapter, type NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   DEFAULT_PROFILE_VERSION,
+  V03_CN_PROFILE_VERSION,
+  V03_PROFILE_VERSION,
   isProfileWorkflowFailure,
   type ProfileWorkflowFailure,
   type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
+
+type DataPlaneAdapterSelectionInput =
+  | {
+      readonly profileVersion: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION
+      readonly fallbackMode?: 'disabled' | 'local'
+      readonly netbirdControlPlane: NetBirdResolvedControlPlaneConfig
+    }
+  | {
+      readonly profileVersion: string
+      readonly fallbackMode: 'disabled' | 'local'
+      readonly netbirdControlPlane?: NetBirdResolvedControlPlaneConfig
+    }
+
+export type DataPlaneAdapterSelection =
+  | ReturnType<typeof createNetBirdAdapter>
+  | ReturnType<typeof createDataPlaneAdapter>
+
+/** 根据 Profile 与显式回退模式选择数据面 adapter。 */
+export function selectDataPlaneAdapter(
+  input: DataPlaneAdapterSelectionInput
+): DataPlaneAdapterSelection {
+  if (input.fallbackMode) {
+    return createDataPlaneAdapter({ enabled: false, mode: input.fallbackMode })
+  }
+
+  return createNetBirdAdapter({
+    profileVersion: input.profileVersion,
+    controlPlane: input.netbirdControlPlane
+  })
+}
 
 /** 为 m-net-cn@0.3.0 执行持久化数据面编排。 */
 export async function enableDataPlaneProfile(
