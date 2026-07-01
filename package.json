@@ -48,6 +48,7 @@
     "mnet:harness:reset": "bun run scripts/mnet-multihost-harness.ts reset",
     "mnet:v02:deploy-proof": "bun run scripts/v02-deploy-proof.ts",
     "mnet:v02:keycloak-proof": "bun run scripts/keycloak-dev-realm.ts proof",
+    "mnet:v02:live-proof": "bun run scripts/mnet-v02-live-proof.ts",
     "mnet:v02:sidecar-proof": "bun run scripts/mnet-v02-sidecar-proof.ts",
     "nix:generate": "bun run scripts/generate-nix-compose.ts",
     "skill-hygiene": "bun run scripts/skill-hygiene.ts",
