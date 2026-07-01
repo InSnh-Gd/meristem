@@ -1,11 +1,11 @@
 import { isBefore, parseISO } from 'date-fns'
 import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import {
   probePostgresReadiness,
-  serviceUrl,
   warnDegradedAndReturn
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
@@ -81,8 +81,10 @@ async function hashSecretValue(value: string): Promise<string> {
 }
 
 export async function createProductionDeps(): Promise<CoreDeps & { close(): Promise<void> }> {
+  const runtimeConfig = await loadRuntimeDeploymentConfigOrThrow()
   const { db, client } = createDb()
   const natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
+  const serviceUrls = runtimeConfig.raw.serviceUrls
 
   const readinessChecks = async (): Promise<CoreDependencies> => {
     const postgresReady = await probePostgresReadiness({
@@ -108,10 +110,10 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
         })
       )
     const [policyReady, logReady, eventBusReady, mNetReady] = await Promise.all([
-      dependencyStateFromReady(`${serviceUrl('m-policy')}/ready`),
-      dependencyStateFromReady(`${serviceUrl('m-log')}/ready`),
-      dependencyStateFromReady(`${serviceUrl('m-eventbus')}/ready`),
-      dependencyStateFromReady(`${serviceUrl('m-net')}/ready`)
+      dependencyStateFromReady(`${serviceUrls.policy}/ready`),
+      dependencyStateFromReady(`${serviceUrls.log}/ready`),
+      dependencyStateFromReady(`${serviceUrls.eventbus}/ready`),
+      dependencyStateFromReady(`${serviceUrls.mnet}/ready`)
     ])
     return {
       postgres: postgresReady,
@@ -125,7 +127,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
   const storage = createDbStorage(db, readinessChecks)
   const identityStore = createIdentityStore(db)
   const secretStore = createSecretRefStore(db)
-  const jwtSecret = process.env.MERISTEM_JWT_SECRET ?? 'change-me-local-secret'
+  const jwtSecret = process.env.MERISTEM_JWT_SECRET
   return {
     startedAt: Date.now(),
     version: '0.1.0',
@@ -150,6 +152,18 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
         return ok(await identityStore.getActor(id))
       },
       async issueToken(input) {
+        if (runtimeConfig.auth.provider === 'oidc') {
+          return err({
+            code: 'identity.oidc_token_issuer_unavailable',
+            message: 'local JWT token issuance is disabled when deployment auth provider is oidc'
+          })
+        }
+        if (!jwtSecret) {
+          return err({
+            code: 'identity.jwt_secret_missing',
+            message: 'MERISTEM_JWT_SECRET is required for local JWT token issuance'
+          })
+        }
         const jti = crypto.randomUUID()
         const issuedAt = new Date()
         const expiresAt = new Date(issuedAt.getTime() + parseDurationToMs(input.ttl))
