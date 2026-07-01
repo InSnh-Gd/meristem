@@ -1,14 +1,27 @@
 import { isBefore, parseISO } from 'date-fns'
-import { extractBearerToken, mintActorToken } from '../../../packages/auth/src/index.ts'
+import {
+  createOidcAuthProvider,
+  extractBearerToken,
+  mintActorToken
+} from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
-import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
-import type { CoreDependencies } from '../../../packages/contracts/src/index.ts'
+import {
+  loadRuntimeDeploymentConfigOrThrow,
+  type RuntimeDeploymentConfig
+} from '../../../packages/config/src/index.ts'
+import type { ActorId, CoreDependencies } from '../../../packages/contracts/src/index.ts'
+import type { SecretFailureFromSchema } from '../../../packages/contracts/src/schemas/secret-provider.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import {
   probePostgresReadiness,
   warnDegradedAndReturn
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
+import {
+  createSecretManagerFromConfigs,
+  resolveOidcSecretBindings,
+  type SecretManager
+} from '../../../packages/secrets/src/index.ts'
 import { createSessionAuthPort } from './adapters/auth.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import {
@@ -51,6 +64,24 @@ export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
 export { createConfigStateMachine } from './config-state-machine.ts'
 export { createDbStorage } from './storage-adapter.ts'
 
+export type CoreSecretStartupFailure = {
+  code: 'core.secret_startup_failed'
+  consumer: 'oidc'
+  reason: SecretFailureFromSchema['code'] | 'oidc.client_secret_ref_missing'
+  message: string
+  secret?: SecretFailureFromSchema
+}
+
+export class CoreSecretStartupError extends Error {
+  readonly failure: CoreSecretStartupFailure
+
+  constructor(failure: CoreSecretStartupFailure) {
+    super(failure.message)
+    this.name = 'CoreSecretStartupError'
+    this.failure = failure
+  }
+}
+
 /** 导出供单元测试覆盖 switch/case 分支；生产代码仍只通过 createProductionDeps 间接使用。 */
 export function parseDurationToMs(value: string): number {
   const numericSeconds = Number(value)
@@ -80,8 +111,105 @@ async function hashSecretValue(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
+export function createRuntimeSecretManager(
+  runtimeConfig: RuntimeDeploymentConfig,
+  env: NodeJS.ProcessEnv = process.env
+): SecretManager {
+  return createSecretManagerFromConfigs({
+    providers: [
+      {
+        name: runtimeConfig.secretProvider.providerName,
+        config: runtimeConfig.secretProvider.namedProvider.config
+      }
+    ],
+    ...(runtimeConfig.secretProvider.namedProvider.cache
+      ? { cache: runtimeConfig.secretProvider.namedProvider.cache }
+      : {}),
+    env
+  })
+}
+
+function oidcSecretBinding(runtimeConfig: RuntimeDeploymentConfig, envVar: string) {
+  return runtimeConfig.raw.secretBindings.find(binding => binding.envVar === envVar)?.ref
+}
+
+export async function resolveCoreOidcStartupSecrets(
+  runtimeConfig: RuntimeDeploymentConfig,
+  manager: SecretManager
+): Promise<{ clientSecret: string; jwks?: string }> {
+  const clientSecretRef = oidcSecretBinding(runtimeConfig, 'MERISTEM_OIDC_CLIENT_SECRET')
+  if (!clientSecretRef) {
+    throw new CoreSecretStartupError({
+      code: 'core.secret_startup_failed',
+      consumer: 'oidc',
+      reason: 'oidc.client_secret_ref_missing',
+      message: 'Core OIDC client secret ref is required'
+    })
+  }
+
+  const resolved = await resolveOidcSecretBindings(manager, {
+    clientSecretRef,
+    jwksRef: oidcSecretBinding(runtimeConfig, 'MERISTEM_OIDC_JWKS')
+  })
+  if (!resolved.ok) {
+    throw new CoreSecretStartupError({
+      code: 'core.secret_startup_failed',
+      consumer: 'oidc',
+      reason: resolved.error.code,
+      message: `Core OIDC secret resolution failed: ${resolved.error.code}`,
+      secret: resolved.error
+    })
+  }
+  if (!resolved.value.clientSecret) {
+    throw new CoreSecretStartupError({
+      code: 'core.secret_startup_failed',
+      consumer: 'oidc',
+      reason: 'oidc.client_secret_ref_missing',
+      message: 'Core OIDC client secret is required'
+    })
+  }
+  return {
+    clientSecret: resolved.value.clientSecret,
+    ...(resolved.value.jwks === undefined ? {} : { jwks: resolved.value.jwks })
+  }
+}
+
+export async function createCoreAuthPortFromRuntimeConfig(
+  runtimeConfig: RuntimeDeploymentConfig,
+  db: Parameters<typeof createSessionAuthPort>[0],
+  manager: SecretManager
+) {
+  if (runtimeConfig.auth.provider !== 'oidc') {
+    return createSessionAuthPort(db)
+  }
+
+  await resolveCoreOidcStartupSecrets(runtimeConfig, manager)
+  const provider = createOidcAuthProvider(runtimeConfig.auth)
+  const permissions = createSessionAuthPort(db)
+  return {
+    async verify(token: string) {
+      const verified = await provider.verifyAccessToken({ token })
+      if (!verified.ok) {
+        return { ok: false as const, code: verified.code, message: verified.message }
+      }
+      const actor: ActorId = verified.session.groups.includes('security-admin')
+        ? 'security-admin'
+        : verified.session.groups.includes('admin')
+          ? 'admin'
+          : verified.session.groups.includes('operator')
+            ? 'operator'
+            : 'viewer'
+      return ok({ actor })
+    },
+    async getPermissions(actor: ActorId) {
+      return permissions.getPermissions(actor)
+    }
+  }
+}
+
 export async function createProductionDeps(): Promise<CoreDeps & { close(): Promise<void> }> {
   const runtimeConfig = await loadRuntimeDeploymentConfigOrThrow()
+  const secretManager = createRuntimeSecretManager(runtimeConfig)
   const { db, client } = createDb()
   const natsUrl = process.env.NATS_URL ?? 'ws://localhost:4223'
   const serviceUrls = runtimeConfig.raw.serviceUrls
@@ -132,7 +260,7 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     startedAt: Date.now(),
     version: '0.1.0',
     joinIngressPublicUrl: process.env.MERISTEM_JOIN_PUBLIC_URL ?? 'https://localhost:8443',
-    auth: createSessionAuthPort(db),
+    auth: await createCoreAuthPortFromRuntimeConfig(runtimeConfig, db, secretManager),
     policy: createHttpPolicyPort(),
     log: createHttpLogPort(),
     events: createHttpEventPort(),

@@ -73,6 +73,10 @@
       "name": "@meristem/auth",
       "version": "0.1.0",
     },
+    "packages/config": {
+      "name": "@meristem/config",
+      "version": "0.1.0",
+    },
     "packages/contracts": {
       "name": "@meristem/contracts",
       "version": "0.1.0",
@@ -252,6 +256,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@meristem/auth": ["@meristem/auth@workspace:packages/auth"],
+
+    "@meristem/config": ["@meristem/config@workspace:packages/config"],
 
     "@meristem/contracts": ["@meristem/contracts@workspace:packages/contracts"],
 

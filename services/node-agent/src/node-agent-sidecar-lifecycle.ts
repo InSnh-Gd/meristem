@@ -47,6 +47,8 @@ export type SidecarLifecycleInput = {
 
 export type SidecarLifecycleDependencies = {
   env?: NodeJS.ProcessEnv
+  secretManager?: SecretManager
+  deploymentConfig?: DeploymentConfigV02FromSchema
   readTextFile?: (path: string) => Promise<string>
   writeTextFile?: (path: string, contents: string) => Promise<void>
   mkdir?: (path: string) => Promise<void>
@@ -87,6 +89,7 @@ function deploymentConfigPath(env: NodeJS.ProcessEnv): string {
 async function loadDeploymentConfig(
   deps: SidecarLifecycleDependencies
 ): Promise<DeploymentConfigV02FromSchema> {
+  if (deps.deploymentConfig) return deps.deploymentConfig
   const env = deps.env ?? process.env
   const readTextFile = deps.readTextFile ?? defaultReadTextFile
   return decodeDeploymentConfig(await readTextFile(deploymentConfigPath(env)))
@@ -108,6 +111,13 @@ function createSecretManager(
       : {}),
     env
   })
+}
+
+export function createNodeAgentSecretManager(
+  config: DeploymentConfigV02FromSchema,
+  env: NodeJS.ProcessEnv = process.env
+): SecretManager {
+  return createSecretManager(config, env)
 }
 
 function redactedCredentialRef(ref: SecretRefFromSchema) {
@@ -198,6 +208,24 @@ function buildStatus(input: {
   }
 }
 
+function secretFailureReason(
+  source: 'sidecar' | 'infrastructure',
+  error: SecretFailureFromSchema
+): NodeAgentRuntimeStatus['degradedReasons'][number] {
+  const reasonByFailure: Record<SecretFailureFromSchema['code'], NodeAgentRuntimeStatus['degradedReasons'][number]['code']> = {
+    secret_missing: 'secret.missing',
+    permission_denied: 'secret.denied',
+    provider_unavailable: 'secret.provider_unavailable',
+    unsupported_backend: 'secret.unsupported_backend',
+    stale_secret: 'secret.stale'
+  }
+  return {
+    code: reasonByFailure[error.code],
+    message: `${source} secret resolution failed`,
+    detail: error.code
+  }
+}
+
 function withDependencies(
   status: NodeAgentRuntimeStatus,
   secrets: ResolvedSecrets
@@ -272,7 +300,7 @@ export async function applySidecarDesiredState(
 ): Promise<NodeAgentLifecycleState> {
   const runtimeEnv = deps.env ?? process.env
   const config = await loadDeploymentConfig({ ...deps, env: runtimeEnv })
-  const secrets = createSecretManager(config, runtimeEnv)
+  const secrets = deps.secretManager ?? createSecretManager(config, runtimeEnv)
   const resolved = await resolveSecrets(secrets, config, input.desired)
 
   if (!resolved.ok) {
@@ -282,13 +310,7 @@ export async function applySidecarDesiredState(
         observedAt: input.observedAt,
         correlationId: input.correlationId,
         desired: input.desired,
-        degradedReasons: [
-          {
-            code: 'secret_resolution_failed',
-            message: `${resolved.source} secret resolution failed`,
-            detail: resolved.error.code
-          }
-        ]
+        degradedReasons: [secretFailureReason(resolved.source, resolved.error)]
       }),
       process: {}
     }

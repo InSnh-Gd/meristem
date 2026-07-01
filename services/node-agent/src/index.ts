@@ -10,9 +10,11 @@ import {
 } from '../../../packages/telemetry/src/index.ts'
 import {
   applySidecarDesiredState,
+  createNodeAgentSecretManager,
   stopSidecarLifecycle,
   type NodeAgentLifecycleState
 } from './node-agent-sidecar-lifecycle.ts'
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import {
   createInitialEnforcementState,
   type LocalOverlayEnv,
@@ -46,6 +48,8 @@ const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/s
 const configuredControlUrl = process.env.MERISTEM_MNET_CONTROL_URL
 const runtimeStatePath =
   process.env.MERISTEM_NODE_RUNTIME_STATE_PATH ?? DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH
+const runtimeDeploymentConfig = await loadRuntimeDeploymentConfigOrThrow()
+const nodeAgentSecretManager = createNodeAgentSecretManager(runtimeDeploymentConfig.raw)
 const persistedRuntimeCredentials = loadRuntimeCredentials(runtimeStatePath)
 
 let joinTicket = process.env.MERISTEM_JOIN_TICKET
@@ -244,6 +248,9 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
       networkId: latestMap.map.networkId,
       mapVersion: latestMap.map.mapVersion
     }
+  }, {
+    deploymentConfig: runtimeDeploymentConfig.raw,
+    secretManager: nodeAgentSecretManager
   })
 
   if (currentLifecycleState.runtimeStatus.kind !== 'healthy') {
