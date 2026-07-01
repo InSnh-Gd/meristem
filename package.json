@@ -60,6 +60,8 @@
     "test:failure-modes": "bun test tests/failure-modes --ignore tests/failure-modes/opensearch.test.ts",
     "test:integration": "bun test tests/integration",
     "test:ui-contract": "bun test tests/ui-contract",
+    "test:v02-gates": "bun install --frozen-lockfile && bun run format:check && bun run lint && bun run depcruise && bun run typecheck && bun run typecheck:e2e && bun run typecheck:m-ui && bun run test:contracts && bun run test:failure-modes && bun run test:integration && bun run test:cli && bun run test:ui-contract && bun run test:agent-submit",
+    "test:v02-release": "bun run test:v02-gates && bun run mnet:v02:live-proof --topology=three-host --oidc=keycloak",
     "test:perf": "bun test --timeout=60000 tests/perf",
     "test:perf:stable": "bun run scripts/run-perf.ts",
     "test:opensearch-contracts": "bun test tests/contracts/opensearch-search.test.ts",

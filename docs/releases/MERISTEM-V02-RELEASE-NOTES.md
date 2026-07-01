@@ -114,6 +114,41 @@ MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS=900000
 
 ## 5. Verification Gates
 
+### 5.1 Deterministic CI and local gate split
+
+Regular CI remains deterministic and fast. It must not depend on host-specific
+capabilities such as Docker, NetBird, or elevated network permissions.
+
+For the full local deterministic gate set, run:
+
+```bash
+bun run test:v02-gates
+```
+
+This gate covers install, formatting, linting, dependency graph checks,
+typecheck, contract coverage, failure-mode coverage, integration coverage, CLI
+coverage, UI contract coverage, and the agent-submit drift guard.
+
+### 5.2 Release acceptance gate
+
+The release acceptance command is:
+
+```bash
+bun run test:v02-release
+```
+
+`test:v02-release` runs the deterministic gate set and then executes the live
+proof command:
+
+```bash
+bun run mnet:v02:live-proof --topology=three-host --oidc=keycloak
+```
+
+The release is not accepted unless live proof completes with success evidence.
+Typed `prerequisite-missing` is not release success; it documents missing host
+capabilities and must be treated as a blocked release path, not a deployable
+result.
+
 ```bash
 # Pre-submit drift guard
 bun run test:agent-submit
