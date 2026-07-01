@@ -294,6 +294,35 @@ bun test tests/failure-modes/mnet-dataplane-security-hardening.test.ts --test-na
 
 The commands above are mandatory because the private-material scanner and expired-ticket rejection path require durable proof.
 
+### 5.2 M-Net v0.2 Runtime Failure Matrix
+
+The runtime failure matrix documents 10 failure classes for the v0.2 NetBird data-plane track. Each class maps to an automated test or documented gap. The matrix is generated and verified by a dedicated test:
+
+```bash
+bun test tests/failure-modes/runtime-failure-matrix.test.ts
+```
+
+This test:
+- Defines all 10 classes with runtime codes, test coverage, and recovery paths.
+- Generates `tests/evidence/runtime-failure-matrix.json` with the full matrix.
+- Verifies every class has a covering test or an explicit documented gap reason.
+- Provides inline unit tests for the typed failure paths of NetBird binary missing, start failure, and probe failure (classes 5-7) where real OS-level process management is not available in CI.
+
+| Class | Runtime Code | Test File | Status |
+|-------|-------------|-----------|--------|
+| 1. OIDC unavailable | `invalid_discovery` | `auth-shared-verifier.failure-mode.test.ts` | Covered |
+| 2. Invalid token | `bad_issuer` / `bad_audience` / `expired_token` / `invalid_token` | `auth-shared-verifier.failure-mode.test.ts`, `auth-shared-verifier.contract.test.ts` | Covered |
+| 3. SecretProvider missing | `secret_missing` / `core.secret_startup_failed` | `secret-provider.failure-mode.test.ts`, `node-agent-sidecar-lifecycle.failure-mode.test.ts` | Covered |
+| 4. SecretProvider denied | `permission_denied` | `secret-provider.failure-mode.test.ts` | Covered |
+| 5. NetBird client missing | `netbird.binary.invalid` | `runtime-failure-matrix.test.ts` (inline), `mnet-v02:sidecar-proof` | Gap: binary not in CI |
+| 6. NetBird start failure | `netbird.start_failed` | `runtime-failure-matrix.test.ts` (inline) | Gap: real spawn not in CI |
+| 7. NetBird probe failure | `netbird.process.not_running` / `netbird.<reason>` | `node-agent-sidecar.test.ts`, `runtime-failure-matrix.test.ts` (inline) | Covered |
+| 8. Packet reachability failure | `relay.unavailable` | `mnet-dataplane-security-hardening.test.ts` | Covered |
+| 9. Expired map | `network_map.stale` / `network_map.expired` | `mnet-dataplane-security-hardening.test.ts` | Covered |
+| 10. M-UI disabled repair | `disabled` / `command.invalid_body` / `feature.unavailable` | `m-ui-bff-mnet-commands.test.ts` | Covered |
+
+See `docs/runbooks/MNET-V02-RUNBOOK.md` for full recovery paths and diagnostic commands for each class.
+
 ---
 
 ## 6. UI Contract Tests
