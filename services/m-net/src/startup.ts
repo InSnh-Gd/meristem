@@ -34,14 +34,6 @@ export async function startMNetService(): Promise<void> {
     log: infrastructure.profileLog,
     networkUpdater: networkService.networkUpdater
   })
-  const agentRuntime = createAgentRuntime({
-    db: infrastructure.db,
-    publishEvent: infrastructure.publishEvent,
-    writeTimeline: infrastructure.writeTimeline,
-    writeFull: infrastructure.writeFull,
-    writeAudit: infrastructure.writeAudit,
-    dataPlaneDeps: 'kind' in nodeRuntimeDataPlaneDeps ? null : nodeRuntimeDataPlaneDeps
-  })
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const nodeControlStore = createDbNodeControlStore(infrastructure.db)
   const describeForcedRelayNode = createDbForcedRelayNodeContext(infrastructure.db)
@@ -57,6 +49,15 @@ export async function startMNetService(): Promise<void> {
     listMembers: networkService.listMembers,
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents
+  })
+  const agentRuntime = createAgentRuntime({
+    db: infrastructure.db,
+    publishEvent: infrastructure.publishEvent,
+    writeTimeline: infrastructure.writeTimeline,
+    writeFull: infrastructure.writeFull,
+    writeAudit: infrastructure.writeAudit,
+    dataPlaneDeps: 'kind' in nodeRuntimeDataPlaneDeps ? null : nodeRuntimeDataPlaneDeps,
+    reportRuntimeStatus: operationalReadModel.ingestRuntimeStatus
   })
 
   // 策略健康检查：探测 M-Policy /health 端点

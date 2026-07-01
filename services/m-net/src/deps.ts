@@ -24,6 +24,7 @@ import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { MigrationEngine } from './migration-engine.ts'
 import type { MNetDb } from './clients.ts'
 import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
+import type { NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { MNetServiceResult } from './types.ts'
 
@@ -186,6 +187,11 @@ export type MNetAppDeps = {
   globalDefaultsStore?: GlobalDefaultsStore
   /** 批量 Profile 迁移引擎 */
   migrationEngine?: MigrationEngine
+  /** SecretProvider-resolved NetBird control-plane material for data-plane adapter activation. */
+  resolveNetBirdControlPlane?: (input: {
+    networkId: string
+    profileVersion: 'm-net@0.3.0' | 'm-net-cn@0.3.0'
+  }) => Promise<NetBirdResolvedControlPlaneConfig | null>
   /** node-agent runtime-token authenticated boundary for map reads and key registration */
   nodeRuntime?: {
     authorize(nodeId: string, token: string): Promise<boolean>

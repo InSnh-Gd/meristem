@@ -67,6 +67,18 @@ function createDeps(overrides?: Partial<DataPlaneDeps>): DataPlaneDeps {
         /* noop */
       }
     },
+    /** T8: NetBird adapter selection requires a valid control-plane config for V03 profile enable. */
+    resolveNetBirdControlPlane: async () => ({
+      managementUrl: 'https://netbird.meristem.internal:443',
+      setupKey: 'test-setup-key-00000000000000000000',
+      signalConfigRef: { configRef: 'netbird-test-signal-config' },
+      relayConfigRef: { configRef: 'netbird-test-relay-config' },
+      stunConfigRef: { configRef: 'netbird-test-stun-config' },
+      sidecarCredentialRef: { provider: 'test-provider', keyPath: '/tmp/test/netbird-key' },
+      sidecarCredentialStatus: 'ready' as const,
+      sidecarHealthStatus: 'healthy' as const,
+      prerequisites: { signalReady: true, relayReady: true, stunReady: true }
+    }),
     ...overrides
   }
 }

@@ -173,6 +173,9 @@ function toOperationalSnapshotResponse(
         : {}),
       ...(sidecar.relayReachable !== undefined ? { relayReachable: sidecar.relayReachable } : {}),
       ...(sidecar.stunReachable !== undefined ? { stunReachable: sidecar.stunReachable } : {}),
+      ...(sidecar.adapterStatus ? { adapterStatus: sidecar.adapterStatus } : {}),
+      ...(sidecar.desiredConfigHash ? { desiredConfigHash: sidecar.desiredConfigHash } : {}),
+      ...(sidecar.observedConfigHash ? { observedConfigHash: sidecar.observedConfigHash } : {}),
       stale: sidecar.stale,
       ...(sidecar.staleForMs !== undefined ? { staleForMs: sidecar.staleForMs } : {}),
       summary: sidecar.summary

@@ -51,6 +51,8 @@ export type NodeAgentRuntimeDesiredSidecar = {
   desiredState: 'install' | 'configure' | 'start' | 'drain' | 'stop'
   credentialStatus: 'missing' | 'pending' | 'ready' | 'expired' | 'rotation_required'
   healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  managementUrl?: string
+  setupKey?: string
   configHash?: string
 }
 

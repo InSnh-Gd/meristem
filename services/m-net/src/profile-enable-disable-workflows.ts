@@ -53,9 +53,10 @@ export function requireProfileWriteDeps(
     | 'log'
     | 'profileDisablePolicy'
     | 'networkUpdater'
-    | 'listMembers'
-    | 'migrationEngine'
-    | 'dataPlane'
+      | 'listMembers'
+      | 'migrationEngine'
+      | 'dataPlane'
+      | 'resolveNetBirdControlPlane'
   >
 ): ProfileWriteDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.suspendedOps || !deps.approvals || !deps.policyAuthorize) {
@@ -72,7 +73,10 @@ export function requireProfileWriteDeps(
     ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {}),
     ...(deps.listMembers ? { listMembers: deps.listMembers } : {}),
     ...(deps.migrationEngine ? { migrationEngine: deps.migrationEngine } : {}),
-    ...(deps.dataPlane ? { dataPlane: deps.dataPlane } : {})
+    ...(deps.dataPlane ? { dataPlane: deps.dataPlane } : {}),
+    ...(deps.resolveNetBirdControlPlane
+      ? { resolveNetBirdControlPlane: deps.resolveNetBirdControlPlane }
+      : {})
   }
 }
 

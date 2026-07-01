@@ -66,7 +66,25 @@ function internalHeaders(): Record<string, string> {
   }
 }
 
-function createRouteFixture(): RouteFixture {
+const resolveNetBirdControlPlane: NonNullable<MNetAppDeps['resolveNetBirdControlPlane']> = async () => ({
+  managementUrl: 'https://netbird.contract.internal',
+  setupKey: 'nb-contract-setup-key',
+  signalConfigRef: { configRef: 'signal/contract-primary' },
+  relayConfigRef: { configRef: 'relay/contract-primary' },
+  stunConfigRef: { configRef: 'stun/contract-primary' },
+  sidecarCredentialRef: {
+    provider: 'vault-kv-v2',
+    keyPath: 'secret/data/mnet/contract-sidecar',
+    version: 1
+  },
+  prerequisites: {
+    signalReady: true,
+    relayReady: true,
+    stunReady: true
+  }
+})
+
+ function createRouteFixture(): RouteFixture {
   const dataPlane = createInMemoryDataPlaneStores()
   const profileStore = createInMemoryProfileStore()
   const suspendedOps = createInMemorySuspendedOperationStore()
@@ -170,12 +188,13 @@ function createRouteFixture(): RouteFixture {
         })
       }
     },
-    auth: {
-      async verify(_token: string) {
-        return { ok: true as const, actor: 'operator' as ActorId }
-      }
-    }
-  })
+ 	    auth: {
+	      async verify(_token: string) {
+	        return { ok: true as const, actor: 'operator' as ActorId }
+	      }
+	    },
+	    resolveNetBirdControlPlane
+	  })
 
   return { app, dataPlane, events, logs, profileStore }
 }
@@ -211,6 +230,7 @@ describe('M-Net dataplane route contracts', () => {
         value: members.filter(member => member.networkId === input.networkId)
       }),
       dataPlane: fixture.dataPlane,
+      resolveNetBirdControlPlane,
       networkUpdater: {
         async setProfileVersion() {
           /* noop */
@@ -261,11 +281,26 @@ describe('M-Net dataplane route contracts', () => {
     expect(
       await fixture.dataPlane.relayAssignments.listByNetwork('network-dataplane-test')
     ).toHaveLength(1)
-    expect(
-      await fixture.dataPlane.tunnelAllocations.listByNetwork('network-dataplane-test')
-    ).toHaveLength(2)
+	    expect(
+	      await fixture.dataPlane.tunnelAllocations.listByNetwork('network-dataplane-test')
+	    ).toHaveLength(2)
+	    const desiredSidecar = await fixture.dataPlane.sidecarDesiredConfigs.get('stem-cn-1')
+	    expect(desiredSidecar).toMatchObject({
+	      adapterStatus: 'netbird',
+	      clientConfig: {
+	        managementUrl: 'https://netbird.contract.internal',
+	        setupKey: 'nb-contract-setup-key'
+	      },
+	      desiredState: {
+	        managementUrl: 'https://netbird.contract.internal',
+	        setupKey: 'nb-contract-setup-key',
+	        signalConfigRef: { configRef: 'signal/contract-primary' },
+	        relayConfigRef: { configRef: 'relay/contract-primary' },
+	        stunConfigRef: { configRef: 'stun/contract-primary' }
+	      }
+	    })
 
-    expect(fixture.events.map(event => event.type)).toEqual(
+	    expect(fixture.events.map(event => event.type)).toEqual(
       expect.arrayContaining([
         'mnet.relay.assigned',
         'mnet.network_map.published',
@@ -289,9 +324,10 @@ describe('M-Net dataplane route contracts', () => {
       listMembers: async input => ({
         ok: true as const,
         value: members.filter(member => member.networkId === input.networkId)
-      }),
-      dataPlane: fixture.dataPlane,
-      events: {
+	      }),
+	      dataPlane: fixture.dataPlane,
+	      resolveNetBirdControlPlane,
+	      events: {
         async publish() {
           /* noop */
         }

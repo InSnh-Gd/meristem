@@ -4,6 +4,7 @@ import type { MNetAppDeps } from './deps.ts'
 import {
   type BreakGlassDeps,
   type CHINA_DATA_PLANE_PROFILE_VERSION,
+  type V03_PROFILE_VERSION,
   type ProfileWorkflowFailure,
   type ProfileWriteDeps,
   profileWorkflowFailure
@@ -13,6 +14,7 @@ export type DataPlaneDeps = Required<Pick<ProfileWriteDeps, 'profileStore' | 'po
   Pick<ProfileWriteDeps, 'events' | 'log' | 'networkUpdater'> & {
     listMembers: NonNullable<ProfileWriteDeps['listMembers']>
     dataPlane: DataPlaneStores
+    resolveNetBirdControlPlane?: ProfileWriteDeps['resolveNetBirdControlPlane']
   }
 
 export type BreakGlassDataPlaneDeps = Required<
@@ -31,7 +33,7 @@ export type RelayAssignment = {
 
 export type EnableDataPlaneSuccess = {
   status: 'enabled'
-  profileVersion: typeof CHINA_DATA_PLANE_PROFILE_VERSION
+  profileVersion: typeof CHINA_DATA_PLANE_PROFILE_VERSION | typeof V03_PROFILE_VERSION
   correlationId: string
   operationId: string
   mapVersion: number
@@ -106,8 +108,9 @@ export function requireDataPlaneDeps(
     | 'dataPlane'
     | 'events'
     | 'log'
-    | 'networkUpdater'
-    | 'listMembers'
+      | 'networkUpdater'
+      | 'listMembers'
+      | 'resolveNetBirdControlPlane'
   >
 ): DataPlaneDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.policyAuthorize || !deps.listMembers) {
@@ -132,7 +135,10 @@ export function requireDataPlaneDeps(
     dataPlane,
     ...(deps.events ? { events: deps.events } : {}),
     ...(deps.log ? { log: deps.log } : {}),
-    ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
+    ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {}),
+    ...(deps.resolveNetBirdControlPlane
+      ? { resolveNetBirdControlPlane: deps.resolveNetBirdControlPlane }
+      : {})
   }
 }
 

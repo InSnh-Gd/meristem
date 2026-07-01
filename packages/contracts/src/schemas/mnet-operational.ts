@@ -107,6 +107,9 @@ export const MNetOperationalSidecarNodeSchema = Schema.Struct({
   signalReachable: Schema.optional(Schema.Boolean),
   relayReachable: Schema.optional(Schema.Boolean),
   stunReachable: Schema.optional(Schema.Boolean),
+  adapterStatus: Schema.optional(Schema.Literal('netbird', 'noop', 'degraded')),
+  desiredConfigHash: Schema.optional(Schema.String),
+  observedConfigHash: Schema.optional(Schema.String),
   stale: Schema.Boolean,
   staleForMs: Schema.optional(Schema.Number),
   summary: Schema.String

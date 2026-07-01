@@ -3,8 +3,10 @@ import type {
   MNetOperationalEventIngestRequestFromSchema,
   MNetOperationalProfileVersionFromSchema,
   MNetOperationalSnapshotFromSchema,
-  MNetworkMember
+  MNetworkMember,
+  NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
+import type { StoredSidecarDesiredConfig } from './data-plane-store-types.ts'
 
 export type EventSubject = MNetOperationalEventIngestRequestFromSchema['event']['subject']
 
@@ -51,6 +53,7 @@ export type ProjectionState = {
     MNetOperationalEventIngestRequestFromSchema['event'],
     { subject: 'mnet.forced_relay.change.v0' }
   >['payload']
+  runtimeStatusByNode: Map<string, NodeAgentRuntimeStatus>
 }
 
 export type OperationalSnapshotFailure = {
@@ -68,7 +71,8 @@ export function buildSidecars(
   members: readonly MNetworkMember[],
   profileVersion: MNetOperationalProfileVersionFromSchema,
   projection: ProjectionState,
-  observedAt: Date
+  observedAt: Date,
+  desiredConfigs: ReadonlyMap<string, StoredSidecarDesiredConfig> = new Map()
 ): Sidecars {
   const expectsSidecar =
     profileVersion === 'm-net@0.3.0' ||
@@ -79,6 +83,8 @@ export function buildSidecars(
   if (!expectsSidecar) return []
 
   return members.map(member => {
+    const desired = desiredConfigs.get(member.nodeId)
+    const runtime = projection.runtimeStatusByNode.get(member.nodeId)
     const lifecycle = projection.sidecarLifecycleByNode.get(member.nodeId)
     const health = projection.sidecarHealthByNode.get(member.nodeId)
     const credential = projection.credentialByNode.get(member.nodeId)
@@ -87,6 +93,7 @@ export function buildSidecars(
       : undefined
     const stale = staleForMs !== undefined && staleForMs > STALE_REPORT_MS
     const credentialStatus =
+      runtime?.credentialStatus ??
       credential?.credentialStatus ??
       lifecycle?.credentialStatus ??
       inferCredentialStatus({
@@ -103,22 +110,25 @@ export function buildSidecars(
           lifecycle?.profileVersion ??
           profileVersion
       ),
-      ...(lifecycle ? { desiredState: lifecycle.desiredState } : {}),
+      desiredState: desired?.desiredState?.desiredState ?? runtime?.desiredState ?? lifecycle?.desiredState,
       credentialStatus,
       ...(credential?.credentialRef ? { credentialRef: credential.credentialRef } : {}),
       ...(credential?.expiresAt ? { expiresAt: credential.expiresAt } : {}),
-      healthStatus: health?.healthStatus ?? (expectsSidecar ? 'unknown' : 'healthy'),
-      ...(health?.checkedAt ? { checkedAt: health.checkedAt } : {}),
+      healthStatus: runtime?.healthStatus ?? health?.healthStatus ?? (expectsSidecar ? 'unknown' : 'healthy'),
+      ...(runtime?.observedAt ? { checkedAt: runtime.observedAt } : health?.checkedAt ? { checkedAt: health.checkedAt } : {}),
       ...(health ? { signalReachable: health.signalReachable } : {}),
       ...(health ? { relayReachable: health.relayReachable } : {}),
       ...(health ? { stunReachable: health.stunReachable } : {}),
+      ...(desired?.adapterStatus ? { adapterStatus: desired.adapterStatus } : {}),
+      ...(desired?.configHash ? { desiredConfigHash: desired.configHash } : {}),
+      ...(runtime?.configHash ? { observedConfigHash: runtime.configHash } : {}),
       stale,
       ...(staleForMs !== undefined ? { staleForMs } : {}),
       summary: summarizeSidecar(
         health?.healthStatus,
         credentialStatus,
         stale,
-        lifecycle?.desiredState
+        desired?.desiredState?.desiredState ?? runtime?.desiredState ?? lifecycle?.desiredState
       )
     }
   })

@@ -13,7 +13,8 @@ export function createAgentRuntime({
   writeTimeline,
   writeFull,
   writeAudit,
-  dataPlaneDeps
+  dataPlaneDeps,
+  reportRuntimeStatus
 }: AgentRuntimeDeps) {
   const context = {
     db,
@@ -25,9 +26,12 @@ export function createAgentRuntime({
     activeSessionIds: new Map(),
     pendingTasks: new Map()
   }
-  const nodeRuntime = createNodeRuntimeFacade(
-    dataPlaneDeps === undefined ? { db } : { db, dataPlaneDeps }
-  )
+  const nodeRuntimeInput = {
+    db,
+    ...(dataPlaneDeps !== undefined ? { dataPlaneDeps } : {}),
+    ...(reportRuntimeStatus ? { reportRuntimeStatus } : {})
+  }
+  const nodeRuntime = createNodeRuntimeFacade(nodeRuntimeInput)
 
   return {
     executeNoop(input: { nodeId: string; taskId: string; correlationId: string }) {

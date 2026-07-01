@@ -14,6 +14,8 @@ export type NodeAgentRuntimeDesiredSidecar = {
   relayConfigRef: { configRef: string }
   stunConfigRef: { configRef: string }
   sidecarCredentialRef: { provider: string; keyPath: string; version?: number }
+  managementUrl?: string
+  setupKey?: string
   configHash?: string
 }
 

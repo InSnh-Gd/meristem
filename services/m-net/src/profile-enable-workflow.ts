@@ -67,7 +67,10 @@ export async function requestEnableProfile(
       listMembers: deps.listMembers,
       ...(deps.events ? { events: deps.events } : {}),
       ...(deps.log ? { log: deps.log } : {}),
-      ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {})
+      ...(deps.networkUpdater ? { networkUpdater: deps.networkUpdater } : {}),
+      ...(deps.resolveNetBirdControlPlane
+        ? { resolveNetBirdControlPlane: deps.resolveNetBirdControlPlane }
+        : {})
     })
     if (isProfileWorkflowFailure(dataPlaneDeps)) return dataPlaneDeps
     return enableDataPlaneProfile(dataPlaneDeps, {

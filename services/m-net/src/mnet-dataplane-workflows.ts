@@ -20,7 +20,13 @@ import {
 } from './operation-locks.ts'
 import { transitionPartitionState } from './partition-state.ts'
 import { createDataPlaneAdapter } from './data-plane/noop-adapter.ts'
-import { createNetBirdAdapter, type NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
+import type { DisabledDataPlaneAdapterResult } from './data-plane/noop-adapter.ts'
+import {
+  createNetBirdAdapter,
+  type NetBirdAdapterEnabledResult,
+  type NetBirdAdapterRejectedResult,
+  type NetBirdResolvedControlPlaneConfig
+} from './netbird-adapter.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   DEFAULT_PROFILE_VERSION,
@@ -45,8 +51,55 @@ type DataPlaneAdapterSelectionInput =
     }
 
 export type DataPlaneAdapterSelection =
-  | ReturnType<typeof createNetBirdAdapter>
-  | ReturnType<typeof createDataPlaneAdapter>
+  | NetBirdAdapterEnabledResult
+  | NetBirdAdapterRejectedResult
+  | DisabledDataPlaneAdapterResult
+
+function isV03ProfileVersion(value: string): value is typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION {
+  return value === V03_PROFILE_VERSION || value === V03_CN_PROFILE_VERSION
+}
+
+function isNetBirdEnabled(
+  adapter: DataPlaneAdapterSelection
+): adapter is NetBirdAdapterEnabledResult {
+  return adapter.enabled === true
+}
+
+function readAdapterRejection(
+  adapter: DataPlaneAdapterSelection
+): { code: string; message: string } {
+  if ('error' in adapter) return adapter.error
+  return {
+    code: 'netbird.adapter.noop',
+    message: 'NetBird adapter is not active for this data-plane profile'
+  }
+}
+
+async function selectAdapterForEnable(
+  deps: DataPlaneDeps,
+  input: { networkId: string; profileVersion: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION }
+): Promise<DataPlaneAdapterSelection> {
+  const controlPlane = deps.resolveNetBirdControlPlane
+    ? await deps.resolveNetBirdControlPlane(input)
+    : null
+
+  if (!controlPlane) {
+    return {
+      enabled: false,
+      status: 'rejected',
+      error: {
+        code: 'netbird.config.missing_control_plane',
+        message: 'NetBird adapter requires SecretProvider-resolved control-plane inputs',
+        fields: ['resolveNetBirdControlPlane']
+      }
+    }
+  }
+
+  return selectDataPlaneAdapter({
+    profileVersion: input.profileVersion,
+    netbirdControlPlane: controlPlane
+  })
+}
 
 /** 根据 Profile 与显式回退模式选择数据面 adapter。 */
 export function selectDataPlaneAdapter(
@@ -62,6 +115,55 @@ export function selectDataPlaneAdapter(
   })
 }
 
+async function persistAdapterDesiredState(
+  deps: DataPlaneDeps,
+  input: {
+    networkId: string
+    profileVersion: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION
+    adapter: DataPlaneAdapterSelection
+    desiredAt: string
+  }
+): Promise<true | ProfileWorkflowFailure> {
+  const membersResult = await deps.listMembers({ networkId: input.networkId })
+  if (!membersResult.ok) {
+    return profileWorkflowFailure(404, membersResult.error.code, membersResult.error.message)
+  }
+
+  if (isNetBirdEnabled(input.adapter)) {
+    const adapter = input.adapter
+    await Promise.all(
+      membersResult.value.map(member =>
+        deps.dataPlane.sidecarDesiredConfigs.upsert({
+          nodeId: member.nodeId,
+          configHash: adapter.clientConfig.configHash,
+          desiredAt: input.desiredAt,
+          adapterStatus: 'netbird',
+          desiredState: adapter.desiredState,
+          clientConfig: adapter.clientConfig
+        })
+      )
+    )
+    return true
+  }
+
+  const rejection = readAdapterRejection(input.adapter)
+  await Promise.all(
+    membersResult.value.map(member =>
+      deps.dataPlane.sidecarDesiredConfigs.upsert({
+        nodeId: member.nodeId,
+        configHash: `${input.networkId}:${input.profileVersion}:netbird-degraded`,
+        desiredAt: input.desiredAt,
+        adapterStatus: 'degraded',
+        degradedReason: {
+          code: rejection.code,
+          message: rejection.message
+        }
+      })
+    )
+  )
+  return profileWorkflowFailure(503, rejection.code, rejection.message)
+}
+
 /** 为 m-net-cn@0.3.0 执行持久化数据面编排。 */
 export async function enableDataPlaneProfile(
   deps: DataPlaneDeps,
@@ -69,9 +171,10 @@ export async function enableDataPlaneProfile(
     actor: string
     networkId: string
     reason: string
-    profileVersion?: typeof CHINA_DATA_PLANE_PROFILE_VERSION
+    profileVersion?: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION
   }
 ): Promise<EnableDataPlaneSuccess | ProfileWorkflowFailure> {
+  const profileVersion = input.profileVersion ?? CHINA_DATA_PLANE_PROFILE_VERSION
   const correlationId = crypto.randomUUID()
   const auditWritten = await writeRequiredAudit(
     deps,
@@ -80,7 +183,7 @@ export async function enableDataPlaneProfile(
     `network:${input.networkId}`,
     'allow',
     correlationId,
-    { profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION, reason: input.reason }
+    { profileVersion, reason: input.reason }
   )
   if (auditWritten !== true) return auditWritten
 
@@ -92,7 +195,7 @@ export async function enableDataPlaneProfile(
       requestedAt: new Date().toISOString(),
       ttlMs: 15 * 60 * 1000,
       reason: { code: 'profile.apply' as const, detail: input.reason },
-      idempotencyKey: `${input.networkId}:${CHINA_DATA_PLANE_PROFILE_VERSION}`
+      idempotencyKey: `${input.networkId}:${profileVersion}`
     }
     const lockResult = acquireOperationLock({
       existingLock: await deps.dataPlane.operationLocks.getActiveByNetwork(input.networkId),
@@ -106,20 +209,31 @@ export async function enableDataPlaneProfile(
     const materialized = await materializeMembers(
       deps,
       input.networkId,
-      CHINA_DATA_PLANE_PROFILE_VERSION,
+      profileVersion,
       correlationId
     )
     if (isProfileWorkflowFailure(materialized)) return materialized
 
+    const adapter = isV03ProfileVersion(profileVersion)
+      ? await selectAdapterForEnable(deps, { networkId: input.networkId, profileVersion })
+      : createDataPlaneAdapter({ enabled: false, mode: 'disabled' })
+    const adapterPersisted = await persistAdapterDesiredState(deps, {
+      networkId: input.networkId,
+      profileVersion,
+      adapter,
+      desiredAt: new Date().toISOString()
+    })
+    if (adapterPersisted !== true) return adapterPersisted
+
     await deps.profileStore.setNetworkState(input.networkId, {
-      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      profileVersion,
       status: 'enabled'
     })
-    await deps.networkUpdater?.setProfileVersion(input.networkId, CHINA_DATA_PLANE_PROFILE_VERSION)
+    await deps.networkUpdater?.setProfileVersion(input.networkId, profileVersion)
     await deps.profileStore.recordTransition({
       networkId: input.networkId,
       fromVersion: DEFAULT_PROFILE_VERSION,
-      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      toVersion: profileVersion,
       fromStatus: 'enabling',
       toStatus: 'enabled',
       actor: input.actor,
@@ -130,7 +244,7 @@ export async function enableDataPlaneProfile(
       networkId: input.networkId,
       operationId: request.operationId,
       fromVersion: DEFAULT_PROFILE_VERSION,
-      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      toVersion: profileVersion,
       status: 'applied',
       idempotencyKey: request.idempotencyKey ?? request.operationId,
       startedAt: request.requestedAt,
@@ -143,7 +257,7 @@ export async function enableDataPlaneProfile(
       networkId: input.networkId,
       mapVersion: materialized.mapVersion,
       relayAssignment: materialized.relayAssignment,
-      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      profileVersion,
       operationId: request.operationId
     })
     if (artifactsWritten !== true) return artifactsWritten
@@ -158,7 +272,7 @@ export async function enableDataPlaneProfile(
 
     return {
       status: 'enabled',
-      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
+      profileVersion,
       correlationId,
       operationId: request.operationId,
       mapVersion: materialized.mapVersion,

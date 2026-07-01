@@ -95,6 +95,8 @@ export function createProfileRoutes(
     | 'policyHealthCheck'
     | 'networkUpdater'
     | 'listMembers'
+    | 'dataPlane'
+    | 'resolveNetBirdControlPlane'
   >
 ) {
   return (

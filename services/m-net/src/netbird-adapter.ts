@@ -203,6 +203,8 @@ export function createNetBirdAdapter(config: {
     desiredState: state.desiredState,
     credentialStatus: resolved.sidecarCredentialStatus ?? 'ready',
     healthStatus: state.healthStatus,
+    managementUrl: resolved.managementUrl,
+    setupKey: resolved.setupKey,
     configHash
   }
 

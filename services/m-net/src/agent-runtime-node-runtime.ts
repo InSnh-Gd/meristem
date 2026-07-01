@@ -1,5 +1,8 @@
 import { and, eq } from 'drizzle-orm'
-import type { NodeAgentRuntimeDesiredSidecar } from '../../../packages/contracts/src/index.ts'
+import type {
+  NodeAgentRuntimeDesiredSidecar,
+  NodeAgentRuntimeStatus
+} from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { decodeMNetProfileV03Compatibility } from '../../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 import { validateNodeCredential } from './agent-runtime-session-lifecycle.ts'
@@ -26,6 +29,7 @@ type NodeRuntimeFacade = {
     createdAt: string
     endpoint?: string
   }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
+  reportStatus(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
 }
 
 async function resolveSidecarRuntimeState(
@@ -67,6 +71,7 @@ async function resolveSidecarRuntimeState(
   }
 
   const desiredConfig = await deps.dataPlane.sidecarDesiredConfigs.get(nodeId)
+  if (desiredConfig?.desiredState) return desiredConfig.desiredState
   return {
     signalConfigRef: compatibility.profile.capabilities.signalConfigRef,
     relayConfigRef: compatibility.profile.capabilities.relayConfigRef,
@@ -81,6 +86,11 @@ async function resolveSidecarRuntimeState(
 export function createNodeRuntimeFacade(input: {
   db: MNetDb
   dataPlaneDeps?: DataPlaneDeps | null
+  reportRuntimeStatus?: (input: {
+    networkId: string
+    nodeId: string
+    runtimeStatus: NodeAgentRuntimeStatus
+  }) => Promise<void>
 }): NodeRuntimeFacade | null {
   const dataPlaneDeps = input.dataPlaneDeps
   if (!dataPlaneDeps) return null
@@ -118,6 +128,15 @@ export function createNodeRuntimeFacade(input: {
         publicKey: payload.publicKey,
         createdAt: payload.createdAt,
         ...(payload.endpoint ? { endpoint: payload.endpoint } : {})
+      })
+    },
+    async reportStatus(payload) {
+      const guard = await guardLegacyNodeRuntime(input.db, payload.nodeId)
+      if ('kind' in guard) return
+      await input.reportRuntimeStatus?.({
+        networkId: guard.networkId,
+        nodeId: payload.nodeId,
+        runtimeStatus: payload.runtimeStatus
       })
     }
   }

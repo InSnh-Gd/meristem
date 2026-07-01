@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from 'bun'
 import type { MNetDb } from './clients.ts'
 import type { DataPlaneDeps } from './mnet-dataplane-support.ts'
+import type { NodeAgentRuntimeStatus } from '../../../packages/contracts/src/index.ts'
 import type { JoinSessionData, PendingTask } from './shared.ts'
 
 export type CredentialStore = Pick<MNetDb, 'insert' | 'update'>
@@ -30,6 +31,11 @@ export type AgentRuntimeDeps = {
     payload?: unknown
   ): Promise<void>
   dataPlaneDeps?: DataPlaneDeps | null
+  reportRuntimeStatus?: (input: {
+    networkId: string
+    nodeId: string
+    runtimeStatus: NodeAgentRuntimeStatus
+  }) => Promise<void>
 }
 
 export type AgentRuntimeState = {

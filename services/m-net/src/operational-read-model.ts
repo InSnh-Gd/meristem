@@ -41,13 +41,23 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
   function stateFor(networkId: string): ProjectionState {
     const existing = projections.get(networkId)
     if (existing) return existing
-    const created: ProjectionState = {
-      sidecarLifecycleByNode: new Map(),
-      sidecarHealthByNode: new Map(),
-      credentialByNode: new Map()
-    }
+      const created: ProjectionState = {
+        sidecarLifecycleByNode: new Map(),
+        sidecarHealthByNode: new Map(),
+        credentialByNode: new Map(),
+        runtimeStatusByNode: new Map()
+      }
     projections.set(networkId, created)
     return created
+  }
+
+  async function ingestRuntimeStatus(input: {
+    networkId: string
+    nodeId: string
+    runtimeStatus: import('../../../packages/contracts/src/index.ts').NodeAgentRuntimeStatus
+  }): Promise<void> {
+    const projection = stateFor(input.networkId)
+    projection.runtimeStatusByNode.set(input.nodeId, input.runtimeStatus)
   }
 
   async function ingestEvent(
@@ -143,11 +153,14 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
     const latestRelay = deps.dataPlane
       ? (await deps.dataPlane.relayAssignments.listByNetwork(networkId)).at(-1)
       : undefined
+    const desiredConfigList = deps.dataPlane ? await deps.dataPlane.sidecarDesiredConfigs.list() : []
+    const desiredConfigs = new Map(desiredConfigList.map(config => [config.nodeId, config]))
     const sidecars = buildSidecars(
       members,
       coerceProfileVersion(networkState.profileVersion),
       projection,
-      currentTime()
+      currentTime(),
+      desiredConfigs
     )
     const topologyEdges = buildTopologyEdges(
       members,
@@ -313,5 +326,5 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
     }
   }
 
-  return { ingestEvent, getSnapshot }
+  return { ingestEvent, ingestRuntimeStatus, getSnapshot }
 }

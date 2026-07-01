@@ -1,4 +1,5 @@
 import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
+import type { NodeAgentRuntimeDesiredSidecar } from '../../../packages/contracts/src/index.ts'
 import type {
   NetworkOperationLock,
   NetworkOperationType,
@@ -49,6 +50,15 @@ export type StoredSidecarDesiredConfig = {
   configHash: string
   desiredAt: string
   appliedAt?: string
+  adapterStatus?: 'netbird' | 'noop' | 'degraded'
+  desiredState?: NodeAgentRuntimeDesiredSidecar
+  clientConfig?: {
+    managementUrl: string
+    setupKey: string
+    profileVersion: string
+    configHash: string
+  }
+  degradedReason?: { code: string; message: string }
 }
 
 export type StoredNodePublicKey = {

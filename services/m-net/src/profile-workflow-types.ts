@@ -55,6 +55,7 @@ export type ProfileWriteDeps = ProfileReadDeps & {
   listMembers?: MNetAppDeps['listMembers']
   migrationEngine?: MNetAppDeps['migrationEngine']
   dataPlane?: MNetAppDeps['dataPlane']
+  resolveNetBirdControlPlane?: MNetAppDeps['resolveNetBirdControlPlane']
 }
 
 export type BreakGlassDeps = {
