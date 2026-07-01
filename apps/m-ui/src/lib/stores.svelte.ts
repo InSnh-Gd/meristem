@@ -9,6 +9,7 @@ import {
   fetchNetworkDetail as fetchBffNetworkDetail,
   fetchNetworkProfileDetail as fetchBffNetworkProfileDetail,
   fetchNetworkProfiles as fetchBffNetworkProfiles,
+  fetchNetworkRuntimeState as fetchBffNetworkRuntimeState,
   fetchNetworks as fetchBffNetworks,
   fetchNodes as fetchBffNodes,
   fetchPolicyDecisions as fetchBffPolicyDecisions,
@@ -38,6 +39,7 @@ import type {
   NetworkListResponseData,
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
+  NetworkRuntimeStateData,
   NodeListData,
   OverviewData,
   PolicyDecisionData,
@@ -102,6 +104,10 @@ class AppState {
   operationalState = $state<OperationalStateData | null>(null)
   operationalStateLoading = $state(false)
   operationalStateError = $state<string | null>(null)
+  networkRuntimeState = $state<NetworkRuntimeStateData | null>(null)
+  networkRuntimeStateLoading = $state(false)
+  networkRuntimeStateError = $state<string | null>(null)
+  networkRuntimeStateRefreshTimer = $state<ReturnType<typeof setInterval> | null>(null)
 
   actor = $derived(this.overview?.session.actor ?? null)
   permissions = $derived(this.overview?.session.permissions ?? [])
@@ -297,6 +303,41 @@ class AppState {
       this.operationalStateError = formatBffError(e, '运营状态加载失败')
     } finally {
       this.operationalStateLoading = false
+    }
+  }
+
+  /**
+   * 拉取网络管理循环的 BFF proof-path 聚合（runtime truth）。
+   * M-UI 只消费 BFF 派生展示态，不直接调用 M-Net 服务端点。
+   */
+  async fetchNetworkRuntimeState(networkId: string) {
+    if (!this.token || !networkId) return
+    this.networkRuntimeStateLoading = true
+    this.networkRuntimeStateError = null
+    try {
+      this.networkRuntimeState = await fetchBffNetworkRuntimeState(this.token, networkId)
+    } catch (e: unknown) {
+      this.networkRuntimeState = null
+      this.networkRuntimeStateError = formatBffError(e, '网络运行态加载失败')
+    } finally {
+      this.networkRuntimeStateLoading = false
+    }
+  }
+
+  /** 启动定时刷新网络运行态；返回停止函数。 */
+  startNetworkRuntimeStatePolling(networkId: string, intervalMs = 15000): () => void {
+    this.stopNetworkRuntimeStatePolling()
+    void this.fetchNetworkRuntimeState(networkId)
+    this.networkRuntimeStateRefreshTimer = setInterval(() => {
+      void this.fetchNetworkRuntimeState(networkId)
+    }, intervalMs)
+    return () => this.stopNetworkRuntimeStatePolling()
+  }
+
+  stopNetworkRuntimeStatePolling() {
+    if (this.networkRuntimeStateRefreshTimer) {
+      clearInterval(this.networkRuntimeStateRefreshTimer)
+      this.networkRuntimeStateRefreshTimer = null
     }
   }
 

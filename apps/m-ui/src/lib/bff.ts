@@ -15,6 +15,7 @@ import type {
   NetworkListResponseData,
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
+  NetworkRuntimeStateData,
   NodeListData,
   OperationalStateData,
   OverviewData,
@@ -242,6 +243,19 @@ export function fetchNetworkMapSummary(token: string, networkId: string) {
 export function fetchOperationalState(token: string, networkId: string) {
   return bffFetch<OperationalStateData>(
     `/api/v0/networks/${encodeURIComponent(networkId)}/operational-state`,
+    token
+  )
+}
+
+/**
+ * 拉取网络管理循环的 BFF proof-path 聚合，承载 runtime truth：
+ * auth mode、SecretProvider 状态、NetBird desired/observed 进程状态、
+ * packet reachability proof、profile enable 状态与 repair disabled reasons。
+ * M-UI 只消费 BFF 派生展示态，不直接调用 M-Net 服务端点。
+ */
+export function fetchNetworkRuntimeState(token: string, networkId: string) {
+  return bffFetch<NetworkRuntimeStateData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/proof-path`,
     token
   )
 }

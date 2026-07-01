@@ -42,6 +42,10 @@ export function resetAppState() {
   appState.dataplaneStatus = null
   appState.globalDefaults = null
   appState.globalDefaultsLoading = false
+  appState.networkRuntimeState = null
+  appState.networkRuntimeStateLoading = false
+  appState.networkRuntimeStateError = null
+  appState.stopNetworkRuntimeStatePolling()
 }
 
 export function installAppStateReset() {

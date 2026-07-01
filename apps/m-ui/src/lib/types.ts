@@ -12,6 +12,8 @@ import type {
   MNetProfileVersion,
   MNetRegionalProfile,
   MNode,
+  BffOperationalProofPathResponseFromSchema,
+  BffOperationalRuntimeTruthFromSchema,
   MNetOperationalSnapshotFromSchema,
   NetworkProfileState,
   NetworkSummary,
@@ -345,3 +347,13 @@ export type NetworkDetailResponseData = {
   dataPlaneStatus: DataPlaneStatusResponseData
   stateSource: StateSourceMetadata
 }
+
+/**
+ * 网络管理循环的 BFF proof-path 聚合，承载 create/configure/enable/observe/repair
+ * 五阶段所需的 runtime truth（auth/secretProvider/netbirdProcess/packetProof/profile/
+ * repairActions）。M-UI 只消费 BFF 派生展示态，不直接调用 M-Net 服务端点。
+ */
+export type NetworkRuntimeStateData = BffOperationalProofPathResponseFromSchema
+
+/** runtimeTruth 子集类型，供组件按字段消费 desired/observed NetBird 状态。 */
+export type NetworkRuntimeTruth = BffOperationalRuntimeTruthFromSchema
