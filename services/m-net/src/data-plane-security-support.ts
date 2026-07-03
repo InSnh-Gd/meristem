@@ -35,8 +35,8 @@ export type RelayAvailabilityInput = {
 
 export type RelayAvailabilityResult =
   | {
-      readonly kind: 'relay_active'
-      readonly relayType: 'wstunnel'
+      // legacy: v0.1 used 'wstunnel' relay type — v0.2 runtime does not support wstunnel
+      readonly kind: 'relay.wstunnel_not_supported'
     }
   | {
       readonly kind: 'direct_fallback'
@@ -116,7 +116,8 @@ export function evaluateAcmeDirectoryHealth(input: AcmeDirectoryInput): AcmeDire
  */
 export function resolveRelayAvailability(input: RelayAvailabilityInput): RelayAvailabilityResult {
   if (input.relayReachable) {
-    return { kind: 'relay_active', relayType: 'wstunnel' }
+    // legacy: v0.1 used 'wstunnel' relay type — v0.2 runtime does not support wstunnel
+    return { kind: 'relay.wstunnel_not_supported' }
   }
 
   if (input.directPathAvailable) {

@@ -18,7 +18,7 @@ export function createExtensionAdminRoutes(deps: MExtensionDeps) {
     .get(
       mExtensionApiRoutes.collection,
       async ({ headers }) => {
-        const auth = await requireActor(headers, deps.jwtSecret)
+        const auth = await requireActor(headers, deps.auth)
         return withExtractedSpan(
           mExtensionServiceName,
           `${mExtensionServiceName}.extension.list`,
@@ -42,7 +42,7 @@ export function createExtensionAdminRoutes(deps: MExtensionDeps) {
     .get(
       mExtensionApiRoutes.detail,
       async ({ headers, params }) => {
-        const auth = await requireActor(headers, deps.jwtSecret)
+        const auth = await requireActor(headers, deps.auth)
         return withExtractedSpan(
           mExtensionServiceName,
           `${mExtensionServiceName}.extension.get`,

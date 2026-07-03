@@ -1,5 +1,6 @@
-import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
+import { createSharedAuthVerifier } from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import {
   internalRequestHeaders,
@@ -15,6 +16,19 @@ import { createDbSuspendedOperationStore } from './suspended-operations.ts'
 import { createInMemoryMTaskDeps } from './testing.ts'
 
 initTelemetry('m-task')
+
+function requiredJwtSecret(): string {
+  const secret = process.env.MERISTEM_JWT_SECRET
+  if (!secret) throw new Error('MERISTEM_JWT_SECRET is required')
+  return secret
+}
+
+const runtimeConfig = await loadRuntimeDeploymentConfigOrThrow()
+const authVerifier = createSharedAuthVerifier(
+  runtimeConfig.auth.provider === 'local-dev'
+    ? { auth: runtimeConfig.auth, localDev: { jwtSecret: requiredJwtSecret() } }
+    : { auth: runtimeConfig.auth }
+)
 
 // 先把任务权威状态落到 M-Task 表组；其他端口继续保持轻量边界，
 // 后续 hardening slice 再替换为真实跨服务客户端。
@@ -54,12 +68,9 @@ const app = createMTaskApp({
   },
   auth: {
     async verify(token: string) {
-      const secret = process.env.MERISTEM_JWT_SECRET
-      if (!secret)
-        return err({ code: 'auth.unconfigured', message: 'MERISTEM_JWT_SECRET is required' })
-      const verified = await verifyLocalToken({ token, secret })
+      const verified = await authVerifier.verify(token)
       return verified.ok
-        ? ok({ actor: verified.actor })
+        ? ok({ actor: verified.session.actor.id })
         : err({ code: verified.code, message: verified.message })
     }
   }

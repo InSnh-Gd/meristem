@@ -101,18 +101,21 @@ export function createBackfillService(
       while (true) {
         const conditions: ReturnType<typeof sql>[] = [
           gte(
+            // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
             table['timestamp' as keyof typeof table] as unknown as PgColumn,
             new Date(currentCursor.timestamp)
           )
         ]
         if (currentCursor.factId !== '00000000-0000-0000-0000-000000000000') {
           conditions.push(
+            // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
             sql`${table['id' as keyof typeof table] as unknown as SQL<unknown>} > ${currentCursor.factId}`
           )
         }
         if (params.to) {
           conditions.push(
             lte(
+              // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
               table['timestamp' as keyof typeof table] as unknown as PgColumn,
               new Date(params.to.timestamp)
             )
@@ -125,7 +128,9 @@ export function createBackfillService(
             .from(table)
             .where(and(...conditions))
             .orderBy(
+              // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
               asc(table['timestamp' as keyof typeof table] as unknown as PgColumn),
+              // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
               asc(table['id' as keyof typeof table] as unknown as SQL<unknown>)
             )
             .limit(params.batchSize)

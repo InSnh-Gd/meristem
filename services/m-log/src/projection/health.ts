@@ -63,6 +63,7 @@ export function createProjectionHealthService(
             .from(table)
             .where(
               gte(
+                // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
                 table['timestamp' as keyof typeof table] as unknown as SQL<unknown>,
                 new Date(cursor.timestamp)
               )

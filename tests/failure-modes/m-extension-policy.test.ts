@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { mintLocalToken } from '../../packages/auth/src/index.ts'
+import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
 import {
   type ActorId,
   extensionPermission,
@@ -26,9 +26,23 @@ const manifest = {
   controlPlaneOnly: true
 }
 
+function authForSecret(secret: string): MExtensionDeps['auth'] {
+  const verifier = createSharedAuthVerifier({
+    auth: { provider: 'local-dev' },
+    localDev: { jwtSecret: secret }
+  })
+  return {
+    async verify(token) {
+      const verified = await verifier.verify(token)
+      if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+      return { ok: true as const, actor: verified.session.actor.id }
+    }
+  }
+}
+
 function deniedDeps(fullLogs: unknown[]): MExtensionDeps {
   return {
-    jwtSecret: 'm-extension-deny-secret',
+    auth: authForSecret('m-extension-deny-secret'),
     store: createInMemoryExtensionStore(),
     policy: {
       async authorize(_actor: ActorId, _action: Permission, _resource: string) {
@@ -54,7 +68,7 @@ function allowDeps(
   store = createInMemoryExtensionStore()
 ): MExtensionDeps {
   return {
-    jwtSecret: 'm-extension-allow-secret',
+    auth: authForSecret('m-extension-allow-secret'),
     store,
     policy: {
       async authorize() {
@@ -123,7 +137,7 @@ describe('M-Extension failure modes', () => {
     const events: string[] = []
     const store = createInMemoryExtensionStore()
     const app = createMExtensionApp({
-      jwtSecret: 'm-extension-validation-secret',
+      auth: authForSecret('m-extension-validation-secret'),
       store,
       policy: {
         async authorize() {
@@ -354,7 +368,7 @@ describe('M-Extension failure modes', () => {
     const fullLogs: unknown[] = []
     const store = createInMemoryExtensionStore()
     const app = createMExtensionApp({
-      jwtSecret: 'm-extension-event-secret',
+      auth: authForSecret('m-extension-event-secret'),
       store,
       policy: {
         async authorize() {

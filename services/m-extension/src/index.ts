@@ -1,3 +1,5 @@
+import { createSharedAuthVerifier } from '../../../packages/auth/src/index.ts'
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import type { ActorId, Permission } from '../../../packages/contracts/src/index.ts'
 import { mExtensionServiceName } from '../../../packages/contracts/src/types/extension.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
@@ -21,10 +23,22 @@ function requiredJwtSecret(): string {
 }
 
 initTelemetry(mExtensionServiceName)
+const runtimeConfig = await loadRuntimeDeploymentConfigOrThrow()
 const { db, client } = createDb()
+const authVerifier = createSharedAuthVerifier(
+  runtimeConfig.auth.provider === 'local-dev'
+    ? { auth: runtimeConfig.auth, localDev: { jwtSecret: requiredJwtSecret() } }
+    : { auth: runtimeConfig.auth }
+)
 
 const app = createMExtensionApp({
-  jwtSecret: requiredJwtSecret(),
+  auth: {
+    async verify(token: string) {
+      const verified = await authVerifier.verify(token)
+      if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+      return { ok: true as const, actor: verified.session.actor.id }
+    }
+  },
   store: createDbExtensionStore(db),
   policy: {
     async authorize(actor: ActorId, action: Permission, resource: string) {

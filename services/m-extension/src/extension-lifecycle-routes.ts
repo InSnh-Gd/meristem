@@ -39,7 +39,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
     .post(
       mExtensionApiRoutes.register,
       async ({ body, headers }) => {
-        const auth = await requireActor(headers, deps.jwtSecret)
+        const auth = await requireActor(headers, deps.auth)
         return withExtractedSpan(
           mExtensionServiceName,
           `${mExtensionServiceName}.extension.register`,
@@ -105,7 +105,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
     .post(
       mExtensionApiRoutes.enable,
       async ({ body, headers, params }) => {
-        const auth = await requireActor(headers, deps.jwtSecret)
+        const auth = await requireActor(headers, deps.auth)
         return withExtractedSpan(
           mExtensionServiceName,
           `${mExtensionServiceName}.extension.enable`,
@@ -183,7 +183,7 @@ export function createExtensionLifecycleRoutes(deps: MExtensionDeps) {
     .post(
       mExtensionApiRoutes.disable,
       async ({ body, headers, params }) => {
-        const auth = await requireActor(headers, deps.jwtSecret)
+        const auth = await requireActor(headers, deps.auth)
         return withExtractedSpan(
           mExtensionServiceName,
           `${mExtensionServiceName}.extension.disable`,

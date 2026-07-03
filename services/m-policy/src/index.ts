@@ -1,3 +1,5 @@
+import { createSharedAuthVerifier } from '../../../packages/auth/src/index.ts'
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
 import { internalServicePorts, serveHttpApp } from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
@@ -10,10 +12,29 @@ import { summarizePolicyState } from './summary.ts'
 
 initTelemetry('m-policy')
 
+function requiredJwtSecret(): string {
+  const secret = process.env.MERISTEM_JWT_SECRET
+  if (!secret) throw new Error('MERISTEM_JWT_SECRET is required')
+  return secret
+}
+
+const runtimeConfig = await loadRuntimeDeploymentConfigOrThrow()
+const authVerifier = createSharedAuthVerifier(
+  runtimeConfig.auth.provider === 'local-dev'
+    ? { auth: runtimeConfig.auth, localDev: { jwtSecret: requiredJwtSecret() } }
+    : { auth: runtimeConfig.auth }
+)
+
 const { db, client } = createDb()
 const publisher = createPolicyEventPublisher()
 const decisionStore = createPolicyDecisionStore(db, publisher)
-const approvalDeps = createPolicyApprovalDeps(db, publisher, decisionStore)
+const approvalDeps = createPolicyApprovalDeps(db, publisher, decisionStore, {
+  async verify(token: string) {
+    const verified = await authVerifier.verify(token)
+    if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+    return { ok: true as const, actor: verified.session.actor.id }
+  }
+})
 
 const approvalRoutes = createApprovalRoutes(approvalDeps)
 const internalApprovalRoutes = createInternalApprovalRoutes(approvalDeps)

@@ -20,7 +20,11 @@ export type MExtensionPolicyDecision = {
 }
 
 export type MExtensionDeps = {
-  jwtSecret: string
+  auth: {
+    verify(
+      token: string
+    ): Promise<{ ok: true; actor: ActorId } | { ok: false; code: string; message: string }>
+  }
   store: ExtensionStore
   policy: {
     authorize(

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { mintLocalToken, verifyLocalToken } from '../../packages/auth/src/index.ts'
+import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
@@ -10,6 +10,10 @@ import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/
 
 
 const jwtSecret = 'test-jwt-secret'
+const sharedAuthVerifier = createSharedAuthVerifier({
+  auth: { provider: 'local-dev' },
+  localDev: { jwtSecret }
+})
 
 function bearerHeaders(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
@@ -113,7 +117,9 @@ function createTestApp(overrides: {
     },
     auth: {
       async verify(token: string) {
-        return verifyLocalToken({ token, secret: jwtSecret })
+        const verified = await sharedAuthVerifier.verify(token)
+        if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+        return { ok: true as const, actor: verified.session.actor.id }
       }
     }
   })

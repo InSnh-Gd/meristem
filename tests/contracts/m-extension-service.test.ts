@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { mintLocalToken } from '../../packages/auth/src/index.ts'
+import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
 import {
   type ActorId,
   extensionPermission,
@@ -47,9 +47,23 @@ function headers(bearer: string): Record<string, string> {
   return { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' }
 }
 
+function authForSecret(secret: string): MExtensionDeps['auth'] {
+  const verifier = createSharedAuthVerifier({
+    auth: { provider: 'local-dev' },
+    localDev: { jwtSecret: secret }
+  })
+  return {
+    async verify(bearer) {
+      const verified = await verifier.verify(bearer)
+      if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+      return { ok: true as const, actor: verified.session.actor.id }
+    }
+  }
+}
+
 function testDeps(captured: Captured, result: PolicyDecisionResult = 'allow'): MExtensionDeps {
   return {
-    jwtSecret,
+    auth: authForSecret(jwtSecret),
     store: createInMemoryExtensionStore(),
     policy: {
       async authorize(_actor: ActorId, _action: Permission, _resource: string) {

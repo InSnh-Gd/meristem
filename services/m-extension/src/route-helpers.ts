@@ -1,4 +1,4 @@
-import { extractBearerToken, verifyLocalToken } from '../../../packages/auth/src/index.ts'
+import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import { extensionPermission, type Permission } from '../../../packages/contracts/src/literals.ts'
 import type { MExtensionLifecyclePayload } from '../../../packages/contracts/src/types/extension.ts'
 import {
@@ -35,7 +35,7 @@ export function raise(
  */
 export async function requireActor(
   headers: Record<string, string | undefined>,
-  jwtSecret: string
+  auth: MExtensionDeps['auth']
 ): Promise<AuthContext> {
   const correlationId = correlationIdFromHeaders(headers)
   const token = extractBearerToken(headers.authorization)
@@ -46,7 +46,7 @@ export async function requireActor(
       correlationId
     })
 
-  const verified = await verifyLocalToken({ token, secret: jwtSecret })
+  const verified = await auth.verify(token)
   if (!verified.ok)
     throw Object.assign(new Error(verified.message), {
       status: 401,

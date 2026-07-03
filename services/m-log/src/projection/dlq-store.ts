@@ -23,6 +23,7 @@ export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch)
     const factRows = await db
       .select()
       .from(table)
+      // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
       .where(eq(table['id' as keyof typeof table] as unknown as SQL<unknown>, record.factId))
       .limit(1)
     if (factRows.length === 0) return false

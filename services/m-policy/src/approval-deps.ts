@@ -1,4 +1,3 @@
-import { verifyLocalToken } from '../../../packages/auth/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import {
   fetchReadyState,
@@ -14,26 +13,13 @@ import type { PolicyEventPublisher } from './event-publisher.ts'
 export function createPolicyApprovalDeps(
   db: MeristemDb,
   publisher: PolicyEventPublisher,
-  decisionStore: ReturnType<typeof createPolicyDecisionStore>
+  decisionStore: ReturnType<typeof createPolicyDecisionStore>,
+  auth: ApprovalDeps['auth']
 ): ApprovalDeps {
   const approvalStore = createPgApprovalStore(db)
 
   return {
-    auth: {
-      async verify(token) {
-        const secret = process.env.MERISTEM_JWT_SECRET
-        if (!secret) {
-          return {
-            ok: false as const,
-            code: 'auth.unconfigured',
-            message: 'MERISTEM_JWT_SECRET is required'
-          }
-        }
-        const result = await verifyLocalToken({ token, secret })
-        if (!result.ok) return { ok: false as const, code: result.code, message: result.message }
-        return { ok: true as const, actor: result.actor }
-      }
-    },
+    auth,
     approvals: approvalStore,
     log: {
       writeTimeline(input) {
