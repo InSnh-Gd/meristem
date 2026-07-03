@@ -28,7 +28,7 @@ export type BreakGlassDataPlaneDeps = Required<
 export type RelayAssignment = {
   nodeId: string
   relayEndpoint: string
-  relayType: 'wstunnel' | 'direct'
+  relayType: 'direct'
 }
 
 export type EnableDataPlaneSuccess = {
