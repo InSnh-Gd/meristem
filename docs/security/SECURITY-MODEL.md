@@ -450,3 +450,62 @@ The v0.2 SecretProvider foundation defines the following consumer bindings even 
 - one node may have only one active token at a time.
 - `session.resume` re-establishes the active session lease and supersedes the previous live session.
 - runtime token plaintext must never appear in stdout, Timeline, Full Log payloads, Audit payloads, OpenSearch projections, LLM prompts, or error messages.
+
+---
+
+## 9. Production Authority Boundaries
+
+> 本节定义 post-v0.1 生产轨道中各域的 authority 安全边界。完整的 authority matrix 定义在 `docs/data/STATE-MODEL.md §12`。本节只记录安全解释和 fail-closed 规则。
+
+### 9.1 Authority Ownership Rules
+
+每个生产轨道域必须声明其权威源，且不允许跨域写入权威状态：
+
+| 域 | 权威源 | 禁止行为 |
+|---|---|---|
+| Identity | PostgreSQL（local IAM） | Keycloak / 外部 IdP 不得成为授权根；capability domain 服务不得直接读取 Core token 表 |
+| Deployment | Git 仓库 + M-Deploy | M-UI 不得直接写入 live state；M-Deploy 不得拥有 policy 授权 |
+| Network | PostgreSQL（M-Net） | NetBird sidecar 仅作为数据面，不得持有网络生命周期控制；Core/M-Net 不得转发数据包 |
+| Audit | PostgreSQL（审计元数据） + 不可变对象归档（raw evidence） | OpenSearch 不得成为审计权威源；审计不可绕过 |
+| Search | 无（OpenSearch 是投影/辅助） | OpenSearch/Dashboards 不得成为任何域的权威源 |
+| Observability | 无（Prometheus/Grafana/Alertmanager/OTel 是监控栈） | 可观测性数据不得成为业务状态权威 |
+| Secret | Vault HA（secret 值） + PostgreSQL（secretRef 元数据） | Vault sealed 时不得降级到本地存储或返回明文 secret |
+| Desired State | Git commit/digest + M-Deploy 签名 envelope | 未签名或签名验证失败的 desired-state 不得 reconcile |
+| Evidence | 分层: PostgreSQL（元数据） → 不可变对象归档（raw blob） → OpenSearch（查询投影） | OpenSearch 作为 evidence 查询投影，不是权威源 |
+
+### 9.2 Fail-Closed Hierarchy
+
+生产轨道 fail-closed 优先级从高到低：
+
+1. **Audit**（最高优先级）：审计写入失败时所有高风险操作 fail-closed。审计日志禁用仅限紧急恢复，且强制 Audit。
+2. **Control**：控制操作（identity、network、deployment、secret、desired-state）在权威存储不可用时 fail-closed。
+3. **Secret**：Vault sealed/不可达时 fail-closed，禁止降级。
+4. **Search / Observability**（最低优先级）：可降级，不影响控制操作。
+
+### 9.3 M-Deploy Authority Constraints
+
+M-Deploy 是 desired-state 的 reconcile 执行者，受以下安全约束：
+
+- M-Deploy 对 desired-state envelope 进行签名验证；签名验证失败必须阻塞 reconcile。
+- M-Deploy 不得绕过 M-Policy 做授权决策；所有 deploy 触发需通过 Core 边界。
+- M-Deploy 记录所有 reconcile 操作的 evidence，且 evidence 本身不可变。
+- M-Deploy 不得修改 Git 仓库中的 desired-state 定义文件（只 pull，不 push）。
+
+### 9.4 M-UI / BFF Authority Boundaries
+
+M-UI 和 M-UI BFF 的安全边界保持现有 `§2` 和 M-UI BFF 服务定义中的规则：
+
+- M-UI → M-UI BFF → Core public facade → M-* 服务数据流不得被绕过。
+- M-UI BFF 不拥有最终事实、最终授权、最终策略决策。
+- BFF 不缓存 Core 数据跨请求。
+- BFF 不创建审计事实。
+- BFF 调用仅限于 Core public REST 边界，不访问任何服务的 `/internal/v0/*` 路由。
+
+### 9.5 OpenSearch / Dashboards Classification
+
+OpenSearch 和 OpenSearch Dashboards 在 authority matrix 中分类为：
+
+- **投影/辅助系统**：不是任何域的权威源。
+- **搜索可降级**：不可达时不影响控制操作。
+- **审计投影只读**：审计查询投影使用 OpenSearch，但 PostgreSQL 是权威审计元数据存储。
+- **不参与 fail-closed 决策**：OpenSearch 不可达不触发任何控制路径的 fail-closed 行为。

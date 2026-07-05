@@ -255,7 +255,45 @@ endpoint unreachable and no direct path exists between peers.
 
 ---
 
-### 2.10 M-UI Disabled Repair State
+### 2.10 Sidecar Proof Gate Failure (Typed Fallback)
+
+**Trigger:** `bun run mnet:v02:sidecar-proof` exits nonzero in the target
+environment. Causes include: NetBird client binary missing, setup key
+unavailable, Management dependency detected (`unsupported_management_dependency`),
+peer establishment failure, or clean stop failure.
+
+**Behavior:**
+- Proof gate reports typed failure reason and exits nonzero.
+- Deployment must not proceed with `netbird-sidecar` transport until the
+  gate passes.
+- Operator selects the typed fallback transport `wireguard-rendered`
+  (`MNetNodeRuntimeProfileSchema.transport`).
+- M-Net control plane renders WireGuard peer configs directly; node-agent
+  manages the local `wg` interface without NetBird client sidecar.
+- NetBird Signal / Relay / STUN infrastructure may remain deployed (managed
+  by NixOS/systemd) for future proof gate retry; they do not carry Management
+  semantics and are harmless when idle.
+- Profile schema (`m-net@0.3.0` / `m-net-cn@0.3.0`) is unchanged; only the
+  `transport` field on node runtime records differs.
+
+**Runtime code:** `wireguard-rendered` (transport literal in `MNetNodeRuntimeProfileSchema`)
+
+**Recovery:**
+1. Review proof gate output for the specific failure reason.
+2. For missing binary: install NetBird client per §2.5 recovery.
+3. For `unsupported_management_dependency`: remove Management/Dashboard/ACL
+   fields from NetBird config; Meristem owns those semantics.
+4. For peer establishment failure: verify Signal / Relay / STUN infrastructure.
+5. Retry proof gate after remediation.
+6. If proof gate passes, switch transport back to `netbird-sidecar`.
+
+**Contract:** ADR-N04 §5 (Proof Gate), §6 (Typed Fallback)
+
+**Test:** `bun run mnet:v02:sidecar-proof` (live gate, not CI-mocked)
+
+---
+
+### 2.11 M-UI Disabled Repair State
 
 **Trigger:** Viewer or unauthorized actor checks command eligibility for a
 high-risk action (break-glass, profile enable, migration apply, node disable).

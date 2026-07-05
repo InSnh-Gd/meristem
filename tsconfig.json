@@ -12,6 +12,7 @@
     "tests/integration/**/*.ts",
     "tests/ui-contract/**/*.ts",
     "tests/helpers/**/*.ts",
-    "tests/perf/**/*.ts"
+    "tests/perf/**/*.ts",
+    "tests/guards/**/*.ts"
   ]
 }

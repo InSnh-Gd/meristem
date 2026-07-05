@@ -296,14 +296,14 @@ The commands above are mandatory because the private-material scanner and expire
 
 ### 5.2 M-Net v0.2 Runtime Failure Matrix
 
-The runtime failure matrix documents 10 failure classes for the v0.2 NetBird data-plane track. Each class maps to an automated test or documented gap. The matrix is generated and verified by a dedicated test:
+The runtime failure matrix documents 11 failure classes for the v0.2 NetBird data-plane track. Each class maps to an automated test or documented gap. The matrix is generated and verified by a dedicated test:
 
 ```bash
 bun test tests/failure-modes/runtime-failure-matrix.test.ts
 ```
 
 This test:
-- Defines all 10 classes with runtime codes, test coverage, and recovery paths.
+- Defines all 11 classes with runtime codes, test coverage, and recovery paths.
 - Generates `tests/evidence/runtime-failure-matrix.json` with the full matrix.
 - Verifies every class has a covering test or an explicit documented gap reason.
 - Provides inline unit tests for the typed failure paths of NetBird binary missing, start failure, and probe failure (classes 5-7) where real OS-level process management is not available in CI.
@@ -314,12 +314,15 @@ This test:
 | 2. Invalid token | `bad_issuer` / `bad_audience` / `expired_token` / `invalid_token` | `auth-shared-verifier.failure-mode.test.ts`, `auth-shared-verifier.contract.test.ts` | Covered |
 | 3. SecretProvider missing | `secret_missing` / `core.secret_startup_failed` | `secret-provider.failure-mode.test.ts`, `node-agent-sidecar-lifecycle.failure-mode.test.ts` | Covered |
 | 4. SecretProvider denied | `permission_denied` | `secret-provider.failure-mode.test.ts` | Covered |
-| 5. NetBird client missing | `netbird.binary.invalid` | `runtime-failure-matrix.test.ts` (inline), `mnet-v02:sidecar-proof` | Gap: binary not in CI |
+| 5. NetBird client missing | `netbird.binary.invalid` | `runtime-failure-matrix.test.ts` (inline), `mnet-v02:sidecar-proof` (live gate) | Gap: binary not in CI |
 | 6. NetBird start failure | `netbird.start_failed` | `runtime-failure-matrix.test.ts` (inline) | Gap: real spawn not in CI |
 | 7. NetBird probe failure | `netbird.process.not_running` / `netbird.<reason>` | `node-agent-sidecar.test.ts`, `runtime-failure-matrix.test.ts` (inline) | Covered |
 | 8. Packet reachability failure | `relay.unavailable` | `mnet-dataplane-security-hardening.test.ts` | Covered |
 | 9. Expired map | `network_map.stale` / `network_map.expired` | `mnet-dataplane-security-hardening.test.ts` | Covered |
-| 10. M-UI disabled repair | `disabled` / `command.invalid_body` / `feature.unavailable` | `m-ui-bff-mnet-commands.test.ts` | Covered |
+| 10. Sidecar proof gate failure | `wireguard-rendered` (typed fallback transport) | `bun run mnet:v02:sidecar-proof` (live gate), ADR-N04 §5-§6 | Gap: live-only gate |
+| 11. M-UI disabled repair | `disabled` / `command.invalid_body` / `feature.unavailable` | `m-ui-bff-mnet-commands.test.ts` | Covered |
+
+**Sidecar proof gate note:** `bun run mnet:v02:sidecar-proof` is a live-environment viability gate (ADR-N04 §5). It must not be mocked to pass in CI. CI coverage is limited to typed failure paths. If the proof gate exits nonzero, the typed fallback transport is `wireguard-rendered` (ADR-N04 §6). See `docs/runbooks/MNET-V02-RUNBOOK.md §2.10` for the full proof-gate failure recovery path.
 
 See `docs/runbooks/MNET-V02-RUNBOOK.md` for full recovery paths and diagnostic commands for each class.
 
@@ -481,3 +484,193 @@ Performance tests must remain stable across runs. The `test:perf:stable` command
 - ✗ CV ≥ 15% — unstable, requires investigation
 
 Results are not required for CI gates but must be verified before performance-sensitive changes to contract schemas, policy decisions, or state machine transitions.
+
+---
+
+## 9. 生产轨道证据包（Production Evidence Packs）
+
+> 本节定义 post-v0.1 生产轨道的测试证据包标准。每个证据包将生产域场景映射到现有 Bun 测试门禁，并强制标准化的证据产物路径和命名规则。
+>
+> 生产轨道范围由 `MERISTEM-ROADMAP.md §7` 正式授权，通过 `DEFERRED-WORK.md`（DFW-027、DFW-028）重新打开。
+
+### 9.1 证据产物标准（Evidence Artifact Standards）
+
+#### 9.1.1 命名规则
+
+- **产物目录**：`tests/evidence/` — 生产测试证据产物的唯一存放位置。该目录已加入 `.gitignore`，产物不进入版本控制。
+- **文件命名**：`<feature>-<scenario>.<ext>` — 描述特性和场景，禁止使用任务编号前缀。示例：
+  ```
+  tests/evidence/iam-disabled-oidc-denial.txt
+  tests/evidence/mnet-join-approval-lifecycle.json
+  tests/evidence/m-deploy-rollout-drift.json
+  tests/evidence/observability-alert-rules.json
+  tests/evidence/vault-sealed-recovery.json
+  tests/evidence/opensearch-outage-auth-safe.txt
+  tests/evidence/podman-runtime-proof.txt
+  ```
+- **禁止**：
+  - 任务编号前缀证据名（如 `t1-*`、`T1-*`、`task-1-*`、`Task-1-*`）。
+  - 内部编排路径引用（参见 `AGENTS.md` 内部编排目录隔离约束）。
+  - 硬编码绝对路径。
+  - 计划内部标识符（plan-internal identifiers）。
+
+#### 9.1.2 测试代码规则
+
+- 测试代码必须从 `import.meta.dir` 相对拼接或 `mkdtemp` 派生证据路径，不得硬编码绝对路径或内部编排路径。
+- 示例（正确）：
+  ```typescript
+  import { join } from "node:path";
+  const evidenceDir = join(import.meta.dir, "..", "evidence");
+  const outputPath = join(evidenceDir, "iam-oidc-login-success.json");
+  ```
+- 示例（正确，临时目录）：
+  ```typescript
+  import { mkdtempSync } from "node:fs";
+  import { tmpdir } from "node:os";
+  const tmpDir = mkdtempSync(join(tmpdir(), "meristem-evidence-"));
+  ```
+
+#### 9.1.3 文档引用规则
+
+- 文档只引用命令，不引用证据输出路径。
+- 示例（正确）：写 `bun run mnet:harness:preflight`
+- 示例（错误）：写 `bun run mnet:harness:preflight > <内部编排路径>/evidence/proof.json`
+- 契约测试断言不得断言文档中包含特定证据文件路径。
+
+### 9.2 证据包定义（Evidence Pack Definitions）
+
+#### 9.2.1 IAM / 登录证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| OIDC 登录成功 | 合法 issuer+subject，token 验证通过，session 签发 | `iam-oidc-login-success.json` | `test:e2e`、`test:contracts` |
+| OIDC 登录失败 | 错误 issuer、错误 audience、过期 token、无效签名 | `iam-oidc-login-failure.txt` | `test:failure-modes`、`test:contracts` |
+| JIT pending principal | 首次 OIDC 登录自动创建 pending 状态 principal，不可执行操作 | `iam-jit-pending-principal.json` | `test:failure-modes`、`test:e2e` |
+| BFF session 管理 | HttpOnly、Secure、SameSite=Strict session cookie，前端不接触 token | `iam-bff-session-management.json` | `test:e2e`、`test:contracts` |
+| Break-glass 紧急访问 | 双人 30 分钟 TTL break-glass，M-Policy multi-approval | `iam-break-glass-access.json` | `test:failure-modes`、`test:e2e` |
+
+专用命令门禁：
+
+```bash
+bun run test:failure-modes
+bun run test:e2e
+bun run test:contracts
+```
+
+#### 9.2.2 M-Net 生命周期证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Profile join approval | 加入审批通过/拒绝、审批链完整 | `mnet-join-approval-lifecycle.json` | `test:failure-modes`、`test:e2e` |
+| Credential rotate/revoke | 凭证轮换和撤销，旧凭证立即失效 | `mnet-credential-rotate-revoke.json` | `test:failure-modes`、`test:contracts` |
+| Forced relay | 强制中继路径，relay 不可用时的降级行为 | `mnet-forced-relay-degraded.txt` | `test:failure-modes` |
+| Sidecar degraded | NetBird sidecar 异常、crash、restart 行为 | `mnet-sidecar-degraded-state.json` | `test:failure-modes` |
+| Break-glass network | 网络 break-glass 路径，双人审批 | `mnet-break-glass-network.json` | `test:failure-modes`、`test:e2e` |
+
+专用命令门禁：
+
+```bash
+bun run test:failure-modes
+bun run test:e2e
+bun run test:contracts
+bun run mnet:harness:preflight
+```
+
+#### 9.2.3 M-Deploy 发布 / 回滚证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Signed desired-state | 签名 desired-state 拉取、校验、reconcile | `m-deploy-reconcile-success.json` | `test:e2e`、`test:contracts` |
+| Drift detection | desired-state 与实际状态漂移检测 | `m-deploy-drift-detection.json` | `test:failure-modes` |
+| Rollback | 发布失败后的自动或手动回滚 | `m-deploy-rollback-on-failure.json` | `test:failure-modes`、`test:e2e` |
+| Agent disconnected | 部署 agent 断开连接时的行为 | `m-deploy-agent-disconnected.txt` | `test:failure-modes` |
+
+专用命令门禁：
+
+```bash
+bun run test:failure-modes
+bun run test:e2e
+bun run test:contracts
+```
+
+#### 9.2.4 可观测性 / 故障转移证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Alert rules | Prometheus alert rules 验证，阈值触发 | `observability-alert-rules.json` | `test:contracts` |
+| Failover behavior | 控制平面节点故障转移，Raft 共识恢复 | `observability-failover-behavior.json` | `test:failure-modes`、`test:integration` |
+| Degraded states | 降级状态可见性：OpenTelemetry traces + Grafana dashboards | `observability-degraded-states.json` | `test:failure-modes` |
+
+专用命令门禁：
+
+```bash
+bun run test:failure-modes
+bun run test:integration
+bun run test:contracts
+```
+
+#### 9.2.5 Vault 恢复证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Sealed state | Vault sealed 状态，SecretProvider v0.2 fail-closed | `vault-sealed-recovery.json` | `test:failure-modes` |
+| Key rotation | Vault 密钥轮换，SecretRef rotation 联动 | `vault-key-rotation.json` | `test:integration` |
+| Restore | Vault 备份恢复，Raft snapshot restore | `vault-restore-from-backup.json` | `test:failure-modes` |
+
+专用命令门禁：
+
+```bash
+bun run test:failure-modes
+bun run test:integration
+```
+
+#### 9.2.6 OpenSearch 降级证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Outage authority-safe | OpenSearch 不可达时权威写操作不受影响 | `opensearch-outage-auth-safe.txt` | `test:opensearch-failure-modes` |
+| Snapshot rebuild | OpenSearch 快照重建，索引恢复 | `opensearch-snapshot-rebuild.json` | `test:opensearch-contracts` |
+| Degradation visibility | 搜索降级可见性，operator 可感知降级状态 | `opensearch-degradation-visibility.txt` | `test:opensearch-failure-modes` |
+
+专用命令门禁：
+
+```bash
+bun run test:opensearch-failure-modes
+bun run test:opensearch-contracts
+bun run test:opensearch-integration
+```
+
+#### 9.2.7 运行时兼容性证据包
+
+| 场景 | 描述 | 产物示例 | 测试门禁 |
+|------|------|----------|----------|
+| Podman proof | Podman 容器运行时兼容性证明 | `podman-runtime-proof.txt` | `test:real-env` |
+| Docker compatibility | Docker Compose 兼容性验证 | `docker-compose-compatibility.txt` | `test:integration` |
+| Rootless execution | Podman rootless 运行验证 | `rootless-execution-proof.txt` | `test:real-env` |
+
+专用命令门禁：
+
+```bash
+bun run test:real-env
+bun run test:integration
+docker compose config
+docker compose --profile opensearch config
+```
+
+### 9.3 证据包守卫规则（Evidence Pack Guard Rules）
+
+以下守卫规则通过 `tests/guards/evidence-paths.test.ts` 强制执行：
+
+| 规则 | 检查范围 | 要求 |
+|------|----------|------|
+| 无内部编排路径引用 | `docs/`、`tests/`、`services/`、`packages/`、`apps/`（排除内部编排目录和 `.gitignore`） | 任何文件中不得出现内部编排路径字符串。内部编排目录路径格式参见 `AGENTS.md` 约束条款 |
+| 无任务编号前缀证据名 | `docs/`、`tests/` | 证据文件引用不得使用 `evidence/<tN->`、`evidence/<task-N->` 等任务编号前缀 |
+| 测试代码路径派生 | 测试代码 | 证据路径必须从 `import.meta.dir` 或 `mkdtemp` 派生，不得硬编码绝对路径 |
+
+守卫命令：
+
+```bash
+bun test tests/guards/evidence-paths.test.ts
+```
+
+此守卫是独立门禁，不并入 `test:agent-submit`。生产轨道实现任务（T7-T30）必须在提交前确保此守卫通过。
