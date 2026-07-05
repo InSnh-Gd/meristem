@@ -261,3 +261,44 @@ Authority matrix 中各域的契约版本受 `docs/contracts/CONTRACT-VERSIONING
 - 权威源变更（如从 PostgreSQL 迁移到新存储后端）属于 breaking change，需要新的大版本契约。
 - 读模型/投影格式变更属于 non-breaking change，可增量 schema minor version。
 - OpenSearch projection shape 不得成为契约权威。
+
+---
+
+## 13. Production Bootstrap / DR Restore Semantics
+
+生产 bootstrap 和 disaster-recovery restore 必须遵守 authority matrix，不允许恢复顺序临时改变事实源。
+
+### 13.1 Restore Authority Order
+
+| Order | Subsystem | State Class | Restore Semantics |
+|---:|---|---|---|
+| 1 | PostgreSQL | Authoritative State / Log Facts metadata | 先恢复 identity、policy、node、config、secretRef metadata、deployment metadata、audit metadata 和 evidence metadata；PITR 后才能恢复依赖它的 projection。 |
+| 2 | Vault | Secret backend | 在 PostgreSQL secretRef metadata 可读后恢复 secret values；校验 provider、keyPath、version 与 metadata 对齐。Vault sealed 时 secret path fail-closed。 |
+| 3 | Keycloak | External authentication provider | 恢复 OIDC provider config；client secret / JWKS material 从 Vault reload；不得覆盖 PostgreSQL local IAM authority。 |
+| 4 | NATS / JetStream | Event State | 恢复 stream 后从 PostgreSQL event store / transition tables replay 必需事件；事件不得覆盖 authoritative rows。 |
+| 5 | M-Deploy desired-state | Desired State authority | 重新 clone Git，验证 signed envelope、commit digest、rollback pointer；agent reconnect 后才允许 reconcile。 |
+| 6 | Registry | Deployment artifact trust | 验证 image signature 与 digest pin；mutable tag 不能作为恢复事实。 |
+| 7 | OpenSearch | Read Model / Projection | 从 snapshot 恢复后以 PostgreSQL / M-Log 为权威 rebuild projection；查询 degraded 不影响控制操作。 |
+| 8 | Redis / NATS KV cache | Cache State | cold start 或 rebuild；不得恢复为任何 authoritative state。 |
+
+### 13.2 RPO / RTO State Responsibilities
+
+| Subsystem | RPO | RTO | State Responsibility |
+|---|---:|---:|---|
+| PostgreSQL | 15m | 30m | authoritative write model、audit/evidence metadata、policy/identity/config/node/deployment metadata |
+| Vault | 0 | 15m | secret values；Raft recovery + unseal 后才能服务 SecretProvider |
+| NATS / JetStream | 0 | 15m | event delivery and replay transport；不作为 authority |
+| Redis | best-effort | 15m | optional cache only；丢失后从 authority rebuild |
+| OpenSearch | 1h | 2h | projection / auxiliary search；degradable |
+| Keycloak | 15m | 30m | OIDC authentication provider config；authorization 仍在 PostgreSQL local IAM |
+| M-Deploy desired-state | 0 | 15m | Git commit/digest + signed envelope；last successful snapshot 只能在 TTL 内使用 |
+| Audit / evidence | 0 | 30m | PostgreSQL synchronous audit metadata + immutable raw evidence pointer |
+
+### 13.3 Degraded Minimum State
+
+- **IdP unavailable**：BFF session 和 OIDC login degraded；local IAM + M-Policy 可签发 30m TTL break-glass token，双人 approval，强制 Audit。
+- **Vault sealed**：SecretProvider 返回 typed failure；secret 操作和新部署 fail-closed；已运行服务只可使用未过期 cached secret。
+- **M-Net degraded**：不允许新 node join；signed map 在 TTL 内可继续使用，过期后 fail-closed；M-UI 必须显示 degraded。
+- **M-Deploy agent disconnected**：保留 last-known state；drift reporting 暂停；禁止新的 desired-state apply。
+- **Git desired-state unavailable**：last successful sync snapshot 只能做只读展示或 TTL 内恢复参考；超过 TTL 拒绝 reconcile。
+- **OpenSearch degraded**：查询降级；control、Audit、Secret、Desired State 不依赖 OpenSearch。

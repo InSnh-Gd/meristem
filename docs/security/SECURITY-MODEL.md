@@ -80,6 +80,13 @@ MVP uses a narrower permission set than the long-term baseline:
 | `network:profile-read` | no | yes | yes | yes |
 | `network:profile-enable` | no | no | yes | yes |
 | `network:profile-disable` | no | no | yes | yes |
+| `deploy:desired-state-read` | no | yes | yes | yes |
+| `deploy:desired-state-propose` | no | no | yes | yes |
+| `deploy:desired-state-approve` | no | no | no | yes |
+| `deploy:desired-state-apply` | no | no | no | yes |
+| `deploy:desired-state-rollback` | no | no | no | yes |
+| `deploy:drift-read` | no | yes | yes | yes |
+| `deploy:evidence-read` | no | yes | yes | yes |
 | `node:switch-role` | no | no | yes | yes |
 | `node:disable` | no | no | yes | yes |
 | `node:isolate` | no | no | yes | yes |
@@ -239,6 +246,11 @@ MVP protected operations:
 | list / view network profile definitions | operator | none |
 | enable M-Net CN on a network | admin / security-admin | required (suspended operation + approval) |
 | disable M-Net CN on a network | admin / security-admin | required before execution |
+| propose M-Deploy desired-state change | admin / security-admin | required before proposal persistence |
+| approve M-Deploy desired-state proposal | security-admin | required; proposer cannot self-approve |
+| apply M-Deploy desired-state digest | security-admin + two-person approval | required before execution and after result |
+| rollback M-Deploy desired-state digest | security-admin + separate policy decision | required before execution and after result |
+| read M-Deploy drift / evidence metadata | operator | none unless denied access is audit-worthy by policy |
 | disable a node | admin / security-admin | required before state change |
 | isolate a node | admin / security-admin | required before state change |
 | recover a node from administrative state | admin / security-admin | required before state change |
@@ -490,6 +502,22 @@ M-Deploy 是 desired-state 的 reconcile 执行者，受以下安全约束：
 - M-Deploy 不得绕过 M-Policy 做授权决策；所有 deploy 触发需通过 Core 边界。
 - M-Deploy 记录所有 reconcile 操作的 evidence，且 evidence 本身不可变。
 - M-Deploy 不得修改 Git 仓库中的 desired-state 定义文件（只 pull，不 push）。
+- M-Deploy 正常路径禁止 controller SSH push；部署 agent 只能通过 pull-reconcile 获取已签名 desired-state，并在本地验证签名后执行运行时动作。
+- M-Deploy 不拥有 identity、policy decision、network authority、source authoring truth 或 general SSH remote control。
+- `deploy:desired-state-propose`、`deploy:desired-state-approve`、`deploy:desired-state-apply`、`deploy:desired-state-rollback` 是高风险或关键操作，必须走 Core + M-Policy + Audit；生产 rollout apply 需要双人 approval，原 proposer 不能批准自己的 proposal。
+- `deploy:drift-read` 和 `deploy:evidence-read` 是只读权限，但返回内容必须去除 plaintext secret、token、host-local secret path、raw private key 和 unrestricted command output。
+
+### 9.3.1 M-Deploy Permission Vocabulary
+
+| Permission | Purpose | Risk | Required Control |
+|------------|---------|------|------------------|
+| `deploy:desired-state-read` | 读取 desired-state sync status、proposal、apply status、rollback pointer 和 agent 摘要 | medium | Core auth + M-Policy read allow |
+| `deploy:desired-state-propose` | 通过 Git ref/digest 提议 desired-state 变更，不直接写 Git | high | M-Policy allow + Audit before persistence |
+| `deploy:desired-state-approve` | 通过 Core/M-Policy 批准 desired-state proposal | high | security-admin；禁止 self-approval；写 Audit |
+| `deploy:desired-state-apply` | 将已批准且签名验证通过的 desired-state digest 应用到 VM runtime | critical | 两人 approval + Audit + evidence before/after execution |
+| `deploy:desired-state-rollback` | 恢复 previous verified digest / runtime artifact combination | critical | 独立 policy decision + Audit + rollback evidence |
+| `deploy:drift-read` | 读取或触发 drift scan；不得修改 live state | medium | read permission + redaction |
+| `deploy:evidence-read` | 读取 evidence metadata 和 immutable evidence reference | medium | read permission + redaction；raw blob access 另受 Audit/evidence policy 约束 |
 
 ### 9.4 M-UI / BFF Authority Boundaries
 
@@ -509,3 +537,20 @@ OpenSearch 和 OpenSearch Dashboards 在 authority matrix 中分类为：
 - **搜索可降级**：不可达时不影响控制操作。
 - **审计投影只读**：审计查询投影使用 OpenSearch，但 PostgreSQL 是权威审计元数据存储。
 - **不参与 fail-closed 决策**：OpenSearch 不可达不触发任何控制路径的 fail-closed 行为。
+
+---
+
+## 10. Bootstrap / DR Trust Chain Security Contract
+
+生产 bootstrap 与灾备恢复的安全边界由 `docs/operations/RUNBOOK.md §8` 承载；本节定义安全解释：
+
+- Root-of-trust custody 使用 offline root CA / root key ceremony。Root key material 必须离线保存并由多名 security-admin 分离保管；Meristem 仓库只允许保存 custody policy、public certificate、key ID、fingerprint 和 evidence digest。
+- Internal PKI 必须从 offline root 签发 intermediate CA，再由 intermediate CA 签发 service、mTLS、M-Deploy controller 和 M-Deploy agent identity certificate。Root CA 不直接签发运行时 workload certificate。
+- Vault HA 默认使用 Integrated Storage / Raft。libvirt validation fixture 使用人工 Shamir unseal ceremony；除非同一变更引入 self-hosted auto-unseal 机制，否则不得要求 cloud KMS。
+- Unseal shard、Vault root token、AppRole secret、registry credential、OIDC client secret、NetBird credential 和 node runtime credential 不得进入 Git、测试夹具、example config、日志、evidence、OpenSearch projection、M-UI payload 或 error envelope。
+- Secret-zero handoff 只能用于初始化 Vault policy、workload identity、最小 SecretProvider credential 和 M-Deploy bootstrap identity；初始化完成后 root token 必须撤销或封存。
+- Break-glass 在 IdP unavailable 或控制面恢复场景中仍必须经过 local IAM + M-Policy two-person approval，TTL 30 分钟，并写 Audit。Break-glass 不得绕过 Audit，也不得授予读取 plaintext secret 的默认权力。
+- Vault sealed 时 secret operation fail-closed：禁止 secret create / rotate / read、禁止新部署读取 secret，禁止降级到本地明文存储。已运行服务只可使用未过期 cached secret；缓存过期后返回 `stale_secret`。
+- Git desired-state 与 registry trust 是部署授权链的一部分：M-Deploy 必须验证 signed envelope、digest pin、rollback pointer、image signature 和 image digest；验证失败阻塞 reconcile 并写 Audit。
+- PostgreSQL authority 必须先于 OpenSearch projection 恢复；OpenSearch 不得作为审计、identity、secretRef、desired-state 或 deployment 的事实源。
+- Keycloak 只恢复 OIDC authentication provider config；本地 IAM / PostgreSQL 仍是 identity authorization authority。Keycloak client secret 和 JWKS material 必须从 Vault reload。

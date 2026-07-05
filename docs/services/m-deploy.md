@@ -1,0 +1,237 @@
+# M-Deploy Service Definition
+
+## 1. Identity
+
+| Field | Value |
+|-------|-------|
+| name | `m-deploy` |
+| version | `0.1.0` |
+| domain | `m-deploy` |
+| kind | `internal` |
+| owner | Meristem deployment maintainers |
+
+---
+
+## 2. Responsibility
+
+M-Deploy owns GitOps pull-reconcile deployment control for the production track. Git is the desired-state source of truth; M-Deploy validates signed desired-state envelopes, reconciles approved state onto VM runtimes through enrolled agents, and emits audit/evidence facts for every deployment operation.
+
+What this service owns:
+
+- desired-state metadata imported from Git commit/digest pointers, including signed envelope verification result, source repository, branch, path, commit hash, content hash, and sync timestamp
+- reconcile operation state, including proposal linkage, approval linkage, selected runtime driver, target topology, apply status, and last successful digest
+- drift reports comparing signed desired-state, IaC/runtime state, and agent-reported host/container state
+- evidence metadata for apply, rollback, drift, signature verification, runtime driver output, and agent acknowledgements
+- agent enrollment records for deployment agents, heartbeat timestamps, supported driver capabilities, and last-known runtime state
+- deployment rollback pointers to previously verified digest/image/runtime artifact combinations
+- controller-side scheduling of approved apply and rollback operations
+- publication of M-Deploy subjects listed in `docs/events/EVENT-CATALOG.md`
+
+What this service must not own:
+
+- identity, actor lifecycle, OIDC/JWT verification, token issuance, or role assignment; Core and the identity boundary remain authoritative
+- policy decisions, approval quorum, or final authorization; M-Policy owns decisions and approval lifecycle
+- network authority, node membership, topology ACL intent, relay selection, or packet movement; M-Net and node-agent sidecars own those boundaries
+- source authoring truth; M-Deploy must not edit or push desired-state files to Git
+- general SSH remote control, shell command dispatch, or ad hoc host administration
+- controller SSH push deployment; the normal path forbids controller-initiated SSH push and uses agent pull-reconcile only
+- live state writes initiated directly by M-UI or M-UI BFF; UI requests flow through M-UI → M-UI BFF → Core public facade → M-Deploy
+- raw secret values; deployment secrets cross the boundary only as `SecretRef` / SecretProvider references
+- Audit Log authority or immutable raw evidence storage authority; M-Log owns audit/evidence fact storage and object archive integration
+- OpenTofu/Terraform state as business authority; IaC state is a deployment read model/snapshot, not the desired-state source
+
+Current production-track scope:
+
+- first runtime target is fixed VM topology using Podman-first / Docker-compatible compose drivers
+- OpenTofu/Terraform support is a provider-neutral IaC fixture for topology provisioning and state comparison
+- Kubernetes, Helm, service mesh, controller SSH push, and broad remote execution are excluded
+- M-Deploy service definition is documentation-only until the M-Deploy implementation track opens
+
+---
+
+## 3. Contracts
+
+| Contract | Path / Subject | Version | Notes |
+|----------|----------------|---------|-------|
+| REST | `/api/v0/deploy/desired-state`, `/api/v0/deploy/proposals*`, `/api/v0/deploy/apply`, `/api/v0/deploy/rollback`, `/api/v0/deploy/drift`, `/api/v0/deploy/evidence*`, `/api/v0/deploy/agents*` | `v0` | Core public facade exposes operator-facing routes; high-risk mutations require M-Policy and Audit |
+| REST / internal HTTP | `/internal/v0/deploy/proposals`, `/internal/v0/deploy/approvals/:id/resume`, `/internal/v0/deploy/apply`, `/internal/v0/deploy/rollback`, `/internal/v0/deploy/drift`, `/internal/v0/deploy/evidence`, `/internal/v0/deploy/agents/:id/heartbeat` | `v0` | loopback-only service API consumed by Core, M-Policy resume callbacks, and enrolled deployment agents |
+| Eden | `@meristem/contracts/mdeploy` | `0.1.0` | planned typed internal client for Core → M-Deploy and agent-control calls |
+| Events | `mdeploy.proposal.created.v0`, `mdeploy.approval.recorded.v0`, `mdeploy.apply.started.v0`, `mdeploy.apply.succeeded.v0`, `mdeploy.apply.failed.v0`, `mdeploy.rollback.*.v0`, `mdeploy.drift.detected.v0`, `mdeploy.agent.heartbeat.v0`, `mdeploy.evidence.emitted.v0` | `v0` | draft subjects are registered in `docs/events/EVENT-CATALOG.md`; payload schemas must land before implementation |
+
+Planned public API surface:
+
+| Method | Path | Permission | Purpose |
+|--------|------|------------|---------|
+| `GET` | `/api/v0/deploy/desired-state` | `deploy:desired-state-read` | read latest Git sync status, verified digest, stale status, and last successful digest |
+| `POST` | `/api/v0/deploy/proposals` | `deploy:desired-state-propose` | propose a desired-state change by Git ref/digest without editing Git |
+| `GET` | `/api/v0/deploy/proposals/:id` | `deploy:desired-state-read` | read proposal, policy, audit, apply, and evidence linkage |
+| `POST` | `/api/v0/deploy/proposals/:id/approve` | `deploy:desired-state-approve` | request/record approval through Core/M-Policy; M-Deploy does not decide quorum |
+| `POST` | `/api/v0/deploy/apply` | `deploy:desired-state-apply` | apply an approved signed desired-state digest through pull-reconcile |
+| `POST` | `/api/v0/deploy/rollback` | `deploy:desired-state-rollback` | restore previous verified digest/runtime artifact combination |
+| `GET` | `/api/v0/deploy/drift` | `deploy:drift-read` | read current and historical drift reports |
+| `POST` | `/api/v0/deploy/drift/check` | `deploy:drift-read` | request an explicit drift scan; mutation of live state is forbidden |
+| `GET` | `/api/v0/deploy/evidence` | `deploy:evidence-read` | list evidence metadata by operation, digest, node, or correlation ID |
+| `GET` | `/api/v0/deploy/agents` | `deploy:desired-state-read` | list enrolled deployment agents and heartbeat status |
+
+Planned internal and agent API surface:
+
+- Core calls internal M-Deploy routes with `x-meristem-internal-token`; external actors never call `/internal/v0/*` directly.
+- M-Policy approval callbacks resume suspended M-Deploy operations by operation ID and policy decision ID.
+- Deployment agents enroll with signed agent identity material, pull signed desired-state envelopes, verify envelope signatures locally before runtime action, and emit heartbeat / apply / evidence acknowledgements.
+- Agent heartbeat carries only deployment health, supported driver capabilities, last-known digest, runtime status, and correlation IDs; it must not carry plaintext secrets or host-local command output.
+
+---
+
+## 4. Permissions
+
+| Permission | Required For | Risk |
+|------------|--------------|------|
+| `deploy:desired-state-read` | read desired-state sync status, proposals, apply status, rollback pointers, and agent summaries | medium |
+| `deploy:desired-state-propose` | create a proposed desired-state change by Git ref/digest | high |
+| `deploy:desired-state-approve` | approve or request approval for a desired-state proposal through Core/M-Policy | high |
+| `deploy:desired-state-apply` | apply an approved signed desired-state digest to VM runtime state | critical |
+| `deploy:desired-state-rollback` | restore a previous verified digest/runtime artifact combination | critical |
+| `deploy:drift-read` | read or trigger drift detection without mutating live state | medium |
+| `deploy:evidence-read` | read deployment evidence metadata and immutable evidence references | medium |
+
+High-risk markings:
+
+- propose, approve, apply, and rollback are protected operations and must be routed through Core + M-Policy.
+- apply and rollback are critical because they mutate production VM runtime state.
+- drift read/check and evidence read are non-mutating, but must still redact secrets, host-local paths, and raw command output.
+
+---
+
+## 5. Dependencies
+
+| Dependency | Type | Failure Behavior |
+|------------|------|------------------|
+| Core | service | public deploy facade and identity introspection fail closed; no direct UI → M-Deploy bypass |
+| M-Policy | service | propose/approve/apply/rollback fail closed; M-Deploy must not make local authorization decisions |
+| M-Log | service | Audit/evidence writes required for high-risk operations block state mutation when unavailable |
+| M-EventBus / NATS | event | event publication failure surfaces typed unavailable result and writes Full Log; state must not report false success |
+| PostgreSQL | datastore | deployment metadata, proposals, reconcile state, agent state, and evidence metadata fail closed on write unavailability |
+| Git | desired-state source | sync degraded; use last successful snapshot only within configured TTL; reject reconcile after TTL |
+| Vault / SecretProvider | secret backend | sealed/unavailable provider blocks new apply/rollback requiring secret material; no local plaintext fallback |
+| Podman / Docker runtime | runtime driver | target apply fails with typed driver error; previous running services continue when possible |
+| OpenTofu / Terraform | IaC driver | topology plan/apply/drift steps fail typed; does not replace Git desired-state authority |
+| OCI registry | artifact source | digest verification or pull failure blocks apply; mutable tags are not accepted as authority |
+| Deployment agent | node service | disconnected agent pauses apply/drift for that target; last-known state stays visible and degraded |
+
+---
+
+## 6. Configuration
+
+| Key | Type | Required | Hot Reload | Notes |
+|-----|------|----------|------------|-------|
+| `MERISTEM_MDEPLOY_PORT` | number | yes | no | loopback internal service bind |
+| `MERISTEM_MDEPLOY_AGENT_BIND` | string | yes | no | agent pull-reconcile ingress; must not expose generic SSH control |
+| `MERISTEM_INTERNAL_TOKEN` | string | yes | no | Core/internal service authentication |
+| `MERISTEM_MDEPLOY_RUNTIME_DRIVER` | `podman` \| `docker` | yes | yes | runtime driver selection; Podman is production-preferred, Docker compatibility is allowed |
+| `MERISTEM_MDEPLOY_IAC_DRIVER` | `opentofu` \| `terraform` \| `disabled` | yes | yes | provider-neutral IaC driver selection |
+| `MERISTEM_MDEPLOY_GIT_URL` | string | yes | yes | desired-state Git repository URL |
+| `MERISTEM_MDEPLOY_GIT_BRANCH` | string | yes | yes | watched branch or ref; commits are pinned by digest before apply |
+| `MERISTEM_MDEPLOY_GIT_PATH` | string | yes | yes | desired-state root path inside repository |
+| `MERISTEM_MDEPLOY_GIT_SYNC_INTERVAL_MS` | number | yes | yes | periodic sync cadence |
+| `MERISTEM_MDEPLOY_SNAPSHOT_TTL_MS` | number | yes | yes | maximum age for last successful snapshot used during Git outage |
+| `MERISTEM_MDEPLOY_REGISTRY_URL` | string | yes | yes | OCI registry base for deployment artifacts |
+| `MERISTEM_MDEPLOY_REGISTRY_SECRET_REF` | SecretRef | no | yes | registry credential reference; plaintext credentials forbidden |
+| `MERISTEM_MDEPLOY_SIGNING_KEY_REF` | SecretRef | yes | no | signing/verification key reference; private material stays in SecretProvider |
+| `MERISTEM_MDEPLOY_SIGNATURE_POLICY` | `required` | yes | no | unsigned desired-state is rejected |
+| `MERISTEM_MDEPLOY_AGENT_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | disconnected-agent threshold |
+| `MERISTEM_MDEPLOY_EVIDENCE_BUCKET` | string | yes | yes | immutable evidence archive location reference, not a local test path |
+
+Configuration lifecycle rules:
+
+- runtime driver, IaC driver, Git source, registry config, and heartbeat timeout are bounded hot-reload fields.
+- signing policy and signing key reference are not hot-reloadable without service restart and Audit evidence.
+- config reload must not trigger apply; reconcile starts only from explicit approved operation or scheduled drift check.
+
+---
+
+## 7. Health
+
+| Check | Meaning | Failure Behavior |
+|-------|---------|------------------|
+| liveness | controller process, scheduler loop, and agent ingress are alive | restart or report unavailable; existing deployed services continue outside controller |
+| readiness | PostgreSQL, M-Policy, required M-Log write path, Git sync status, signing verifier, runtime driver, and agent registry are usable | remove from serving pool; new propose/apply/rollback fail closed or queue according to operation type |
+| agent heartbeat | enrolled deployment agents report within timeout and include supported driver capabilities | target marked degraded/disconnected; apply and drift pause for that target |
+| controller health | reconcile scheduler, operation lock, and event publisher are functioning | new operations are not admitted; in-flight operations move to typed degraded state |
+| Git sync status | latest configured ref fetched and signed envelope verified within TTL | read path shows stale; reconcile rejected after TTL |
+
+Readiness is stricter than liveness. A live M-Deploy that cannot write Audit/evidence or validate signatures is not ready for protected operations.
+
+---
+
+## 8. Lifecycle
+
+| Capability | Supported | Notes |
+|------------|-----------|-------|
+| reloadable | limited | bounded reload for runtime driver selection, Git source config, registry config, sync interval, snapshot TTL, and heartbeat timeout |
+| rollbackable | yes | rollback restores a previously verified digest/image/runtime artifact combination and writes Audit + evidence before/after execution |
+| degradable | yes | read/status surfaces degrade while high-risk control paths fail closed when authority, policy, secret, audit, or signature checks are unavailable |
+
+Lifecycle details:
+
+- apply operations are idempotent by operation ID + desired-state digest + target scope.
+- rollback operations are separate high-risk operations, not implicit failure handlers hidden inside apply.
+- in-flight operations persist checkpoint metadata so a restarted controller can resume only after revalidating policy, signature, Git digest, and Audit/evidence availability.
+- agent pull-reconcile means agents poll/pull desired-state work; the controller does not SSH into nodes or push shell commands.
+
+---
+
+## 9. Logs
+
+| Log | When Written | Required Fields |
+|-----|--------------|-----------------|
+| Timeline | proposal created, approval recorded, apply started/succeeded/failed, rollback started/succeeded/failed, drift detected/resolved, agent disconnected/recovered, evidence emitted | `summary`, `subject`, `operationId`, `desiredStateDigest`, `targetScope`, `correlationId`, `policyDecisionId?`, `auditId?` |
+| Full | Git sync failures, signature verification diagnostics, driver stderr summaries after redaction, agent heartbeat degradation, registry pull errors, OpenTofu/Terraform plan/apply summaries, evidence archive failures | `source`, `level`, `message`, `traceId`, `correlationId`, `operationId?`, `nodeId?`, `errorCode?` |
+| Audit | propose/approve/apply/rollback, signature verification result, rollback pointer selection, evidence archive write, denied/failed high-risk attempts, break-glass deployment actions if later introduced | `actor`, `action`, `resource`, `decision`, `operationId`, `desiredStateDigest`, `policyDecisionId`, `correlationId`, `result` |
+
+Evidence behavior:
+
+- evidence metadata is written before surfacing success for apply/rollback.
+- raw evidence blobs are immutable and content-addressed; M-Deploy stores references and correlation metadata, while M-Log owns evidence fact storage integration.
+- evidence payloads must redact plaintext secrets, bearer tokens, host-local secret paths, raw private keys, and unrestricted command output.
+
+### 9.1 OpenTelemetry Behavior
+
+- `correlationId` propagates from Core request → M-Policy decision → M-Deploy operation → event → M-Log → OTel spans.
+- M-Deploy creates a parent `mdeploy.reconcile` span per operation with attributes for `operationId`, `desiredStateDigest`, `targetScope`, `runtimeDriver`, and `policyDecisionId`.
+- Apply paths create child spans: `mdeploy.git.sync`, `mdeploy.signature.verify`, `mdeploy.driver.plan`, `mdeploy.agent.pull`, `mdeploy.apply`, and `mdeploy.evidence.emit`.
+- Drift paths create `mdeploy.drift.scan` and `mdeploy.drift.compare` spans; OpenSearch/search projection spans are auxiliary and must not affect control decisions.
+- Rollback paths create `mdeploy.rollback.prepare`, `mdeploy.rollback.apply`, and `mdeploy.rollback.evidence` spans.
+- Span attributes must contain digests, IDs, typed status, and redacted references only; no secret values, tokens, private keys, or raw host command output.
+
+---
+
+## 10. Policy Requirements
+
+- all desired-state propose, approve, apply, and rollback requests are protected operations requiring Core identity verification, M-Policy authorization, and Audit before mutation.
+- production rollout apply requires two-person approval: original proposer cannot approve their own proposal, and at least two distinct authorized approvers must approve before apply.
+- M-Deploy must fail closed if M-Policy is unavailable, returns deny/manual review, or cannot persist the required approval/decision state.
+- M-Deploy must fail closed if required Audit or evidence writes cannot complete for high-risk operations.
+- signed desired-state envelope verification is mandatory before any reconcile or agent apply; verification failure writes Audit and blocks reconcile.
+- agents must verify signed desired-state envelopes locally before runtime actions; controller-side verification alone is insufficient.
+- rollback requires its own policy decision and Audit chain; previous approval for apply does not authorize rollback.
+- drift read/check is non-mutating but must enforce read permissions and redaction.
+- M-Deploy must not implement local policy/quorum logic beyond interpreting M-Policy results and checking returned approval IDs.
+- normal deployment path remains pull-reconcile; controller SSH push, arbitrary remote command execution, and Git push from M-Deploy are forbidden.
+
+---
+
+## 11. Done Criteria
+
+- Service definition is versioned.
+- Contracts for REST, Eden, events, agent heartbeat, proposal, approval, apply, rollback, drift, and evidence are declared.
+- Permissions are declared with risk level and high-risk control requirements.
+- Owned state and must-not-own boundaries match the authority matrix.
+- Dependencies and failure behavior are declared for Git, Vault/SecretProvider, Podman/Docker, OpenTofu/Terraform, PostgreSQL, NATS, M-Policy, M-Log, registry, Core, and agents.
+- Config schema covers runtime driver selection, Git source config, registry config, signing config, heartbeat timeout, and evidence archive config.
+- Health checks cover controller liveness, readiness, agent heartbeat, and Git sync status.
+- Reload, rollback, and degradation behavior are declared.
+- Timeline, Full, Audit, evidence, and OpenTelemetry behavior are declared.
+- M-Policy requirements include high-risk gating and two-person approval for production rollout.
+- The service definition states that normal path forbids controller SSH push and uses pull-reconcile only.
+- Event subjects are registered in `docs/events/EVENT-CATALOG.md` before implementation.
+- Permission vocabulary is registered in `docs/security/SECURITY-MODEL.md` before implementation.

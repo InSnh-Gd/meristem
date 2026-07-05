@@ -95,6 +95,18 @@ Rules:
 | `mnet.migration.required.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetMigrationRequiredPayload` | at-least-once |
 | `mnet.forced_relay.change.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayChangePayload` | at-least-once |
 | `mnet.credential.expiry.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialExpiryPayload` | at-least-once |
+| `mdeploy.proposal.created.v0` | draft event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayload` | at-least-once |
+| `mdeploy.approval.recorded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayload` | at-least-once |
+| `mdeploy.apply.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayload` | at-least-once |
+| `mdeploy.apply.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplySucceededPayload` | at-least-once |
+| `mdeploy.apply.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyFailedPayload` | at-least-once |
+| `mdeploy.rollback.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackStartedPayload` | at-least-once |
+| `mdeploy.rollback.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackSucceededPayload` | at-least-once |
+| `mdeploy.rollback.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackFailedPayload` | at-least-once |
+| `mdeploy.drift.detected.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftDetectedPayload` | at-least-once |
+| `mdeploy.drift.resolved.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftResolvedPayload` | at-least-once |
+| `mdeploy.agent.heartbeat.v0` | draft event | M-Deploy | Core, M-Log, M-UI BFF | `MDeployAgentHeartbeatPayload` | at-least-once |
+| `mdeploy.evidence.emitted.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployEvidenceEmittedPayload` | at-least-once |
 | `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
 | `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |
@@ -523,6 +535,70 @@ type SecretRefLifecyclePayload = {
 type SecretRefCreatedPayload = SecretRefLifecyclePayload;
 type SecretRefRotatedPayload = SecretRefLifecyclePayload;
 type SecretRefDisabledPayload = SecretRefLifecyclePayload;
+
+type MDeployOperationPayload = {
+  operationId: string;
+  desiredStateDigest: string;
+  gitCommit: string;
+  targetScope: string;
+  actor: string;
+  policyDecisionId?: string;
+  approvalId?: string;
+  auditId?: string;
+  correlationId: string;
+};
+
+type MDeployProposalCreatedPayload = MDeployOperationPayload & {
+  proposalId: string;
+  sourceRef: string;
+  envelopeSignatureStatus: "verified";
+};
+
+type MDeployApprovalRecordedPayload = MDeployOperationPayload & {
+  proposalId: string;
+  approvalId: string;
+  approverCount: number;
+};
+
+type MDeployApplyStartedPayload = MDeployOperationPayload;
+type MDeployApplySucceededPayload = MDeployOperationPayload & { evidenceId: string };
+type MDeployApplyFailedPayload = MDeployOperationPayload & { errorCode: string };
+type MDeployRollbackStartedPayload = MDeployOperationPayload & { rollbackDigest: string };
+type MDeployRollbackSucceededPayload = MDeployOperationPayload & { rollbackDigest: string; evidenceId: string };
+type MDeployRollbackFailedPayload = MDeployOperationPayload & { rollbackDigest: string; errorCode: string };
+
+type MDeployDriftDetectedPayload = {
+  driftReportId: string;
+  desiredStateDigest: string;
+  targetScope: string;
+  driftKind: "runtime" | "iac" | "agent";
+  severity: "info" | "warning" | "critical";
+  correlationId: string;
+};
+
+type MDeployDriftResolvedPayload = MDeployDriftDetectedPayload & {
+  resolvedByOperationId: string;
+};
+
+type MDeployAgentHeartbeatPayload = {
+  agentId: string;
+  nodeId: string;
+  agentVersion: string;
+  supportedDrivers: Array<"podman" | "docker" | "opentofu" | "terraform">;
+  lastKnownDigest?: string;
+  status: "healthy" | "degraded" | "disconnected";
+  checkedAt: string;
+  correlationId: string;
+};
+
+type MDeployEvidenceEmittedPayload = {
+  evidenceId: string;
+  operationId: string;
+  evidenceKind: "apply" | "rollback" | "drift" | "signature" | "agent_ack";
+  contentDigest: string;
+  archiveRef: string;
+  correlationId: string;
+};
 
 type ConfigLifecyclePayload = {
   configId: string;

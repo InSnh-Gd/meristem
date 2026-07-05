@@ -137,7 +137,19 @@ export const documentedEventBusSubjects = [
   'mnet.profile.enable.canceled.v0',
   'mnet.profile.defaults.updated.v0',
   'meventbus.publish.rejected.v0',
-  'meventbus.publish.failed.v0'
+  'meventbus.publish.failed.v0',
+  'mdeploy.proposal.created.v0',
+  'mdeploy.approval.recorded.v0',
+  'mdeploy.apply.started.v0',
+  'mdeploy.apply.succeeded.v0',
+  'mdeploy.apply.failed.v0',
+  'mdeploy.rollback.started.v0',
+  'mdeploy.rollback.succeeded.v0',
+  'mdeploy.rollback.failed.v0',
+  'mdeploy.drift.detected.v0',
+  'mdeploy.drift.resolved.v0',
+  'mdeploy.agent.heartbeat.v0',
+  'mdeploy.evidence.emitted.v0'
 ] as const
 
 export const allowedEventBusSubjects = documentedEventBusSubjects

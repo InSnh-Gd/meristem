@@ -117,6 +117,18 @@ These documented event catalog entries currently have **no real publisher** in t
 - `secret.ref.disabled.v0`
 - `policy.approval.canceled.v0`
 - `audit.lock.required.v0`
+- `mdeploy.proposal.created.v0`
+- `mdeploy.approval.recorded.v0`
+- `mdeploy.apply.started.v0`
+- `mdeploy.apply.succeeded.v0`
+- `mdeploy.apply.failed.v0`
+- `mdeploy.rollback.started.v0`
+- `mdeploy.rollback.succeeded.v0`
+- `mdeploy.rollback.failed.v0`
+- `mdeploy.drift.detected.v0`
+- `mdeploy.drift.resolved.v0`
+- `mdeploy.agent.heartbeat.v0`
+- `mdeploy.evidence.emitted.v0`
 
 ## Explicit exclusions from this wave
 

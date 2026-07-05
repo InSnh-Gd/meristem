@@ -534,6 +534,89 @@ curl -v --http1.1 -H "Upgrade: websocket" -H "Connection: Upgrade" \
 
 ---
 
+## 8. Production Bootstrap and Disaster Recovery Trust Chain
+
+> 本节定义 post-v0.1 生产轨道的 bootstrap / disaster-recovery 顺序。它是运维契约，不授权把 secret、unseal key、root token 或 live credential 写入仓库、测试夹具、日志、evidence、OpenSearch 投影或 desired-state Git 内容。
+
+### 8.1 Bootstrap Trust Chain
+
+生产 bootstrap 必须按以下顺序执行，不能跳过前置 trust step：
+
+1. **Offline root CA / root-of-trust ceremony**：root key material 由两名以上 security-admin 共同保管，离线介质分离存放；仓库只记录 custody policy、key ID、ceremony evidence digest，不保存私钥、unseal key、root token 或 live credential。
+2. **Internal PKI issuance**：从 offline root 签发 intermediate CA；intermediate CA 再签发 service certificate、mTLS certificate、M-Deploy controller / agent identity certificate。Root CA 不直接签发运行时服务证书。
+3. **Vault HA initialization**：默认使用 Vault Integrated Storage / Raft，3 个 control/state VM 组成 HA 集群。provider-neutral libvirt validation fixture 使用人工 Shamir unseal ceremony；除非同一变更明确引入 self-hosted auto-unseal 机制，否则不得要求 cloud KMS。
+4. **Vault key shard custody**：Shamir unseal shard 分给不同 security-admin 保管；任一个人不得同时持有 quorum 所需全部 shard。unseal 过程只在受控终端执行，证据记录只包含参与人、时间、key ID、result 和 correlationId。
+5. **Secret-zero handoff**：Vault root token 只用于初始化 policy、AppRole / workload identity 和最小 SecretProvider bootstrap credential；完成后撤销或封存 root token。root token、AppRole secret、initial credential 不进入 env file、Git、测试夹具或 operator runbook 示例。
+6. **First M-Deploy controller enrollment**：controller 使用内部 PKI 身份、签名 key 和只读 Git access enroll。controller 必须能验证 desired-state envelope，且不得拥有 M-Policy 授权决策权。
+7. **First M-Deploy agent enrollment**：agent 通过 controller trust bundle、agent identity certificate 和 runtime driver config enroll；agent enrollment 写 Audit，且 agent 只接受 controller 签名的 desired-state apply 请求。
+8. **Git desired-state verification**：M-Deploy 拉取 Git desired-state 后验证 signed envelope、commit digest pin 和 rollback pointer；签名或 digest 验证失败阻塞 reconcile，并写 Audit。
+9. **Registry trust**：部署镜像必须通过 image signing verification 与 digest pinning；禁止只按 mutable tag 部署生产 workload。
+10. **PostgreSQL restore**：灾备恢复先恢复 PostgreSQL authoritative state，包括 identity、policy、node、config、secretRef metadata、deployment metadata、audit metadata 和 evidence metadata。
+11. **Vault restore**：PostgreSQL authority 可读后恢复 Vault Raft snapshot / secret values，并核对 secretRef metadata 与 Vault key path / version 对齐。
+12. **OpenSearch restore**：OpenSearch 是 projection / auxiliary system，不能先于 PostgreSQL 成为事实源；优先从 snapshot 恢复，再由 PostgreSQL / M-Log / projector cursor rebuild projection。
+13. **Keycloak restore**：Keycloak 恢复 OIDC provider config；client secrets、JWKS material 和 provider credentials 从 Vault 重新加载。Keycloak 不拥有 Meristem 授权根。
+14. **NATS restore**：NATS / JetStream 恢复后，从 PostgreSQL event store / authoritative transition tables replay 必需 stream；事件状态不得覆盖 PostgreSQL authority。
+
+### 8.2 Disaster-Recovery Restore Order
+
+DR 恢复顺序固定为：
+
+```text
+root-of-trust custody check
+→ internal PKI / trust bundle verification
+→ Vault unseal / Raft recovery
+→ PostgreSQL PITR / authority restore
+→ Vault secret restore and SecretRef reconciliation
+→ Keycloak OIDC restore and Vault secret reload
+→ NATS / JetStream recovery and event replay
+→ M-Deploy controller and agent reconnect
+→ Git desired-state verification
+→ registry signature / digest verification
+→ OpenSearch snapshot restore and projection rebuild
+→ M-UI / BFF degraded state clearance
+```
+
+Restore must not allow break-glass to bypass Audit. If Audit metadata is unavailable, high-risk control operations stay blocked until PostgreSQL authority and M-Log audit writes recover.
+
+### 8.3 RPO / RTO Ownership
+
+Overall production target is RPO 15m / RTO 1h, decomposed by subsystem:
+
+| Subsystem | RPO | RTO | Responsibility | Restore Source |
+|---|---:|---:|---|---|
+| PostgreSQL | 15m | 30m | authoritative state, audit/evidence metadata, policy and identity records | WAL archive + PITR backup |
+| Vault | 0 | 15m | secret values and SecretProvider backend | Raft integrated storage + unseal ceremony / Raft recovery |
+| NATS / JetStream | 0 | 15m | event streams and replay transport | replicated JetStream + PostgreSQL event store replay |
+| Redis | best-effort cache | 15m | optional cache only; no authority | cold restart or cache rebuild |
+| OpenSearch | 1h | 2h | search projection and log query acceleration; degradable | snapshot + PostgreSQL / M-Log projection rebuild |
+| Keycloak | 15m | 30m | OIDC authentication provider config only | DB backup + Vault secret reload |
+| M-Deploy desired-state | 0 | 15m | Git desired-state source and reconcile pointer | Git re-clone + signed envelope verification + agent reconnect |
+| Audit / evidence | 0 | 30m | non-bypassable audit metadata and raw evidence pointer | PostgreSQL synchronous write + immutable evidence archive |
+
+Redis 只能承载 cache / lock / session-like ephemeral data；任何需要 RPO 语义的状态不得只保存在 Redis。
+
+### 8.4 Minimum Viable Operating Mode
+
+在 IdP、Vault 或 M-Net degraded 时，系统进入 minimum viable operating mode，而不是静默恢复完整功能：
+
+| Failure Scenario | Minimum Mode | Required Guardrail |
+|---|---|---|
+| IdP unavailable | 使用 local IAM + M-Policy 的 break-glass token；TTL 30 分钟；双人 approval | 不能绕过 Audit；OIDC session UX degraded；Keycloak 恢复后重新验证 session |
+| Vault sealed / unavailable | 所有 secret create / rotate / read / deploy-secret 操作 fail-closed；禁止新部署 | 已运行服务可使用未过期 cached secret 到 TTL；过期缓存不得复用；不得降级到本地明文存储 |
+| OpenSearch degraded | writes、policy、audit 和 control operations 继续；搜索、Dashboard、历史查询显示 degraded | OpenSearch 不得成为审计或状态 authority；恢复后从 PostgreSQL / M-Log rebuild projection |
+| M-Net degraded | M-UI 显示 degraded；不允许新 node join；已有 tunnel 仅在 signed map TTL 内继续 | map 过期后 fail-closed；network profile 高风险操作仍需 M-Policy + Audit |
+| M-Deploy agent disconnected | 不执行新的 desired-state apply；drift reporting 暂停；保留 last-known state | agent reconnect 后必须重新验证 controller trust、desired-state envelope 和 registry digest |
+| Git desired-state unavailable | M-Deploy 使用 last successful sync snapshot 做只读展示；超过 TTL 的 snapshot 拒绝 reconcile | 不允许从 operator 手写 live state 替代 Git；恢复 Git 后重新校验 signed envelope 和 rollback pointer |
+
+### 8.5 Credential Handling Prohibitions
+
+- 仓库、测试夹具、fixture、example config、evidence 和 runbook 示例不得包含 secret、unseal key、Vault root token、AppRole secret、registry credential、OIDC client secret、NetBird credential 或 live node credential。
+- 文档只能引用 `secretRef`、key path、key ID、digest、fingerprint 或 redacted handle。
+- DR 演练 evidence 只能记录 custody event、approval、hash、correlationId、restore result 和 operator identity；不得记录 plaintext credential。
+- libvirt validation fixture 默认使用人工 Shamir unseal ceremony；provider-neutral 路径不得要求 cloud KMS。
+
+---
+
 Optional deployment pack:
 
 - detailed profile commands and failure behavior live in `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`.
