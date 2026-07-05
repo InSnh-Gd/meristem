@@ -76,3 +76,36 @@ The active UI contract is [`ui/SDUI-SCHEMA.md`](./ui/SDUI-SCHEMA.md), together w
 | [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](./ui/M-UI-DESIGN-TOOL-AVAILABILITY.md) | Historical design-tool availability notes |
 | [`ui/M-UI-DESIGN-MD-CLI-EVALUATION.md`](./ui/M-UI-DESIGN-MD-CLI-EVALUATION.md) | Historical design-system CLI evaluation |
 | [`ui/M-UI-FIGMA-CONTEXT-VALIDATION.md`](./ui/M-UI-FIGMA-CONTEXT-VALIDATION.md) | Historical Figma context validation notes |
+
+---
+
+## 6. 生产轨道规划文档（Planned — Post-v0.1 Production Track）
+
+> 以下文档是 `MERISTEM-ROADMAP.md §7` 定义的 post-v0.1 生产轨道所需的规划文档。这些文档当前尚未创建，仅供索引和规划参考。实际创建和内容以对应 ADR 和服务定义为准。
+
+### 6.1 规划 ADR
+
+| 规划 ADR | 覆盖范围 |
+|----------|---------|
+| `adr/ADR-{N}-oidc-iam-architecture.md` | OIDC 联邦、本地 IAM 权威源、issuer+subject 绑定、JIT pending principal、BFF session 管理、break-glass 路径 |
+| `adr/ADR-{N}-vault-integration.md` | Vault HA 拓扑、auto-unseal / key custody、secret-zero 处理、SecretProvider v0.2 契约、rotation 策略 |
+| `adr/ADR-{N}-m-deploy-service.md` | M-Deploy GitOps pull-reconcile 架构、Git desired-state 源、OpenTofu/Terraform libvirt fixture、OCI 镜像构建与发布 |
+| `adr/ADR-{N}-production-topology.md` | 3 control/state + 3 OpenSearch + 2 Leaf VM 拓扑、Podman Full HA 编排、网络规划、RPO/RTO 目标 |
+
+### 6.2 规划服务定义
+
+| 规划服务文档 | 覆盖范围 |
+|-------------|---------|
+| `services/m-deploy.md` | M-Deploy GitOps/IaC 功能域：pull-reconcile 控制器、desired-state 源、部署拓扑声明、健康检查、回滚语义 |
+| `services/m-ui-bff.md`（更新） | OIDC callback 路由、HttpOnly session 管理、logout、session 刷新 |
+| `services/m-net.md`（更新） | NetBird 客户端 sidecar 数据面集成、profile 生命周期扩展、节点连通性验证 |
+
+### 6.3 规划契约更新
+
+| 规划契约文档 | 覆盖范围 |
+|-------------|---------|
+| `contracts/REST-API-MVP.md`（更新） | OIDC login/logout/session 端点、M-Deploy reconcile API |
+| `contracts/EDEN-MVP.md`（更新） | 内部契约对齐 OIDC session 和 M-Deploy reconcile |
+| `security/SECURITY-MODEL.md`（更新） | OIDC 威胁模型、session 安全、break-glass 访问控制、Vault 访问控制、secret 操作审计 |
+| `operations/RUNBOOK.md`（更新） | 生产拓扑运维、Podman HA 编排、Vault 运维（seal/unseal/备份/恢复）、OIDC 故障恢复 |
+| `testing/TESTING.md`（更新） | 生产轨道 TDD 门禁、OIDC 故障矩阵测试、Vault 集成测试、M-Deploy reconcile 测试 |

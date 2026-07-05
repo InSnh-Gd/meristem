@@ -139,3 +139,83 @@ bun run test:e2e
 ```
 
 If infrastructure-dependent tests cannot run locally, the completion note must name the skipped gate, the missing dependency, and the fallback evidence. Contract and failure-mode tests should not be skipped for missing optional infrastructure.
+
+---
+
+## 7. 生产轨道（Post-v0.1 Production Track）
+
+> **这不是 v0.1 范围扩大（scope creep）**。生产轨道是 v0.1 之后的独立交付轨道，不进入 v0.1 验收矩阵。v0.1 完成前不开始本轨道的代码实现。
+
+### 7.1 轨道目标
+
+v0.1 证明了 Meristem 在单机 Bun 开发环境下的控制平面契约完整性。生产轨道将 Meristem 推进到可部署、可运维、具有完整身份认证和密钥管理的生产级状态：
+
+1. **生产部署**：OCI 镜像在 3 台 control/state VM + 3 台 OpenSearch VM + 2 台 Leaf VM 上以 Podman 优先（Docker 兼容）的 Full HA 拓扑运行。
+2. **M-UI 登录与 IAM**：操作员通过 OIDC 联邦登录进入 M-UI，本地 IAM 作为身份权威源。
+3. **M-Net 完整管理**：M-Net 控制平面与 NetBird 客户端 sidecar 数据平面集成，覆盖 profile 生命周期、节点加入和网络连通性验证。
+4. **OIDC 验证**：Keycloak 作为 OIDC Provider，issuer + subject 绑定、JIT pending principal 创建、BFF HttpOnly session 管理。
+5. **真实 OpenSearch / Dashboards**：替换开发占位，提供日志检索、读模型查询和操作仪表盘。
+6. **NetBird 客户端 sidecar**：每节点部署 NetBird 客户端 sidecar，与 M-Net 控制平面协作。
+7. **Vault HA**：HashiCorp Vault 高可用部署，自动解封（auto-unseal）、密钥托管、轮换、SecretProvider v0.2 对齐。
+8. **可观测性栈**：OpenTelemetry Collector、Prometheus、Grafana 生产部署，与 M-Log 和 Core traces 集成。
+9. **M-Deploy 功能域**：新增 M-Deploy GitOps / IaC 能力域，以 Git 仓库为 desired-state 源，pull-reconcile 模式驱动部署。
+
+### 7.2 关键决策摘要
+
+| 决策域 | 决定 |
+|--------|------|
+| 容器运行时 | Podman 优先，Docker 兼容；不引入 Kubernetes |
+| 拓扑 | 3 control/state + 3 OpenSearch + 2 Leaf VM，Full HA |
+| 身份源 | 本地 IAM 拥有身份（不是 Keycloak）；Keycloak 仅做认证 |
+| OIDC 绑定 | issuer + subject 绑定；JIT 创建 pending principal |
+| 会话管理 | BFF 拥有 HttpOnly session cookie |
+| 紧急访问 | 双人 30 分钟 TTL break-glass |
+| 数据面 | NetBird 客户端 sidecar only，不引入 NetBird Management |
+| 部署模式 | M-Deploy GitOps pull-reconcile；Git 是 desired-state 源 |
+| 基础设施即代码 | OpenTofu / Terraform provider-neutral libvirt fixture |
+| 密钥管理 | Vault HA，auto-unseal，SecretProvider v0.2 |
+| 搜索 | OpenSearch / Dashboards 辅助；搜索可降级，控制不可静默降级，审计不可绕过 |
+| RPO / RTO | RPO 15 分钟，RTO 1 小时 |
+| 开发纪律 | TDD，实现前先更新 ADR、服务定义、契约、安全、运维和测试文档 |
+
+### 7.3 生产轨道范围
+
+本轨道覆盖以下能力域：
+
+- **M-UI 登录 / IAM**：OIDC 联邦、本地 IAM 源、issuer + subject 绑定、JIT pending approval、BFF HttpOnly session、OIDC 故障矩阵、break-glass 路径。
+- **M-Net 完整管理**：NetBird sidecar 集成、profile 生命周期、节点连通性验证、数据面可用性监控。
+- **M-Deploy（新增功能域）**：GitOps pull-reconcile 部署控制器、OpenTofu / Terraform libvirt fixture、OCI 镜像构建与发布、Podman Full HA 编排。
+- **密钥与安全加固**：Vault HA 部署、auto-unseal / key custody、secret rotation、SecretProvider v0.2 对齐、redaction 与审计。
+- **可观测性生产化**：OpenTelemetry Collector、Prometheus、Grafana 生产拓扑、与 M-Log / Core traces 的集成。
+- **OpenSearch / Dashboards**：真实部署替换开发占位、日志检索、读模型查询、操作仪表盘。
+
+### 7.4 实现前置条件
+
+**在代码实现完成前**，必须先更新以下文档：
+
+| 文档类别 | 必须更新内容 |
+|----------|-------------|
+| ADR | 新增 M-Deploy 服务 ADR、OIDC/IAM 架构 ADR、Vault 集成 ADR、生产拓扑 ADR |
+| 服务定义 | 新增 `docs/services/m-deploy.md`；更新 `docs/services/m-net.md`（data-plane sidecar）、`docs/services/m-ui-bff.md`（session/OIDC） |
+| 契约 | 更新 REST 和 Eden 契约（OIDC login/logout/session、M-Deploy reconcile API）；新增 OIDC 故障矩阵 |
+| 安全模型 | 更新 `docs/security/SECURITY-MODEL.md`（OIDC 威胁模型、session 安全、break-glass、Vault 访问控制） |
+| 运维 | 更新 `docs/operations/RUNBOOK.md`（生产拓扑、Podman HA 编排、Vault 运维、OIDC 故障恢复） |
+| 测试 | 更新 `docs/testing/TESTING.md`（生产轨道 TDD 门禁、OIDC 故障矩阵测试、Vault 集成测试、M-Deploy reconcile 测试） |
+
+### 7.5 重新打开的工作项
+
+生产轨道重新打开以下推迟工作项：
+
+- **DFW-027**：生产身份提供者集成（OIDC / browser session / admin IAM）。见 `DEFERRED-WORK.md` 的更新条目。
+- **DFW-028**：生产密钥后端（Vault / KMS / secret rotation）。见 `DEFERRED-WORK.md` 的更新条目。
+
+### 7.6 排除项
+
+以下内容明确不在本生产轨道范围内：
+
+- Kubernetes、Helm、Service Mesh 部署模式
+- NetBird Management 服务部署
+- LLM 辅助审批执行（DFW-001 仍推迟）
+- M-Extension Wasm 运行时（DFW-018 仍推迟）
+- Redis / KeyDB 生产部署（DFW-024 仍推迟）
+- APISIX 生产网关加固（DFW-025 仍推迟）

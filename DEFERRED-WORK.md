@@ -970,73 +970,101 @@ Required before implementation:
 
 ### DFW-027: Production Identity Provider Integration
 
-Status: deferred from Identity v0.2.
+Status: **重新打开（reopened）** — 由生产轨道（post-v0.1 Production Track, `MERISTEM-ROADMAP.md §7`）重新激活。
 
-Owner: Core / security.
+Owner: Core / security / M-UI BFF.
 
-Source: `docs/adr/ADR-F02-architecture-organization.md`.
+Source: `MERISTEM-ROADMAP.md §7`, `docs/adr/ADR-F02-architecture-organization.md`.
 
-Deferred work:
+#### 重新打开范围
 
-- OIDC / SSO / SAML integration.
-- browser cookie sessions.
-- MFA.
-- password authentication.
-- user management UI.
-- group / team / department identity model.
-- refresh token and token family model.
+生产轨道将 DFW-027 范围聚焦为 OIDC 联邦 + 本地 IAM + 浏览器会话管理，排除 SAML、通用 SSO 联邦和完整用户管理 UI。
 
-Reason deferred:
+**包含（acceptance conditions）**：
 
-- Identity v0.2 hardens local identity only.
-- production identity would expand Core's responsibility and may require revisiting `docs/adr/ADR-F02-architecture-organization.md`.
+1. **OIDC 联邦**：Keycloak 作为 OIDC Provider，Meristem Core 作为 Relying Party。OIDC Discovery、authorization code flow + PKCE、token validation（签名、issuer、audience、expiry）。
+2. **本地 IAM 作为身份权威源**：本地 IAM 持有 principal 记录（角色、权限、状态）。Keycloak 仅做认证，不做授权。OIDC subject 映射到本地 principal，不信任外部 claims 中的角色断言。
+3. **issuer + subject 绑定**：principal 由 `(oidc_issuer, oidc_subject)` 元组唯一标识。issuer 变更视为不同主体。
+4. **JIT pending approval**：首次 OIDC 登录且无匹配 principal 时，自动创建 pending 状态的 principal 记录，写入 Audit Log，等待安全管理员审批。pending principal 不可执行任何操作。审批路径通过现有 M-Policy approval flow。
+5. **BFF HttpOnly session**：M-UI BFF 在 OIDC callback 验证成功后签发 HttpOnly、Secure、SameSite=Strict session cookie。BFF 持有 session → principal 映射，前端不接触 token。session TTL、refresh 和 logout 由 BFF 管理。
+6. **break-glass**：双人 30 分钟 TTL break-glass 路径。通过现有 `break-glass-reviewer` 角色 + M-Policy multi-approval 实现。break-glass session 写入强制 Audit 事实。
+7. **OIDC 故障矩阵**：覆盖以下故障场景的 fail-closed 行为：provider 不可达、token 签名无效、issuer 不匹配、subject 无匹配 principal（pending 创建）、session 过期、BFF 不可用、M-Policy 不可用（break-glass）。每个场景必须有对应测试。
 
-Reopen trigger:
+**明确排除**：
 
-- local actor tokens are insufficient for real operators or deployment environments.
+- SAML / 通用 SSO 联邦。
+- MFA 实现（架构预留，不在本轨道实现）。
+- password authentication。
+- 用户管理 UI（通过 CLI 和 API 管理 principal）。
+- group / team / department identity model（DFW-004 仍推迟）。
+- refresh token / token family model（BFF session 替代）。
 
-Required before implementation:
+#### 实现前置文档更新
 
-- ADR update or new identity ADR.
-- security model update.
-- session and token migration plan.
-- M-UI and CLI login contract.
-- tests for provider outage, token revocation, claim mapping, and fail-closed behavior.
+实现前必须先更新：
+
+- 新增 OIDC/IAM 架构 ADR（`docs/adr/ADR-{N}-oidc-iam-architecture.md`，标题待定）。
+- 更新 `docs/security/SECURITY-MODEL.md`：OIDC 威胁模型、session 安全、break-glass 访问控制。
+- 更新 `docs/services/m-ui-bff.md`：OIDC callback、session 管理、logout 行为。
+- 更新 `docs/contracts/REST-API-MVP.md`：OIDC login/logout/session 端点。
+- 更新 `docs/testing/TESTING.md`：OIDC 故障矩阵测试门禁。
+
+#### 验收测试要求
+
+- OIDC login 成功路径：从 Keycloak redirect 到 BFF session 建立。
+- OIDC login 失败矩阵：每种故障场景的 fail-closed 验证。
+- JIT pending principal：首次登录自动创建、不可操作、审批后可操作。
+- Session 安全：HttpOnly/Secure/SameSite cookie 属性、session 过期、logout 清除。
+- Break-glass：双人审批、30 分钟 TTL、强制 Audit。
 
 ---
 
 ### DFW-028: Production Secret Backend
 
-Status: deferred from SecretRef v0.1.
+Status: **重新打开（reopened）** — 由生产轨道（post-v0.1 Production Track, `MERISTEM-ROADMAP.md §7`）重新激活。
 
 Owner: Core / security / operations.
 
-Source: `docs/adr/ADR-F02-architecture-organization.md`.
+Source: `MERISTEM-ROADMAP.md §7`, `docs/adr/ADR-F02-architecture-organization.md`.
 
-Deferred work:
+#### 重新打开范围
 
-- Vault / KMS / cloud secret manager integration.
-- envelope encryption service.
-- secret leasing.
-- automated rotation schedules.
-- cross-node secret distribution.
-- production backup / restore for secret material.
+生产轨道将 DFW-028 范围聚焦为 Vault HA 部署 + 密钥托管与轮换 + SecretProvider v0.2 对齐。
 
-Reason deferred:
+**包含（acceptance conditions）**：
 
-- SecretRef v0.1 implements only control-plane and local development storage.
-- production secret backends require operational, security, and recovery design beyond v0.1 closure.
+1. **Vault HA 部署**：HashiCorp Vault 在 3 台 control/state VM 上以 HA 模式运行，使用 Integrated Storage (Raft) 后端。Vault 集群健康检查接入 Core 服务生命周期。
+2. **auto-unseal / key custody**：Vault auto-unseal 机制（通过 cloud KMS 或本地 shamir 方案，具体由实现 ADR 确定）。unseal key 分片保管流程文档化。Vault seal 状态由 Core 监控并在只读模式下拒绝密钥操作。
+3. **secret-zero 问题**：Vault 初始 root token 和 unseal key 的安全注入与保管。禁止将 root token 写入配置文件或环境变量。
+4. **secret rotation**：支持手动触发的 secret rotation（`POST /api/v0/secrets/:id/rotate`）。rotation 写入 Audit Log（旧版本停用、新版本激活、rotation 操作者）。自动 rotation 调度在架构中预留接口，不在本轨道实现。
+5. **SecretProvider v0.2 对齐**：将 Core SecretRef 的 SecretProvider 接口从 v0.1（本地开发存储）升级到 v0.2（Vault backend）。Provider 接口支持 read / write / rotate / revoke 操作，fail-closed 语义（Vault 不可达时拒绝所有 secret 操作）。
+6. **redaction 与审计**：所有 secret 值不得进入日志、OpenSearch、事件 payload、错误响应、或 trace span attributes。secret 访问操作（read/write/rotate/revoke）写入 Audit Log，记录操作者、secret ID、操作类型和 correlation ID，不记录 secret 值。
 
-Reopen trigger:
+**明确排除**：
 
-- secretRef usage expands beyond local development or needs production-grade persistence and rotation.
+- cloud KMS 直接集成（如 AWS KMS、GCP Cloud KMS）作为 secret 存储后端。
+- envelope encryption 服务。
+- 跨节点 secret 自动分发。
+- 生产备份 / restore 流程（运维 ADR 中预留）。
+- 自动 rotation 调度执行。
 
-Required before implementation:
+#### 实现前置文档更新
 
-- ADR for backend choice and failure behavior.
-- redaction and Audit tests.
-- recovery and rotation runbook.
-- migration from local v0.1 storage.
+实现前必须先更新：
+
+- 新增 Vault 集成 ADR（`docs/adr/ADR-{N}-vault-integration.md`，标题待定）：Vault HA 拓扑、unseal 策略、secret-zero 处理、SecretProvider v0.2 契约。
+- 更新 `docs/security/SECURITY-MODEL.md`：Vault 访问控制、secret 操作审计规则、redaction 规则。
+- 更新 `docs/operations/RUNBOOK.md`：Vault HA 运维（seal/unseal、备份、故障恢复）。
+- 更新 `docs/testing/TESTING.md`：Vault 集成测试门禁（HA failover、seal 状态拒绝、rotation 审计）。
+
+#### 验收测试要求
+
+- Vault HA：节点故障时集群自动 failover，secret 读写正常。
+- auto-unseal：Vault 重启后自动解封，无需人工干预。
+- Seal 状态拒绝：Vault sealed 时所有 secret 操作返回 fail-closed 错误。
+- Rotation：手动 rotation 成功、旧版本停用通知、Audit Log 记录。
+- Redaction：secret 值不进入日志/OpenSearch/事件/错误响应/trace span。
+- Provider v0.2 迁移：从 v0.1 本地存储到 v0.2 Vault backend 的迁移路径可测试。
 
 ---
 
