@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import {
   createSharedAuthVerifier,
-  mintLocalToken
+  mintLocalToken,
+  oidcSessionToLocalIamClaims
 } from '../../packages/auth/src/index.ts'
 import {
   createKeycloakVerifierFixture,
@@ -33,10 +34,54 @@ describe('shared configurable auth verifier contract', () => {
       issuer: keycloakIssuer,
       audience: keycloakAudience,
       groups: ['operator', 'network:read', 'task:submit'],
-      permissions: ['network:read', 'task:submit']
+      permissions: []
     })
     expect(fixture.discoveryCalls()).toBe(1)
     expect(fixture.jwksCalls()).toBe(1)
+  })
+
+  test('does not turn Keycloak groups into Meristem permissions', async () => {
+    const fixture = await createKeycloakVerifierFixture()
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
+    const token = await fixture.signKeycloakToken({
+      realmRoles: ['admin', 'network:create', 'task:manage']
+    })
+
+    const result = await verifier.verify(token)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.session.groups).toEqual(['admin', 'network:create', 'task:manage'])
+    expect(result.session.permissions).toEqual([])
+  })
+
+  test('maps verified OIDC identity to local IAM by issuer+subject only', () => {
+    const original = oidcSessionToLocalIamClaims({
+      subject: 'stable-keycloak-subject',
+      issuer: keycloakIssuer,
+      groups: ['admin'],
+      expiresAt: '2026-07-13T05:00:00.000Z',
+      displayName: 'Original Display Name',
+      email: 'original@example.com'
+    })
+    const displayChanged = oidcSessionToLocalIamClaims({
+      subject: 'stable-keycloak-subject',
+      issuer: keycloakIssuer,
+      groups: ['viewer'],
+      expiresAt: '2026-07-13T05:05:00.000Z',
+      displayName: 'Changed Display Name',
+      email: 'changed@example.com'
+    })
+
+    expect(displayChanged.oidcIssuer).toBe(original.oidcIssuer)
+    expect(displayChanged.oidcSubject).toBe(original.oidcSubject)
+    expect(displayChanged.displayName).toBe('Changed Display Name')
+    expect(displayChanged.email).toBe('changed@example.com')
+    expect(displayChanged.upstreamGroups).toEqual(['viewer'])
+    expect('permissions' in displayChanged).toBe(false)
   })
 
   test('verifies a local JWT only when local-dev provider is selected', async () => {
@@ -93,7 +138,10 @@ describe('shared configurable auth verifier contract', () => {
 
   test('returns a consistent failure for invalid issuer', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const token = await fixture.signKeycloakToken({ issuer: 'https://issuer.example.invalid' })
 
     const result = await verifier.verify(token)
@@ -105,7 +153,10 @@ describe('shared configurable auth verifier contract', () => {
 
   test('returns a consistent failure for invalid audience', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const token = await fixture.signKeycloakToken({ audience: 'other-service' })
 
     const result = await verifier.verify(token)
@@ -117,7 +168,10 @@ describe('shared configurable auth verifier contract', () => {
 
   test('returns a consistent failure for invalid signature', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const token = await fixture.signWithUntrustedKey()
 
     const result = await verifier.verify(token)
@@ -129,7 +183,10 @@ describe('shared configurable auth verifier contract', () => {
 
   test('returns a consistent failure for expired token', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const nowSeconds = Math.floor(Date.now() / 1_000)
     const token = await fixture.signKeycloakToken({
       issuedAtSeconds: nowSeconds - 600,

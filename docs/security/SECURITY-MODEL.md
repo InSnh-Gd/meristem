@@ -94,7 +94,7 @@ MVP uses a narrower permission set than the long-term baseline:
 
 MVP actor selection still supports locally signed JWT bearer tokens for local development. This remains a local-only provider and is not a production identity provider model.
 
-Production identity provider integration now has an OIDC/JWKS access-token verification foundation for service-to-service and API bearer validation. Browser sessions, SSO UX, SAML, MFA, refresh-token handling, and user-management UI remain deferred.
+Production identity provider integration now has an OIDC/JWKS access-token verification foundation for service-to-service and API bearer validation. Browser session contracts are versioned for M-UI BFF integration, while SSO UX, SAML, MFA, refresh-token handling, full user-management UI, and route implementation remain deferred.
 
 ### 2.2 MVP JWT Model
 
@@ -184,8 +184,34 @@ Rules:
 - JWT verification enforces configured issuer and audience allowlists with 30-second clock tolerance for expiry checks.
 - JWKS cache uses stale-while-revalidate semantics: serve cached keys during refresh window, refresh in background, and fail closed with typed `stale_jwks` once cache TTL is exceeded and refresh cannot recover.
 - explicit claims mapping exports only `{ subject, groups, issuer, expiresAt }` to Meristem actor/session consumers. Raw JWTs and unmapped claims must not cross the provider boundary.
-- verification failures are typed and consumable by route handlers: `stale_jwks`, `bad_issuer`, `bad_audience`, `unsupported_algorithm`, `expired_token`, `missing_claim`, `revoked_token`, and `introspection_required`.
+- verification failures are typed and consumable by route handlers: `invalid_discovery`, `stale_jwks`, `bad_issuer`, `bad_audience`, `unsupported_algorithm`, `expired_token`, `missing_claim`, `revoked_token`, `introspection_required`, and `invalid_token`.
 - logs, Audit payloads, Full Log payloads, events, and UI/BFF responses must redact bearer tokens and raw claims. Only explicitly mapped actor/session fields may appear.
+
+### 2.2.3 OIDC 联邦、本地 IAM 与 BFF Session Contract
+
+生产登录路径采用 Keycloak OIDC federation + Meristem local IAM。Keycloak 只证明用户已经通过上游认证；Meristem local IAM 才是 principal、role、permission、account status 和 session lifecycle 的权威源。
+
+Rules:
+
+- principal 主键是 `(issuer, subject)` 绑定，不是 email、name、preferred_username 或 Keycloak group。
+- email/name/preferred_username 只是 display attributes。上游 email 变化只更新 display，不触发 rebind，不改变 principal identity。
+- 首次登录若 `(issuer, subject)` 不存在，Core 创建 `pending` principal，写 Audit fact，并拒绝签发 session。pending principal 不能执行任何操作。
+- security-admin 通过本地 IAM approval/rejection 路径批准或拒绝 pending principal。批准后才能分配 Meristem roles；被拒绝的 principal 进入 `rejected` 状态，后续登录返回 `principal_rejected`，且不得签发 session。
+- `disabled` principal 必须 fail closed：拒绝登录、拒绝 session rotation、撤销现有 session，并写 Audit fact。
+- subject mismatch、issuer collision、手工 rebind 或同一 display email 指向不同 subject 时，必须返回 typed conflict error，并写 Audit fact；不得静默合并账户。
+- Keycloak groups、realm roles、client roles 和任意外部 claims 不直接授予 Meristem permissions。它们最多作为诊断/display 输入进入审计或人工审批上下文，最终授权仍来自 local IAM roles + M-Policy。
+- M-UI frontend 不持有 OIDC access token、refresh token 或 ID token。token 只允许停留在 BFF/server-side session 处理边界，并且不得进入 browser storage、Full Log、Audit payload、event payload 或 UI response。
+- BFF session 必须使用 server-side storage，cookie 必须是 `HttpOnly`、`Secure`、`SameSite=Strict` 或受控 `SameSite=Lax`、`__Host-` 前缀、`path=/`。
+- OIDC authorization callback 必须校验 `state`、`nonce` 和 PKCE；所有 state/nonce/CSRF material 必须绑定到 server-side session 或一次性登录事务。
+- session issue、rotation、revocation、logout、role revocation、principal disable 和 provider outage 都必须写可查询 Audit fact。审计不可用时，高风险状态变更 fail closed。
+- role revocation 不允许静默收缩当前 session permissions；必须撤销受影响 session，后续请求重新建立 session snapshot。
+- Keycloak unavailable 时，OIDC login fail closed，并使依赖 provider freshness 的 BFF sessions 失效。break-glass 只能走本地 IAM token 路径，要求双人审批、30 分钟 TTL、不可绕过 Audit。
+
+Versioned contract source:
+
+- Effect Schema: `packages/contracts/src/schemas/oidc-iam-session.ts`
+- Contract versions: `oidc-iam-provider@0.1.0`, `oidc-iam-provider-failure@0.1.0`, `oidc-iam-principal@0.1.0`, `oidc-iam-session@0.1.0`, `oidc-iam-audit@0.1.0`
+- TypeBox adapters exist for BFF/HTTP login and logout edge compatibility; Effect Schema remains the executable internal contract.
 
 ### 2.3 MVP Internal Service Authentication
 
@@ -415,6 +441,19 @@ SecretProvider v0.2 rules:
 - `stale_secret` is fail-closed: an expired cached secret must not be reused when the provider refresh is unavailable.
 - provider errors, Audit payloads, Full Log payloads, UI/BFF responses, and failure-mode evidence must never contain plaintext secret values.
 - OIDC client secret / JWKS material, NetBird Signal / Relay / STUN credentials, node sidecar credentials, and deployment env-secret bindings all consume the same SecretProvider boundary.
+
+Vault production backend contract:
+
+- Vault runs in HA mode on the three control/state VMs using Integrated Storage / Raft. The contract assumes quorum health, leader identity, and seal state are observable through `vault-health@0.2.0`; Vault being sealed, unavailable, or without quorum blocks secret read, write, rotate, revoke, and deploy-secret resolution.
+- The libvirt validation fixture uses Shamir unseal. Unseal shard custody is split across security-admins; one operator must not hold quorum. Evidence records may include participant identity, key ID, ceremony time, result, and correlation ID only.
+- Secret-zero is a controlled ceremony: the root token initializes policies, workload auth, and the minimum bootstrap credential, then is revoked or sealed away. Root token, unseal shard, AppRole secret ID, client secret, and node credential values must not enter config, environment files, desired-state Git, logs, traces, events, tests, examples, evidence, or operator-facing error envelopes.
+- Workload auth is AppRole or an equivalent workload identity. Contracts carry only redacted `roleIdRef` / `secretIdRef`, policy reference, TTL, renewable flag, and audit ID; token or secret ID plaintext is never a contract payload.
+- Vault policy is default-deny. Workloads receive path-scoped capabilities (`read`, `list`, `create`, `update`, `delete`) only for the secret paths they operate. Missing capability returns `permission_denied` and fails closed.
+- M-Deploy agent resolves deployment `secretRef` values through the SecretProvider boundary immediately before applying signed desired-state. Resolution returns only status, redacted ref, resolved version, and audit ID across Meristem service boundaries; plaintext stays inside the local workload environment injection step and is never emitted.
+- Client secrets for OIDC, JWKS material, NetBird credentials, registry credentials, node sidecar credentials, and deployment env-secret bindings are stored as Vault KV v2 versions referenced by PostgreSQL secretRef metadata. Rotation creates a new active version, deactivates the old version, and writes Audit before mutation.
+- Manual rotation uses the `secret-rotation@0.2.0` request/result contract: secret ID, old version, new version, actor, audit ID, and timestamp. Automatic rotation scheduling is still deferred, but the result shape reserves the active/deactivated version semantics.
+- Revoke uses the `secret-revoke@0.2.0` request/result contract: secret ID, actor, audit ID, revoked version, and timestamp. Revoked or expired workload credentials return typed auth failures (`credential_revoked` / `credential_expired`) and do not fall back to local storage.
+- All Vault unavailable, sealed, denied, missing, stale, expired, or revoked paths are fail-closed. There is no production fallback from Vault to `local-dev-env` or any plaintext local store.
 
 ---
 

@@ -17,26 +17,28 @@ export {
   verifyLocalToken
 } from './actor-tokens.ts'
 export { hashNodeToken, mintNodeToken } from './node-tokens.ts'
-export {
-  createOidcAuthProvider,
-  oidcSupportedAlgorithms,
-  redactOidcAuthMaterial
-} from './oidc-provider.ts'
 export type {
+  OidcActorSession,
   OidcAuthConfig,
+  OidcAuthFailure,
   OidcAuthProvider,
   OidcAuthProviderDeps,
-  OidcActorSession,
-  OidcAuthFailure,
   OidcDiscoveryDocument,
   OidcDiscoveryResult,
+  OidcLocalIamPrincipalClaims,
   OidcProviderDependencies,
   OidcRedactedLogContext,
   OidcSupportedAlgorithm,
   OidcTokenState,
   VerifyOidcAccessTokenInput
 } from './oidc-provider.ts'
-export { createSharedAuthVerifier } from './shared-verifier.ts'
+export {
+  createOidcAuthProvider,
+  oidcSupportedAlgorithms,
+  redactOidcAuthMaterial
+} from './oidc-provider.ts'
+export { oidcSessionToLocalIamClaims } from './oidc-provider-support.ts'
+export { extractBearerToken, isActorId } from './shared.ts'
 export type {
   SharedAuthSession,
   SharedAuthVerifier,
@@ -45,4 +47,4 @@ export type {
   SharedAuthVerifierReadiness,
   SharedAuthVerifierResult
 } from './shared-verifier.ts'
-export { extractBearerToken, isActorId } from './shared.ts'
+export { createSharedAuthVerifier } from './shared-verifier.ts'

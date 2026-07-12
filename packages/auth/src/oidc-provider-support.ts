@@ -3,10 +3,10 @@ import {
   type createLocalJWKSet,
   decodeJwt,
   decodeProtectedHeader,
-  jwtVerify,
   type JSONWebKeySet,
   type JWTPayload,
-  type JWTVerifyResult
+  type JWTVerifyResult,
+  jwtVerify
 } from 'jose'
 import type { OidcAuthProviderConfigFromSchema } from '../../contracts/src/index.ts'
 
@@ -22,6 +22,16 @@ export type OidcActorSession = {
   subject: string
   groups: readonly string[]
   issuer: string
+  expiresAt: string
+  displayName?: string
+  email?: string
+  audience?: string
+}
+
+export type OidcLocalIamPrincipalClaims = {
+  oidcIssuer: string
+  oidcSubject: string
+  upstreamGroups: readonly string[]
   expiresAt: string
   displayName?: string
   email?: string
@@ -339,7 +349,10 @@ function getClaimPath(payload: JWTPayload, claimPath: string): unknown {
   return current
 }
 
-function optionalStringClaim(payload: JWTPayload, claimPath: string | undefined): string | undefined {
+function optionalStringClaim(
+  payload: JWTPayload,
+  claimPath: string | undefined
+): string | undefined {
   if (!claimPath) return undefined
   const value = getClaimPath(payload, claimPath)
   return typeof value === 'string' && value.length > 0 ? value : undefined
@@ -392,6 +405,23 @@ export function mapVerifiedPayloadToSession(
     ...(displayName ? { displayName } : {}),
     ...(email ? { email } : {}),
     ...(audience ? { audience } : {})
+  }
+}
+
+/**
+ * OIDC verifier 向 local IAM 只交付认证后的 issuer+subject 与显示属性；权限必须由本地 IAM 角色解析。
+ */
+export function oidcSessionToLocalIamClaims(
+  session: OidcActorSession
+): OidcLocalIamPrincipalClaims {
+  return {
+    oidcIssuer: session.issuer,
+    oidcSubject: session.subject,
+    upstreamGroups: [...session.groups],
+    expiresAt: session.expiresAt,
+    ...(session.displayName ? { displayName: session.displayName } : {}),
+    ...(session.email ? { email: session.email } : {}),
+    ...(session.audience ? { audience: session.audience } : {})
   }
 }
 

@@ -3,13 +3,10 @@ import type {
   AuthProviderRuntimeConfigFromSchema,
   Permission
 } from '../../contracts/src/index.ts'
-import { permissions } from '../../contracts/src/index.ts'
 import { verifyLocalToken } from './actor-tokens.ts'
 import { createOidcAuthProvider, type OidcAuthProviderDeps } from './oidc-provider.ts'
 import type { OidcActorSession, OidcAuthFailure } from './oidc-provider-support.ts'
 import { defaultAudience, isActorId, issuer } from './shared.ts'
-
-const permissionSet = new Set<string>(permissions)
 
 export type SharedAuthVerifierFailure = {
   ok: false
@@ -68,8 +65,8 @@ function failure(input: {
   return { ok: false, code: input.code, message: input.message }
 }
 
-function permissionsFromGroups(groups: readonly string[]): readonly Permission[] {
-  return groups.filter((group): group is Permission => permissionSet.has(group))
+function permissionsFromGroups(): readonly Permission[] {
+  return []
 }
 
 function oidcSessionToShared(session: OidcActorSession): SharedAuthVerifierResult {
@@ -92,7 +89,7 @@ function oidcSessionToShared(session: OidcActorSession): SharedAuthVerifierResul
       issuer: session.issuer,
       audience: session.audience ?? defaultAudience,
       groups: session.groups,
-      permissions: permissionsFromGroups(session.groups),
+      permissions: permissionsFromGroups(),
       expiresAt: session.expiresAt
     }
   }

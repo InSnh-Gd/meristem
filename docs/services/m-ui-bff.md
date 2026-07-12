@@ -25,6 +25,7 @@ What this service owns:
 - Returning display-shaped node, timeline, audit, policy decision, and service lists with state-source annotations
 - Exposing generic CommandWell endpoints for BFF-known command IDs only
 - Exposing its own minimal OpenAPI document for the M-UI frontend
+- Owning the browser-facing local session contract for OIDC callback results: HttpOnly cookie, CSRF/state/nonce validation, server-side session storage, rotation, revocation, and logout semantics
 
 The BFF is a UI-facing adaptation layer. It may aggregate, trim, order, annotate `stateSource`, and derive display-oriented command eligibility, but M-UI owns route surfaces, Svelte components, and interaction structure. Capability domain services own facts and capabilities; services, M-Extension, and plugins do not supply M-UI pages or components through the BFF.
 
@@ -38,6 +39,7 @@ What this service must not own:
 - Direct calls to M-Policy, M-Log, or M-Net internal HTTP
 - Calls to `/internal/v0/*` routes on M-Policy, M-Net, or any other internal service
 - Token issuance, storage, or caching
+- Frontend-visible OIDC token handling; the M-UI frontend must never receive, store, cache, or forward OIDC access tokens, refresh tokens, or ID tokens
 - Cross-request caching of any Core data
 - Final command authorization — Core and M-Policy remain the sources of truth
 
@@ -77,6 +79,27 @@ What this service must not own:
 | GET | `/api/v0/networks` | Bearer | Network list via Core boundary; read-only target list for explicit M-UI profile command selection |
 | GET | `/api/v0/networks/profile-defaults` | Bearer | Global profile defaults via Core boundary; control-plane state only |
 | GET | `/api/v0/networks/profile-switches/:operationId` | Bearer | Global profile migration status via Core boundary; control-plane state only |
+
+**OIDC / local IAM session contract**:
+
+OIDC browser login is versioned as a BFF-held session contract, but this document does not implement BFF routes. Route implementation must use the shared contract schemas before adding public endpoints.
+
+- OIDC provider config uses authorization code flow + PKCE and requires `state` and `nonce` validation.
+- BFF receives verified OIDC identity material as `(issuer, subject)` plus display attributes. It must call Core/local IAM to resolve principal status and roles before issuing a session.
+- Unknown `(issuer, subject)` creates a pending principal through Core/local IAM and returns no BFF session.
+- Approved principal creates a server-side session and a `__Host-meristem-session` cookie with `HttpOnly`, `Secure`, `SameSite=Strict` or explicitly justified `Lax`, and `path=/`.
+- Rejected or disabled principal, subject conflict, rebind conflict, provider outage, and role revocation all fail closed and must surface typed errors suitable for UI display.
+- Session state stores a roles snapshot only after Core/local IAM resolution. Keycloak groups or claims are never translated directly into Meristem permissions.
+- Logout destroys the server-side session, clears the cookie, and may attempt upstream front-channel logout, but local session destruction is required even if upstream logout fails.
+- Session rotation is required after login and privilege changes; role revocation or principal disable invalidates active sessions instead of mutating them in place.
+- Audit facts are produced by Core/M-Log boundaries, not by M-UI frontend. BFF may carry correlation IDs and forward Core error envelopes, but must not fabricate Audit facts.
+
+Contract source:
+
+- Effect Schema and TypeBox compatibility: `packages/contracts/src/schemas/oidc-iam-session.ts`
+- Provider failure contract version: `oidc-iam-provider-failure@0.1.0`
+- Session contract version: `oidc-iam-session@0.1.0`
+- Principal contract version: `oidc-iam-principal@0.1.0`
 
 **Display-only command handling**:
 
@@ -125,6 +148,7 @@ The BFF does not enforce permissions. It derives disabled command state from the
 | Dependency | Type | Failure Behavior |
 |------------|------|------------------|
 | meristem-core | service | BFF returns 502 with Core error envelope; all overview data limited to what Core returns |
+| Keycloak OIDC Provider | external identity provider | Login fails closed; provider outage invalidates freshness-dependent sessions and directs operators to local break-glass path |
 
 ## 6. Configuration
 
@@ -132,6 +156,10 @@ The BFF does not enforce permissions. It derives disabled command state from the
 |-----|------|----------|------------|-------|
 | `MERISTEM_BFF_PORT` | number | no | no | Default 3200 |
 | `MERISTEM_CORE_URL` | string | no | no | Default `http://localhost:3000` |
+| `MERISTEM_OIDC_ISSUER` | string | production OIDC only | no | Exact issuer match for Keycloak realm |
+| `MERISTEM_OIDC_CLIENT_ID` | string | production OIDC only | no | BFF confidential/public client identifier, depending on deployment profile |
+| `MERISTEM_OIDC_REDIRECT_URI` | string | production OIDC only | no | Must match registered callback URI |
+| `MERISTEM_SESSION_COOKIE_NAME` | string | no | no | Defaults to `__Host-meristem-session` |
 
 ## 7. Health
 
@@ -162,6 +190,7 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 
 - The BFF must not make authorization decisions.
 - The BFF must forward the caller's Bearer token to Core without inspection or modification.
+- For browser OIDC sessions, the BFF must forward only the BFF-held local session identity to Core; it must not expose upstream OIDC tokens to M-UI or use Keycloak claims as Meristem permissions.
 - The BFF must not expose Core REST paths directly to `apps/m-ui`.
 - The BFF must not call `/internal/v0/*` routes on M-Policy, M-Net, or any other internal service. All approval and profile data flows through Core boundary routes only.
 - Disabled command reasons must be visible but must not create Audit facts.
@@ -177,5 +206,7 @@ The BFF relies on Core, M-Log, and M-Policy for all operational logging and audi
 - OpenAPI document generated at `/openapi`.
 - BFF does not call M-Log, M-Policy, or M-Net internal HTTP.
 - BFF does not construct Audit facts.
+- BFF-held browser session contract requires an HttpOnly/Secure/SameSite `__Host-` cookie, server-side storage, CSRF/state/nonce/PKCE validation, rotation, revocation, and logout semantics.
+- Keycloak groups/claims do not grant Meristem permissions; Core/local IAM and M-Policy remain authoritative.
 - BFF does not expose full policy decision internals through its UI-facing summary endpoint.
 - Core, M-Policy, and M-Log remain the sources of operational facts.

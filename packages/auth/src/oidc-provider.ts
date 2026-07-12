@@ -1,10 +1,14 @@
-import { Type, type Static } from '@sinclair/typebox'
+import { type Static, Type } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import { createLocalJWKSet, type JSONWebKeySet } from 'jose'
 import type { OidcAuthProviderConfigFromSchema } from '../../contracts/src/index.ts'
 import {
-  cacheAgeMs,
   type CachedJwks,
+  cacheAgeMs,
+  isOidcFailure,
+  isSupportedAlgorithm,
+  mapVerifiedPayloadToSession,
+  normalizeProviderConfig,
   type OidcDiscoveryDocument,
   type OidcDiscoveryFailure,
   type OidcDiscoveryResult,
@@ -12,13 +16,9 @@ import {
   type OidcStaleJwksFailure,
   type OidcVerifyResult,
   oidcSupportedAlgorithms,
-  type VerifyOidcAccessTokenInput,
-  isOidcFailure,
-  isSupportedAlgorithm,
-  mapVerifiedPayloadToSession,
-  normalizeProviderConfig,
   readProtectedAlgorithm,
   redactOidcAuthMaterial,
+  type VerifyOidcAccessTokenInput,
   validateDiscoveryDocument,
   verifyJwtWithJwks
 } from './oidc-provider-support.ts'
@@ -279,18 +279,19 @@ export function createOidcAuthProvider(
   }
 }
 
-export { oidcSupportedAlgorithms, redactOidcAuthMaterial }
 export type {
   OidcActorSession,
   OidcAuthFailure,
   OidcDiscoveryDocument,
   OidcDiscoveryResult,
+  OidcLocalIamPrincipalClaims,
   OidcProviderDependencies,
   OidcRedactedLogContext,
   OidcSupportedAlgorithm,
   OidcTokenState,
   VerifyOidcAccessTokenInput
 } from './oidc-provider-support.ts'
+export { oidcSupportedAlgorithms, redactOidcAuthMaterial }
 
 export type OidcAuthConfig = OidcAuthProviderConfigFromSchema
 export type OidcAuthProvider = ReturnType<typeof createOidcAuthProvider>
