@@ -42,7 +42,8 @@ What this service must not own:
 
 Current production-track scope:
 
-- first runtime target is fixed VM topology using Podman-first / Docker-compatible compose drivers
+- production runtime is fixed VM topology using Podman Quadlet units managed by systemd
+- Docker Compose is compatibility-only for local validation and migration checks; it does not satisfy production readiness
 - OpenTofu/Terraform support is a provider-neutral IaC fixture for topology provisioning and state comparison
 - Kubernetes, Helm, service mesh, controller SSH push, and broad remote execution are excluded
 - M-Deploy service definition is documentation-only until the M-Deploy implementation track opens
@@ -56,7 +57,8 @@ Current production-track scope:
 | REST | `/api/v0/deploy/desired-state`, `/api/v0/deploy/proposals*`, `/api/v0/deploy/apply`, `/api/v0/deploy/rollback`, `/api/v0/deploy/drift`, `/api/v0/deploy/evidence*`, `/api/v0/deploy/agents*` | `v0` | Core public facade exposes operator-facing routes; high-risk mutations require M-Policy and Audit |
 | REST / internal HTTP | `/internal/v0/deploy/proposals`, `/internal/v0/deploy/approvals/:id/resume`, `/internal/v0/deploy/apply`, `/internal/v0/deploy/rollback`, `/internal/v0/deploy/drift`, `/internal/v0/deploy/evidence`, `/internal/v0/deploy/agents/:id/heartbeat` | `v0` | loopback-only service API consumed by Core, M-Policy resume callbacks, and enrolled deployment agents |
 | Eden | `@meristem/contracts/mdeploy` | `0.1.0` | planned typed internal client for Core → M-Deploy and agent-control calls |
-| Events | `mdeploy.proposal.created.v0`, `mdeploy.approval.recorded.v0`, `mdeploy.apply.started.v0`, `mdeploy.apply.succeeded.v0`, `mdeploy.apply.failed.v0`, `mdeploy.rollback.*.v0`, `mdeploy.drift.detected.v0`, `mdeploy.agent.heartbeat.v0`, `mdeploy.evidence.emitted.v0` | `v0` | draft subjects are registered in `docs/events/EVENT-CATALOG.md`; payload schemas must land before implementation |
+| Effect Schema | `packages/contracts/src/schemas/mdeploy-common.ts`, `mdeploy-operations.ts`, `mdeploy-agent.ts` | `0.1.0` | desired-state, signed envelope, proposal/approval, Podman-production and Docker-compatibility runtime selection, immutable image provenance, promotion/rollback metadata, runtime health, agent, drift, reconcile, evidence, and event payload schemas |
+| Events | `mdeploy.proposal.created.v0`, `mdeploy.approval.recorded.v0`, `mdeploy.apply.started.v0`, `mdeploy.apply.succeeded.v0`, `mdeploy.apply.failed.v0`, `mdeploy.rollback.*.v0`, `mdeploy.drift.detected.v0`, `mdeploy.agent.heartbeat.v0`, `mdeploy.evidence.emitted.v0` | `v0` | draft subjects are registered in `docs/events/EVENT-CATALOG.md`; payload schemas are exported from `@meristem/contracts` before implementation |
 
 Planned public API surface:
 
@@ -113,7 +115,8 @@ High-risk markings:
 | PostgreSQL | datastore | deployment metadata, proposals, reconcile state, agent state, and evidence metadata fail closed on write unavailability |
 | Git | desired-state source | sync degraded; use last successful snapshot only within configured TTL; reject reconcile after TTL |
 | Vault / SecretProvider | secret backend | sealed/unavailable provider blocks new apply/rollback requiring secret material; no local plaintext fallback |
-| Podman / Docker runtime | runtime driver | target apply fails with typed driver error; previous running services continue when possible |
+| Podman runtime | production runtime driver | production requires Podman Quadlet units managed by systemd; missing or mismatched runtime support blocks apply with typed validation |
+| Docker Compose | compatibility runtime | compatibility validation may run with Docker Compose, but it must not be reported as production readiness or used for production promotion |
 | OpenTofu / Terraform | IaC driver | topology plan/apply/drift steps fail typed; does not replace Git desired-state authority |
 | OCI registry | artifact source | digest verification or pull failure blocks apply; mutable tags are not accepted as authority |
 | Deployment agent | node service | disconnected agent pauses apply/drift for that target; last-known state stays visible and degraded |
@@ -127,7 +130,7 @@ High-risk markings:
 | `MERISTEM_MDEPLOY_PORT` | number | yes | no | loopback internal service bind |
 | `MERISTEM_MDEPLOY_AGENT_BIND` | string | yes | no | agent pull-reconcile ingress; must not expose generic SSH control |
 | `MERISTEM_INTERNAL_TOKEN` | string | yes | no | Core/internal service authentication |
-| `MERISTEM_MDEPLOY_RUNTIME_DRIVER` | `podman` \| `docker` | yes | yes | runtime driver selection; Podman is production-preferred, Docker compatibility is allowed |
+| `MERISTEM_MDEPLOY_RUNTIME_DRIVER` | `podman` \| `docker` | yes | yes | `podman` is required for production with `quadlet-systemd`; `docker` is compatibility-only with `docker-compose` |
 | `MERISTEM_MDEPLOY_IAC_DRIVER` | `opentofu` \| `terraform` \| `disabled` | yes | yes | provider-neutral IaC driver selection |
 | `MERISTEM_MDEPLOY_GIT_URL` | string | yes | yes | desired-state Git repository URL |
 | `MERISTEM_MDEPLOY_GIT_BRANCH` | string | yes | yes | watched branch or ref; commits are pinned by digest before apply |
@@ -158,6 +161,7 @@ Configuration lifecycle rules:
 | agent heartbeat | enrolled deployment agents report within timeout and include supported driver capabilities | target marked degraded/disconnected; apply and drift pause for that target |
 | controller health | reconcile scheduler, operation lock, and event publisher are functioning | new operations are not admitted; in-flight operations move to typed degraded state |
 | Git sync status | latest configured ref fetched and signed envelope verified within TTL | read path shows stale; reconcile rejected after TTL |
+| runtime health | selected runtime class, driver, unit manager, availability, and immutable-image verification agree with the versioned runtime-health contract | production apply/promotion is blocked when Podman, Quadlet/systemd, or digest verification is unavailable |
 
 Readiness is stricter than liveness. A live M-Deploy that cannot write Audit/evidence or validate signatures is not ready for protected operations.
 
@@ -175,6 +179,7 @@ Lifecycle details:
 
 - apply operations are idempotent by operation ID + desired-state digest + target scope.
 - rollback operations are separate high-risk operations, not implicit failure handlers hidden inside apply.
+- promotion records preserve source and target environments, immutable image digest, SBOM, provenance and signature references, signer identity, approval actor, and the previous promotion/digest rollback pointer.
 - in-flight operations persist checkpoint metadata so a restarted controller can resume only after revalidating policy, signature, Git digest, and Audit/evidence availability.
 - agent pull-reconcile means agents poll/pull desired-state work; the controller does not SSH into nodes or push shell commands.
 
@@ -212,6 +217,7 @@ Evidence behavior:
 - M-Deploy must fail closed if M-Policy is unavailable, returns deny/manual review, or cannot persist the required approval/decision state.
 - M-Deploy must fail closed if required Audit or evidence writes cannot complete for high-risk operations.
 - signed desired-state envelope verification is mandatory before any reconcile or agent apply; verification failure writes Audit and blocks reconcile.
+- production image admission requires a digest-only OCI reference whose digest matches metadata, plus SBOM, provenance, signature, and signer references; mutable/tag-only or incomplete artifacts fail typed validation.
 - agents must verify signed desired-state envelopes locally before runtime actions; controller-side verification alone is insufficient.
 - rollback requires its own policy decision and Audit chain; previous approval for apply does not authorize rollback.
 - drift read/check is non-mutating but must enforce read permissions and redaction.
@@ -224,6 +230,7 @@ Evidence behavior:
 
 - Service definition is versioned.
 - Contracts for REST, Eden, events, agent heartbeat, proposal, approval, apply, rollback, drift, and evidence are declared.
+- Runtime/provenance contracts distinguish Podman Quadlet/systemd production from Docker Compose compatibility, reject mutable image references and missing provenance, preserve promotion/rollback metadata, and report runtime health.
 - Permissions are declared with risk level and high-risk control requirements.
 - Owned state and must-not-own boundaries match the authority matrix.
 - Dependencies and failure behavior are declared for Git, Vault/SecretProvider, Podman/Docker, OpenTofu/Terraform, PostgreSQL, NATS, M-Policy, M-Log, registry, Core, and agents.

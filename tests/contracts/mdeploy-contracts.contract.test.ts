@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import {
+  decodeMDeployDesiredStateDocumentV01,
+  encodeMDeployDesiredStateDocumentV01,
   MDeployAgentEnrollmentV01Schema,
   MDeployAgentHeartbeatV01Schema,
   MDeployApprovalV01Schema,
   MDeployDesiredStateDocumentV00Schema,
+  type MDeployDesiredStateDocumentV01FromSchema,
   MDeployDesiredStateDocumentV01Schema,
   MDeployDriftReportV01Schema,
   MDeployEvidenceMetadataV01Schema,
@@ -15,10 +18,7 @@ import {
   MDeployRollbackResultV01Schema,
   MDeployRuntimeDriverSelectionV01Schema,
   MDeploySignedEnvelopeV01Schema,
-  decodeMDeployDesiredStateDocumentV01,
-  encodeMDeployDesiredStateDocumentV01,
-  migrateMDeployDesiredStateDocumentV00ToV01,
-  type MDeployDesiredStateDocumentV01FromSchema
+  migrateMDeployDesiredStateDocumentV00ToV01
 } from '../../packages/contracts/src/index.ts'
 
 const digest = { algorithm: 'sha256', value: 'sha256:desired-state-001' } as const
@@ -202,7 +202,9 @@ describe('M-Deploy versioned contracts', () => {
     assertRoundTrip(MDeployApprovalV01Schema, approval)
     assertRoundTrip(MDeployRuntimeDriverSelectionV01Schema, {
       schemaVersion: 'mdeploy.runtime-driver-selection@0.1.0',
+      runtimeClass: 'production',
       runtimeDriver: 'podman',
+      unitManager: 'quadlet-systemd',
       iacDriver: 'opentofu',
       selectedAt: '2026-07-07T00:00:00.000Z',
       selectedBy: 'm-deploy-controller'
