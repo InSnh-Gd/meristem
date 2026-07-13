@@ -1,8 +1,9 @@
 # Deferred Event Gap Map
 
-> Checked-in map of every event catalog subject that remains non-active after the current contract baseline.
-> A subject is non-active when there is no real `publish()` call in `apps/core/src/` or `services/*/src/`.
+> Checked-in map of every event catalog subject that remains deferred after the current contract baseline.
+> A subject is deferred when it has neither a real `publish()` call nor an explicitly contract-activated schema/fixture mapping.
 > This map is a deferred-coverage audit artifact; it does not add schemas, publishers, or fixtures.
+> Contract-activated M-Net closed-loop subjects remain publisher-deferred even though their schema coverage is active.
 
 ---
 
@@ -10,8 +11,9 @@
 
 - `EVENT-CATALOG.md` remains the canonical event registry.
 - This file is a checked-in audit map of catalog subjects that are still deferred in the active codebase.
-- Active subjects have Effect Schema coverage and real publishers; they are intentionally absent from this map.
-- The scanner behind `getActivePublisherSubjects()` reads literal subjects from `publish()`, `publishTaskEvent()`, `publish.post({ subject: ... })`, and known dynamic helpers in `services/m-extension/src/`. It does not resolve runtime-computed subjects or subjects emitted only by future node-agent / data-plane runtimes.
+- Active publisher subjects and explicitly contract-activated M-Net subjects have Effect Schema coverage and are intentionally absent from this contract-gap table.
+- Contract-activated M-Net closed-loop subjects must remain absent from `activePublishedEventSubjects` until T15 adds real service publishers.
+- The scanner behind `getActivePublisherSubjects()` reads literal subjects from `publish()`, `publishTaskEvent()`, `publish.post({ subject: ... })`, and known dynamic helpers in `services/m-extension/src/`. `getActiveCoverageSubjects()` additionally includes M-Net data-plane and closed-loop subjects whose versioned schemas and fixtures are activated before their service publishers land.
 
 ## Deferred event gap map
 
@@ -36,7 +38,18 @@
 | `secret.ref.disabled.v0` | SecretRef | Core | no active publisher in active codebase | deferred, no Effect Schema in packages/contracts | deferred, no contract test fixture | Core / security | SecretRef v0.1 control plane does not yet publish lifecycle events (see `DFW-028`). | When SecretRef lifecycle emits disable events. | deferred, implement when real publisher exists |
 | `policy.approval.canceled.v0` | approval lifecycle | M-Policy | no active publisher in active codebase | deferred, no Effect Schema in packages/contracts | deferred, no contract test fixture | M-Policy | Approval cancellation is cataloged as a future lifecycle fact, but current approval flows create, approve, reject, or expire only. | When M-Policy implements real approval cancellation and emits this subject. | deferred, implement when real publisher exists |
 | `audit.lock.required.v0` | audit | M-Policy / M-Log | no active publisher in active codebase | deferred, no Effect Schema in packages/contracts | deferred, no contract test fixture | M-Policy / M-Log | Audit lock workflow is not yet implemented. | When audit lock policy workflow is implemented and emits this subject. | deferred, implement when real publisher exists |
-
+| `mdeploy.proposal.created.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy proposal creation is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.approval.recorded.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy approval recording is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.apply.started.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy apply execution is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.apply.succeeded.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy apply success is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.apply.failed.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy apply failure is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.rollback.started.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy rollback start is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.rollback.succeeded.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy rollback success is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.rollback.failed.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy rollback failure is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.drift.detected.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy drift detection is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.drift.resolved.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy drift resolution is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.agent.heartbeat.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy agent heartbeat is wired to EventBus. | deferred, implement when real publisher exists |
+| `mdeploy.evidence.emitted.v0` | M-Deploy | M-Deploy | no active publisher in active codebase | draft schema exists, publisher deferred | draft fixture exists | M-Deploy | M-Deploy is a post-v0.1 production-track contract and has no active publisher yet. | When M-Deploy evidence emission is wired to EventBus. | deferred, implement when real publisher exists |
 ---
 
 ## Consistency check

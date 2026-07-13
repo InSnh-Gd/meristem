@@ -4,6 +4,137 @@ import { Contracts } from './schema-coverage.ts'
 const netbirdConfigRef = { configRef: 'config/netbird/signal' } as const
 const netbirdRelayConfigRef = { configRef: 'config/netbird/relay' } as const
 const netbirdStunConfigRef = { configRef: 'config/netbird/stun' } as const
+const now = '2026-07-07T10:00:00.000Z'
+const later = '2026-07-07T10:30:00.000Z'
+const correlationId = 'corr-mnet-closed-loop-coverage'
+
+const policy = {
+  policyDecisionId: 'pd-mnet-coverage',
+  source: 'm-policy',
+  outcome: 'allow',
+  requiredPermission: 'network:join',
+  reason: 'fixture approval',
+  decidedAt: now
+} as const
+
+const audit = {
+  auditId: 'audit-mnet-coverage',
+  source: 'm-log-audit',
+  action: 'mnet.join.approve',
+  resource: 'network/network-cn-001',
+  actor: 'admin',
+  result: 'allowed',
+  writtenAt: now,
+  correlationId
+} as const
+
+const evidence = {
+  policy,
+  audit,
+  log: {
+    timelineId: 'timeline-mnet-coverage',
+    fullLogId: 'full-mnet-coverage',
+    eventId: 'evt-mnet-coverage',
+    subject: 'mnet.join.approved.v0',
+    correlationId
+  }
+} as const
+
+const pendingJoin = {
+  requestId: 'join-request-coverage',
+  networkId: 'network-cn-001',
+  nodeId: 'leaf-cn-001',
+  requestedNodeKind: 'leaf',
+  requestedProfileVersion: 'm-net-cn@0.3.0',
+  requestedBy: 'operator',
+  status: 'pending',
+  requestedAt: now,
+  expiresAt: later,
+  policyDecisionId: 'pd-mnet-coverage'
+} as const
+
+const credential = {
+  credentialId: 'join-credential-coverage',
+  nodeId: 'leaf-cn-001',
+  networkId: 'network-cn-001',
+  profileVersion: 'm-net-cn@0.3.0',
+  status: 'issued',
+  credentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/join-coverage', version: 1 },
+  issuedAt: now,
+  expiresAt: later
+} as const
+
+const sidecar = {
+  nodeId: 'leaf-cn-001',
+  desiredState: 'start',
+  healthStatus: 'healthy',
+  proofPath: 'runtime-probe',
+  uiFacingFact: true,
+  healthy: true,
+  checkedAt: now
+} as const
+
+const mapStatus = {
+  mapId: 'topology-map-coverage',
+  networkId: 'network-cn-001',
+  topologyRevision: 'rev-coverage',
+  signedBy: 'm-net',
+  issuedAt: now,
+  expiresAt: later,
+  freshness: 'fresh',
+  stateSource: 'nats-kv-cache',
+  validation: 'valid'
+} as const
+
+const tunnelHealth = {
+  nodeId: 'leaf-cn-001',
+  peerNodeId: 'stem-cn-001',
+  status: 'up',
+  mode: 'direct',
+  latencyMs: 20,
+  packetLossPct: 0,
+  relayStatus: 'not-required',
+  checkedAt: now,
+  stateSource: 'opensearch-projection'
+} as const
+
+const topologyView = {
+  contractVersion: 'mnet-closed-loop@0.1.0',
+  generatedAt: now,
+  stateSource: 'composed-ui-fact',
+  networks: [
+    {
+      networkId: 'network-cn-001',
+      displayName: 'China production overlay',
+      profileVersion: 'm-net-cn@0.3.0',
+      status: 'healthy',
+      mapStatus,
+      relayPolicyState: 'disabled'
+    }
+  ],
+  nodes: [
+    {
+      nodeId: 'leaf-cn-001',
+      nodeKind: 'leaf',
+      runtimeState: 'healthy',
+      profileVersion: 'm-net-cn@0.3.0',
+      sidecar,
+      credentialStatus: 'active',
+      keyStatus: {
+        nodeId: 'leaf-cn-001',
+        publicKeyFingerprint: 'sha256:abc123',
+        status: 'registered',
+        lastValidatedAt: now,
+        auditId: 'audit-key-coverage'
+      }
+    }
+  ],
+  profiles: ['m-net-cn@0.3.0'],
+  tunnelHealth: [tunnelHealth],
+  sidecarStatuses: [sidecar],
+  degraded: false,
+  correlationId
+} as const
 
 export const mnetV03EventContracts: EventContract[] = [
   {
@@ -110,6 +241,171 @@ export const mnetV03EventContracts: EventContract[] = [
       expiresAt: '2026-07-01T10:00:00.000Z',
       correlationId: 'corr-credential-expiry-1',
       auditId: 'audit-credential-expiry-1'
+    }
+  },
+  {
+    subject: 'mnet.join.requested.v0',
+    schema: Contracts.MNetPendingJoinRequestSchema,
+    fixture: pendingJoin
+  },
+  {
+    subject: 'mnet.join.approved.v0',
+    schema: Contracts.MNetJoinApprovalGrantedSchema,
+    fixture: {
+      result: 'approved',
+      request: { ...pendingJoin, status: 'approved' },
+      credential,
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.join.rejected.v0',
+    schema: Contracts.MNetJoinApprovalRejectedSchema,
+    fixture: {
+      result: 'rejected',
+      request: { ...pendingJoin, status: 'rejected' },
+      credential: null,
+      policy: { ...policy, outcome: 'deny', reason: 'fixture denial' },
+      audit: { ...audit, action: 'mnet.join.reject', result: 'denied' },
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.credential.issued.v0',
+    schema: Contracts.MNetCredentialLifecycleResultSchema,
+    fixture: {
+      result: 'issued',
+      action: 'issue',
+      credential,
+      existingTunnelsInvalidated: false,
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.credential.rotated.v0',
+    schema: Contracts.MNetCredentialLifecycleResultSchema,
+    fixture: {
+      result: 'rotated',
+      action: 'rotate',
+      credential: {
+        ...credential,
+        status: 'issued',
+        rotatedFromCredentialId: 'join-credential-previous'
+      },
+      previousCredentialId: 'join-credential-previous',
+      existingTunnelsInvalidated: true,
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.credential.revoked.v0',
+    schema: Contracts.MNetCredentialLifecycleResultSchema,
+    fixture: {
+      result: 'revoked',
+      action: 'revoke',
+      credential: {
+        ...credential,
+        status: 'revoked',
+        revokedAt: now,
+        revokedByAuditId: 'audit-revoke'
+      },
+      previousCredentialId: 'join-credential-coverage',
+      existingTunnelsInvalidated: true,
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.topology.view.updated.v0',
+    schema: Contracts.MNetTopologyViewSchema,
+    fixture: topologyView
+  },
+  {
+    subject: 'mnet.topology.map.status.v0',
+    schema: Contracts.MNetSignedTopologyMapStatusSchema,
+    fixture: mapStatus
+  },
+  {
+    subject: 'mnet.tunnel.health.v0',
+    schema: Contracts.MNetTunnelHealthSchema,
+    fixture: tunnelHealth
+  },
+  {
+    subject: 'mnet.relay_policy.changed.v0',
+    schema: Contracts.MNetForcedRelayPolicyResultSchema,
+    fixture: {
+      result: 'enabled',
+      relayPolicyId: 'relay-policy-coverage',
+      networkId: 'network-cn-001',
+      state: 'enabled',
+      routeClass: 'forced-tcp-relay',
+      selector: { selectorType: 'all-leaf-nodes', includeAllLeafNodes: true },
+      reason: 'regional egress degraded',
+      affectedNodeIds: ['leaf-cn-001'],
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.profile.migration.changed.v0',
+    schema: Contracts.MNetProfileMigrationResultSchema,
+    fixture: {
+      migrationId: 'migration-coverage',
+      networkId: 'network-cn-001',
+      sourceProfileVersion: 'm-net-cn@0.2.0',
+      targetProfileVersion: 'm-net-cn@0.3.0',
+      state: 'rollback_available',
+      appliedNetworkIds: ['network-cn-001'],
+      rollbackProfileVersion: 'm-net-cn@0.2.0',
+      rollbackState: 'available',
+      evidence,
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.break_glass.changed.v0',
+    schema: Contracts.MNetBreakGlassGrantSchema,
+    fixture: {
+      grantId: 'break-glass-coverage',
+      networkId: 'network-cn-001',
+      initiatedBy: 'security-admin',
+      secondApprover: 'break-glass-reviewer',
+      state: 'auto_revoked',
+      ttlMinutes: 30,
+      initiatedAt: now,
+      expiresAt: later,
+      autoRevokedAt: later,
+      requiresNormalApprovalAfterExpiry: true,
+      evidence: {
+        ...evidence,
+        policy: {
+          ...policy,
+          requiredPermission: 'network:profile-disable',
+          reason: 'independent break-glass approval recorded'
+        },
+        audit: {
+          ...audit,
+          action: 'mnet.break_glass.auto_revoke',
+          actor: 'security-admin',
+          result: 'auto-revoked'
+        }
+      },
+      correlationId
+    }
+  },
+  {
+    subject: 'mnet.sidecar.degraded.v0',
+    schema: Contracts.MNetSidecarDegradedStatusSchema,
+    fixture: {
+      ...sidecar,
+      healthStatus: 'degraded',
+      degradedReason: 'netbird.config.missing_control_plane',
+      proofPath: 'sidecar-proof',
+      fallbackTransport: 'wireguard-rendered',
+      healthy: false
     }
   }
 ]

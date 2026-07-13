@@ -1,3 +1,19 @@
+export const contractActivatedMNetClosedLoopSubjects = [
+  'mnet.join.requested.v0',
+  'mnet.join.approved.v0',
+  'mnet.join.rejected.v0',
+  'mnet.credential.issued.v0',
+  'mnet.credential.rotated.v0',
+  'mnet.credential.revoked.v0',
+  'mnet.topology.view.updated.v0',
+  'mnet.topology.map.status.v0',
+  'mnet.tunnel.health.v0',
+  'mnet.relay_policy.changed.v0',
+  'mnet.profile.migration.changed.v0',
+  'mnet.break_glass.changed.v0',
+  'mnet.sidecar.degraded.v0'
+] as const
+
 export const activePublishedEventSubjects = [
   'audit.entry.created.v0',
   'core.lifecycle.degraded.v0',
@@ -97,6 +113,7 @@ export const documentedEventBusSubjects = [
   'mnet.migration.required.v0',
   'mnet.forced_relay.change.v0',
   'mnet.credential.expiry.v0',
+  ...contractActivatedMNetClosedLoopSubjects,
   'config.publish.requested.v0',
   'config.published.v0',
   'config.apply.acked.v0',

@@ -134,6 +134,21 @@ Current runtime boundary:
 - runtime token validation accepts only the current `active` credential hash in PostgreSQL; rotated or revoked tokens fail closed for later runtime authentication and `session.resume`.
 - this slice does not claim automatic node-agent token refresh; operators must restart or reconfigure the node-agent after issuing a replacement token.
 
+Closed-loop management contracts are versioned in `packages/contracts/src/schemas/mnet-closed-loop.ts` as `mnet-closed-loop@0.1.0`. These contracts are management UX and evidence contracts only; implementing the M-Net workflows remains a later service slice. The vocabulary is Meristem-owned:
+
+| UX / Contract Surface | Meristem Term | Notes |
+|-----------------------|---------------|-------|
+| topology and membership overview | M-Net topology view | composed UI fact built from authoritative profile/network state, event facts, audit/log evidence, and sidecar status |
+| admission material | join credential | secretRef-backed credential issued only after M-Policy allow and Audit write |
+| map freshness | signed topology map status | supersedes ad-hoc “network map” wording in operator UX |
+| public-key registration | key registration status | exposes fingerprints/status only, never private keys |
+| path steering | relay policy | M-Policy guarded forced relay enable/disable, with no side effect on deny |
+| profile change | M-Net profile migration | source profile, target profile, state, and rollback path are explicit |
+| emergency override | break-glass grant | security-admin initiation, independent second approval, 30-minute TTL, auto-revoke, normal approval required after expiry |
+| sidecar health | sidecar degraded fact | typed UI-facing fact with `wireguard-rendered` fallback when proof fails |
+
+Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit evidence before state mutation: join approval, join denial, join credential issue/rotate/revoke, forced relay policy changes, M-Net profile migration/rollback, and break-glass grant activation or auto-revoke. Break-glass uses `security-admin` initiation plus the independent `break-glass-reviewer`; the grant expires exactly 30 minutes after initiation and auto-revokes at that timestamp. UI command eligibility is advisory only and must not replace service-side policy decisions. Disabled M-UI commands must not create Audit facts because no service mutation was attempted.
+
 ---
 
 ## 4. Permissions
@@ -141,7 +156,7 @@ Current runtime boundary:
 | Permission | Required For | Risk |
 |------------|--------------|------|
 | `network:create` | create logical networks | high |
-| `network:join` | add a node to a logical network | high |
+| `network:join` | add a node to a logical network or approve/reject a pending join request | high |
 | `network-profile:read` | list or show profile definitions and state | medium |
 | `network-profile:apply` | enable a profile on a network | high |
 | `network-profile:disable` | disable a profile on a network | medium |
@@ -149,6 +164,9 @@ Current runtime boundary:
 | `node:disable` | place a node into administrative disabled state | high |
 | `node:isolate` | place a node into administrative isolated state | high |
 | `node:recover` | transition a disabled or isolated node back to runtime-derived status | high |
+| `network:profile-enable` | run M-Net profile migration or enable relay policy | high |
+| `network:profile-disable` | roll back a profile or disable relay policy as risk reduction | medium |
+| `node:issue-token` | issue, rotate, or revoke a join credential | high |
 
 ---
 
@@ -225,6 +243,22 @@ Current runtime boundary:
 - disable is allowed from `failed` state as a recovery path.
 - M-Net must not own authorization policy logic locally.
 - event, Audit, Timeline, and Full Log behavior must stay aligned with `docs/events/EVENT-CATALOG.md`, `docs/services/m-log.md`, and `docs/security/SECURITY-MODEL.md`.
+- closed-loop M-Net operations must emit Meristem-owned profile / join credential / relay policy / topology view terms in logs, events, UI facts, and test evidence; NetBird Management/Dashboard/ACL/auth/audit/account-model vocabulary is not allowed in product contracts.
+
+### 10.1 BDD-lite acceptance scenarios
+
+These scenarios map to Bun contract gates and deliberately avoid `.feature` files.
+
+| Scenario | Given | When | Then | Gate |
+|----------|-------|------|------|------|
+| Join approval | pending join request and M-Policy allow | admin approves | join credential is issued, Audit/Timeline evidence exists | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Join denial | pending join request and M-Policy deny | admin rejects/denies | no join credential exists, denial Audit evidence exists | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Credential revocation | active join credential and tunnels | admin revokes | credential is revoked, existing tunnels invalidated, Audit evidence exists | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Forced relay denied | actor lacks service-side permission | actor requests relay policy enable | operation is denied, side effect is `none`, denial Audit evidence exists | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Forced relay approved | M-Policy allows relay policy change | admin enables forced relay | relay policy is enabled with policy decision and Audit evidence | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Sidecar degraded | proof or runtime probe fails | status is projected | UI-facing sidecar degraded fact is typed and not healthy | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Profile migration | source profile needs v0.3 migration | migration progresses | state transition and rollback profile path are visible | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
+| Break-glass expiry | two-person break-glass grant is active | 30-minute TTL expires | grant auto-revokes and further action requires normal approval | `bun test tests/contracts/mnet-closed-loop.contract.test.ts` |
 
 ---
 

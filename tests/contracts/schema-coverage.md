@@ -2,14 +2,16 @@
 
 ## Scope rule
 
-- **Active emitted events** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`, or the M-Net production data-plane subject is contract-activated with an Effect Schema and fixture before publisher wiring.
+- **Active event contract coverage** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`, or the M-Net subject is contract-activated with an Effect Schema and fixture before publisher wiring.
 - **Active REST responses** = the route is mounted now and returns a concrete response shape in code.
 - **Future deferred to post-v0.1 coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
 - **Not active** = no real publisher and no active mounted path in the current codebase.
 
 ## Active / implemented now
 
-### Active emitted events
+### Active event contract coverage
+
+Contract activation provides executable schema coverage only. The M-Net closed-loop subjects remain publisher-deferred and stay out of `activePublishedEventSubjects` until T15 adds real service `publish()` calls.
 
 | Subject | Publisher path(s) | Effect Schema |
 | --- | --- | --- |
@@ -37,6 +39,19 @@
 | `mnet.migration.required.v0` | contract-activated data-plane subject | `MNetMigrationRequiredEventPayloadSchema` |
 | `mnet.forced_relay.change.v0` | contract-activated data-plane subject | `MNetForcedRelayChangeEventPayloadSchema` |
 | `mnet.credential.expiry.v0` | contract-activated data-plane subject | `MNetCredentialExpiryEventPayloadSchema` |
+| `mnet.join.requested.v0` | contract-activated closed-loop management subject | `MNetPendingJoinRequestSchema` |
+| `mnet.join.approved.v0` | contract-activated closed-loop management subject | `MNetJoinApprovalGrantedSchema` |
+| `mnet.join.rejected.v0` | contract-activated closed-loop management subject | `MNetJoinApprovalRejectedSchema` |
+| `mnet.credential.issued.v0` | contract-activated closed-loop management subject | `MNetCredentialLifecycleResultSchema` |
+| `mnet.credential.rotated.v0` | contract-activated closed-loop management subject | `MNetCredentialLifecycleResultSchema` |
+| `mnet.credential.revoked.v0` | contract-activated closed-loop management subject | `MNetCredentialLifecycleResultSchema` |
+| `mnet.topology.view.updated.v0` | contract-activated closed-loop management subject | `MNetTopologyViewSchema` |
+| `mnet.topology.map.status.v0` | contract-activated closed-loop management subject | `MNetSignedTopologyMapStatusSchema` |
+| `mnet.tunnel.health.v0` | contract-activated closed-loop management subject | `MNetTunnelHealthSchema` |
+| `mnet.relay_policy.changed.v0` | contract-activated closed-loop management subject | `MNetForcedRelayPolicyResultSchema` |
+| `mnet.profile.migration.changed.v0` | contract-activated closed-loop management subject | `MNetProfileMigrationResultSchema` |
+| `mnet.break_glass.changed.v0` | contract-activated closed-loop management subject | `MNetBreakGlassGrantSchema` |
+| `mnet.sidecar.degraded.v0` | contract-activated closed-loop management subject | `MNetSidecarStatusSchema` |
 | `mnet.profile.enable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.enabled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.disable.requested.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |

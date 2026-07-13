@@ -318,6 +318,53 @@ high-risk action (break-glass, profile enable, migration apply, node disable).
 
 ---
 
+### 2.12 Closed-loop M-Net Management Operations
+
+**Trigger:** Operator uses the management UX for join approval, join denial,
+join credential issue/rotate/revoke, forced relay policy, M-Net profile
+migration, break-glass, topology view, or sidecar degraded investigation.
+
+**Behavior:**
+- M-Net uses Meristem-owned terms: M-Net profile, join credential, relay
+  policy, topology view, signed topology map status, key registration status,
+  and sidecar degraded fact.
+- M-Policy allow/deny is required for high-risk operations. UI eligibility is
+  advisory only and never replaces service-side policy.
+- Audit evidence is required before state mutation. Disabled UI commands create
+  no Audit facts because they do not reach a service mutation.
+- Join approval issues a secretRef-backed join credential; join denial returns
+  no credential and still records denial evidence.
+- Credential revoke invalidates existing tunnels and requires later actions to
+  re-enter normal approval flow.
+- Forced relay denied has `sideEffect: none`; forced relay allowed records the
+  relay policy, affected nodes, policy decision, and audit IDs.
+- Break-glass is `security-admin` initiated, requires the independent
+  `break-glass-reviewer`, is limited to exactly 30 minutes, and auto-revokes at
+  expiry; activation and auto-revoke both retain M-Policy and M-Log Audit evidence.
+- Sidecar degraded status is a typed UI-facing fact. If proof fails and the
+  approved fallback is selected, the fallback transport literal is
+  `wireguard-rendered`.
+
+**Runtime code:** `mnet-closed-loop@0.1.0` contract version;
+`mnet.join.*.v0`, `mnet.credential.*.v0`, `mnet.relay_policy.changed.v0`,
+`mnet.profile.migration.changed.v0`, `mnet.break_glass.changed.v0`,
+`mnet.sidecar.degraded.v0` event subjects.
+
+**Recovery:**
+1. For denied operations, inspect the M-Policy decision ID and Audit entry.
+2. For credential revoke or expiry, issue a new join credential only through
+   normal approval.
+3. For forced relay, verify the relay policy reason, affected nodes, and Audit
+   evidence before enabling or disabling.
+4. For profile migration failure, use the migration rollback profile path and
+   confirm rollback Audit evidence.
+5. For break-glass expiry, do not extend in place; initiate normal approval or a
+   new two-person break-glass grant.
+
+**Test:** `tests/contracts/mnet-closed-loop.contract.test.ts`
+
+---
+
 ## 3. Diagnostic Commands
 
 ### Pre-Deployment Checks
@@ -355,6 +402,9 @@ bun test tests/failure-modes/runtime-failure-matrix.test.ts
 
 # Agent pre-submit drift guard
 bun run test:agent-submit
+
+# Closed-loop M-Net operation contract scenarios
+bun test tests/contracts/mnet-closed-loop.contract.test.ts
 ```
 
 ---
@@ -376,3 +426,4 @@ bun run test:agent-submit
 - Full failure-mode suite: `bun run test:failure-modes`
 - Live proof harness: `bun run mnet:v02:live-proof`
 - Sidecar viability proof: `bun run mnet:v02:sidecar-proof`
+- Closed-loop management contracts: `bun test tests/contracts/mnet-closed-loop.contract.test.ts`

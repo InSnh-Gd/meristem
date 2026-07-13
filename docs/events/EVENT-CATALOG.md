@@ -95,18 +95,31 @@ Rules:
 | `mnet.migration.required.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetMigrationRequiredPayload` | at-least-once |
 | `mnet.forced_relay.change.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayChangePayload` | at-least-once |
 | `mnet.credential.expiry.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialExpiryPayload` | at-least-once |
-| `mdeploy.proposal.created.v0` | draft event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayload` | at-least-once |
-| `mdeploy.approval.recorded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayload` | at-least-once |
-| `mdeploy.apply.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayload` | at-least-once |
-| `mdeploy.apply.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplySucceededPayload` | at-least-once |
-| `mdeploy.apply.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyFailedPayload` | at-least-once |
-| `mdeploy.rollback.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackStartedPayload` | at-least-once |
-| `mdeploy.rollback.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackSucceededPayload` | at-least-once |
-| `mdeploy.rollback.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackFailedPayload` | at-least-once |
-| `mdeploy.drift.detected.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftDetectedPayload` | at-least-once |
-| `mdeploy.drift.resolved.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftResolvedPayload` | at-least-once |
-| `mdeploy.agent.heartbeat.v0` | draft event | M-Deploy | Core, M-Log, M-UI BFF | `MDeployAgentHeartbeatPayload` | at-least-once |
-| `mdeploy.evidence.emitted.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployEvidenceEmittedPayload` | at-least-once |
+| `mnet.join.requested.v0` | event | M-Net | M-Policy, M-Log, M-UI BFF | `MNetPendingJoinRequest` | at-least-once |
+| `mnet.join.approved.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetJoinApprovalGranted` | at-least-once |
+| `mnet.join.rejected.v0` | event | M-Net | M-Log, M-UI BFF | `MNetJoinApprovalRejected` | at-least-once |
+| `mnet.credential.issued.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.credential.rotated.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.credential.revoked.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.topology.view.updated.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetTopologyView` | at-least-once |
+| `mnet.topology.map.status.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetSignedTopologyMapStatus` | at-least-once |
+| `mnet.tunnel.health.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetTunnelHealth` | at-least-once |
+| `mnet.relay_policy.changed.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayPolicyResult` | at-least-once |
+| `mnet.profile.migration.changed.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetProfileMigrationResult` | at-least-once |
+| `mnet.break_glass.changed.v0` | event | M-Net | Core, M-Log, M-Policy, M-UI BFF | `MNetBreakGlassGrant` | at-least-once |
+| `mnet.sidecar.degraded.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetSidecarStatus` | at-least-once |
+| `mdeploy.proposal.created.v0` | draft event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayloadSchema` | at-least-once |
+| `mdeploy.approval.recorded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayloadSchema` | at-least-once |
+| `mdeploy.apply.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayloadSchema` | at-least-once |
+| `mdeploy.apply.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplySucceededPayloadSchema` | at-least-once |
+| `mdeploy.apply.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyFailedPayloadSchema` | at-least-once |
+| `mdeploy.rollback.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackStartedPayloadSchema` | at-least-once |
+| `mdeploy.rollback.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackSucceededPayloadSchema` | at-least-once |
+| `mdeploy.rollback.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackFailedPayloadSchema` | at-least-once |
+| `mdeploy.drift.detected.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftDetectedPayloadSchema` | at-least-once |
+| `mdeploy.drift.resolved.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftResolvedPayloadSchema` | at-least-once |
+| `mdeploy.agent.heartbeat.v0` | draft event | M-Deploy | Core, M-Log, M-UI BFF | `MDeployAgentHeartbeatPayloadSchema` | at-least-once |
+| `mdeploy.evidence.emitted.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployEvidenceEmittedPayloadSchema` | at-least-once |
 | `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
 | `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |
@@ -426,6 +439,227 @@ type MNetCredentialExpiryPayload = {
   correlationId: string;
   auditId: string;
 };
+
+// Closed-loop M-Net operation payloads are versioned in
+// packages/contracts/src/schemas/mnet-closed-loop.ts as
+// mnet-closed-loop@0.1.0. These are Meristem-owned management contracts and
+// must not import NetBird Management/Dashboard/ACL/auth/audit/account-model
+// vocabulary into product-facing events.
+
+type MNetPolicyEvidence = {
+  policyDecisionId: string;
+  source: "m-policy";
+  outcome: "allow" | "deny" | "conditional";
+  requiredPermission: string;
+  reason: string;
+  decidedAt: string;
+};
+
+type MNetClosedLoopAuditEvidence = {
+  auditId: string;
+  source: "m-log-audit";
+  action: string;
+  resource: string;
+  actor: "viewer" | "operator" | "admin" | "security-admin" | "break-glass-reviewer";
+  result: "allowed" | "denied" | "expired" | "auto-revoked" | "rolled-back";
+  writtenAt: string;
+  correlationId: string;
+};
+
+type MNetEvidenceBundle = {
+  policy: MNetPolicyEvidence;
+  audit: MNetClosedLoopAuditEvidence;
+  log: { timelineId?: string; fullLogId?: string; eventId?: string; subject?: string; correlationId: string };
+};
+
+type MNetPendingJoinRequest = {
+  requestId: string;
+  networkId: string;
+  nodeId: string;
+  requestedNodeKind: "core" | "stem" | "leaf";
+  requestedProfileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  requestedBy: "viewer" | "operator" | "admin" | "security-admin" | "break-glass-reviewer";
+  status: "pending" | "approved" | "rejected" | "expired";
+  requestedAt: string;
+  expiresAt: string;
+  policyDecisionId?: string;
+};
+
+type MNetJoinCredential = {
+  credentialId: string;
+  nodeId: string;
+  networkId: string;
+  profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  status: "pending" | "issued" | "active" | "rotating" | "revoked" | "expired";
+  credentialRef: { provider: string; keyPath: string; version?: number };
+  issuedAt: string;
+  expiresAt: string;
+  rotatedFromCredentialId?: string;
+  revokedAt?: string;
+  revokedByAuditId?: string;
+};
+
+type MNetJoinApprovalGranted = {
+  result: "approved";
+  request: MNetPendingJoinRequest;
+  credential: MNetJoinCredential;
+  evidence: MNetEvidenceBundle;
+  correlationId: string;
+};
+
+type MNetJoinApprovalRejected = {
+  result: "rejected";
+  request: MNetPendingJoinRequest;
+  credential: null;
+  policy: MNetPolicyEvidence;
+  audit: MNetClosedLoopAuditEvidence;
+  correlationId: string;
+};
+
+type MNetCredentialLifecycleResult = {
+  result: "issued" | "rotated" | "revoked" | "expired";
+  action: "issue" | "rotate" | "revoke" | "expire";
+  credential: MNetJoinCredential;
+  previousCredentialId?: string;
+  existingTunnelsInvalidated: boolean;
+  evidence: MNetEvidenceBundle;
+  correlationId: string;
+};
+
+type MNetSignedTopologyMapStatus = {
+  mapId: string;
+  networkId: string;
+  topologyRevision: string;
+  signedBy: string;
+  issuedAt: string;
+  expiresAt: string;
+  freshness: "fresh" | "stale" | "expired" | "fail_closed";
+  stateSource: "nats-kv-cache";
+  validation: "valid" | "signature_invalid" | "stale" | "expired";
+};
+
+type MNetTunnelHealth = {
+  nodeId: string;
+  peerNodeId: string;
+  status: "up" | "degraded" | "down";
+  mode: "direct" | "relay" | "forced-relay" | "none";
+  latencyMs?: number;
+  packetLossPct?: number;
+  relayStatus: "not-required" | "available" | "forced" | "unavailable";
+  checkedAt: string;
+  stateSource: "opensearch-projection";
+};
+
+type MNetSidecarStatus = {
+  nodeId: string;
+  desiredState: "install" | "configure" | "start" | "drain" | "stop";
+  healthStatus: "unknown" | "healthy" | "degraded" | "unhealthy";
+  degradedReason?:
+    | "expired_credentials"
+    | "missing_signal"
+    | "missing_relay"
+    | "missing_stun"
+    | "secret.missing"
+    | "secret.denied"
+    | "secret.provider_unavailable"
+    | "secret.unsupported_backend"
+    | "secret.stale"
+    | "sidecar_crash"
+    | "config_drift"
+    | "break_glass_stop"
+    | "profile_disabled"
+    | "netbird.binary.invalid"
+    | "netbird.setup_key.missing"
+    | "netbird.start_failed"
+    | "netbird.process.not_running"
+    | "netbird.config_drift_repaired"
+    | "netbird.process_restarted"
+    | "netbird.probe.not_connected"
+    | "netbird.probe.timeout"
+    | "netbird.probe.failed"
+    | "netbird.endpoint.unreachable"
+    | "netbird.config.forbidden_management_plane"
+    | "netbird.config.missing_control_plane"
+    | "netbird.config.invalid_control_plane"
+    | "unsupported_management_dependency"
+    | "wireguard_rendered_fallback";
+  proofPath: "sidecar-proof" | "runtime-probe" | "operator-report";
+  fallbackTransport?: "wireguard-rendered";
+  uiFacingFact: true;
+  healthy: boolean;
+  checkedAt: string;
+};
+
+type MNetForcedRelayPolicyResult =
+  | {
+      result: "enabled" | "disabled";
+      relayPolicyId: string;
+      networkId: string;
+      state: "enabled" | "disabled";
+      routeClass: "standard" | "cn-resident" | "forced-tcp-relay";
+      selector: unknown;
+      reason: string;
+      affectedNodeIds: string[];
+      evidence: MNetEvidenceBundle;
+      correlationId: string;
+    }
+  | {
+      result: "denied";
+      reason: string;
+      policy: MNetPolicyEvidence;
+      audit: MNetClosedLoopAuditEvidence;
+      sideEffect: "none";
+      correlationId: string;
+    };
+
+type MNetProfileMigrationResult = {
+  migrationId: string;
+  networkId: string;
+  sourceProfileVersion: "m-net-default@0.1.0" | "m-net-cn@0.1.0" | "m-net-cn@0.2.0" | "m-net@0.3.0" | "m-net-cn@0.3.0";
+  targetProfileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
+  state: "planned" | "pending_approval" | "running" | "succeeded" | "rollback_available" | "rolling_back" | "rolled_back" | "failed";
+  appliedNetworkIds: string[];
+  rollbackProfileVersion: "m-net-default@0.1.0" | "m-net-cn@0.1.0" | "m-net-cn@0.2.0" | "m-net@0.3.0" | "m-net-cn@0.3.0";
+  rollbackState: "not-needed" | "available" | "in-progress" | "completed" | "failed";
+  evidence: MNetEvidenceBundle;
+  correlationId: string;
+};
+
+type MNetBreakGlassGrant = {
+  grantId: string;
+  networkId: string;
+  initiatedBy: "security-admin";
+  secondApprover?: "break-glass-reviewer";
+  state: "initiated" | "second_approval_pending" | "active" | "auto_revoked";
+  ttlMinutes: 30;
+  initiatedAt: string;
+  expiresAt: string;
+  autoRevokedAt?: string;
+  requiresNormalApprovalAfterExpiry: true;
+  evidence: MNetEvidenceBundle;
+  correlationId: string;
+};
+
+type MNetTopologyView = {
+  contractVersion: "mnet-closed-loop@0.1.0";
+  generatedAt: string;
+  stateSource: "composed-ui-fact";
+  networks: Array<{ networkId: string; displayName: string; profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0"; status: "healthy" | "degraded" | "fail_closed" | "migration_required"; mapStatus: MNetSignedTopologyMapStatus; relayPolicyState: "enabled" | "disabled" | "denied" }>;
+  nodes: Array<{ nodeId: string; nodeKind: "core" | "stem" | "leaf"; runtimeState: "joining" | "healthy" | "degraded" | "offline" | "disabled" | "isolated" | "recovering" | "revoked"; profileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0"; sidecar: MNetSidecarStatus; credentialStatus: MNetJoinCredential["status"]; keyStatus: { nodeId: string; publicKeyFingerprint: string; status: "registered" | "rotation_required" | "revoked" | "stale"; lastValidatedAt: string; auditId?: string } }>;
+  profiles: Array<"m-net@0.3.0" | "m-net-cn@0.3.0">;
+  tunnelHealth: MNetTunnelHealth[];
+  sidecarStatuses: MNetSidecarStatus[];
+  degraded: boolean;
+  correlationId: string;
+};
+
+Closed-loop invariants enforced by the Effect Schema contract:
+
+- join approval requires an approved request, M-Policy `allow`, matching node/network/profile credential fields, and M-Log Audit `allowed`; join rejection requires M-Policy `deny`, no credential, and M-Log Audit `denied`.
+- credential issue/rotate/revoke/expire results must match their action and credential status; rotate/revoke/expire invalidate existing tunnels, and rotate records the previous credential lineage.
+- applied relay policy `result` and `state` must agree; denied relay policy changes carry `sideEffect: "none"`.
+- degraded or unhealthy sidecar facts require `healthy: false` and a typed reason; `mnet.sidecar.degraded.v0` cannot carry a healthy status. `wireguard-rendered` remains the only typed fallback transport.
+- break-glass activation requires security-admin initiation, the independent `break-glass-reviewer`, M-Policy allow, M-Log Audit evidence, an exact 30-minute TTL, and automatic revoke at `expiresAt`.
 
 type PolicyDecisionCreatedPayload = {
   decisionId: string;

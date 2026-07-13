@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import {
+  activePublishedEventSubjects,
+  contractActivatedMNetClosedLoopSubjects
+} from '../../packages/events/src/index.ts'
 import { mExtensionEventContracts } from './_helpers/schema-coverage.m-extension.ts'
 import { mPolicyEventContracts } from './_helpers/schema-coverage.m-policy.ts'
 import { mTaskEventContracts } from './_helpers/schema-coverage.m-task.ts'
@@ -59,6 +63,22 @@ describe('active event payload schemas', () => {
     const runtimeSubjects = sorted(getDocumentedEventBusSubjects())
 
     expect(runtimeSubjects).toEqual(sorted(documentedSubjects))
+  })
+
+  it('keeps contract-first M-Net subjects covered without claiming real publishers', async () => {
+    const [activePublisherSubjects, activeCoverageSubjects] = await Promise.all([
+      getActivePublisherSubjects(),
+      getActiveCoverageSubjects()
+    ])
+    const declaredPublishedSubjects = new Set<string>(activePublishedEventSubjects)
+    const documentedSubjects = getDocumentedEventBusSubjects()
+
+    for (const subject of contractActivatedMNetClosedLoopSubjects) {
+      expect(declaredPublishedSubjects.has(subject)).toBe(false)
+      expect(activePublisherSubjects.has(subject)).toBe(false)
+      expect(activeCoverageSubjects.has(subject)).toBe(true)
+      expect(documentedSubjects.has(subject)).toBe(true)
+    }
   })
 })
 

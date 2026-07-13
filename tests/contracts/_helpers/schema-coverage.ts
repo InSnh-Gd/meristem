@@ -2,6 +2,7 @@ import { expect } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import * as Contracts from '../../../packages/contracts/src/index.ts'
 import {
+  contractActivatedMNetClosedLoopSubjects,
   documentedEventBusSubjects,
   eventBusOperationalSubjects
 } from '../../../packages/events/src/index.ts'
@@ -50,7 +51,7 @@ const policyApprovalDynamicSubjects = [
   'policy.approval.vote.rejected.v0'
 ] as const
 
-export const contractActivatedDataPlaneSubjects = [
+export const contractActivatedMNetSubjects = [
   'mnet.reachability.changed.v0',
   'mnet.path.changed.v0',
   'mnet.wstunnel.fallback.changed.v0',
@@ -63,7 +64,8 @@ export const contractActivatedDataPlaneSubjects = [
   'mnet.topology.update.v0',
   'mnet.migration.required.v0',
   'mnet.forced_relay.change.v0',
-  'mnet.credential.expiry.v0'
+  'mnet.credential.expiry.v0',
+  ...contractActivatedMNetClosedLoopSubjects
 ] as const
 
 export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
@@ -83,7 +85,7 @@ function definedMatchGroup(match: RegExpMatchArray, index = 1): string {
 }
 
 export function extractCoverageMapActiveSubjects(markdown: string): string[] {
-  const start = markdown.indexOf('### Active emitted events')
+  const start = markdown.indexOf('### Active event contract coverage')
   const end = markdown.indexOf('### Active REST responses')
   const section = markdown.slice(start, end)
   const subjects: string[] = []
@@ -179,7 +181,7 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
 
 export async function getActiveCoverageSubjects(): Promise<Set<string>> {
   const publisherSubjects = await getActivePublisherSubjects()
-  return new Set([...publisherSubjects, ...contractActivatedDataPlaneSubjects])
+  return new Set([...publisherSubjects, ...contractActivatedMNetSubjects])
 }
 
 export const activePublisherSchemaContracts: EventSchemaContract[] = [
