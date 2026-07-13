@@ -270,12 +270,16 @@ export const MDeployApplyStatusSchema = Schema.Literal(
 )
 export type MDeployApplyStatusFromSchema = typeof MDeployApplyStatusSchema.Type
 
+export const MDeployPublicationStatusSchema = Schema.Literal('pending', 'published')
+export type MDeployPublicationStatusFromSchema = typeof MDeployPublicationStatusSchema.Type
+
 export const MDeployReconcileResultV01Schema = Schema.Struct({
   schemaVersion: Schema.Literal('mdeploy.reconcile-result@0.1.0'),
   operationId: Schema.String,
   agentId: Schema.String,
   desiredStateDigest: MDeployDigestSchema,
   applyStatus: MDeployApplyStatusSchema,
+  publicationStatus: MDeployPublicationStatusSchema,
   evidenceRefs: Schema.Array(MDeployStorageRefV01Schema),
   completedAt: Schema.optional(Schema.String)
 })
@@ -306,6 +310,7 @@ export const MDeployRollbackResultV01Schema = Schema.Struct({
   previousDigest: MDeployDigestSchema,
   restoredDigest: MDeployDigestSchema,
   status: MDeployRollbackStatusSchema,
+  publicationStatus: MDeployPublicationStatusSchema,
   evidenceRefs: Schema.Array(MDeployStorageRefV01Schema),
   completedAt: Schema.optional(Schema.String)
 })

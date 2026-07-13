@@ -2,7 +2,7 @@
 
 ## Scope rule
 
-- **Active event contract coverage** = there is a real `publish()` call in `apps/core/src/` or `services/*/src/`, or the M-Net subject is contract-activated with an Effect Schema and fixture before publisher wiring.
+- **Active event contract coverage** = there is a real `publish()` call or literal durable outbox event intent in `apps/core/src/` or `services/*/src/`, or the M-Net subject is contract-activated with an Effect Schema and fixture before publisher wiring.
 - **Active REST responses** = the route is mounted now and returns a concrete response shape in code.
 - **Future deferred to post-v0.1 coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
 - **Not active** = no real publisher and no active mounted path in the current codebase.
@@ -86,6 +86,15 @@ Contract activation provides executable schema coverage only. The M-Net closed-l
 | `extension.instance.disabled.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.instance.enable_failed.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
 | `extension.instance.disable_failed.v0` | `services/m-extension/src/app.ts` | `MExtensionLifecyclePayloadSchema` |
+| `mdeploy.proposal.created.v0` | `services/m-deploy/src/controller-support.ts` | `MDeployProposalCreatedPayloadSchema` |
+| `mdeploy.approval.recorded.v0` | `services/m-deploy/src/controller-support.ts` | `MDeployApprovalRecordedPayloadSchema` |
+| `mdeploy.apply.started.v0` | `services/m-deploy/src/controller-support.ts` | `MDeployApplyStartedPayloadSchema` |
+| `mdeploy.apply.succeeded.v0` | `services/m-deploy/src/agent-workflow.ts` | `MDeployApplySucceededPayloadSchema` |
+| `mdeploy.rollback.started.v0` | `services/m-deploy/src/controller-support.ts` | `MDeployRollbackStartedPayloadSchema` |
+| `mdeploy.rollback.succeeded.v0` | `services/m-deploy/src/agent-workflow.ts` | `MDeployRollbackSucceededPayloadSchema` |
+| `mdeploy.drift.detected.v0` | `services/m-deploy/src/internal-support.ts` | `MDeployDriftDetectedPayloadSchema` |
+| `mdeploy.agent.heartbeat.v0` | `services/m-deploy/src/internal-support.ts` | `MDeployAgentHeartbeatPayloadSchema` |
+| `mdeploy.evidence.emitted.v0` | `services/m-deploy/src/controller-support.ts` | `MDeployEvidenceEmittedPayloadSchema` |
 
 ### Active REST responses
 
@@ -132,18 +141,9 @@ These documented event catalog entries currently have **no real publisher** in t
 - `secret.ref.disabled.v0`
 - `policy.approval.canceled.v0`
 - `audit.lock.required.v0`
-- `mdeploy.proposal.created.v0`
-- `mdeploy.approval.recorded.v0`
-- `mdeploy.apply.started.v0`
-- `mdeploy.apply.succeeded.v0`
 - `mdeploy.apply.failed.v0`
-- `mdeploy.rollback.started.v0`
-- `mdeploy.rollback.succeeded.v0`
 - `mdeploy.rollback.failed.v0`
-- `mdeploy.drift.detected.v0`
 - `mdeploy.drift.resolved.v0`
-- `mdeploy.agent.heartbeat.v0`
-- `mdeploy.evidence.emitted.v0`
 
 ## Explicit exclusions from this wave
 

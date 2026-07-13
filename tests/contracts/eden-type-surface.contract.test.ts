@@ -195,6 +195,13 @@ type ExpectedLogAppDeps = {
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
   writeFull(input: FullWriteInput): Promise<FullLog>
   writeAudit(input: AuditWriteInput): Promise<AuditLog>
+  writeDeploymentEvidence(input: {
+    operationId: string
+    correlationId: string
+    auditId: string
+    evidenceType: import('../../packages/contracts/src/index.ts').MDeployEvidenceTypeFromSchema
+    digest: import('../../packages/contracts/src/index.ts').MDeployDigestFromSchema
+  }): Promise<import('../../packages/contracts/src/index.ts').MDeployStorageRefV01FromSchema>
   listTimeline(limit?: number): Promise<TimelineLog[]>
   listFull(limit?: number): Promise<FullLog[]>
   listAudit(limit?: number): Promise<AuditLog[]>

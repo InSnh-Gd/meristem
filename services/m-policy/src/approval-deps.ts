@@ -41,6 +41,7 @@ export function createPolicyApprovalDeps(
       return decisionStore.hasPermission(actor, permission, resource)
     },
     async onApproved(approval) {
+      if (approval.originService === 'm-deploy') return
       if (approval.originService === 'm-net') {
         const response = await fetch(
           `${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/resume`,
@@ -62,6 +63,7 @@ export function createPolicyApprovalDeps(
       if (!response.ok) throw new Error('m-task resume failed')
     },
     async onRejected(approval) {
+      if (approval.originService === 'm-deploy') return
       if (approval.originService === 'm-net') {
         const response = await fetch(
           `${serviceUrl('m-net')}/internal/v0/network-profile-operations/${approval.operationId}/reject`,

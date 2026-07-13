@@ -105,6 +105,7 @@ const app = createLogApp({
   writeTimeline: writeService.writeTimeline,
   writeFull: writeService.writeFull,
   writeAudit: writeService.writeAudit,
+  writeDeploymentEvidence: writeService.writeDeploymentEvidence,
   listTimeline: queryService.listTimeline,
   listFull: queryService.listFull,
   listAudit: queryService.listAudit,

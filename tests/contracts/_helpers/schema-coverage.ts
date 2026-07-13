@@ -40,6 +40,10 @@ const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([
 const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 // Extracted workflow helpers may carry literal subjects in named options instead of direct publish args.
 const workflowSubjectOptionPattern = /requestedSubject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
+// Durable outbox publishers persist literal subjects before dispatch. Only literal call-site
+// subjects count as active; computed values and standalone schema declarations remain deferred.
+const durableEventIntentSubjectPattern =
+  /createMDeployEventIntent\(\s*[^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [
@@ -158,6 +162,10 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
         }
 
         for (const match of source.matchAll(workflowSubjectOptionPattern)) {
+          subjects.add(definedMatchGroup(match))
+        }
+
+        for (const match of source.matchAll(durableEventIntentSubjectPattern)) {
           subjects.add(definedMatchGroup(match))
         }
 

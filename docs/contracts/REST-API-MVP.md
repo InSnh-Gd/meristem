@@ -514,6 +514,77 @@ The approval queue list returns `{ approvals: [] }` when there are no pending re
 
 ---
 
+## 4.7 M-Deploy Routes
+
+M-Deploy owns these mounted routes. Public routes require Bearer authentication, the listed deployment permission, and the common `ApiError` envelope. Internal routes require `x-meristem-internal-token`; a missing or invalid token returns `401 ApiError`.
+
+| Method | Path | Auth / permission | Success shape |
+|--------|------|-------------------|---------------|
+| `GET` | `/api/v0/deploy/desired-state` | Bearer + `deploy:desired-state-read` | `MDeployDesiredStateSummary` |
+| `POST` | `/api/v0/deploy/proposals` | Bearer + `deploy:desired-state-propose` | `{ proposal: MDeployProposalV01 }` |
+| `GET` | `/api/v0/deploy/proposals/:id` | Bearer + `deploy:desired-state-read` | `{ proposal: MDeployProposalV01 }` |
+| `POST` | `/api/v0/deploy/proposals/:id/approve` | Bearer + `deploy:desired-state-approve` | `{ approval: MDeployApprovalV01 }` |
+| `POST` | `/api/v0/deploy/apply` | Bearer + `deploy:desired-state-apply` + M-Policy two-person quorum proof | `{ operation: MDeployOperation & { applyStatus: MDeployApplyStatus } }` |
+| `POST` | `/api/v0/deploy/rollback` | Bearer + `deploy:desired-state-rollback` | `{ operation: MDeployOperation }` |
+| `GET` | `/api/v0/deploy/drift` | Bearer + `deploy:drift-read` | `{ reports: MDeployDriftReportV01[] }` |
+| `POST` | `/api/v0/deploy/drift/check` | Bearer + `deploy:drift-read` | `{ requested: true, correlationId: string }` |
+| `GET` | `/api/v0/deploy/evidence` | Bearer + `deploy:evidence-read` | `{ evidence: MDeployEvidenceMetadataV01[] }` |
+| `GET` | `/api/v0/deploy/agents` | Bearer + `deploy:desired-state-read` | `{ agents: MDeployAgentRecord[] }` |
+| `POST` | `/internal/v0/deploy/agents/enroll` | internal token | `{ agent: MDeployAgentRecord }` |
+| `POST` | `/internal/v0/deploy/agents/:id/heartbeat` | internal token | `{ agent: MDeployAgentRecord }` |
+| `POST` | `/internal/v0/deploy/agents/:id/reconcile` | internal token | `{ reconcile: MDeployReconcileResultV01 }` or `{ rollback: MDeployRollbackResultV01 }` |
+| `POST` | `/internal/v0/deploy/drift` | internal token | `{ report: MDeployDriftReportV01 }` |
+
+Canonical request bodies:
+
+```ts
+type MDeployProposalRequest = {
+  sourceRef: MDeployGitSourceRefV01;
+  diffSummary: { added: number; changed: number; removed: number; summary: string };
+};
+type MDeployApprovalRequest = { result: "approve" | "reject" };
+type MDeployApplyRequest = { proposalId: string; agentId: string };
+type MDeployRollbackRequest = { agentId: string; targetDigest: MDeployDigest };
+```
+
+Enrollment, heartbeat, and drift bodies are respectively `mdeploy.agent-enrollment@0.1.0`, `mdeploy.agent-heartbeat@0.1.0`, and `mdeploy.drift-report@0.1.0`. Reconcile has no body.
+
+```ts
+type MDeployPublicationStatus = "pending" | "published";
+type MDeployReconcileResultV01 = {
+  schemaVersion: "mdeploy.reconcile-result@0.1.0";
+  operationId: string;
+  agentId: string;
+  desiredStateDigest: MDeployDigest;
+  applyStatus: "queued" | "running" | "succeeded" | "failed" | "blocked";
+  publicationStatus: MDeployPublicationStatus;
+  evidenceRefs: MDeployStorageRefV01[];
+  completedAt?: string;
+};
+```
+
+Rules:
+
+- A production apply is admitted only after M-Policy returns a proof of exactly two distinct eligible non-proposer approvers. One approval and self approval return `403` policy errors.
+- Controller scheduling and agent reconcile independently verify canonical envelope bytes and signature against the target agent enrollment's controller issuer, audience, key fingerprint, and expiry. Envelope payload verification flags are not authorization.
+- Operation state, evidence metadata, and event intent are atomically persisted before EventBus dispatch. `publicationStatus: "pending"` is a successful/accepted result with retryable publication, not an apply failure; a later reconcile retries pending intents.
+- Pre-runtime verification, capability, or secret rejection must first persist `blocked` and write `deploy.agent.*.blocked` Audit. Failure of either write returns its typed error and runtime is not called.
+- Public errors: `401` invalid/missing Bearer, `403` policy/quorum denial, `404` missing proposal/agent, `409` proposal/envelope/runtime conflict, `503` unavailable dependency, otherwise `400` validation/typed failure.
+- Internal errors: `401` invalid/missing internal token, `404` missing agent/operation, `409` envelope/runtime conflict, otherwise `503` fail-closed dependency/persistence/Audit failure.
+
+Mounted production authority routes consumed by M-Deploy:
+
+| Owner | Method | Path | Purpose |
+|-------|--------|------|---------|
+| M-Policy | `POST` | `/internal/v0/policy/mdeploy/approvals/:proposalId/votes` | authorize and record one eligible non-proposer vote in the M-Policy approval store |
+| M-Policy | `POST` | `/internal/v0/policy/mdeploy/approvals/:proposalId/quorum` | return a proof only for an approved record with exactly two distinct stored approvers |
+| M-Log | `POST` | `/internal/v0/deployment-evidence` | persist a digest-bound evidence fact and return a redacted `MDeployStorageRefV01` |
+| M-EventBus | `POST` | `/internal/v0/publish` | validate and publish the event envelope represented by a durable M-Deploy outbox intent |
+
+All four routes require the shared internal token. Their transport or storage unavailability returns a typed fail-closed error; EventBus failure after authoritative operation completion leaves the operation successful with pending publication.
+
+---
+
 ## 5. Nodes
 
 ### `POST /api/v0/node-tickets`

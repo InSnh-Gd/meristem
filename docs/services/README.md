@@ -19,6 +19,7 @@
 | M-Net | `m-net.md` | Logical network and agent-join orchestration service definition |
 | M-Task | `m-task.md` | Canonical task lifecycle service definition |
 | M-Extension | `m-extension.md` | Extension control-plane service definition |
+| M-Deploy | `m-deploy.md` | Git desired-state verifier, pull-reconcile controller, and deployment-agent evidence boundary |
 | Node Agent | `node-agent.md` | Agent runtime, session, and task execution service definition |
 | M-UI BFF | `m-ui-bff.md` | M-UI BFF service definition |
 

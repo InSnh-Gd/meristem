@@ -27,7 +27,8 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
 | Core (SecretRef boundary) | `secret_refs`, `secret_ref_versions`, `secret_ref_transitions` |
 | M-Config | `config_records`, `config_versions`, `config_transitions`, `config_apply_acks` |
-| M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `projector_jobs`, `projection_cursors`, `projection_dlq` |
+| M-Log | `timeline_logs`, `full_logs`, `audit_logs`, `deployment_evidence`, `projector_jobs`, `projection_cursors`, `projection_dlq` |
+| M-Deploy | `mdeploy_proposals`, `mdeploy_approvals`, `mdeploy_operations`, `mdeploy_evidence`, `mdeploy_event_intents`, `mdeploy_agents`, `mdeploy_drift_reports`, `mdeploy_verified_envelopes`, `mdeploy_last_successful` |
 
 ### `users`
 
@@ -770,6 +771,32 @@ Unique index: `config_apply_acks_service_unique` on `(config_id, target_service)
 | `trace_id` | text nullable | |
 | `payload` | jsonb nullable | secrets forbidden |
 
+### `deployment_evidence`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | immutable M-Log evidence ID |
+| `operation_id` | text | origin M-Deploy operation/report ID |
+| `correlation_id` | text | request/operation correlation |
+| `audit_id` | text | attributable Audit linkage |
+| `evidence_type` | text | versioned M-Deploy evidence vocabulary |
+| `digest` | jsonb | digest only; secret values and raw runtime output forbidden |
+| `created_at` | timestamptz | UTC |
+
+### M-Deploy Authoritative Tables
+
+`mdeploy_proposals` and `mdeploy_approvals` persist versioned proposal/approval snapshots and indexed approval status/linkage. `mdeploy_agents` persists enrollment/heartbeat records. `mdeploy_drift_reports` persists drift facts. `mdeploy_verified_envelopes` and `mdeploy_last_successful` persist only envelopes that passed the trusted verifier.
+
+`mdeploy_operations` stores the versioned operation JSON plus indexed `agent_id`, operation `status`, and `publication_status`. The operation snapshot includes `policyDecisionId`, `quorumProofId`, `auditId`, digest, actor, correlation, and completion metadata.
+
+`mdeploy_evidence` stores only M-Log storage references and correlation metadata, keyed by `(operation_id, evidence_type)`. `mdeploy_event_intents` stores the outbox subject/payload/status and is indexed by `(status, operation_id)` for restart recovery.
+
+Transaction rules:
+
+- admission inserts the operation, signature evidence metadata, and initial outbox intents in one Drizzle transaction;
+- completion updates the operation, inserts runtime/rollback evidence and success intents, and updates last-successful/verified-envelope pointers in one transaction;
+- marking an intent published and updating the owning operation to `publication_status = published` occur in one transaction after the final pending intent is gone.
+
 ### Projection Platform Tables
 
 #### `projector_jobs`
@@ -824,7 +851,7 @@ Projection dead-letter queue for failed facts.
 |--------|------|-------|
 | `id` | text primary key | approval UUID |
 | `policy_decision_id` | text | references `policy_decisions.id` |
-| `origin_service` | text | `m-task` |
+| `origin_service` | text | `m-task`, `m-net`, or `m-deploy` |
 | `operation_id` | text | origin operation by convention |
 | `requested_by` | text | actor who triggered the blocked operation |
 | `required_action` | text | `manual_review` or `multi_approval` |

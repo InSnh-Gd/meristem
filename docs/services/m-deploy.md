@@ -46,7 +46,8 @@ Current production-track scope:
 - Docker Compose is compatibility-only for local validation and migration checks; it does not satisfy production readiness
 - OpenTofu/Terraform support is a provider-neutral IaC fixture for topology provisioning and state comparison
 - Kubernetes, Helm, service mesh, controller SSH push, and broad remote execution are excluded
-- M-Deploy service definition is documentation-only until the M-Deploy implementation track opens
+- `createProductionMDeployComposition(...)` and `serveProductionMDeployApp(...)` construct the PostgreSQL store, configured SecretManager/trusted verifier, shared auth verifier, and loopback M-Policy, M-Log, and M-EventBus adapters. `createInMemoryMDeployDeps()` is test-only.
+- deployment packaging must still supply host-local Git fetch, agent enrollment identity verification, controller availability, and Podman/Docker runtime adapters through `MDeployHostAdapters`; these explicit host adapters are the remaining external deployment prerequisite and cannot be replaced by generic SSH or remote shell execution
 
 ---
 
@@ -55,12 +56,13 @@ Current production-track scope:
 | Contract | Path / Subject | Version | Notes |
 |----------|----------------|---------|-------|
 | REST | `/api/v0/deploy/desired-state`, `/api/v0/deploy/proposals*`, `/api/v0/deploy/apply`, `/api/v0/deploy/rollback`, `/api/v0/deploy/drift`, `/api/v0/deploy/evidence*`, `/api/v0/deploy/agents*` | `v0` | Core public facade exposes operator-facing routes; high-risk mutations require M-Policy and Audit |
-| REST / internal HTTP | `/internal/v0/deploy/proposals`, `/internal/v0/deploy/approvals/:id/resume`, `/internal/v0/deploy/apply`, `/internal/v0/deploy/rollback`, `/internal/v0/deploy/drift`, `/internal/v0/deploy/evidence`, `/internal/v0/deploy/agents/:id/heartbeat` | `v0` | loopback-only service API consumed by Core, M-Policy resume callbacks, and enrolled deployment agents |
-| Eden | `@meristem/contracts/mdeploy` | `0.1.0` | planned typed internal client for Core → M-Deploy and agent-control calls |
+| REST / internal HTTP | `/internal/v0/deploy/agents/enroll`, `/internal/v0/deploy/agents/:id/heartbeat`, `/internal/v0/deploy/agents/:id/reconcile`, `/internal/v0/deploy/drift` | `v0` | mounted loopback-only agent API; every route requires `x-meristem-internal-token` |
+| REST / internal authority | M-Policy `/internal/v0/policy/mdeploy/approvals/:proposalId/{votes,quorum}`; M-Log `/internal/v0/deployment-evidence`; M-EventBus `/internal/v0/publish` | `v0` | production composition consumes these authenticated loopback boundaries; M-Policy owns eligibility/quorum and M-Log owns immutable evidence records |
+| Eden | `services/m-deploy/src/index.ts#MDeployApp` | `0.1.0` | exported Elysia type surface for Core → M-Deploy and agent-control clients; public composition remains Core-owned |
 | Effect Schema | `packages/contracts/src/schemas/mdeploy-common.ts`, `mdeploy-operations.ts`, `mdeploy-agent.ts` | `0.1.0` | desired-state, signed envelope, proposal/approval, Podman-production and Docker-compatibility runtime selection, immutable image provenance, promotion/rollback metadata, runtime health, agent, drift, reconcile, evidence, and event payload schemas |
-| Events | `mdeploy.proposal.created.v0`, `mdeploy.approval.recorded.v0`, `mdeploy.apply.started.v0`, `mdeploy.apply.succeeded.v0`, `mdeploy.apply.failed.v0`, `mdeploy.rollback.*.v0`, `mdeploy.drift.detected.v0`, `mdeploy.agent.heartbeat.v0`, `mdeploy.evidence.emitted.v0` | `v0` | draft subjects are registered in `docs/events/EVENT-CATALOG.md`; payload schemas are exported from `@meristem/contracts` before implementation |
+| Events | `mdeploy.proposal.created.v0`, `mdeploy.approval.recorded.v0`, `mdeploy.apply.started.v0`, `mdeploy.apply.succeeded.v0`, `mdeploy.apply.failed.v0`, `mdeploy.rollback.*.v0`, `mdeploy.drift.detected.v0`, `mdeploy.agent.heartbeat.v0`, `mdeploy.evidence.emitted.v0` | `v0` | implemented publishers are active in `docs/events/EVENT-CATALOG.md`; failure and resolution subjects remain deferred until their workflows exist |
 
-Planned public API surface:
+Mounted public API surface:
 
 | Method | Path | Permission | Purpose |
 |--------|------|------------|---------|
@@ -75,12 +77,18 @@ Planned public API surface:
 | `GET` | `/api/v0/deploy/evidence` | `deploy:evidence-read` | list evidence metadata by operation, digest, node, or correlation ID |
 | `GET` | `/api/v0/deploy/agents` | `deploy:desired-state-read` | list enrolled deployment agents and heartbeat status |
 
-Planned internal and agent API surface:
+Mounted internal and agent API surface:
 
-- Core calls internal M-Deploy routes with `x-meristem-internal-token`; external actors never call `/internal/v0/*` directly.
-- M-Policy approval callbacks resume suspended M-Deploy operations by operation ID and policy decision ID.
-- Deployment agents enroll with signed agent identity material, pull signed desired-state envelopes, verify envelope signatures locally before runtime action, and emit heartbeat / apply / evidence acknowledgements.
+- `POST /internal/v0/deploy/agents/enroll` verifies agent identity and persists enrollment capabilities plus controller trust issuer, audience, public-key fingerprint, and expiry.
+- `POST /internal/v0/deploy/agents/:id/heartbeat` records deployment health and publishes the heartbeat fact; route/body agent ID mismatch is rejected.
+- `POST /internal/v0/deploy/agents/:id/reconcile` retries pending event intents, pulls one queued apply/rollback, re-verifies the envelope against that agent's enrolled controller trust, resolves SecretRefs, and invokes only the local runtime adapter.
+- `POST /internal/v0/deploy/drift` records an agent drift observation, Audit/evidence, and the detected event.
+- All four routes require `x-meristem-internal-token`; external bearer actors never call `/internal/v0/*` directly. Missing/invalid internal authentication returns the common `401` error envelope.
+- Deployment agents pull signed desired-state envelopes and verify signature bytes, signer identity, issuer, audience, key fingerprint, and trust expiry locally before SecretProvider or runtime action.
 - Agent heartbeat carries only deployment health, supported driver capabilities, last-known digest, runtime status, and correlation IDs; it must not carry plaintext secrets or host-local command output.
+- The implementation keeps persistent/transport envelope input as `unknown` until the agent revalidates it locally with `validateMDeploySignedEnvelopeForApply` and the injected trusted verifier; payload `verification.verified` is metadata and cannot authorize execution.
+- `serveMDeployApp(deps)` binds an already-built dependency set. Production packaging uses `serveProductionMDeployApp(options)`, which creates the documented durable/authority composition and closes its PostgreSQL pool when stopped. Neither entrypoint provides controller SSH push or a generic remote shell.
+- Public `apply` and internal `reconcile` results include `publicationStatus: "published" | "pending"`. `pending` means the operation/evidence/event intent is durably committed and runtime truth is final, but one or more EventBus dispatches remain retryable.
 
 ---
 
@@ -109,9 +117,9 @@ High-risk markings:
 | Dependency | Type | Failure Behavior |
 |------------|------|------------------|
 | Core | service | public deploy facade and identity introspection fail closed; no direct UI → M-Deploy bypass |
-| M-Policy | service | propose/approve/apply/rollback fail closed; M-Deploy must not make local authorization decisions |
+| M-Policy | service | propose/approve/apply/rollback fail closed; production apply requires an M-Policy proof containing exactly two distinct eligible non-proposer approvers; M-Deploy stores the proof ID and does not count approvals |
 | M-Log | service | Audit/evidence writes required for high-risk operations block state mutation when unavailable |
-| M-EventBus / NATS | event | event publication failure surfaces typed unavailable result and writes Full Log; state must not report false success |
+| M-EventBus / NATS | event | operation/evidence/event intent persists before dispatch; dispatch failure remains `publicationStatus: pending`, writes Full Log, and retries on later reconcile without turning successful runtime execution into false failure |
 | PostgreSQL | datastore | deployment metadata, proposals, reconcile state, agent state, and evidence metadata fail closed on write unavailability |
 | Git | desired-state source | sync degraded; use last successful snapshot only within configured TTL; reject reconcile after TTL |
 | Vault / SecretProvider | secret backend | sealed/unavailable provider blocks new apply/rollback requiring secret material; no local plaintext fallback |
@@ -143,6 +151,13 @@ High-risk markings:
 | `MERISTEM_MDEPLOY_SIGNATURE_POLICY` | `required` | yes | no | unsigned desired-state is rejected |
 | `MERISTEM_MDEPLOY_AGENT_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | disconnected-agent threshold |
 | `MERISTEM_MDEPLOY_EVIDENCE_BUCKET` | string | yes | yes | immutable evidence archive location reference, not a local test path |
+
+Production composition inputs:
+
+- `MERISTEM_V02_DEPLOYMENT_CONFIG` supplies M-Policy, M-Log, and M-EventBus URLs, the selected auth provider, and the named SecretProvider configuration.
+- `DATABASE_URL` selects the PostgreSQL authoritative store.
+- `ControllerTrustConfig` supplies a SecretRef for the controller public key plus the configured issuer, audience, and expected SPKI SHA-256 fingerprint. Key bytes are resolved only through SecretManager/SecretProvider.
+- `MDeployHostAdapters` supplies Git fetch, enrollment identity verification, controller availability, and host-local runtime apply/rollback implementations. These are deployment-package inputs, not in-memory defaults.
 
 Configuration lifecycle rules:
 
@@ -181,6 +196,7 @@ Lifecycle details:
 - rollback operations are separate high-risk operations, not implicit failure handlers hidden inside apply.
 - promotion records preserve source and target environments, immutable image digest, SBOM, provenance and signature references, signer identity, approval actor, and the previous promotion/digest rollback pointer.
 - in-flight operations persist checkpoint metadata so a restarted controller can resume only after revalidating policy, signature, Git digest, and Audit/evidence availability.
+- apply/rollback admission and completion atomically persist authoritative operation state, evidence metadata, and event intent before dispatch; pending intents are visible and retried by later reconcile calls.
 - agent pull-reconcile means agents poll/pull desired-state work; the controller does not SSH into nodes or push shell commands.
 
 ---
@@ -196,7 +212,7 @@ Lifecycle details:
 Evidence behavior:
 
 - evidence metadata is written before surfacing success for apply/rollback.
-- raw evidence blobs are immutable and content-addressed; M-Deploy stores references and correlation metadata, while M-Log owns evidence fact storage integration.
+- M-Log persists immutable digest-bound evidence facts in `deployment_evidence` and returns `m-log://evidence/<id>` redacted storage references. M-Deploy stores only those references and correlation metadata. External object-archive replication remains a deployment prerequisite and is not claimed by the mounted route.
 - evidence payloads must redact plaintext secrets, bearer tokens, host-local secret paths, raw private keys, and unrestricted command output.
 
 ### 9.1 OpenTelemetry Behavior
@@ -213,7 +229,7 @@ Evidence behavior:
 ## 10. Policy Requirements
 
 - all desired-state propose, approve, apply, and rollback requests are protected operations requiring Core identity verification, M-Policy authorization, and Audit before mutation.
-- production rollout apply requires two-person approval: original proposer cannot approve their own proposal, and at least two distinct authorized approvers must approve before apply.
+- production rollout apply requires an M-Policy quorum proof with exactly two distinct eligible security-admin approvers; the original proposer cannot approve their own proposal, one approval is insufficient, and M-Deploy does not reconstruct the proof locally.
 - M-Deploy must fail closed if M-Policy is unavailable, returns deny/manual review, or cannot persist the required approval/decision state.
 - M-Deploy must fail closed if required Audit or evidence writes cannot complete for high-risk operations.
 - signed desired-state envelope verification is mandatory before any reconcile or agent apply; verification failure writes Audit and blocks reconcile.
@@ -221,7 +237,7 @@ Evidence behavior:
 - agents must verify signed desired-state envelopes locally before runtime actions; controller-side verification alone is insufficient.
 - rollback requires its own policy decision and Audit chain; previous approval for apply does not authorize rollback.
 - drift read/check is non-mutating but must enforce read permissions and redaction.
-- M-Deploy must not implement local policy/quorum logic beyond interpreting M-Policy results and checking returned approval IDs.
+- M-Deploy must not implement local policy/quorum logic beyond consuming and persisting the M-Policy quorum proof ID.
 - normal deployment path remains pull-reconcile; controller SSH push, arbitrary remote command execution, and Git push from M-Deploy are forbidden.
 
 ---

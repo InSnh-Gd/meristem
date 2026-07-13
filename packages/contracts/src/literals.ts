@@ -89,6 +89,26 @@ export const configPermissions = [
   'config:rollback'
 ] as const
 
+export const deploymentPermissions = [
+  'deploy:desired-state-read',
+  'deploy:desired-state-propose',
+  'deploy:desired-state-approve',
+  'deploy:desired-state-apply',
+  'deploy:desired-state-rollback',
+  'deploy:drift-read',
+  'deploy:evidence-read'
+] as const
+
+export const deploymentPermission = {
+  desiredStateRead: deploymentPermissions[0],
+  desiredStatePropose: deploymentPermissions[1],
+  desiredStateApprove: deploymentPermissions[2],
+  desiredStateApply: deploymentPermissions[3],
+  desiredStateRollback: deploymentPermissions[4],
+  driftRead: deploymentPermissions[5],
+  evidenceRead: deploymentPermissions[6]
+} as const
+
 export const permissions = [
   ...basePermissions,
   ...projectionPermissions,
@@ -97,7 +117,8 @@ export const permissions = [
   ...extensionPermissions,
   ...identityPermissions,
   ...secretPermissions,
-  ...configPermissions
+  ...configPermissions,
+  ...deploymentPermissions
 ] as const
 
 export type Permission = (typeof permissions)[number]

@@ -7,6 +7,7 @@ import type {
 import {
   approvalPermissions,
   configPermissions,
+  deploymentPermissions,
   extensionPermissions,
   identityPermissions,
   networkProfilePermissions,
@@ -44,7 +45,10 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     'projection:read',
     'extension:read',
     configPermissions[0],
-    configPermissions[2]
+    configPermissions[2],
+    deploymentPermissions[0],
+    deploymentPermissions[5],
+    deploymentPermissions[6]
   ],
   admin: [
     'core:read',
@@ -74,7 +78,11 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     ...configPermissions,
     ...networkProfilePermissions,
     ...projectionPermissions,
-    ...extensionPermissions
+    ...extensionPermissions,
+    deploymentPermissions[0],
+    deploymentPermissions[1],
+    deploymentPermissions[5],
+    deploymentPermissions[6]
   ],
   'security-admin': [
     'core:read',
@@ -103,7 +111,8 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     ...approvalPermissions,
     ...networkProfilePermissions,
     ...extensionPermissions,
-    ...projectionPermissions
+    ...projectionPermissions,
+    ...deploymentPermissions
   ],
   'break-glass-reviewer': [
     'core:read',

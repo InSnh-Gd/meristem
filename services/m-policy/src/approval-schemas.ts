@@ -128,7 +128,7 @@ export const approvalResponseSchema = t.Object({
 
 export const createApprovalBodySchema = t.Object({
   policyDecisionId: t.String(),
-  originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
+  originService: t.Union([t.Literal('m-task'), t.Literal('m-net'), t.Literal('m-deploy')]),
   operationId: t.String(),
   requestedBy: t.UnionEnum(actorIds),
   requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),

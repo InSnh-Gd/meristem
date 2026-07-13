@@ -8,6 +8,7 @@ export type InternalServiceName =
   | 'm-net'
   | 'm-task'
   | 'm-extension'
+  | 'm-deploy'
 
 export type ServedInternalApp = {
   name: InternalServiceName
@@ -22,7 +23,8 @@ export const internalServicePorts: Record<InternalServiceName, number> = {
   'm-eventbus': 3103,
   'm-net': 3104,
   'm-task': 3105,
-  'm-extension': 3106
+  'm-extension': 3106,
+  'm-deploy': 3107
 }
 
 export const internalTokenHeaderName = 'x-meristem-internal-token'

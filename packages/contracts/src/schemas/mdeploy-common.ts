@@ -277,14 +277,18 @@ export function validateMDeploySignedEnvelopeForApply(
   if (!decoded.ok) return err({ code: 'schema_decode_failed', message: decoded.error.message })
 
   const envelope = decoded.value
-  if (!envelope.verification.verified || envelope.signature.value.trim().length === 0) {
+  // verification 是传输元数据而非授权事实；这里只验证结构，可信签名由调用方注入的 verifier 判定。
+  if (envelope.signature.value.trim().length === 0) {
     return err({
       code: 'signature_verification_failed',
       message: 'desired-state envelope signature verification failed',
       detail: envelope.verification.failureReason
     })
   }
-  if (envelope.signature.payloadDigest.value !== envelope.payload.source.digest.value) {
+  if (
+    envelope.signature.payloadDigest.algorithm !== envelope.payload.source.digest.algorithm ||
+    envelope.signature.payloadDigest.value !== envelope.payload.source.digest.value
+  ) {
     return err({
       code: 'signature_verification_failed',
       message: 'desired-state envelope digest does not match signed source digest',

@@ -157,6 +157,13 @@ describe('Eden clients', () => {
         )
         return { id: 'audit-1', timestamp: new Date().toISOString(), ...input }
       },
+      async writeDeploymentEvidence(input) {
+        return {
+          uri: `m-log://evidence/${input.operationId}`,
+          digest: input.digest,
+          redactionStatus: 'redacted'
+        }
+      },
       async listTimeline() {
         return []
       },
@@ -241,6 +248,9 @@ describe('Eden clients', () => {
         throw new Error('not used')
       },
       async writeAudit() {
+        throw new Error('not used')
+      },
+      async writeDeploymentEvidence() {
         throw new Error('not used')
       },
       async listTimeline() {

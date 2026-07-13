@@ -1,6 +1,18 @@
-import type { AuditLog, FullLog, TimelineLog } from '../../../packages/contracts/src/index.ts'
+import type {
+  AuditLog,
+  FullLog,
+  MDeployDigestFromSchema,
+  MDeployEvidenceTypeFromSchema,
+  MDeployStorageRefV01FromSchema,
+  TimelineLog
+} from '../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { auditLogs, fullLogs, timelineLogs } from '../../../packages/db/src/schema.ts'
+import {
+  auditLogs,
+  deploymentEvidence,
+  fullLogs,
+  timelineLogs
+} from '../../../packages/db/src/schema.ts'
 import { createLogger } from '../../../packages/telemetry/src/index.ts'
 import type { createLogEventPublisher } from './event-publisher.ts'
 import type { createOpenSearchAdapter } from './opensearch.ts'
@@ -112,6 +124,29 @@ export function createLogWriteService(
       })
 
       return entry
+    },
+    async writeDeploymentEvidence(request: {
+      operationId: string
+      correlationId: string
+      auditId: string
+      evidenceType: MDeployEvidenceTypeFromSchema
+      digest: MDeployDigestFromSchema
+    }): Promise<MDeployStorageRefV01FromSchema> {
+      const id = crypto.randomUUID()
+      await db.insert(deploymentEvidence).values({
+        id,
+        operationId: request.operationId,
+        correlationId: request.correlationId,
+        auditId: request.auditId,
+        evidenceType: request.evidenceType,
+        digest: request.digest,
+        createdAt: new Date()
+      })
+      return {
+        uri: `m-log://evidence/${id}`,
+        digest: request.digest,
+        redactionStatus: 'redacted'
+      }
     }
   }
 }

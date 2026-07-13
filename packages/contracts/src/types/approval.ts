@@ -4,7 +4,7 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | '
 
 export type ApprovalVote = 'approve' | 'reject'
 
-export type ApprovalOriginService = 'm-task' | 'm-net'
+export type ApprovalOriginService = 'm-task' | 'm-net' | 'm-deploy'
 
 export type ApprovalOriginAction =
   | 'task.submit'

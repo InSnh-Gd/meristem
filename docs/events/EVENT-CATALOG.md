@@ -108,18 +108,18 @@ Rules:
 | `mnet.profile.migration.changed.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetProfileMigrationResult` | at-least-once |
 | `mnet.break_glass.changed.v0` | event | M-Net | Core, M-Log, M-Policy, M-UI BFF | `MNetBreakGlassGrant` | at-least-once |
 | `mnet.sidecar.degraded.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetSidecarStatus` | at-least-once |
-| `mdeploy.proposal.created.v0` | draft event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayloadSchema` | at-least-once |
-| `mdeploy.approval.recorded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayloadSchema` | at-least-once |
-| `mdeploy.apply.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayloadSchema` | at-least-once |
-| `mdeploy.apply.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplySucceededPayloadSchema` | at-least-once |
+| `mdeploy.proposal.created.v0` | active event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayloadSchema` | at-least-once |
+| `mdeploy.approval.recorded.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayloadSchema` | at-least-once |
+| `mdeploy.apply.started.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayloadSchema` | at-least-once |
+| `mdeploy.apply.succeeded.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployApplySucceededPayloadSchema` | at-least-once |
 | `mdeploy.apply.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyFailedPayloadSchema` | at-least-once |
-| `mdeploy.rollback.started.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackStartedPayloadSchema` | at-least-once |
-| `mdeploy.rollback.succeeded.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackSucceededPayloadSchema` | at-least-once |
+| `mdeploy.rollback.started.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackStartedPayloadSchema` | at-least-once |
+| `mdeploy.rollback.succeeded.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackSucceededPayloadSchema` | at-least-once |
 | `mdeploy.rollback.failed.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployRollbackFailedPayloadSchema` | at-least-once |
-| `mdeploy.drift.detected.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftDetectedPayloadSchema` | at-least-once |
+| `mdeploy.drift.detected.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftDetectedPayloadSchema` | at-least-once |
 | `mdeploy.drift.resolved.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployDriftResolvedPayloadSchema` | at-least-once |
-| `mdeploy.agent.heartbeat.v0` | draft event | M-Deploy | Core, M-Log, M-UI BFF | `MDeployAgentHeartbeatPayloadSchema` | at-least-once |
-| `mdeploy.evidence.emitted.v0` | draft event | M-Deploy | M-Log, M-UI BFF | `MDeployEvidenceEmittedPayloadSchema` | at-least-once |
+| `mdeploy.agent.heartbeat.v0` | active event | M-Deploy | Core, M-Log, M-UI BFF | `MDeployAgentHeartbeatPayloadSchema` | at-least-once |
+| `mdeploy.evidence.emitted.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployEvidenceEmittedPayloadSchema` | at-least-once |
 | `config.publish.requested.v0` | command | Core | domain services, M-Log, M-Policy | `ConfigPublishRequestedPayload` | at-least-once |
 | `config.published.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigPublishedPayload` | at-least-once |
 | `config.apply.acked.v0` | event | Core | domain services, M-Log, M-Policy | `ConfigApplyAckedPayload` | at-least-once |

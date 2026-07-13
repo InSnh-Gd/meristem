@@ -5,6 +5,8 @@ import type { LogAppDeps } from './deps.ts'
 import {
   auditLogSchema,
   auditWriteBodySchema,
+  deploymentEvidenceStorageRefSchema,
+  deploymentEvidenceWriteBodySchema,
   fullLogSchema,
   fullWriteBodySchema,
   internalErrorSchema,
@@ -70,6 +72,21 @@ export function createLogWriteRoutes(deps: LogAppDeps) {
         body: auditWriteBodySchema,
         response: {
           200: t.Object({ entry: auditLogSchema }),
+          401: internalErrorSchema
+        }
+      }
+    )
+    .post(
+      '/internal/v0/deployment-evidence',
+      async ({ body, headers, status }) => {
+        const auth = validateInternalRequest(headers)
+        if (!auth.ok) return status(401, { error: auth.error })
+        return { storageRef: await deps.writeDeploymentEvidence(body) }
+      },
+      {
+        body: deploymentEvidenceWriteBodySchema,
+        response: {
+          200: t.Object({ storageRef: deploymentEvidenceStorageRefSchema }),
           401: internalErrorSchema
         }
       }

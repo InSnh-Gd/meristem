@@ -204,6 +204,12 @@ Ownership rules:
 - PostgreSQL may be shared, but service ownership remains explicit
 - the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`
 
+### 11.1 M-Deploy Durable State Ownership
+
+M-Deploy owns PostgreSQL operation, agent, proposal, evidence-reference, verified-envelope, and outbox tables listed in `POSTGRES-SCHEMA-MVP.md`. M-Policy remains the authority for approval records/votes and returns the persisted approval ID as the production quorum proof. M-Log owns `deployment_evidence`; M-Deploy stores only its redacted references.
+
+Operation admission and completion transactionally group the operation snapshot, evidence metadata, and pending publication intents. A recreated production composition reads those rows from PostgreSQL and retries pending EventBus publication without rerunning a completed host runtime operation.
+
 ---
 
 ## 12. Production Authority Matrix
@@ -215,7 +221,7 @@ Ownership rules:
 | 域 | 权威源（Source of Truth） | 允许写入者（Allowed Writers） | 读模型 / 投影（Read-Model / Projection） | 缓存层（Cache Layers） | 降级行为（Degradation Behavior） | 审计义务（Audit Obligations） | 契约 Owner |
 |---|---|---|---|---|---|---|---|
 | **Identity** | PostgreSQL（local IAM）: principal 记录、角色、权限、状态 | Core (Identity v0.2): actor 生命周期；M-Policy: 角色/权限分配；security-admin: token issue/revoke | M-UI BFF 通过 Core 边界读取；OpenSearch 不投影 identity 权威状态 | NATS KV: token introspection 缓存（≤30s，仅 positive result） | OIDC provider 不可达时 BFF session 失效，但本地 IAM 仍可签发 break-glass token；token introspection 不可用返回 503 | 所有 token issue/revoke 写 Audit before mutation；actor 状态变更强制 Audit；break-glass 访问强制双人 + Audit | Core（Identity v0.2） |
-| **Deployment** | Git 仓库（desired-state 源）；M-Deploy 是唯一的 reconcile 执行者 | M-Deploy: pull-reconcile 写入 VM 运行时状态；操作员通过 M-UI 提议变更，不直接写入 live state | OpenTofu/Terraform state（IaC 状态快照）；M-UI BFF 通过 Core 边界读取部署状态摘要 | 无独立缓存层；Podman compose 本地状态由 M-Deploy 管理 | M-Deploy 不可达时已部署服务继续运行，新部署排队等待；M-UI 显示 degraded 状态 | 所有 reconcile 操作写 Audit；desired-state 变更签名验证记录写入 Audit；envelope 签名验证失败写入 Audit | M-Deploy（规划中） |
+| **Deployment** | Git 仓库（desired-state 源）+ PostgreSQL（M-Deploy operation/outbox metadata）；M-Deploy 是唯一的 reconcile 执行者 | M-Deploy: pull-reconcile 写入 VM 运行时状态；操作员通过 M-UI 提议变更，不直接写入 live state | OpenTofu/Terraform state（IaC 状态快照）；M-UI BFF 通过 Core 边界读取部署状态摘要 | 无独立缓存层；host-local runtime state 由显式 M-Deploy runtime adapter 管理 | M-Deploy 不可达时已部署服务继续运行；pending outbox 在重建 composition 后恢复；新控制操作 fail closed/degraded | 所有 reconcile 操作写 Audit；M-Policy owns quorum proof；M-Log owns deployment evidence；签名验证失败持久化 blocked + Audit | M-Deploy |
 | **Network** | PostgreSQL（M-Net）: 网络拓扑、profile 状态、membership、ACL intent、relay 选择、key metadata | M-Net: 网络生命周期、profile 启用/禁用、topology 发布；Core: 网络创建、membership 注册入口 | M-UI BFF 通过 Core 边界读取网络状态；OpenSearch 可投影拓扑历史但非权威源 | NATS KV: 网络 map 缓存（signed map TTL 内有效，过期后 fail-closed） | NetBird sidecar 崩溃或 control-channel partition 驱动 degraded / fail_closed；网络 map 过期后 fail-closed；中继不可达时仅在有可用 direct path 且 policy 允许时降级 | 所有 CN enable/disable 写 Audit；profile 状态转换写 Audit；break-glass disable 强制 Audit；key rotation 写 Audit；Audit 不可用阻塞 CN 操作 | M-Net |
 | **Audit** | PostgreSQL: 权威审计元数据（actor、action、resource、decisionId、result、correlationId）；不可变对象归档: 原始审计证据（raw evidence blob） | M-Log: 审计事实写入；M-Policy: policy decision 审计记录；Core: identity/secret 操作审计 | OpenSearch: 审计查询投影（只读，非权威）；M-UI BFF 通过 Core 边界读取审计数据（按 `audit:read` 过滤） | 无缓存；审计数据必须实时权威 | **审计不可绕过**：任何高权限操作在审计写入失败时必须 fail-closed；Audit Log 禁用仅限文档化的紧急恢复路径 | 审计自身写入操作也需要审计（meta-audit）；审计不可用阻塞所有高风险操作；disable audit 仅在紧急恢复时允许且本身强制审计 | M-Log |
 | **Search** | 无；OpenSearch 是投影/辅助系统，不是任何域的权威源 | M-Log: 日志投影写入（Full Log、Timeline、Audit 投影）；读路径无写入 | OpenSearch: Full Log 搜索、Timeline 聚合、Audit 查询投影、节点状态面板、策略分析视图 | 无独立缓存 | **搜索可降级**：OpenSearch 不可达时搜索功能返回空结果或降级提示，不影响控制操作；控制操作不依赖 OpenSearch 可用性 | OpenSearch 投影写入失败写入 Full Log；投影不可用不触发 Audit（非高风险路径） | M-Log |

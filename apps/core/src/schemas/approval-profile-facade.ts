@@ -11,7 +11,7 @@ const actorIdSchema = t.Union([
 export const policyApprovalSchema = t.Object({
   id: t.String(),
   policyDecisionId: t.String(),
-  originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
+  originService: t.Union([t.Literal('m-task'), t.Literal('m-net'), t.Literal('m-deploy')]),
   operationId: t.String(),
   requestedBy: actorIdSchema,
   requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),
@@ -45,7 +45,7 @@ export const approvalListResponseSchema = t.Object({
 export const approvalDetailResponseSchema = t.Object({
   id: t.String(),
   policyDecisionId: t.String(),
-  originService: t.Union([t.Literal('m-task'), t.Literal('m-net')]),
+  originService: t.Union([t.Literal('m-task'), t.Literal('m-net'), t.Literal('m-deploy')]),
   operationId: t.String(),
   requestedBy: actorIdSchema,
   requiredAction: t.Union([t.Literal('manual_review'), t.Literal('multi_approval')]),

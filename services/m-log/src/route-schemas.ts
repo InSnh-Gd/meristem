@@ -191,3 +191,32 @@ export const auditWriteBodySchema = t.Object({
   traceId: t.Optional(t.String()),
   payload: t.Optional(t.Unknown())
 })
+
+export const deploymentEvidenceWriteBodySchema = t.Object({
+  operationId: t.String({ minLength: 1 }),
+  correlationId: t.String({ minLength: 1 }),
+  auditId: t.String({ minLength: 1 }),
+  evidenceType: t.Union([
+    t.Literal('signature_verification'),
+    t.Literal('runtime_plan'),
+    t.Literal('runtime_apply'),
+    t.Literal('opentofu_plan'),
+    t.Literal('opentofu_apply'),
+    t.Literal('agent_ack'),
+    t.Literal('rollback'),
+    t.Literal('drift_report')
+  ]),
+  digest: t.Object({
+    algorithm: t.Union([t.Literal('sha256'), t.Literal('sha512')]),
+    value: t.String({ minLength: 1 })
+  })
+})
+
+export const deploymentEvidenceStorageRefSchema = t.Object({
+  uri: t.String(),
+  digest: t.Object({
+    algorithm: t.Union([t.Literal('sha256'), t.Literal('sha512')]),
+    value: t.String()
+  }),
+  redactionStatus: t.Union([t.Literal('redacted'), t.Literal('metadata_only')])
+})

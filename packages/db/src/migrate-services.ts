@@ -5,6 +5,85 @@ import type postgres from 'postgres'
  */
 export async function migrateServices(tx: postgres.TransactionSql) {
   await tx`
+    create table if not exists mdeploy_proposals (
+      id text primary key,
+      approval_status text not null,
+      proposal jsonb not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_approvals (
+      id text primary key,
+      proposal_id text not null references mdeploy_proposals(id),
+      approval jsonb not null,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_operations (
+      id text primary key,
+      agent_id text not null,
+      status text not null,
+      publication_status text not null,
+      operation jsonb not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_evidence (
+      operation_id text not null,
+      evidence_type text not null,
+      metadata jsonb not null,
+      created_at timestamptz not null,
+      primary key (operation_id, evidence_type)
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_event_intents (
+      id text primary key,
+      operation_id text not null references mdeploy_operations(id),
+      status text not null,
+      intent jsonb not null,
+      created_at timestamptz not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create index if not exists mdeploy_event_intents_pending_idx
+    on mdeploy_event_intents (status, operation_id)
+  `
+  await tx`
+    create table if not exists mdeploy_agents (
+      id text primary key,
+      record jsonb not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_drift_reports (
+      id text primary key,
+      report jsonb not null,
+      created_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_verified_envelopes (
+      digest_key text primary key,
+      envelope jsonb not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
+    create table if not exists mdeploy_last_successful (
+      agent_id text primary key,
+      envelope jsonb not null,
+      updated_at timestamptz not null
+    )
+  `
+  await tx`
     create table if not exists mnet_profile_definitions (
       id text primary key,
       profile_version text not null,

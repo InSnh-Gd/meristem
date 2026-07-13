@@ -185,6 +185,7 @@ describe('M-Deploy versioned contracts', () => {
       agentId: 'agent-1',
       desiredStateDigest: digest,
       applyStatus: 'succeeded',
+      publicationStatus: 'published',
       evidenceRefs: [storageRef],
       completedAt: '2026-07-07T00:05:00.000Z'
     }
@@ -194,6 +195,7 @@ describe('M-Deploy versioned contracts', () => {
       previousDigest: { algorithm: 'sha256', value: 'sha256:bad' },
       restoredDigest: digest,
       status: 'succeeded',
+      publicationStatus: 'published',
       evidenceRefs: [storageRef],
       completedAt: '2026-07-07T00:06:00.000Z'
     }

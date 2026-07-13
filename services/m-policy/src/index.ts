@@ -8,6 +8,7 @@ import { createPolicyApprovalDeps, createPolicyReadiness } from './approval-deps
 import { createApprovalRoutes, createInternalApprovalRoutes } from './approvals.ts'
 import { createPolicyDecisionStore } from './decision-store.ts'
 import { createPolicyEventPublisher } from './event-publisher.ts'
+import { createMDeployApprovalRoutes } from './mdeploy-approvals.ts'
 import { summarizePolicyState } from './summary.ts'
 
 initTelemetry('m-policy')
@@ -38,6 +39,7 @@ const approvalDeps = createPolicyApprovalDeps(db, publisher, decisionStore, {
 
 const approvalRoutes = createApprovalRoutes(approvalDeps)
 const internalApprovalRoutes = createInternalApprovalRoutes(approvalDeps)
+const mdeployApprovalRoutes = createMDeployApprovalRoutes(approvalDeps)
 
 const app = createPolicyApp({
   readiness: createPolicyReadiness(client),
@@ -55,7 +57,7 @@ const app = createPolicyApp({
   }
 })
 
-const mergedApp = app.use(approvalRoutes).use(internalApprovalRoutes)
+const mergedApp = app.use(approvalRoutes).use(internalApprovalRoutes).use(mdeployApprovalRoutes)
 const server = serveHttpApp('m-policy', mergedApp.fetch)
 
 // 退出顺序先停 HTTP，再关数据库和 telemetry，避免正在处理的授权请求半途丢失。

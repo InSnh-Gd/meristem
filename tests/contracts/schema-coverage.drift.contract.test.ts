@@ -4,6 +4,7 @@ import {
   contractActivatedMNetClosedLoopSubjects
 } from '../../packages/events/src/index.ts'
 import { mExtensionEventContracts } from './_helpers/schema-coverage.m-extension.ts'
+import { mDeployEventContracts } from './_helpers/schema-coverage.mdeploy.ts'
 import { mPolicyEventContracts } from './_helpers/schema-coverage.m-policy.ts'
 import { mTaskEventContracts } from './_helpers/schema-coverage.m-task.ts'
 import { mnetEventContracts } from './_helpers/schema-coverage.mnet.ts'
@@ -36,6 +37,7 @@ const activeEventContractMap = new Map(
     ...mTaskEventContracts,
     ...mPolicyEventContracts,
     ...mExtensionEventContracts,
+    ...mDeployEventContracts,
     ...activePublisherSchemaContracts
   ].map(({ subject, schema }) => [subject, schema] as const)
 )

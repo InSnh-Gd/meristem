@@ -295,4 +295,15 @@ export async function migrateFoundation(tx: postgres.TransactionSql) {
       payload jsonb
     )
   `
+  await tx`
+    create table if not exists deployment_evidence (
+      id text primary key,
+      operation_id text not null,
+      correlation_id text not null,
+      audit_id text not null,
+      evidence_type text not null,
+      digest jsonb not null,
+      created_at timestamptz not null
+    )
+  `
 }

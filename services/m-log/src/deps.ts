@@ -9,7 +9,10 @@ import type {
   LogSearchResult,
   ProjectionHealth,
   TimelineLog,
-  TimelineSearchQuery
+  TimelineSearchQuery,
+  MDeployDigestFromSchema,
+  MDeployEvidenceTypeFromSchema,
+  MDeployStorageRefV01FromSchema
 } from '../../../packages/contracts/src/index.ts'
 
 export type TimelineWriteInput = Omit<TimelineLog, 'id' | 'timestamp'>
@@ -43,6 +46,13 @@ export type LogAppDeps = {
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
   writeFull(input: FullWriteInput): Promise<FullLog>
   writeAudit(input: AuditWriteInput): Promise<AuditLog>
+  writeDeploymentEvidence(input: {
+    operationId: string
+    correlationId: string
+    auditId: string
+    evidenceType: MDeployEvidenceTypeFromSchema
+    digest: MDeployDigestFromSchema
+  }): Promise<MDeployStorageRefV01FromSchema>
   listTimeline(limit?: number): Promise<TimelineLog[]>
   listFull(limit?: number): Promise<FullLog[]>
   listAudit(limit?: number): Promise<AuditLog[]>

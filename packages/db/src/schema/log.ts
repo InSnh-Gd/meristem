@@ -36,6 +36,16 @@ export const auditLogs = pgTable('audit_logs', {
   payload: jsonb('payload')
 })
 
+export const deploymentEvidence = pgTable('deployment_evidence', {
+  id: text('id').primaryKey(),
+  operationId: text('operation_id').notNull(),
+  correlationId: text('correlation_id').notNull(),
+  auditId: text('audit_id').notNull(),
+  evidenceType: text('evidence_type').notNull(),
+  digest: jsonb('digest').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+})
+
 // Projection Platform 表：projector_jobs 记录投影作业生命周期
 export const projectorJobs = pgTable('projector_jobs', {
   id: text('id').primaryKey(),

@@ -20,7 +20,7 @@ export type ApprovalStatusFromSchema = typeof ApprovalStatusSchema.Type
 export const ApprovalVoteTypeSchema = Schema.Literal('approve', 'reject')
 export type ApprovalVoteTypeFromSchema = typeof ApprovalVoteTypeSchema.Type
 
-export const ApprovalOriginServiceSchema = Schema.Literal('m-task', 'm-net')
+export const ApprovalOriginServiceSchema = Schema.Literal('m-task', 'm-net', 'm-deploy')
 export type ApprovalOriginServiceFromSchema = typeof ApprovalOriginServiceSchema.Type
 
 export const ApprovalOriginActionSchema = Schema.Literal(

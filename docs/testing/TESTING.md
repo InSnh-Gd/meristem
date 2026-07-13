@@ -590,6 +590,10 @@ bun run mnet:harness:preflight
 | Drift detection | desired-state 与实际状态漂移检测 | `m-deploy-drift-detection.json` | `test:failure-modes` |
 | Rollback | 发布失败后的自动或手动回滚 | `m-deploy-rollback-on-failure.json` | `test:failure-modes`、`test:e2e` |
 | Agent disconnected | 部署 agent 断开连接时的行为 | `m-deploy-agent-disconnected.txt` | `test:failure-modes` |
+| Durable outbox restart | runtime 成功后 EventBus 失败，重建 production composition 后仅重试发布、不重复 apply | `m-deploy-outbox-restart.json` | `test:integration` |
+| Forged enrolled trust | controller/agent 对 canonical bytes、签名、issuer、audience、fingerprint、expiry 进行双重验证 | `m-deploy-forged-envelope.json` | `test:failure-modes`、`test:integration` |
+| Policy quorum authority | 一票无 proof，两名不同 eligible approver 才由 M-Policy 返回 proof ID | `m-deploy-policy-quorum.json` | `test:contracts`、`test:failure-modes` |
+| Blocked rejection restart | agent pre-runtime reject 写 blocked + Audit，重建 composition 后仍可检索 | `m-deploy-blocked-restart.json` | `test:integration` |
 
 专用命令门禁：
 
@@ -597,6 +601,7 @@ bun run mnet:harness:preflight
 bun run test:failure-modes
 bun run test:e2e
 bun run test:contracts
+bun run test:integration
 ```
 
 #### 9.2.4 可观测性 / 故障转移证据包

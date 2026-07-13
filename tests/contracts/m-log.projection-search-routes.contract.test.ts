@@ -210,6 +210,13 @@ function createTestDeps(options: DepsOptions = {}): { deps: LogAppDeps; calls: C
       async writeAudit() {
         return auditLog
       },
+      async writeDeploymentEvidence(input) {
+        return {
+          uri: `m-log://evidence/${input.operationId}`,
+          digest: input.digest,
+          redactionStatus: 'redacted'
+        }
+      },
       async listTimeline() {
         return [timelineLog]
       },
