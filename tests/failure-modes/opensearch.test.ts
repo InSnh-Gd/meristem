@@ -2,6 +2,10 @@ import { describe, expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 
+async function readJsonBody(response: Response): Promise<unknown> {
+  return response.json()
+}
+
 // 失败模式门禁：OpenSearch 不可用不能阻塞权威日志写入。
 // 该套件通过 `bun run test:opensearch-failure-modes` 单独运行，避免把
 // 搜索可用性覆盖与默认 `bun test` 门禁混在一起。
@@ -69,7 +73,7 @@ describe('OpenSearch failure modes', () => {
     expect(auditRes.status).toBe(403)
   })
 
-  it('log writes still succeed when search is unavailable', async () => {
+  it('OpenSearch outage keeps authoritative writes available while projection/search is degraded', async () => {
     const deps = createInMemoryCoreDeps({ actor: 'security-admin', searchAvailable: false })
     const app = createCoreApp(deps)
 
@@ -93,6 +97,46 @@ describe('OpenSearch failure modes', () => {
       })
     )
     expect(auditList.status).toBe(200)
+
+    const nodeCreate = await app.handle(
+      new Request('http://localhost/api/v0/nodes', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer operator-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ kind: 'leaf', name: 'leaf-with-search-down' })
+      })
+    )
+    expect(nodeCreate.status).toBe(200)
+
+    const search = await app.handle(
+      new Request('http://localhost/api/v0/logs/timeline/search?q=leaf-with-search-down', {
+        headers: { authorization: 'Bearer operator-token' }
+      })
+    )
+    expect(search.status).toBe(503)
+  })
+
+  it('denies unauthorized audit-projection queries with a correlation-bearing error', async () => {
+    const deps = createInMemoryCoreDeps({ actor: 'viewer' })
+    const app = createCoreApp(deps)
+
+    const response = await app.handle(
+      new Request('http://localhost/api/v0/audit/search?q=dashboard', {
+        headers: { authorization: 'Bearer viewer-token' }
+      })
+    )
+
+    expect(response.status).toBe(403)
+    const body = await readJsonBody(response)
+    expect(body).toMatchObject({
+      error: {
+        code: 'policy.denied',
+        message: 'permission denied'
+      }
+    })
+    expect(JSON.stringify(body)).toContain('correlationId')
   })
 
   it('search is available and returns empty results by default', async () => {

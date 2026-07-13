@@ -90,6 +90,8 @@ bun run test:opensearch-contracts
 bun run test:opensearch-integration
 ```
 
+These gates cover the `OpenSearchProductionContractV01Schema` and `ObservabilityContractV01Schema` executable contracts, including negative decode coverage for incomplete three-node roles, non-strict mappings, incomplete Dashboards action boundaries, missing alert rules, and lost dashboard degradation context. They also cover OpenSearch outage behavior, Dashboards unauthorized access semantics, projection rebuild from PostgreSQL, and minimum Alertmanager rules. They must not require a running OpenSearch cluster unless the test is explicitly under `test:opensearch-integration` and can still use in-memory projection seams.
+
 Optional deployment pack static checks:
 
 ```bash
@@ -217,7 +219,11 @@ Must cover:
 - M-Policy unavailable means protected operation fails closed.
 - Audit Log unavailable blocks high-risk operation.
 - OpenSearch unavailable does not block authoritative writes.
-- OpenSearch search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query contracts. `test:opensearch-integration` skips gracefully when OpenSearch is not running.
+- OpenSearch outage keeps authoritative writes available while search/projection reports degraded.
+- Dashboards unauthorized access returns `401` or `403` and remains audit-visible through the Meristem boundary.
+- Read-model rebuild after restore catches OpenSearch projections up from PostgreSQL / M-Log authoritative rows.
+- Alert rule contracts include failed Audit writes as a critical M-Log alert.
+- OpenSearch search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query, OpenSearch production, and observability contracts. `test:opensearch-integration` validates projection rebuild behavior and skips or uses seams when OpenSearch is not running.
 - NATS unavailable degrades event-dependent capabilities.
 - Leaf Node abnormal state shrinks or revokes permissions.
 - LLM unavailable does not block normal operation and cannot authorize high-risk operation.

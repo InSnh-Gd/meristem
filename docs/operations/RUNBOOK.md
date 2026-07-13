@@ -617,6 +617,62 @@ Redis 只能承载 cache / lock / session-like ephemeral data；任何需要 RPO
 
 ---
 
+## 9. OpenSearch Production Contract
+
+OpenSearch is a projection / auxiliary system for M-Log search and analysis. It is not the authority for Audit, Timeline, Full Log, policy decisions, node state, secrets, desired state, or control operations.
+
+The versioned contract is `OpenSearchProductionContractV01Schema` (`opensearch@0.1.0`) and requires:
+
+- secured 3-node OpenSearch cluster with TLS enabled on REST and transport traffic
+- exactly one `cluster_manager`, `data`, and `ingest` node in distinct zones
+- OpenSearch security plugin enabled with SecretRef-backed admin, projection-writer, and read-only credentials
+- strict versioned index templates for Timeline, Full Log, and Audit projection indices, each preserving `correlationId` as a keyword filter
+- aliases for read/write projection access and query projection semantics marked `authoritative: false`
+- ISM rollover, retention, and snapshot-before-delete policy
+- snapshot repository and restore order followed by PostgreSQL / M-Log projection rebuild
+- failure behavior proving authoritative writes do not depend on OpenSearch availability
+
+Dashboards is auxiliary ingress only. It is private or operator-VPN-only, TLS-protected, and authenticated through the OIDC/RBAC proxy. It may expose only `view-dashboard` and `query-projection`; it must not become primary M-UI, mutate control-plane state, write Audit facts, approve policy, or bypass Meristem access/audit. Unauthorized access returns `401` or `403` and must be represented in Audit through the Meristem boundary.
+
+Failure behavior:
+
+| Scenario | Required Behavior | Operator Signal |
+|---|---|---|
+| OpenSearch unavailable | authoritative PostgreSQL writes, policy checks, Audit writes, and control operations continue | `opensearch_unavailable`; search returns degraded response |
+| Projection queue degraded | M-Log queues / DLQs projection work and writes Full Log degradation | `projection_queue_degraded`; projection health degraded |
+| Dashboards unavailable | M-UI and Core continue; Dashboards panels unavailable | `dashboards_unavailable`; dashboard links disabled/degraded |
+| Restore after snapshot | restore OpenSearch, then rebuild projections from PostgreSQL via M-Log backfill | `read_model_rebuild_required` until catch-up completes |
+
+## 10. Observability Production Contract
+
+The versioned contract is `ObservabilityContractV01Schema` (`observability@0.1.0`). Prometheus, Grafana, Alertmanager, OpenTelemetry, and Pino are non-authoritative observability systems. Their unavailability must be visible, but must not block authoritative writes.
+
+Minimum required contract surface:
+
+- Prometheus scrape targets for Core, M-EventBus, M-Log, M-Policy, and M-Deploy with explicit job names, scheme, metrics path, and interval
+- Grafana read-only datasources for Prometheus and OpenSearch, with dashboard ownership recorded per dashboard
+- Alertmanager route owner and minimum alert rules
+- OTel collector receivers/exporters with `correlationId` propagation
+- Pino JSONL operational logs with `service`, `msg`, `correlationId`, and `traceId` where available
+- degraded indicators for Prometheus, Grafana, Alertmanager, and OTel collector availability
+
+Minimum alert set:
+
+| Alert | Owner | Severity Intent |
+|---|---|---|
+| `control_plane_availability` | Core | critical |
+| `postgresql_lag_or_failover` | Core | critical |
+| `vault_sealed_or_quorum` | Core | critical |
+| `nats_health` | M-EventBus | critical |
+| `opensearch_degradation` | M-Log | warning |
+| `failed_audit_writes` | M-Log | critical |
+| `pending_approvals_backlog` | M-Policy | warning |
+| `agent_drift_or_reconcile_failure` | M-Deploy | critical |
+
+Every dashboard must have an owner and must expose state sources, degradation indicators, and `correlationId` drill-down ownership alongside its degraded state. This makes a degradation understandable without relying only on color. Dashboards must show unavailable OpenSearch, Dashboards, Prometheus, Alertmanager, or OTel collector components, and dashboard queries cannot be used as authority for control decisions.
+
+---
+
 Optional deployment pack:
 
 - detailed profile commands and failure behavior live in `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`.

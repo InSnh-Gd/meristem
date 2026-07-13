@@ -214,6 +214,43 @@ describe('Projection engine', () => {
     expect(job.status).toBe('completed')
   })
 
+  it('rebuilds the read model after restore from PostgreSQL authoritative rows', async () => {
+    db.getStore(auditLogs).push({
+      id: 'audit-fact-restore-1',
+      timestamp: new Date('2024-01-02T00:00:00.000Z'),
+      actor: 'security-admin',
+      action: 'dashboard:unauthorized',
+      resource: 'dashboards',
+      decision_id: 'decision-restore-1',
+      result: 'deny',
+      correlation_id: 'corr-restore-1',
+      trace_id: 'trace-restore-1',
+      payload: { status: 403 }
+    })
+
+    const result = await engine.executeBackfill({
+      index: 'meristem-audit-logs-v0',
+      from: null,
+      to: null,
+      batchSize: 10,
+      targetVersion: '1'
+    })
+
+    expect(result.status).toBe('completed')
+    expect(result.processedCount).toBe(1)
+    expect(os.docs.length).toBe(1)
+    const indexedDoc = requirePresent(os.docs[0], 'rebuilt audit projection document')
+    expect(indexedDoc.index).toBe('meristem-audit-logs-v1')
+    expect(indexedDoc.id).toBe('meristem-audit-logs-v1:audit-fact-restore-1:1')
+    expect(indexedDoc.doc).toMatchObject({
+      actor: 'security-admin',
+      action: 'dashboard:unauthorized',
+      resource: 'dashboards',
+      result: 'deny',
+      correlationId: 'corr-restore-1'
+    })
+  })
+
   it('idempotencyKey format is {index}:{factId}:1', () => {
     const key = engine.idempotencyKey('meristem-timeline-logs-v0', 'abc-123')
     expect(key).toBe('meristem-timeline-logs-v0:abc-123:1')

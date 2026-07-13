@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import type { Dirent } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
 // =============================================================================
@@ -85,10 +86,10 @@ function collectTextFiles(rootDir: string, repoRoot: string): FileInfo[] {
   function walk(currentDir: string): void {
     if (!existsSync(currentDir)) return;
 
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: Dirent<string>[];
     try {
       // Bun readdirSync 支持 withFileTypes 选项
-      entries = readdirSync(currentDir, { withFileTypes: true });
+      entries = readdirSync(currentDir, { withFileTypes: true, encoding: "utf8" });
     } catch {
       return; // 权限不足等跳过
     }
@@ -160,6 +161,7 @@ function scanFiles(files: FileInfo[]): Violation[] {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lineNo = i + 1;
+      if (line === undefined) continue;
 
       // 检查 .omo/ 引用
       if (line.includes(OMO_PATH_PATTERN)) {
@@ -315,6 +317,7 @@ describe("evidence path standards guard", () => {
     const violations: string[] = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (line === undefined) continue;
       // 检测 "> tests/evidence/" 模式 — 管道到 evidence 文件的命令
       if (/>\s*tests\/evidence\//.test(line)) {
         violations.push(`${i + 1}: ${line.trim().slice(0, 120)}`);
