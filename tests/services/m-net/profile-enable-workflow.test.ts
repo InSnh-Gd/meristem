@@ -92,6 +92,7 @@ describe('requestEnableProfile', () => {
 
     expect(result).toEqual({
       kind: 'failure',
+      ok: false,
       status: 409,
       error: {
         code: 'profile.enable.invalid_state',
