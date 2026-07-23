@@ -17,7 +17,7 @@
       type="text"
       autocomplete="off"
       spellcheck="false"
-      placeholder="Search nodes, tasks, events, correlation ids..."
+      placeholder="本地开发 Bearer token"
       value={appState.token}
       aria-describedby="token-help"
       oninput={(e: Event) => (appState.token = (e.target as HTMLInputElement).value)}
@@ -34,7 +34,7 @@
   </form>
 
   <p id="token-help" class="token-help">
-    本地开发请使用 Bearer JWT，不要把 <code>MERISTEM_JWT_SECRET</code> 的原始 secret 当成 token。
+    此输入仅用于 local-dev。生产登录使用 BFF 的 HttpOnly session，不要粘贴 OIDC token 或原始 secret。
   </p>
 </div>
 

@@ -6,7 +6,7 @@ export const internalErrorSchema = apiErrorRouteSchema
 // /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
 export const readyResponseSchema = t.Object({
   ready: t.Boolean(),
-  opensearch: t.Union([t.Literal('ready'), t.Literal('unavailable')])
+  opensearch: t.Union([t.Literal('ready'), t.Literal('degraded'), t.Literal('unavailable')])
 })
 
 export const timelineLogSchema = t.Object({

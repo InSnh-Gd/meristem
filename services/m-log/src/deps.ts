@@ -14,6 +14,7 @@ import type {
   MDeployEvidenceTypeFromSchema,
   MDeployStorageRefV01FromSchema
 } from '../../../packages/contracts/src/index.ts'
+import type { OpenSearchReadModelStatus } from './opensearch-read-model.ts'
 
 export type TimelineWriteInput = Omit<TimelineLog, 'id' | 'timestamp'>
 export type FullWriteInput = Omit<FullLog, 'id' | 'timestamp'>
@@ -29,6 +30,7 @@ export type SearchDeps = {
   timeline(query: TimelineSearchQuery): Promise<LogSearchResult<TimelineLog> | null>
   audit(query: AuditSearchQuery): Promise<LogSearchResult<AuditLog> | null>
   isAvailable(): boolean
+  status(): OpenSearchReadModelStatus
 }
 
 // 投影端口：projection engine 暴露给 API 层的操作。
@@ -42,7 +44,7 @@ export type ProjectionDeps = {
 }
 
 export type LogAppDeps = {
-  readiness(): Promise<{ ready: boolean; opensearch: 'ready' | 'unavailable' }>
+  readiness(): Promise<{ ready: boolean; opensearch: OpenSearchReadModelStatus }>
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
   writeFull(input: FullWriteInput): Promise<FullLog>
   writeAudit(input: AuditWriteInput): Promise<AuditLog>

@@ -1,0 +1,32 @@
+{
+  "meristem_projection_writer": {
+    "cluster_permissions": ["cluster:monitor/health"],
+    "index_permissions": [
+      {
+        "index_patterns": ["meristem-*-logs-*"],
+        "allowed_actions": ["crud", "indices:admin/aliases/get", "indices:admin/aliases"]
+      }
+    ],
+    "tenant_permissions": []
+  },
+  "meristem_dashboards_readonly": {
+    "cluster_permissions": ["cluster:monitor/health"],
+    "index_permissions": [
+      {
+        "index_patterns": ["meristem-*-logs-latest"],
+        "allowed_actions": ["read"]
+      }
+    ],
+    "tenant_permissions": []
+  },
+  "meristem_monitoring": {
+    "cluster_permissions": ["cluster:monitor/main", "cluster:monitor/health", "cluster:monitor/state"],
+    "index_permissions": [
+      {
+        "index_patterns": ["meristem-*-logs-*"],
+        "allowed_actions": ["indices:monitor/stats"]
+      }
+    ],
+    "tenant_permissions": []
+  }
+}

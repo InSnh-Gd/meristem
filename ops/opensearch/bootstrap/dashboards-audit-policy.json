@@ -1,0 +1,21 @@
+{
+  "authority": "m-log",
+  "dashboardsAuthority": "auxiliary-read-model",
+  "events": [
+    {
+      "outcome": "allow",
+      "action": "dashboards:access",
+      "resource": "dashboards:opensearch"
+    },
+    {
+      "outcome": "deny",
+      "action": "dashboards:unauthorized",
+      "resource": "dashboards:opensearch"
+    }
+  ],
+  "sink": {
+    "service": "m-log",
+    "endpoint": "/internal/v0/audit",
+    "requiresInternalToken": true
+  }
+}

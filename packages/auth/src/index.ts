@@ -38,6 +38,33 @@ export {
   redactOidcAuthMaterial
 } from './oidc-provider.ts'
 export { oidcSessionToLocalIamClaims } from './oidc-provider-support.ts'
+export type {
+  LocalIamAuditFact,
+  LocalIamAuditFailure,
+  LocalIamAuditWriter,
+  LocalIamError,
+  LocalIamIdentity,
+  LocalIamIssuedSession,
+  LocalIamLoginResolution,
+  LocalIamPolicyAuthorizer,
+  LocalIamPolicyFailure,
+  LocalIamPrincipal,
+  LocalIamPrincipalMutation,
+  LocalIamRole,
+  LocalIamService,
+  LocalIamServiceOptions,
+  LocalIamSession,
+  LocalIamSessionRead
+} from './local-iam-types.ts'
+export { createLocalIamService } from './local-iam.ts'
+export type {
+  OidcLoginTransaction,
+  OidcLoginTransactionStore,
+  OidcLoginTransactionStoreOptions
+} from './oidc-pkce.ts'
+export { createOidcLoginTransactionStore } from './oidc-pkce.ts'
+export type { OidcAuthorizationCodeClient, OidcAuthorizationCodeClientOptions } from './oidc-browser.ts'
+export { createOidcAuthorizationCodeClient } from './oidc-browser.ts'
 export { extractBearerToken, isActorId } from './shared.ts'
 export type {
   SharedAuthSession,

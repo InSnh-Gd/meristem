@@ -17,8 +17,10 @@ import { createLogApp } from './app.ts'
 import { createLogEventPublisher } from './event-publisher.ts'
 import { startEventBusOperationalConsumer } from './eventbus-operational-consumer.ts'
 import { createOpenSearchAdapter } from './opensearch.ts'
+import { createOpenSearchReadModel } from './opensearch-read-model.ts'
 import { createProjectionEngine } from './projection.ts'
 import { createLogQueryService } from './query-service.ts'
+import { createMLogReadiness } from './readiness.ts'
 import { createLogRuntimeState, readLogLevelFromEnv } from './runtime.ts'
 import { createLogWriteService } from './write-service.ts'
 
@@ -31,33 +33,64 @@ const nc = await connectToNats(process.env.NATS_URL ?? 'ws://localhost:4223')
 const publisher = createLogEventPublisher()
 
 // OpenSearch 适配器：可选依赖，不可用时搜索进入 degraded。
-const opensearchUrl = process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200'
-const opensearch = createOpenSearchAdapter(opensearchUrl)
-const opensearchAvailable: boolean = await opensearch.health().then(async ok => {
-  if (!ok) return false
-  return opensearch.ensureAllIndices()
+const opensearchUsername = process.env.OPENSEARCH_USERNAME
+const opensearchPassword = process.env.OPENSEARCH_PASSWORD
+const opensearch = createOpenSearchAdapter({
+  baseUrl: process.env.OPENSEARCH_URL ?? 'http://127.0.0.1:9200',
+  ...(opensearchUsername ? { username: opensearchUsername } : {}),
+  ...(opensearchPassword ? { password: opensearchPassword } : {})
 })
+const readModel = createOpenSearchReadModel(opensearch)
+const initialOpenSearchStatus = await readModel.refresh()
 
-if (!opensearchAvailable) {
+if (initialOpenSearchStatus === 'unavailable') {
   logger.warn('opensearch unavailable, search endpoints will report degraded')
+} else if (initialOpenSearchStatus === 'degraded') {
+  logger.warn('opensearch cluster is degraded, search remains available')
 }
 
 // 投影引擎：依赖 db 和 opensearch 适配器。
 // opensearch 不可用时投影引擎标记为不可用，backfill 和健康端点返回 503。
 const projectionEngine = createProjectionEngine(db, {
   indexDocument: (index, id, doc) => opensearch.indexDocument(index, id, doc),
-  health: () => opensearch.health()
+  health: async () => readModel.isAvailable(),
+  healthStatus: () => readModel.refresh()
 })
-const projectionAvailable: boolean = opensearchAvailable
-if (!projectionAvailable) {
+if (!readModel.isAvailable()) {
   logger.warn('projection engine unavailable (OpenSearch not ready)')
 }
 
 const runtimeState = createLogRuntimeState()
 
-const writeService = createLogWriteService(db, opensearch, opensearchAvailable, publisher)
+const writeService = createLogWriteService(db, opensearch, readModel, publisher)
 const queryService = createLogQueryService(db)
 startEventBusOperationalConsumer(nc, writeService.writeFull)
+
+const readiness = createMLogReadiness({
+  checkPostgres: () =>
+    probePostgresReadiness({
+      client,
+      service: 'm-log',
+      readyValue: true,
+      fallback: false,
+      warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
+    }),
+  checkNats: () =>
+    nc.flush().then(
+      () => true,
+      error =>
+        warnDegradedAndReturn({
+          service: 'm-log',
+          target: 'nats',
+          error,
+          context: 'readiness probe degraded',
+          fallback: false,
+          warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
+        })
+    ),
+  checkEventBus: () => fetchReadyState(`${serviceUrl('m-eventbus')}/ready`),
+  refreshOpenSearch: () => readModel.refresh()
+})
 
 /**
  * reload 原型当前只重新读取进程内日志级别，不触碰数据库配置版本或其他服务状态。
@@ -75,33 +108,7 @@ async function reload(_request: {
 }
 
 const app = createLogApp({
-  async readiness() {
-    const postgresReady = await probePostgresReadiness({
-      client,
-      service: 'm-log',
-      readyValue: true,
-      fallback: false,
-      warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
-    })
-    const natsReady = await nc
-      .flush()
-      .then(() => true)
-      .catch(error =>
-        warnDegradedAndReturn({
-          service: 'm-log',
-          target: 'nats',
-          error,
-          context: 'readiness probe degraded',
-          fallback: false,
-          warn: ({ target, error, message }) => logger.warn({ dependency: target, error }, message)
-        })
-      )
-    const eventBusReady = await fetchReadyState(`${serviceUrl('m-eventbus')}/ready`)
-    return {
-      ready: postgresReady && natsReady && eventBusReady,
-      opensearch: opensearchAvailable ? ('ready' as const) : ('unavailable' as const)
-    }
-  },
+  readiness,
   writeTimeline: writeService.writeTimeline,
   writeFull: writeService.writeFull,
   writeAudit: writeService.writeAudit,
@@ -112,16 +119,19 @@ const app = createLogApp({
   reload,
   search: {
     async full(query) {
-      return opensearchAvailable ? opensearch.searchFull(query) : null
+      return readModel.isAvailable() ? opensearch.searchFull(query) : null
     },
     async timeline(query) {
-      return opensearchAvailable ? opensearch.searchTimeline(query) : null
+      return readModel.isAvailable() ? opensearch.searchTimeline(query) : null
     },
     async audit(query) {
-      return opensearchAvailable ? opensearch.searchAudit(query) : null
+      return readModel.isAvailable() ? opensearch.searchAudit(query) : null
     },
     isAvailable() {
-      return opensearchAvailable
+      return readModel.isAvailable()
+    },
+    status() {
+      return readModel.status()
     }
   },
   // 投影 deps
@@ -132,7 +142,7 @@ const app = createLogApp({
     replayDLQ: dlqId => projectionEngine.replayDLQ(dlqId),
     skipDLQ: dlqId => projectionEngine.skipDLQ(dlqId),
     isAvailable() {
-      return projectionAvailable
+      return readModel.isAvailable()
     }
   }
 })

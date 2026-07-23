@@ -28,6 +28,9 @@ const INDEX_AUDIT = `meristem-audit-logs-v${SCHEMA_VERSION}`
 const ALIAS_FULL = 'meristem-full-logs-latest'
 const ALIAS_TIMELINE = 'meristem-timeline-logs-latest'
 const ALIAS_AUDIT = 'meristem-audit-logs-latest'
+const ALIAS_FULL_WRITE = 'meristem-full-logs-write'
+const ALIAS_TIMELINE_WRITE = 'meristem-timeline-logs-write'
+const ALIAS_AUDIT_WRITE = 'meristem-audit-logs-write'
 
 // 硬上限防止无界查询压垮 OpenSearch。
 const MAX_LIMIT = 100
@@ -54,6 +57,15 @@ type SearchResponse<T> = {
   }
 }
 
+export type OpenSearchClusterHealth = 'ready' | 'degraded' | 'unavailable'
+
+export type OpenSearchAdapterOptions = {
+  baseUrl?: string
+  username?: string
+  password?: string
+  fetch?: (input: string | Request | URL, init?: RequestInit) => Promise<Response>
+}
+
 // ---- 适配器构造 ----
 
 /**
@@ -61,7 +73,17 @@ type SearchResponse<T> = {
  * 所有方法失败时返回 null 或空结果，调用方据此判断 degraded 状态。
  * 索引名采用 versioned 命名 + alias 机制。
  */
-export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
+export function createOpenSearchAdapter(
+  options: string | OpenSearchAdapterOptions = 'http://127.0.0.1:9200'
+) {
+  const config = typeof options === 'string' ? { baseUrl: options } : options
+  const baseUrl = config.baseUrl ?? 'http://127.0.0.1:9200'
+  const fetchImpl = config.fetch ?? fetch
+  const authorization =
+    config.username && config.password
+      ? `Basic ${btoa(`${config.username}:${config.password}`)}`
+      : undefined
+
   const warnOpenSearchFallback = (operation: string, error: unknown) => {
     logger.warn(
       {
@@ -72,15 +94,16 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     )
   }
 
+  const requestInit = (init?: RequestInit): RequestInit => {
+    const headers = new Headers(init?.headers)
+    if (!headers.has('content-type')) headers.set('Content-Type', 'application/json')
+    if (authorization && !headers.has('authorization')) headers.set('Authorization', authorization)
+    return { ...init, headers }
+  }
+
   const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T | null> => {
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
-        ...init,
-        headers: {
-          'Content-Type': 'application/json',
-          ...init?.headers
-        }
-      })
+      const response = await fetchImpl(`${baseUrl}${path}`, requestInit(init))
       if (!response.ok) return null
       return (await response.json()) as T
     } catch (error) {
@@ -91,22 +114,33 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   // 健康检查
   async function health(): Promise<boolean> {
+    return (await clusterHealth()) !== 'unavailable'
+  }
+
+  /**
+   * yellow 表示读模型仍可用但副本不足，必须与完全不可达的状态区分开。
+   */
+  async function clusterHealth(): Promise<OpenSearchClusterHealth> {
     const result = await fetchJson<HealthResponse>('/_cluster/health')
-    return result !== null
+    if (!result) return 'unavailable'
+    if (result.status === 'green') return 'ready'
+    if (result.status === 'yellow') return 'degraded'
+    return 'unavailable'
   }
 
   // 建索引，幂等
   async function ensureIndex(index: string): Promise<boolean> {
-    const head = await fetch(`${baseUrl}/${index}`, { method: 'HEAD' }).catch(error => {
-      warnOpenSearchFallback(`HEAD ${index}`, error)
-      return null
-    })
+    const head = await fetchImpl(`${baseUrl}/${index}`, requestInit({ method: 'HEAD' })).catch(
+      error => {
+        warnOpenSearchFallback(`HEAD ${index}`, error)
+        return null
+      }
+    )
     if (head?.ok) return true
 
     const result = await fetchJson<IndexResult>(`/${index}`, {
       method: 'PUT',
       body: JSON.stringify({
-        settings: { number_of_shards: 1, number_of_replicas: 0 },
         mappings: { dynamic: 'strict', properties: indexMapping(index) }
       })
     })
@@ -116,7 +150,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
   /**
    * 创建/更新 index alias，指向当前活跃版本。
    */
-  async function ensureAlias(index: string, alias: string): Promise<boolean> {
+  async function ensureAlias(index: string, alias: string, isWriteIndex = false): Promise<boolean> {
     // 先获取当前 alias 指向的索引
     const existing = await fetchJson<Record<string, { aliases: Record<string, unknown> }>>(
       `/_alias/${encodeURIComponent(alias)}`
@@ -136,10 +170,11 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     }
 
     // 绑定新索引到 alias
+    const add = isWriteIndex ? { index, alias, is_write_index: true } : { index, alias }
     const result = await fetchJson<IndexResult>(`/_aliases`, {
       method: 'POST',
       body: JSON.stringify({
-        actions: [{ add: { index, alias } }]
+        actions: [{ add }]
       })
     })
     return result?.acknowledged === true
@@ -157,7 +192,10 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     const aliasResults = await Promise.all([
       ensureAlias(INDEX_FULL, ALIAS_FULL),
       ensureAlias(INDEX_TIMELINE, ALIAS_TIMELINE),
-      ensureAlias(INDEX_AUDIT, ALIAS_AUDIT)
+      ensureAlias(INDEX_AUDIT, ALIAS_AUDIT),
+      ensureAlias(INDEX_FULL, ALIAS_FULL_WRITE, true),
+      ensureAlias(INDEX_TIMELINE, ALIAS_TIMELINE_WRITE, true),
+      ensureAlias(INDEX_AUDIT, ALIAS_AUDIT_WRITE, true)
     ])
     return aliasResults.every(Boolean)
   }
@@ -182,7 +220,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   async function indexFullLog(entry: FullLog): Promise<boolean> {
     const id = `${INDEX_FULL}:${entry.id}:1`
-    return indexDocument(INDEX_FULL, id, {
+    return indexDocument(ALIAS_FULL_WRITE, id, {
       timestamp: entry.timestamp,
       level: entry.level,
       source: entry.source,
@@ -195,7 +233,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   async function indexTimelineLog(entry: TimelineLog): Promise<boolean> {
     const id = `${INDEX_TIMELINE}:${entry.id}:1`
-    return indexDocument(INDEX_TIMELINE, id, {
+    return indexDocument(ALIAS_TIMELINE_WRITE, id, {
       timestamp: entry.timestamp,
       summary: entry.summary,
       subject: entry.subject ?? null,
@@ -205,7 +243,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   async function indexAuditLog(entry: AuditLog): Promise<boolean> {
     const id = `${INDEX_AUDIT}:${entry.id}:1`
-    return indexDocument(INDEX_AUDIT, id, {
+    return indexDocument(ALIAS_AUDIT_WRITE, id, {
       timestamp: entry.timestamp,
       actor: entry.actor,
       action: entry.action,
@@ -302,6 +340,7 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
 
   return {
     health,
+    clusterHealth,
     ensureAllIndices,
     ensureIndex,
     ensureAlias,
@@ -317,7 +356,10 @@ export function createOpenSearchAdapter(baseUrl = 'http://127.0.0.1:9200') {
     getAliases: () => ({
       full: ALIAS_FULL,
       timeline: ALIAS_TIMELINE,
-      audit: ALIAS_AUDIT
+      audit: ALIAS_AUDIT,
+      fullWrite: ALIAS_FULL_WRITE,
+      timelineWrite: ALIAS_TIMELINE_WRITE,
+      auditWrite: ALIAS_AUDIT_WRITE
     }),
     getIndexNames: () => ({
       full: INDEX_FULL,
@@ -332,14 +374,15 @@ export type OpenSearchAdapter = ReturnType<typeof createOpenSearchAdapter>
 // ---- 私有辅助 ----
 
 function indexMapping(index: string): Record<string, unknown> {
-  const kv: Record<string, { type: string }> = { timestamp: { type: 'date' } }
+  const kv: Record<string, Record<string, unknown>> = { timestamp: { type: 'date' } }
   if (index.includes('full-logs')) {
     Object.assign(kv, {
       level: { type: 'keyword' },
       source: { type: 'keyword' },
       message: { type: 'text' },
       correlationId: { type: 'keyword' },
-      traceId: { type: 'keyword' }
+      traceId: { type: 'keyword' },
+      payload: { type: 'object', enabled: false }
     })
   } else if (index.includes('timeline-logs')) {
     Object.assign(kv, {
@@ -355,7 +398,8 @@ function indexMapping(index: string): Record<string, unknown> {
       decisionId: { type: 'keyword' },
       result: { type: 'text' },
       correlationId: { type: 'keyword' },
-      traceId: { type: 'keyword' }
+      traceId: { type: 'keyword' },
+      payload: { type: 'object', enabled: false }
     })
   }
   return { properties: kv }

@@ -179,6 +179,7 @@ type ExpectedSearchDeps = {
   timeline(query: TimelineSearchQuery): Promise<LogSearchResult<TimelineLog> | null>
   audit(query: AuditSearchQuery): Promise<LogSearchResult<AuditLog> | null>
   isAvailable(): boolean
+  status(): 'ready' | 'degraded' | 'unavailable'
 }
 
 type ExpectedProjectionDeps = {
@@ -191,7 +192,7 @@ type ExpectedProjectionDeps = {
 }
 
 type ExpectedLogAppDeps = {
-  readiness(): Promise<{ ready: boolean; opensearch: 'ready' | 'unavailable' }>
+  readiness(): Promise<{ ready: boolean; opensearch: 'ready' | 'degraded' | 'unavailable' }>
   writeTimeline(input: TimelineWriteInput): Promise<TimelineLog>
   writeFull(input: FullWriteInput): Promise<FullLog>
   writeAudit(input: AuditWriteInput): Promise<AuditLog>

@@ -1,0 +1,44 @@
+{
+  "sm_policy": {
+    "name": "meristem-daily-projection-snapshot",
+    "description": "Create OpenSearch read-model snapshots every six hours",
+    "creation": {
+      "schedule": {
+        "cron": {
+          "expression": "0 */6 * * *",
+          "timezone": "UTC"
+        }
+      },
+      "time_limit": "1h"
+    },
+    "deletion": {
+      "schedule": {
+        "cron": {
+          "expression": "30 0 * * *",
+          "timezone": "UTC"
+        }
+      },
+      "condition": {
+        "max_age": "35d",
+        "min_count": 7,
+        "max_count": 140
+      },
+      "time_limit": "1h",
+      "snapshot_pattern": "meristem-projection-*"
+    },
+    "snapshot_config": {
+      "indices": "meristem-*-logs-v*",
+      "include_global_state": false,
+      "ignore_unavailable": false,
+      "partial": false,
+      "repository": "meristem-opensearch-snapshots",
+      "date_format": "yyyy-MM-dd-HH-mm",
+      "date_format_timezone": "UTC",
+      "metadata": {
+        "owner": "m-log",
+        "authority": "postgresql"
+      }
+    },
+    "enabled": true
+  }
+}

@@ -233,6 +233,9 @@ Must cover:
 - Dashboards unauthorized access returns `401` or `403` and remains audit-visible through the Meristem boundary.
 - Read-model rebuild after restore catches OpenSearch projections up from PostgreSQL / M-Log authoritative rows.
 - Alert rule contracts include failed Audit writes as a critical M-Log alert.
+- Secured OpenSearch deployment assertions prove the three role-separated TLS nodes, private Dashboards ingress, strict mappings, snapshot-before-delete lifecycle, Prometheus/Grafana/Alertmanager/OTel/Pino wiring, and failed-audit-write, cluster-health, and disk-watermark alerts.
+- M-Log readiness remains `ready` when authoritative dependencies are healthy and OpenSearch is unavailable; yellow OpenSearch health is visible as `degraded` without treating the read model as authority.
+- Snapshot/restore fixture tests prove Timeline, Full Log, and Audit projections restore in order and each is rebuilt through M-Log from PostgreSQL.
 - OpenSearch search tests: `test:opensearch-failure-modes` must pass first (no OpenSearch required). `test:opensearch-contracts` validates query, OpenSearch production, and observability contracts. `test:opensearch-integration` validates projection rebuild behavior and skips or uses seams when OpenSearch is not running.
 - NATS unavailable degrades event-dependent capabilities.
 - Leaf Node abnormal state shrinks or revokes permissions.
@@ -441,6 +444,7 @@ bun run test:integration
 bun run test:opensearch-failure-modes
 bun run test:opensearch-contracts
 bun run test:opensearch-integration
+bun ops/opensearch/scripts/snapshot-restore-drill.ts --fixture
 bun run test:e2e
 docker compose up -d postgres nats
 bun run db:migrate

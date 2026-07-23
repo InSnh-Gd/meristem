@@ -192,6 +192,9 @@ describe('Eden clients', () => {
         },
         isAvailable() {
           return false
+        },
+        status() {
+          return 'unavailable' as const
         }
       },
       projection: {
@@ -281,6 +284,9 @@ describe('Eden clients', () => {
         },
         isAvailable() {
           return false
+        },
+        status() {
+          return 'unavailable' as const
         }
       },
       projection: {

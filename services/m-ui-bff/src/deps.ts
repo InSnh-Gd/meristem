@@ -1,4 +1,18 @@
 import { internalRequestHeaders, serviceUrl } from '../../../packages/internal-http/src/index.ts'
+import type {
+  LocalIamService,
+  OidcAuthorizationCodeClient,
+  OidcLoginTransactionStore
+} from '../../../packages/auth/src/index.ts'
+
+export type MUiBffAuthMode = 'local-dev' | 'oidc'
+
+/** BFF 只编排已注入的 local IAM 与 OIDC 端口，不直接拥有权威身份或审计状态。 */
+export type MUiBffOidcAuthDeps = {
+  readonly iam: LocalIamService
+  readonly oidc: OidcAuthorizationCodeClient
+  readonly transactions?: OidcLoginTransactionStore
+}
 
 export type MUiBffDeps = {
   coreBaseUrl: string
@@ -6,6 +20,8 @@ export type MUiBffDeps = {
   taskBaseUrl?: string
   eventbusBaseUrl?: string
   policyBaseUrl?: string
+  authMode?: MUiBffAuthMode
+  auth?: MUiBffOidcAuthDeps
 }
 
 export type ServiceFetchResult = {

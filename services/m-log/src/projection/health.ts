@@ -27,8 +27,18 @@ export function createProjectionHealthService(
     const indices = ['meristem-timeline-logs-v0', 'meristem-full-logs-v0', 'meristem-audit-logs-v0']
     const results: ProjectionHealth[] = []
 
-    const osAvailable = os.health
-      ? await os.health().catch(error => {
+    const osStatus = os.healthStatus
+      ? await os.healthStatus().catch(error => {
+          logger.warn(
+            {
+              error: error instanceof Error ? error.message : String(error)
+            },
+            'opensearch_health_probe_failed'
+          )
+          return 'unavailable' as const
+        })
+      : os.health
+        ? await os.health().catch(error => {
           logger.warn(
             {
               error: error instanceof Error ? error.message : String(error)
@@ -37,7 +47,10 @@ export function createProjectionHealthService(
           )
           return false
         })
-      : true
+        ? 'ready'
+        : 'unavailable'
+      : 'ready'
+    const osAvailable = osStatus !== 'unavailable'
 
     for (const index of indices) {
       const cursor = await cursors.getCursor(index)
@@ -76,7 +89,12 @@ export function createProjectionHealthService(
         }
       }
 
-      const status = resolveHealthStatus({ osAvailable, dlqCount, lagSeconds })
+      const status = resolveHealthStatus({
+        osAvailable,
+        osDegraded: osStatus === 'degraded',
+        dlqCount,
+        lagSeconds
+      })
 
       recordGauge('projection.lag_seconds', lagSeconds, { index })
       recordGauge('projection.pending_count', pendingCount, { index })
@@ -93,10 +111,11 @@ export function createProjectionHealthService(
 
 function resolveHealthStatus(input: {
   osAvailable: boolean
+  osDegraded: boolean
   dlqCount: number
   lagSeconds: number
 }): ProjectionHealth['status'] {
   if (!input.osAvailable) return 'unavailable'
-  if (input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
+  if (input.osDegraded || input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
   return 'healthy'
 }

@@ -1,0 +1,25 @@
+{
+  "index_patterns": ["meristem-timeline-logs-v*"],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "1",
+      "index.number_of_replicas": "1",
+      "index.refresh_interval": "5s",
+      "index.plugins.index_state_management.policy_id": "meristem-log-projection-retention-v1",
+      "index.plugins.index_state_management.rollover_alias": "meristem-timeline-logs-write"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "timestamp": { "type": "date" },
+        "summary": { "type": "text" },
+        "subject": { "type": "keyword" },
+        "correlationId": { "type": "keyword" }
+      }
+    },
+    "aliases": {
+      "meristem-timeline-logs-latest": {}
+    }
+  }
+}

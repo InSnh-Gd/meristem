@@ -1,0 +1,26 @@
+cluster.name: meristem-logs
+node.name: opensearch-data
+node.roles: [data]
+node.attr.zone: az-b
+network.host: 0.0.0.0
+discovery.seed_hosts: [opensearch-manager, opensearch-data, opensearch-ingest]
+cluster.initial_cluster_manager_nodes: [opensearch-manager]
+cluster.routing.allocation.awareness.attributes: zone
+bootstrap.memory_lock: true
+plugins.security.ssl.transport.pemcert_filepath: certs/opensearch-data.pem
+plugins.security.ssl.transport.pemkey_filepath: certs/opensearch-data-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: true
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/opensearch-data.pem
+plugins.security.ssl.http.pemkey_filepath: certs/opensearch-data-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.pem
+plugins.security.allow_unsafe_democertificates: false
+plugins.security.allow_default_init_securityindex: true
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+plugins.security.authcz.admin_dn: [CN=meristem-opensearch-admin]
+plugins.security.nodes_dn:
+  - CN=opensearch-manager
+  - CN=opensearch-data
+  - CN=opensearch-ingest

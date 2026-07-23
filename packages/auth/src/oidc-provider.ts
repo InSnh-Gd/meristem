@@ -269,9 +269,42 @@ export function createOidcAuthProvider(
     return { ok: true, session: mapped }
   }
 
+  /**
+   * Authorization Code callback 使用 ID Token 完成 nonce 校验；成功后仍只导出已映射身份字段。
+   */
+  async function verifyIdToken(input: { token: string; nonce: string }): Promise<OidcVerifyResult> {
+    const algorithm = readProtectedAlgorithm(input.token)
+    if (algorithm === null) {
+      return { ok: false, code: 'invalid_token', message: 'OIDC ID token is malformed' }
+    }
+    if (!isSupportedAlgorithm(algorithm) || !config.allowedAlgorithms.includes(algorithm)) {
+      return {
+        ok: false,
+        code: 'unsupported_algorithm',
+        algorithm,
+        message: 'OIDC ID token algorithm is not allowed'
+      }
+    }
+    const jwks = await ensureUsableJwks()
+    if (isOidcFailure(jwks)) return jwks
+    const verified = await verifyJwtWithJwks({
+      token: input.token,
+      jwks,
+      config,
+      nowMs: now().getTime()
+    })
+    if (isOidcFailure(verified)) return verified
+    if (verified.payload.nonce !== input.nonce) {
+      return { ok: false, code: 'invalid_token', message: 'OIDC ID token nonce does not match' }
+    }
+    const mapped = mapVerifiedPayloadToSession(verified.payload, config.claims)
+    return isOidcFailure(mapped) ? mapped : { ok: true, session: mapped }
+  }
+
   return {
     discoverConfiguration,
     verifyAccessToken,
+    verifyIdToken,
     redactOidcAuthMaterial,
     getCachedJwks() {
       return cachedJwks

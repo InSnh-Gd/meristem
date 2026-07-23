@@ -13,7 +13,7 @@ export function createHealthAdminRoutes(deps: LogAppDeps) {
       .get('/health', () => ({
         ok: true as const,
         service: 'm-log' as const,
-        opensearch: deps.search.isAvailable() ? ('ready' as const) : ('unavailable' as const)
+        opensearch: deps.search.status()
       }))
       .get(
         '/ready',

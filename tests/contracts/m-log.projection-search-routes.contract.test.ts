@@ -167,6 +167,9 @@ function createTestDeps(options: DepsOptions = {}): { deps: LogAppDeps; calls: C
     },
     isAvailable() {
       return options.searchAvailable ?? true
+    },
+    status() {
+      return options.searchAvailable === false ? 'unavailable' : 'ready'
     }
   }
 

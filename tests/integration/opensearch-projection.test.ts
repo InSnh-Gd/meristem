@@ -12,6 +12,10 @@ import {
 } from '../../packages/db/src/schema.ts'
 import { ProjectionUnknownIndexError } from '../../services/m-log/src/projection/errors.ts'
 import { createProjectionEngine } from '../../services/m-log/src/projection.ts'
+import {
+  runSnapshotRestoreDrill,
+  type SnapshotRestoreDrillClient
+} from '../../ops/opensearch/scripts/snapshot-restore-drill.ts'
 
 function createMockDb() {
   const tables = [
@@ -157,18 +161,21 @@ function requirePresent<T>(value: T | null | undefined, label: string): T {
 
 function createMockOs() {
   const docs: Array<{ index: string; id: string; doc: Record<string, unknown> }> = []
-  let healthy = true
+  let clusterStatus: 'ready' | 'degraded' | 'unavailable' = 'ready'
   return {
     async indexDocument(index: string, id: string, doc: Record<string, unknown>): Promise<boolean> {
       docs.push({ index, id, doc })
       return true
     },
     async health(): Promise<boolean> {
-      return healthy
+      return clusterStatus !== 'unavailable'
+    },
+    async healthStatus(): Promise<'ready' | 'degraded' | 'unavailable'> {
+      return clusterStatus
     },
     docs,
-    setHealthy(v: boolean) {
-      healthy = v
+    setHealthStatus(status: 'ready' | 'degraded' | 'unavailable') {
+      clusterStatus = status
     }
   }
 }
@@ -358,6 +365,14 @@ describe('Projection engine', () => {
     expect(healthRow.pendingCount).toBe(0)
   })
 
+  it('reports a degraded projection when the OpenSearch cluster is yellow', async () => {
+    os.setHealthStatus('degraded')
+
+    const health = await engine.getProjectionHealth()
+
+    expect(health.every(row => row.status === 'degraded')).toBe(true)
+  })
+
   it('exposes typed Effect errors for invalid backfill indices', async () => {
     const exit = await Effect.runPromiseExit(
       engine.executeBackfillEffect({
@@ -374,5 +389,35 @@ describe('Projection engine', () => {
       expect(error).toBeInstanceOf(ProjectionUnknownIndexError)
       expect(error?._tag).toBe('ProjectionUnknownIndexError')
     }
+  })
+})
+
+describe('OpenSearch snapshot restore drill', () => {
+  it('restores each projection and rebuilds it from PostgreSQL in contract order', async () => {
+    const calls: string[] = []
+    const client: SnapshotRestoreDrillClient = {
+      async createSnapshot(snapshotName, indices) {
+        calls.push(`snapshot:${snapshotName}:${indices.join(',')}`)
+      },
+      async restoreProjection(snapshotName, projection) {
+        calls.push(`restore:${snapshotName}:${projection.name}`)
+      },
+      async rebuildProjection(projection) {
+        calls.push(`rebuild:${projection.name}:${projection.backfillIndex}`)
+      }
+    }
+
+    const result = await runSnapshotRestoreDrill(client, 'fixture-restore-20260724')
+
+    expect(result.restored).toEqual(['timeline', 'full-log', 'audit-projection'])
+    expect(calls).toEqual([
+      'snapshot:fixture-restore-20260724:meristem-timeline-logs-v*,meristem-full-logs-v*,meristem-audit-logs-v*',
+      'restore:fixture-restore-20260724:timeline',
+      'rebuild:timeline:meristem-timeline-logs-v0',
+      'restore:fixture-restore-20260724:full-log',
+      'rebuild:full-log:meristem-full-logs-v0',
+      'restore:fixture-restore-20260724:audit-projection',
+      'rebuild:audit-projection:meristem-audit-logs-v0'
+    ])
   })
 })

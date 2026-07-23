@@ -1,0 +1,9 @@
+server.host: 0.0.0.0
+server.ssl.enabled: true
+server.ssl.certificate: /usr/share/opensearch-dashboards/config/certs/dashboards.pem
+server.ssl.key: /usr/share/opensearch-dashboards/config/certs/dashboards-key.pem
+opensearch.hosts: [https://opensearch-manager:9200]
+opensearch.ssl.verificationMode: full
+opensearch.ssl.certificateAuthorities: [/usr/share/opensearch-dashboards/config/certs/ca.pem]
+opensearch_security.cookie.secure: true
+opensearch_security.multitenancy.enabled: false

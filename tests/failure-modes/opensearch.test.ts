@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
+import './opensearch-runtime.failure-mode.assertions.ts'
 
 async function readJsonBody(response: Response): Promise<unknown> {
   return response.json()

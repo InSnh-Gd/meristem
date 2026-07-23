@@ -2,8 +2,10 @@ import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 import { createMUiBffRouteDeps, type MUiBffDeps } from './deps.ts'
+import { createBffAuthRoutes } from './routes/bff-auth-routes.ts'
 import { createBffDataRoutes } from './routes/bff-data-routes.ts'
 import { createCommandWellRoutes } from './routes/command-well-routes.ts'
+import { bffError } from './routes/route-helpers.ts'
 import { createSduiScreenRoutes } from './routes/sdui-screen-routes.ts'
 
 export type { MUiBffDeps } from './deps.ts'
@@ -15,6 +17,7 @@ export type { MUiBffDeps } from './deps.ts'
  */
 export function createMUiBffApp(deps: MUiBffDeps) {
   const routeDeps = createMUiBffRouteDeps(deps)
+  const authMode = deps.authMode ?? 'local-dev'
 
   return (
     new Elysia()
@@ -22,7 +25,7 @@ export function createMUiBffApp(deps: MUiBffDeps) {
         cors({
           origin: true,
           methods: ['GET', 'POST', 'OPTIONS'],
-          allowedHeaders: ['content-type', 'authorization'],
+          allowedHeaders: ['content-type', 'authorization', 'x-csrf-token'],
           credentials: true
         })
       ) // 开发环境允许任意 origin；生产部署需替换为具体允许域名。
@@ -50,11 +53,25 @@ export function createMUiBffApp(deps: MUiBffDeps) {
         }
         return undefined
       })
+      // OIDC 模式拒绝遗留 Bearer 入口，避免生产浏览器绕过 HttpOnly session 边界。
+      .onBeforeHandle(({ request }) => {
+        const path = new URL(request.url).pathname
+        if (
+          authMode === 'oidc' &&
+          path.startsWith('/api/v0/') &&
+          !path.startsWith('/api/v0/auth/') &&
+          request.headers.has('authorization')
+        ) {
+          return bffError(403, 'auth.bearer_development_only', 'Bearer authentication is local-dev only')
+        }
+        return undefined
+      })
       .get('/health', () => ({ ok: true as const, service: 'm-ui-bff' as const }))
       .get('/ready', async () => {
         const result = await routeDeps.cf('/api/v0/health', undefined)
         return { ready: result.ok }
       })
+      .use(createBffAuthRoutes(deps.auth))
       .use(createSduiScreenRoutes(routeDeps))
       .use(createBffDataRoutes(routeDeps))
       .use(createCommandWellRoutes(routeDeps))

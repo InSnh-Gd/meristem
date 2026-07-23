@@ -31,6 +31,16 @@ export function getBffUrl(): string {
   return import.meta.env.VITE_MERISTEM_MUI_BFF_URL || 'http://localhost:3200'
 }
 
+/** 仅 local-dev 支持粘贴 Bearer token；生产浏览器统一走 BFF HttpOnly session。 */
+export function isDevelopmentBearerMode(): boolean {
+  return import.meta.env.VITE_MERISTEM_AUTH_MODE === 'local-dev'
+}
+
+/** M-UI 只跳转到 BFF 的 OIDC 入口，前端不接收或保留上游 token。 */
+export function getOidcLoginUrl(returnTo: string = '/control-room'): string {
+  return `${getBffUrl()}/api/v0/auth/oidc/login?returnTo=${encodeURIComponent(returnTo)}`
+}
+
 type BffErrorEnvelope = {
   error: {
     code?: unknown

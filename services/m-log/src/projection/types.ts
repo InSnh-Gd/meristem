@@ -1,3 +1,5 @@
+import type { OpenSearchReadModelStatus } from '../opensearch-read-model.ts'
+
 export type ProjectionDatabase = ReturnType<typeof import('drizzle-orm/postgres-js').drizzle>
 
 export type ProjectionOpenSearch = {
@@ -6,4 +8,5 @@ export type ProjectionOpenSearch = {
   ensureIndex?(index: string): Promise<boolean>
   ensureAllIndices?: () => Promise<boolean>
   health?: () => Promise<boolean>
+  healthStatus?: () => Promise<OpenSearchReadModelStatus>
 }

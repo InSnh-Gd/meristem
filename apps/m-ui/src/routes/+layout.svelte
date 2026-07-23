@@ -1,7 +1,9 @@
 <script lang="ts">
   import { page } from '$app/state'
+  import { isDevelopmentBearerMode } from '$lib/bff'
   import { appState } from '$lib/stores.svelte.ts'
   import NavRail from '$lib/components/layout/NavRail.svelte'
+  import OidcLoginStub from '$lib/components/ui/OidcLoginStub.svelte'
   import TokenInput from '$lib/components/ui/TokenInput.svelte'
   import '../app.css'
 
@@ -22,6 +24,7 @@
     'mnet.profile.migration': '/mnet/profile-migration',
     'mnet.break-glass': '/mnet/break-glass'
   }
+  const developmentBearerMode = isDevelopmentBearerMode()
 
   const navItems = $derived((appState.routes?.routes ?? []).map((route) => {
     const label = route.title === '控制室概览' ? '控制室总览' : route.title
@@ -68,7 +71,11 @@
     >
       <div class="top-chrome-main">
         <div class="top-chrome-search">
-          <TokenInput />
+          {#if developmentBearerMode}
+            <TokenInput />
+          {:else}
+            <OidcLoginStub compact />
+          {/if}
         </div>
 
         <div class="top-chrome-actions" aria-label="状态与操作者">

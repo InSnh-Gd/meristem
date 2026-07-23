@@ -1,0 +1,40 @@
+{
+  "policy": {
+    "description": "Retain Meristem OpenSearch read-model indices only after a durable snapshot",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "snapshot",
+            "conditions": { "min_index_age": "30d" }
+          }
+        ]
+      },
+      {
+        "name": "snapshot",
+        "actions": [
+          {
+            "snapshot": {
+              "repository": "meristem-opensearch-snapshots",
+              "snapshot": "{{ctx.indexUuid}}"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": { "min_index_age": "365d" }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ]
+  }
+}

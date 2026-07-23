@@ -13,9 +13,10 @@ import {
   fullLogs,
   timelineLogs
 } from '../../../packages/db/src/schema.ts'
-import { createLogger } from '../../../packages/telemetry/src/index.ts'
+import { createLogger, recordCounter } from '../../../packages/telemetry/src/index.ts'
 import type { createLogEventPublisher } from './event-publisher.ts'
 import type { createOpenSearchAdapter } from './opensearch.ts'
+import type { OpenSearchReadModel } from './opensearch-read-model.ts'
 
 const logger = createLogger('m-log')
 
@@ -34,12 +35,49 @@ export function warnProjectionFallback(
   )
 }
 
+type ProjectionKind = 'timeline' | 'full' | 'audit'
+
+/**
+ * 投影在权威写入后异步执行；失败只更新读模型降级状态，绝不能回滚或等待 PostgreSQL 日志事实。
+ */
+export async function projectAfterAuthoritativeWrite(input: {
+  kind: ProjectionKind
+  entryId: string
+  project(): Promise<boolean>
+  onFailure(error: unknown): void
+}): Promise<void> {
+  try {
+    const projected = await input.project()
+    if (!projected) {
+      input.onFailure(new Error(`OpenSearch ${input.kind} projection rejected document`))
+    }
+  } catch (error) {
+    input.onFailure(error)
+  }
+}
+
 export function createLogWriteService(
   db: MeristemDb,
   opensearch: ReturnType<typeof createOpenSearchAdapter>,
-  opensearchAvailable: boolean,
+  readModel: Pick<OpenSearchReadModel, 'isAvailable' | 'markUnavailable'>,
   publisher: ReturnType<typeof createLogEventPublisher>
 ) {
+  function scheduleProjection(
+    kind: ProjectionKind,
+    entryId: string,
+    project: () => Promise<boolean>
+  ): void {
+    void projectAfterAuthoritativeWrite({
+      kind,
+      entryId,
+      project,
+      onFailure(error) {
+        warnProjectionFallback(kind, entryId, error)
+        readModel.markUnavailable()
+      }
+    })
+  }
+
   return {
     async writeTimeline(request: TimelineWriteRequest): Promise<TimelineLog> {
       const entry: TimelineLog = {
@@ -55,10 +93,8 @@ export function createLogWriteService(
         correlationId: entry.correlationId
       })
 
-      if (opensearchAvailable) {
-        void opensearch.indexTimelineLog(entry).catch(error => {
-          warnProjectionFallback('timeline', entry.id, error)
-        })
+      if (readModel.isAvailable()) {
+        scheduleProjection('timeline', entry.id, () => opensearch.indexTimelineLog(entry))
       }
 
       return entry
@@ -80,10 +116,8 @@ export function createLogWriteService(
         payload: entry.payload
       })
 
-      if (opensearchAvailable) {
-        void opensearch.indexFullLog(entry).catch(error => {
-          warnProjectionFallback('full', entry.id, error)
-        })
+      if (readModel.isAvailable()) {
+        scheduleProjection('full', entry.id, () => opensearch.indexFullLog(entry))
       }
 
       return entry
@@ -94,23 +128,26 @@ export function createLogWriteService(
         timestamp: new Date().toISOString(),
         ...request
       }
-      await db.insert(auditLogs).values({
-        id: entry.id,
-        timestamp: new Date(entry.timestamp),
-        actor: entry.actor,
-        action: entry.action,
-        resource: entry.resource,
-        decisionId: entry.decisionId,
-        result: entry.result,
-        correlationId: entry.correlationId,
-        traceId: entry.traceId,
-        payload: entry.payload
-      })
-
-      if (opensearchAvailable) {
-        void opensearch.indexAuditLog(entry).catch(error => {
-          warnProjectionFallback('audit', entry.id, error)
+      try {
+        await db.insert(auditLogs).values({
+          id: entry.id,
+          timestamp: new Date(entry.timestamp),
+          actor: entry.actor,
+          action: entry.action,
+          resource: entry.resource,
+          decisionId: entry.decisionId,
+          result: entry.result,
+          correlationId: entry.correlationId,
+          traceId: entry.traceId,
+          payload: entry.payload
         })
+      } catch (error) {
+        recordCounter('meristem_audit_write_failures_total', 1, { service: 'm-log' })
+        throw error
+      }
+
+      if (readModel.isAvailable()) {
+        scheduleProjection('audit', entry.id, () => opensearch.indexAuditLog(entry))
       }
 
       await publisher.publishAuditCreated({

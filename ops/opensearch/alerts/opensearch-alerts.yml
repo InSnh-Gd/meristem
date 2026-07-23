@@ -1,0 +1,39 @@
+groups:
+  - name: meristem-opensearch
+    rules:
+      - alert: FailedAuditWrites
+        expr: increase(meristem_audit_write_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: m-log
+        annotations:
+          summary: Authoritative M-Log audit write failed
+          runbook: docs/operations/RUNBOOK.md#observability-production-contract
+      - alert: OpenSearchClusterHealth
+        expr: opensearch_cluster_health_status{color=~"red|yellow"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: opensearch
+        annotations:
+          summary: OpenSearch cluster health is degraded
+          runbook: docs/operations/RUNBOOK.md#opensearch-production-contract
+      - alert: OpenSearchDiskWatermark
+        expr: 1 - (opensearch_filesystem_data_available_bytes / opensearch_filesystem_data_size_bytes) > 0.85
+        for: 10m
+        labels:
+          severity: critical
+          service: opensearch
+        annotations:
+          summary: OpenSearch disk watermark is above 85 percent
+          runbook: docs/operations/RUNBOOK.md#opensearch-production-contract
+      - alert: OpenSearchProjectionDegraded
+        expr: meristem_opensearch_projection_degraded == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: m-log
+        annotations:
+          summary: OpenSearch read-model projection is degraded
+          runbook: docs/operations/RUNBOOK.md#opensearch-production-contract

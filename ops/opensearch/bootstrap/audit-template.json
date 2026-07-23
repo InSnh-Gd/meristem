@@ -1,0 +1,30 @@
+{
+  "index_patterns": ["meristem-audit-logs-v*"],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "1",
+      "index.number_of_replicas": "1",
+      "index.refresh_interval": "5s",
+      "index.plugins.index_state_management.policy_id": "meristem-log-projection-retention-v1",
+      "index.plugins.index_state_management.rollover_alias": "meristem-audit-logs-write"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "timestamp": { "type": "date" },
+        "actor": { "type": "keyword" },
+        "action": { "type": "keyword" },
+        "resource": { "type": "keyword" },
+        "decisionId": { "type": "keyword" },
+        "result": { "type": "text" },
+        "correlationId": { "type": "keyword" },
+        "traceId": { "type": "keyword" },
+        "payload": { "type": "object", "enabled": false }
+      }
+    },
+    "aliases": {
+      "meristem-audit-logs-latest": {}
+    }
+  }
+}

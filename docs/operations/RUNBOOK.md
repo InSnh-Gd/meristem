@@ -660,6 +660,34 @@ Failure behavior:
 | Dashboards unavailable | M-UI and Core continue; Dashboards panels unavailable | `dashboards_unavailable`; dashboard links disabled/degraded |
 | Restore after snapshot | restore OpenSearch, then rebuild projections from PostgreSQL via M-Log backfill | `read_model_rebuild_required` until catch-up completes |
 
+### 9.1 Secured Deployment Pack and Restore Drill
+
+`ops/opensearch/compose.yaml` is the secured, Podman-first deployment pack. Docker Compose is supported for compatibility validation, but it is not a production promotion path. The pack has separate `cluster_manager`, `data`, and `ingest` nodes, requires an image that contains the version-matched OpenSearch Prometheus exporter plugin, and publishes neither the OpenSearch REST endpoint nor Dashboards directly to the host.
+
+Before starting it, M-Deploy must materialize all listed credentials and TLS files from SecretRef into the protected runtime environment. Do not create a repository, fixture, or operator-shell env file containing those values. The required material is limited to the OpenSearch admin, projection writer, monitoring, Dashboards read-only, OIDC proxy, Grafana, and alert-webhook credentials plus the internal CA/node certificates.
+
+```bash
+# Run only from an M-Deploy-initialized shell with SecretRef material already injected.
+podman compose -f ops/opensearch/compose.yaml config
+podman compose -f ops/opensearch/compose.yaml up -d
+bun ops/opensearch/scripts/bootstrap.ts
+
+# Docker compatibility validation only; Podman remains the production runtime.
+docker compose -f ops/opensearch/compose.yaml config
+```
+
+The bootstrapper installs strict Timeline, Full Log, and Audit templates; read/write aliases; the S3 snapshot repository; the six-hour snapshot management policy; and the snapshot-before-delete ISM policy. M-Log receives `OPENSEARCH_URL`, `OPENSEARCH_USERNAME`, and `OPENSEARCH_PASSWORD` from the same runtime secret handoff. A certificate chain issued by the internal CA must be trusted by the M-Log Bun image; certificate verification must never be disabled.
+
+Dashboards is reachable only through the loopback-bound OIDC proxy on port `8443`. Its allowlisted OIDC groups are `meristem-operator` and `meristem-security-admin`; service-account role mappings bind the projection writer, monitoring, and Dashboards readers to the least-privilege roles installed by bootstrap. The proxy emits structured allow/deny access logs, and the deployment runtime must route those events through the `dashboards-audit-policy.json` model to M-Log's internal Audit boundary. Dashboards queries remain read-model queries only; neither the proxy nor Dashboards may write authority facts.
+
+The restore drill is fixture-only by design. It snapshots all projection patterns, restores Timeline then Full Log then Audit under renamed fixture indices, and calls M-Log backfill for each authoritative PostgreSQL projection:
+
+```bash
+bun ops/opensearch/scripts/snapshot-restore-drill.ts --fixture
+```
+
+For a live fixture-cluster drill, set `OPENSEARCH_RESTORE_TARGET=fixture` through the protected deployment runtime. The script refuses any other target. Never run it against a production authority environment; production recovery follows §8.2 and uses the same PostgreSQL/M-Log rebuild sequence.
+
 ## 10. Observability Production Contract
 
 The versioned contract is `ObservabilityContractV01Schema` (`observability@0.1.0`). Prometheus, Grafana, Alertmanager, OpenTelemetry, and Pino are non-authoritative observability systems. Their unavailability must be visible, but must not block authoritative writes.
@@ -685,6 +713,8 @@ Minimum alert set:
 | `failed_audit_writes` | M-Log | critical |
 | `pending_approvals_backlog` | M-Policy | warning |
 | `agent_drift_or_reconcile_failure` | M-Deploy | critical |
+
+The secured OpenSearch pack additionally provisions deployment-level `OpenSearchClusterHealth` and `OpenSearchDiskWatermark` alerts. Together with `FailedAuditWrites`, these are the minimum pack acceptance alerts. The OTel collector accepts OTLP and parses production Pino JSONL from the runtime log mount; it exposes metrics to Prometheus. Grafana only receives read-only Prometheus and OpenSearch datasources. A failure in any of these paths must surface the corresponding degradation indicator but must not block PostgreSQL, policy, or Audit writes.
 
 Every dashboard must have an owner and must expose state sources, degradation indicators, and `correlationId` drill-down ownership alongside its degraded state. This makes a degradation understandable without relying only on color. Dashboards must show unavailable OpenSearch, Dashboards, Prometheus, Alertmanager, or OTel collector components, and dashboard queries cannot be used as authority for control decisions.
 
