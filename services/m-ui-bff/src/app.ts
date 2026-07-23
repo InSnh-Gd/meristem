@@ -18,17 +18,23 @@ export type { MUiBffDeps } from './deps.ts'
 export function createMUiBffApp(deps: MUiBffDeps) {
   const routeDeps = createMUiBffRouteDeps(deps)
   const authMode = deps.authMode ?? 'local-dev'
+  const corsOrigin =
+    authMode === 'oidc' && (deps.allowedOrigins === undefined || deps.allowedOrigins.length === 0)
+      ? false
+      : deps.allowedOrigins === undefined
+        ? true
+        : [...deps.allowedOrigins]
 
   return (
     new Elysia()
       .use(
         cors({
-          origin: true,
-          methods: ['GET', 'POST', 'OPTIONS'],
+          origin: corsOrigin,
+          methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
           allowedHeaders: ['content-type', 'authorization', 'x-csrf-token'],
           credentials: true
         })
-      ) // 开发环境允许任意 origin；生产部署需替换为具体允许域名。
+      ) // OIDC 模式默认拒绝跨域凭据；生产部署必须显式提供 M-UI origin allowlist。
       .use(
         openapi({
           path: '/openapi-ui',

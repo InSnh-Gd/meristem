@@ -270,4 +270,26 @@ describe('OIDC local IAM BFF session contract', () => {
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ error: { code: 'auth.bearer_development_only' } })
   })
+
+  test('does not reflect arbitrary credentialed CORS origins in OIDC mode', async () => {
+    const environment = createTestEnvironment()
+    const response = await environment.app.handle(
+      new Request('http://localhost/health', { headers: { origin: 'https://untrusted.example.test' } })
+    )
+
+    expect(response.headers.get('access-control-allow-origin')).toBeNull()
+  })
+
+  test('allows only configured credentialed CORS origins in OIDC mode', async () => {
+    const app = createMUiBffApp({
+      coreBaseUrl: 'http://unused-core.example.test',
+      authMode: 'oidc',
+      allowedOrigins: ['https://m-ui.example.test']
+    })
+    const response = await app.handle(
+      new Request('http://localhost/health', { headers: { origin: 'https://m-ui.example.test' } })
+    )
+
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://m-ui.example.test')
+  })
 })

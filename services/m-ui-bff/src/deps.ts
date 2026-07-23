@@ -22,6 +22,7 @@ export type MUiBffDeps = {
   policyBaseUrl?: string
   authMode?: MUiBffAuthMode
   auth?: MUiBffOidcAuthDeps
+  allowedOrigins?: readonly string[]
 }
 
 export type ServiceFetchResult = {

@@ -198,6 +198,61 @@ describe('OIDC local IAM BFF failure modes', () => {
     expect(environment.auditFacts.map(fact => fact.action)).toContain('session.revoked')
   })
 
+  test('partial session-revocation Audit failure never leaves an audited session active', async () => {
+    const auditedSessionIds: string[] = []
+    let revocationWrites = 0
+    const iam = createLocalIamService({
+      initialPrincipals: [
+        {
+          contractVersion: 'oidc-iam-principal@0.1.0',
+          principalId: 'principal-operator',
+          oidcIssuer: issuer,
+          oidcSubject: 'operator-subject',
+          status: 'approved',
+          roles: ['operator'],
+          display: { name: 'Operator' },
+          createdAt: '2026-07-24T10:00:00.000Z',
+          updatedAt: '2026-07-24T10:00:00.000Z',
+          approvedAt: '2026-07-24T10:00:00.000Z',
+          approvedBy: 'security-admin'
+        }
+      ],
+      policy: { async authorize() { return { ok: true, value: undefined } } },
+      audit: {
+        async write(fact) {
+          if (fact.action === 'session.revoked') {
+            revocationWrites += 1
+            if (revocationWrites === 2) {
+              return { ok: false, error: { code: 'audit_unavailable', message: 'M-Log unavailable' } }
+            }
+            if (fact.sessionId !== undefined) auditedSessionIds.push(fact.sessionId)
+          }
+          return { ok: true, value: undefined }
+        }
+      }
+    })
+    const first = await iam.issueSession({ principalId: 'principal-operator', correlationId: 'corr-first' })
+    const second = await iam.issueSession({ principalId: 'principal-operator', correlationId: 'corr-second' })
+    expect(first.ok).toBe(true)
+    expect(second.ok).toBe(true)
+    if (!first.ok || !second.ok) throw new Error('Expected active operator sessions')
+
+    const result = await iam.replaceRoles({
+      principalId: 'principal-operator',
+      actorPrincipalId: 'principal-security-admin',
+      actorRoles: ['security-admin'],
+      roles: [],
+      correlationId: 'corr-role-revoke'
+    })
+    expect(result).toMatchObject({ ok: false, error: { code: 'audit_unavailable' } })
+
+    const firstRead = await iam.getSession({ sessionId: first.value.session.sessionId, correlationId: 'corr-check-first' })
+    const secondRead = await iam.getSession({ sessionId: second.value.session.sessionId, correlationId: 'corr-check-second' })
+    expect(firstRead).toMatchObject({ ok: false, error: { code: 'session_revoked' } })
+    expect(secondRead.ok).toBe(true)
+    expect(auditedSessionIds).toEqual([first.value.session.sessionId])
+  })
+
   test('role grants rotate active sessions before their expanded role snapshot becomes visible', async () => {
     const environment = createEnvironment()
     const operatorSession = await issueSession(environment, 'principal-operator')

@@ -114,6 +114,7 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
     const active = [...(sessionIdsByPrincipal.get(input.principal.principalId) ?? [])]
       .map(sessionId => sessions.get(sessionId))
       .filter((record): record is StoredSession => record !== undefined && record.session.status === 'active')
+    const revokedAt = nowIso()
     for (const record of active) {
       const fact = options.auditFact({
         action: 'session.revoked',
@@ -125,9 +126,6 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
       })
       const written = await options.writeAudit(fact)
       if (!written.ok) return written
-    }
-    const revokedAt = nowIso()
-    for (const record of active) {
       record.session = { ...record.session, status: 'revoked', revokedAt, revokedReason: input.reason }
     }
     return ok(undefined)
