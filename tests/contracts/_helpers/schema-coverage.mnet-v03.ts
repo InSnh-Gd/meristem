@@ -266,8 +266,7 @@ export const mnetV03EventContracts: EventContract[] = [
       result: 'rejected',
       request: { ...pendingJoin, status: 'rejected' },
       credential: null,
-      policy: { ...policy, outcome: 'deny', reason: 'fixture denial' },
-      audit: { ...audit, action: 'mnet.join.reject', result: 'denied' },
+      evidence,
       correlationId
     }
   },

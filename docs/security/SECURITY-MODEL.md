@@ -238,6 +238,10 @@ Rules:
 | disable a node | M-Policy, Audit Log |
 | isolate a node | M-Policy, Audit Log |
 | recover a node from administrative state | M-Policy, Audit Log |
+| approve or reject M-Net join | M-Policy, Audit Log; policy denial has no authoritative side effect |
+| issue / rotate / revoke M-Net join credential | M-Policy, Audit Log, SecretProvider compensation state |
+| force relay or migrate M-Net profile | M-Policy, Audit Log, durable publication intent |
+| activate M-Net break-glass | security-admin initiator, independent second reviewer, M-Policy, Audit Log, exact 30-minute TTL |
 | rotate secretRef | M-Policy, Audit Log |
 | register M-Extension | M-Policy, service definition, low default permission |
 | disable Audit Log | must be blocked unless in documented emergency recovery |
@@ -280,6 +284,14 @@ MVP protected operations:
 | disable a node | admin / security-admin | required before state change |
 | isolate a node | admin / security-admin | required before state change |
 | recover a node from administrative state | admin / security-admin | required before state change |
+
+M-Net closed-loop trust rules:
+
+- bearer-authenticated public actors may request policy-controlled management changes and read topology, but they are not authoritative tunnel-health writers.
+- tunnel-health reports require the node runtime token; `nodeId`, `networkId`, and `stateSource = node-runtime-report` are derived or fixed by M-Net rather than accepted from request JSON.
+- denied management operations do not write authoritative facts or enqueue mutation events. Required denial Audit evidence is still written before returning the denial.
+- EventBus outage does not roll back a committed authoritative fact or turn it into an untyped 503; M-Net persists the event intent transactionally and returns typed pending publication.
+- break-glass cannot bypass M-Policy or Audit, cannot be self-approved, is inactive at the exact 30-minute expiry instant, and is persisted as auto-revoked by the expiry sweep.
 
 ### 3.1 Approval Security
 

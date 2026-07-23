@@ -112,6 +112,17 @@ async function reconcileQueuedOperation(
   if (!running.value)
     return err({ code: 'deploy.operation_not_found', message: 'operation not found' })
 
+  const infrastructure = await inspectInfrastructure(deps, agent.value, running.value, validated.value)
+  if (!infrastructure.ok) {
+    await deps.store.transitionOperation(running.value.operationId, 'failed', deps.now())
+    await deps.log.writeFull({
+      level: 'error',
+      message: 'agent infrastructure inspection failed',
+      correlationId: running.value.correlationId,
+      errorCode: infrastructure.error.code
+    })
+    return infrastructure
+  }
   const runtime = await runLocalRuntime(deps, agent.value, running.value, validated.value)
   if (!runtime.ok) {
     await deps.store.transitionOperation(running.value.operationId, 'failed', deps.now())
@@ -293,4 +304,37 @@ async function runLocalRuntime(
 ): Promise<Result<void, MDeployError>> {
   const input = { agent, envelope, correlationId: operation.correlationId }
   return operation.kind === 'apply' ? deps.runtime.apply(input) : deps.runtime.rollback(input)
+}
+
+async function inspectInfrastructure(
+  deps: MDeployDeps,
+  agent: MDeployAgentRecord,
+  operation: MDeployOperation,
+  envelope: MDeploySignedEnvelopeV01FromSchema
+): Promise<Result<void, MDeployError>> {
+  if (!deps.infrastructure) return ok(undefined)
+  const inspected = await deps.infrastructure.inspect({
+    agent,
+    envelope,
+    operationId: operation.operationId,
+    correlationId: operation.correlationId
+  })
+  if (!inspected.ok) return inspected
+  const recorded = await deps.store.recordDrift(inspected.value.drift)
+  if (!recorded.ok) return recorded
+  const heartbeat = {
+    schemaVersion: 'mdeploy.agent-heartbeat@0.1.0' as const,
+    agentId: agent.enrollment.agentId,
+    timestamp: inspected.value.health.checkedAt,
+    ...(inspected.value.health.appliedImageDigest
+      ? { lastAppliedDigest: inspected.value.health.appliedImageDigest }
+      : {}),
+    driftStatus: inspected.value.drift.resolvedAt ? ('none' as const) : ('confirmed' as const),
+    health: inspected.value.health.health,
+    connectionStatus: 'connected' as const,
+    runtimeDrivers: agent.enrollment.capabilities.map(capability => capability.runtimeDriver),
+    correlationId: operation.correlationId
+  }
+  const updated = await deps.store.upsertAgent({ enrollment: agent.enrollment, heartbeat })
+  return updated.ok ? ok(undefined) : updated
 }

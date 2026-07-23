@@ -5,15 +5,34 @@ import {
 } from '../../../packages/config/src/index.ts'
 import type { SecretRefFromSchema } from '../../../packages/contracts/src/index.ts'
 import { createDb } from '../../../packages/db/src/client.ts'
-import { createSecretManagerFromConfigs, type SecretManager } from '../../../packages/secrets/src/index.ts'
-import type { ServedInternalApp } from '../../../packages/internal-http/src/index.ts'
-import { serveMDeployApp } from './app.ts'
+import {
+  createSecretManagerFromConfigs,
+  type SecretManager
+} from '../../../packages/secrets/src/index.ts'
 import type { MDeployDeps } from './deps.ts'
+import {
+  createMDeployInfrastructureAgentAdapter,
+  createPodmanRuntimeDriver
+} from './infrastructure-driver-adapters.ts'
+import type {
+  MDeployDriverEffects,
+  MDeployInfrastructureAgentAdapterOptions
+} from './infrastructure-driver-types.ts'
 import { createPostgresMDeployStore } from './postgres-store.ts'
 import { createProductionMDeployBoundaryAdapters } from './production-adapters.ts'
 import { createTrustedEnvelopeVerifier } from './trusted-envelope-verifier.ts'
 
-type MDeployHostAdapters = Pick<MDeployDeps, 'git' | 'agentIdentity' | 'runtime' | 'controller'>
+type MDeployHostAdapterBase = Pick<MDeployDeps, 'git' | 'agentIdentity' | 'controller'>
+
+type MDeployHostAdapters =
+  | (MDeployHostAdapterBase & {
+      runtime: MDeployDeps['runtime']
+      infrastructureDriverEffects?: never
+    })
+  | (MDeployHostAdapterBase & {
+      runtime?: never
+      infrastructureDriverEffects: MDeployDriverEffects
+    })
 
 type ControllerTrustConfig = {
   publicKeyRef: SecretRefFromSchema
@@ -32,6 +51,7 @@ type ProductionMDeployOptions = {
   now?: () => string
   snapshotTtlMs?: number
   approvalTtlMs?: number
+  infrastructure?: MDeployInfrastructureAgentAdapterOptions
   env?: NodeJS.ProcessEnv
 }
 
@@ -53,6 +73,22 @@ function createRuntimeSecretManager(config: RuntimeDeploymentConfig, env: NodeJS
     ...(named.cache ? { cache: named.cache } : {}),
     env
   })
+}
+
+/**
+ * 生产包必须显式提供直接 runtime 或本地 driver effects；这里仅连接 agent 本机边界，绝不创建 SSH 推送路径。
+ */
+export function resolveMDeployRuntimeAdapter(host: MDeployHostAdapters): MDeployDeps['runtime'] {
+  return host.runtime ?? createPodmanRuntimeDriver(host.infrastructureDriverEffects)
+}
+
+/** 仅在部署包显式提供本地 IaC/health/drift 输入时启用基础设施检查边界。 */
+export function resolveMDeployInfrastructureAdapter(
+  options: Pick<ProductionMDeployOptions, 'infrastructure'>
+): MDeployDeps['infrastructure'] {
+  return options.infrastructure
+    ? createMDeployInfrastructureAgentAdapter(options.infrastructure)
+    : undefined
 }
 
 /** Named production composition: durable state plus real Meristem authority adapters. */
@@ -81,9 +117,15 @@ export async function createProductionMDeployComposition(
     now,
     ...(options.approvalTtlMs ? { approvalTtlMs: options.approvalTtlMs } : {})
   })
+  const runtime = resolveMDeployRuntimeAdapter(options.host)
+  const infrastructure = resolveMDeployInfrastructureAdapter(options)
   const deps: MDeployDeps = {
     ...boundary,
-    ...options.host,
+    git: options.host.git,
+    agentIdentity: options.host.agentIdentity,
+    controller: options.host.controller,
+    runtime,
+    ...(infrastructure ? { infrastructure } : {}),
     store: createPostgresMDeployStore(db),
     envelopeVerifier: createTrustedEnvelopeVerifier({
       secretManager,
@@ -97,21 +139,6 @@ export async function createProductionMDeployComposition(
     deps,
     async close() {
       await client.end()
-    }
-  }
-}
-
-/** Starts M-Deploy from production configuration and closes its PostgreSQL pool with the server. */
-export async function serveProductionMDeployApp(
-  options: ProductionMDeployOptions
-): Promise<ServedInternalApp> {
-  const composition = await createProductionMDeployComposition(options)
-  const server = serveMDeployApp(composition.deps)
-  return {
-    ...server,
-    async stop() {
-      await server.stop()
-      await composition.close()
     }
   }
 }

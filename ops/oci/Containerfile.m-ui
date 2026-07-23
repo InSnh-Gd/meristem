@@ -1,0 +1,16 @@
+ARG BUN_BASE_IMAGE
+FROM ${BUN_BASE_IMAGE} AS build
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps/m-ui ./apps/m-ui
+
+RUN bun install --frozen-lockfile
+RUN cd apps/m-ui && bun run build
+
+ARG STATIC_BASE_IMAGE
+FROM ${STATIC_BASE_IMAGE}
+
+COPY ops/oci/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/m-ui/build /usr/share/caddy

@@ -14,6 +14,7 @@ import { executeNodeControl } from './node-control-workflow.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
 import { createReadinessProbe } from './readiness.ts'
 import { createDbForcedRelayNodeContext } from './forced-relay-node-context.ts'
+import { createClosedLoopProduction } from './closed-loop-production.ts'
 
 /**
  * M-Net 启动装配统一放在这里：入口文件只触发启动，不再直接持有依赖接线与关闭序列。
@@ -62,6 +63,16 @@ export async function startMNetService(): Promise<void> {
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents
   })
+  const closedLoop = createClosedLoopProduction({
+    infrastructure,
+    runtimeConfig,
+    network: {
+      listNetworks: networkService.listNetworks,
+      listMembers: networkService.listMembers
+    },
+    migrationEngine
+  })
+  await closedLoop.recoverCredentialOperations()
   const agentRuntime = createAgentRuntime({
     db: infrastructure.db,
     publishEvent: infrastructure.publishEvent,
@@ -69,7 +80,20 @@ export async function startMNetService(): Promise<void> {
     writeFull: infrastructure.writeFull,
     writeAudit: infrastructure.writeAudit,
     dataPlaneDeps: 'kind' in nodeRuntimeDataPlaneDeps ? null : nodeRuntimeDataPlaneDeps,
-    reportRuntimeStatus: operationalReadModel.ingestRuntimeStatus
+    async reportRuntimeStatus(input) {
+      await operationalReadModel.ingestRuntimeStatus(input)
+      await closedLoop.ingestNodeRuntimeStatus(input)
+    },
+    reportTunnelHealth(input) {
+      return closedLoop.service.recordTunnelHealth({
+        networkId: input.networkId,
+        health: {
+          ...input.health,
+          nodeId: input.nodeId,
+          stateSource: 'node-runtime-report'
+        }
+      })
+    }
   })
 
   // 策略健康检查：探测 M-Policy /health 端点
@@ -129,7 +153,8 @@ export async function startMNetService(): Promise<void> {
         if (!result.ok) return { ok: false as const, code: result.code, message: result.message }
         return { ok: true as const, actor: result.session.actor.id }
       }
-    }
+    },
+    closedLoop: closedLoop.service
   })
 
   const internalServer = serveHttpApp('m-net', app.fetch)
@@ -140,9 +165,42 @@ export async function startMNetService(): Promise<void> {
     },
     Math.max(heartbeatTimeoutMs(), 5000)
   )
+  const breakGlassExpirySweep = setInterval(
+    () => {
+      void closedLoop.enforceExpiry().catch(error => {
+        console.warn(
+          `m-net: break-glass expiry sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+        )
+      })
+    },
+    60_000
+  )
+  const closedLoopPublicationSweep = setInterval(
+    () => {
+      void closedLoop.flushPendingEvents().catch(error => {
+        console.warn(
+          `m-net: closed-loop publication sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+        )
+      })
+    },
+    30_000
+  )
+  const credentialRecoverySweep = setInterval(
+    () => {
+      void closedLoop.recoverCredentialOperations().catch(error => {
+        console.warn(
+          `m-net: credential recovery sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+        )
+      })
+    },
+    30_000
+  )
 
   process.on('SIGINT', () => {
     clearInterval(offlineSweep)
+    clearInterval(breakGlassExpirySweep)
+    clearInterval(closedLoopPublicationSweep)
+    clearInterval(credentialRecoverySweep)
     agentRuntime.rejectPendingTasksOnShutdown()
     joinIngress.stop(true)
     void internalServer

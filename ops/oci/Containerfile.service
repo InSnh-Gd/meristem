@@ -1,0 +1,18 @@
+ARG BUN_BASE_IMAGE
+FROM ${BUN_BASE_IMAGE}
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps ./apps
+COPY packages ./packages
+COPY services ./services
+COPY scripts ./scripts
+COPY tsconfig.base.json tsconfig.e2e.json tsconfig.json biome.json ./
+
+RUN bun install --frozen-lockfile
+
+ARG SERVICE_ENTRY
+ENV SERVICE_ENTRY=${SERVICE_ENTRY}
+
+CMD ["sh", "-lc", "exec bun run \"$SERVICE_ENTRY\""]

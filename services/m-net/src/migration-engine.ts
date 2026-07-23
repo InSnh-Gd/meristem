@@ -173,13 +173,14 @@ export function createMigrationEngine(deps: MigrationEngineDeps) {
     actor: string
     reason: string
     operationId?: string
+    targetProfileVersion?: string
     targetStatus?: 'enabled' | 'enabling'
   }) {
     const operationId = input.operationId ?? `mnet-migration-${crypto.randomUUID()}`
     const result = await applyNetwork(deps, {
       operation: {
         operationId,
-        targetProfileVersion: TARGET_CN_PROFILE_VERSION,
+        targetProfileVersion: input.targetProfileVersion ?? TARGET_CN_PROFILE_VERSION,
         reason: input.reason
       },
       networkId: input.networkId,
@@ -190,7 +191,26 @@ export function createMigrationEngine(deps: MigrationEngineDeps) {
     return ok({ operationId, result })
   }
 
-  return { plan, getStatus, apply, resume, rollback, migrateNetwork }
+  async function rollbackSingleNetwork(input: {
+    operationId: string
+    networkId: string
+    actor: string
+    reason: string
+    sourceProfileVersion: string
+    targetProfileVersion: string
+  }) {
+    const result = await rollbackNetwork(deps, {
+      operationId: input.operationId,
+      operation: { targetProfileVersion: input.targetProfileVersion },
+      networkId: input.networkId,
+      actor: input.actor,
+      reason: input.reason,
+      snapshot: new Map([[input.networkId, input.sourceProfileVersion]])
+    })
+    return ok({ operationId: input.operationId, result })
+  }
+
+  return { plan, getStatus, apply, resume, rollback, migrateNetwork, rollbackSingleNetwork }
 }
 
 function toBatches(candidates: readonly NetworkSnapshot[], batchSize: number): SwitchBatch[] {

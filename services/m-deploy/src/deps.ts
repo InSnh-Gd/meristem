@@ -20,6 +20,7 @@ import type {
   PolicyResult,
   SecretRefFromSchema
 } from '../../../packages/contracts/src/index.ts'
+import type { MDeployInfrastructureInspection } from './infrastructure-driver-types.ts'
 
 export type MDeployError = {
   code: string
@@ -255,6 +256,14 @@ export type MDeployDeps = {
       envelope: MDeploySignedEnvelopeV01FromSchema
       correlationId: string
     }): Promise<Result<void, MDeployError>>
+  }
+  infrastructure?: {
+    inspect(input: {
+      agent: MDeployAgentRecord
+      envelope: MDeploySignedEnvelopeV01FromSchema
+      operationId: string
+      correlationId: string
+    }): Promise<Result<MDeployInfrastructureInspection, MDeployError>>
   }
   controller: {
     isAvailable(): Promise<boolean>

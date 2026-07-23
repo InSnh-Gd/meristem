@@ -67,7 +67,7 @@ function createDeps(overrides?: Partial<DataPlaneDeps>): DataPlaneDeps {
         /* noop */
       }
     },
-    /** T8: NetBird adapter selection requires a valid control-plane config for V03 profile enable. */
+    /** NetBird adapter selection requires a valid control-plane config for V03 profile enable. */
     resolveNetBirdControlPlane: async () => ({
       managementUrl: 'https://netbird.meristem.internal:443',
       setupKey: 'test-setup-key-00000000000000000000',

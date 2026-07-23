@@ -87,7 +87,7 @@ export const MNetTunnelHealthSchema = Schema.Struct({
   packetLossPct: Schema.optional(Schema.Number),
   relayStatus: Schema.Literal('not-required', 'available', 'forced', 'unavailable'),
   checkedAt: Schema.String,
-  stateSource: Schema.Literal('opensearch-projection')
+  stateSource: Schema.Literal('opensearch-projection', 'node-runtime-report')
 })
 export type MNetTunnelHealthFromSchema = typeof MNetTunnelHealthSchema.Type
 

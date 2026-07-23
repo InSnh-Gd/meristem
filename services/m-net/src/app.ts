@@ -10,6 +10,7 @@ import { createNodeRuntimeRoutes } from './node-runtime-routes.ts'
 import { createProfileAdminRoutes } from './profile-admin-routes.ts'
 import { createProfileRoutes } from './profile-routes.ts'
 import { createReadyRoute } from './ready-route.ts'
+import { createClosedLoopRoutes } from './closed-loop-routes.ts'
 
 export type { MNetAppDeps } from './deps.ts'
 export type { MNetServiceError, MNetServiceResult } from './types.ts'
@@ -32,6 +33,7 @@ export function createMNetApp(deps: MNetAppDeps) {
     .use(createProfileRoutes(deps))
     .use(createForcedRelayRoutes(deps))
     .use(createGlobalDefaultsRoutes(deps))
+    .use(createClosedLoopRoutes(deps))
 }
 
 export type MNetApp = ReturnType<typeof createMNetApp>

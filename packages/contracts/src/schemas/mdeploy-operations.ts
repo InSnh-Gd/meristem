@@ -153,6 +153,51 @@ export const MDeployStorageRefV01Schema = Schema.Struct({
 })
 export type MDeployStorageRefV01FromSchema = typeof MDeployStorageRefV01Schema.Type
 
+export const MDeployOciReferrerArtifactSchema = Schema.Literal('signature', 'attestation')
+export type MDeployOciReferrerArtifactFromSchema = typeof MDeployOciReferrerArtifactSchema.Type
+
+export const MDeployOciReferrerVerificationV01Schema = Schema.Struct({
+  tool: Schema.Literal('cosign'),
+  operation: Schema.Literal('download-signature', 'download-attestation')
+})
+export type MDeployOciReferrerVerificationV01FromSchema =
+  typeof MDeployOciReferrerVerificationV01Schema.Type
+
+/** OCI referrer references retain the subject and retrieval operation so consumers can re-verify durable registry evidence. */
+export const MDeployOciReferrerReferenceV01Schema = Schema.Struct({
+  uri: Schema.String,
+  digest: MDeployDigestSchema,
+  redactionStatus: Schema.Literal('redacted', 'metadata_only'),
+  subjectDigest: MDeployDigestSchema,
+  artifact: MDeployOciReferrerArtifactSchema,
+  predicateType: Schema.optional(Schema.String),
+  verification: MDeployOciReferrerVerificationV01Schema
+}).pipe(
+  Schema.filter(reference => {
+    const isSignature =
+      reference.artifact === 'signature' &&
+      reference.verification.operation === 'download-signature' &&
+      reference.predicateType === undefined
+    const isAttestation =
+      reference.artifact === 'attestation' &&
+      reference.verification.operation === 'download-attestation' &&
+      typeof reference.predicateType === 'string' &&
+      reference.predicateType.length > 0
+    return isSignature || isAttestation
+  }, {
+    message: () => 'OCI referrer artifact and Cosign retrieval operation must agree'
+  })
+)
+export type MDeployOciReferrerReferenceV01FromSchema =
+  typeof MDeployOciReferrerReferenceV01Schema.Type
+
+export const MDeployArtifactEvidenceReferenceV01Schema = Schema.Union(
+  MDeployOciReferrerReferenceV01Schema,
+  MDeployStorageRefV01Schema
+)
+export type MDeployArtifactEvidenceReferenceV01FromSchema =
+  typeof MDeployArtifactEvidenceReferenceV01Schema.Type
+
 export const MDeployArtifactSignerKindSchema = Schema.Literal('cosign-keyless', 'cosign-key-pair')
 export type MDeployArtifactSignerKindFromSchema = typeof MDeployArtifactSignerKindSchema.Type
 
@@ -167,9 +212,9 @@ export const MDeployImageArtifactV01Schema = Schema.Struct({
   schemaVersion: Schema.Literal('mdeploy.image-artifact@0.1.0'),
   imageReference: Schema.String,
   digest: MDeployDigestSchema,
-  sbomRef: MDeployStorageRefV01Schema,
-  provenanceRef: MDeployStorageRefV01Schema,
-  signatureRef: MDeployStorageRefV01Schema,
+  sbomRef: MDeployArtifactEvidenceReferenceV01Schema,
+  provenanceRef: MDeployArtifactEvidenceReferenceV01Schema,
+  signatureRef: MDeployArtifactEvidenceReferenceV01Schema,
   signer: MDeployArtifactSignerV01Schema,
   verifiedAt: Schema.String
 }).pipe(
@@ -249,6 +294,63 @@ export const MDeployPromotionV01Schema = Schema.Struct({
   correlationId: Schema.String
 })
 export type MDeployPromotionV01FromSchema = typeof MDeployPromotionV01Schema.Type
+
+export const MDeployPromotionValidationFailureSchema = Schema.Struct({
+  code: Schema.Literal(
+    'promotion_contract_invalid',
+    'promotion_source_target_invalid',
+    'promotion_artifact_invalid',
+    'rollback_pointer_invalid'
+  ),
+  message: Schema.String
+})
+export type MDeployPromotionValidationFailureFromSchema =
+  typeof MDeployPromotionValidationFailureSchema.Type
+
+/**
+ * 生产 promotion 在保留可执行契约结构校验之外，拒绝无意义的环境跳转和不可恢复指针。
+ */
+export function validateMDeployPromotionV01(
+  input: unknown
+): Result<MDeployPromotionV01FromSchema, MDeployPromotionValidationFailureFromSchema> {
+  if (typeof input !== 'object' || input === null) {
+    return err({ code: 'promotion_contract_invalid', message: 'promotion must be an object' })
+  }
+
+  const artifact = validateMDeployImageArtifactV01(Reflect.get(input, 'artifact'))
+  if (!artifact.ok) {
+    return err({ code: 'promotion_artifact_invalid', message: artifact.error.message })
+  }
+
+  try {
+    const promotion = Schema.decodeUnknownSync(MDeployPromotionV01Schema)(input)
+    if (
+      promotion.sourceEnvironment.trim().length === 0 ||
+      promotion.targetEnvironment.trim().length === 0 ||
+      promotion.sourceEnvironment === promotion.targetEnvironment
+    ) {
+      return err({
+        code: 'promotion_source_target_invalid',
+        message: 'promotion source and target environments must be distinct non-empty values'
+      })
+    }
+    if (
+      promotion.rollbackPointer.environment !== promotion.targetEnvironment ||
+      !isCanonicalDigest(promotion.rollbackPointer.digest) ||
+      (promotion.rollbackPointer.digest.algorithm === promotion.artifact.digest.algorithm &&
+        promotion.rollbackPointer.digest.value === promotion.artifact.digest.value)
+    ) {
+      return err({
+        code: 'rollback_pointer_invalid',
+        message:
+          'rollback pointer must target the promoted environment and a distinct canonical digest'
+      })
+    }
+    return ok(promotion)
+  } catch (error) {
+    return err({ code: 'promotion_contract_invalid', message: errorMessage(error) })
+  }
+}
 
 export const MDeployEvidenceMetadataV01Schema = Schema.Struct({
   schemaVersion: Schema.Literal('mdeploy.evidence-metadata@0.1.0'),

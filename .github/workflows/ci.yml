@@ -19,6 +19,7 @@ jobs:
           - test
           - typecheck:e2e
           - typecheck:m-ui
+          - oci:preflight
 
     services:
       postgres:

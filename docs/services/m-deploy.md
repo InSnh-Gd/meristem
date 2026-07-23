@@ -47,7 +47,7 @@ Current production-track scope:
 - OpenTofu/Terraform support is a provider-neutral IaC fixture for topology provisioning and state comparison
 - Kubernetes, Helm, service mesh, controller SSH push, and broad remote execution are excluded
 - `createProductionMDeployComposition(...)` and `serveProductionMDeployApp(...)` construct the PostgreSQL store, configured SecretManager/trusted verifier, shared auth verifier, and loopback M-Policy, M-Log, and M-EventBus adapters. `createInMemoryMDeployDeps()` is test-only.
-- deployment packaging must still supply host-local Git fetch, agent enrollment identity verification, controller availability, and Podman/Docker runtime adapters through `MDeployHostAdapters`; these explicit host adapters are the remaining external deployment prerequisite and cannot be replaced by generic SSH or remote shell execution
+- deployment packaging must still supply host-local Git fetch, agent enrollment identity verification, controller availability, and either a direct local runtime adapter or `infrastructureDriverEffects` through `MDeployHostAdapters`; production composition turns the latter into the Podman driver at startup, so it is a real wiring seam rather than an uncalled helper. These explicit host adapters are the remaining external deployment prerequisite and cannot be replaced by generic SSH or remote shell execution
 
 ---
 
@@ -157,7 +157,7 @@ Production composition inputs:
 - `MERISTEM_V02_DEPLOYMENT_CONFIG` supplies M-Policy, M-Log, and M-EventBus URLs, the selected auth provider, and the named SecretProvider configuration.
 - `DATABASE_URL` selects the PostgreSQL authoritative store.
 - `ControllerTrustConfig` supplies a SecretRef for the controller public key plus the configured issuer, audience, and expected SPKI SHA-256 fingerprint. Key bytes are resolved only through SecretManager/SecretProvider.
-- `MDeployHostAdapters` supplies Git fetch, enrollment identity verification, controller availability, and host-local runtime apply/rollback implementations. These are deployment-package inputs, not in-memory defaults.
+- `MDeployHostAdapters` supplies Git fetch, enrollment identity verification, controller availability, and either host-local runtime apply/rollback implementations or a local `MDeployDriverEffects` file/command boundary. Production composition selects exactly one runtime source; these are deployment-package inputs, not in-memory defaults.
 
 Configuration lifecycle rules:
 

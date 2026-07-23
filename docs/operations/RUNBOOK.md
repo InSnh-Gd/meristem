@@ -47,6 +47,13 @@ bun run dev:webui
 bun run dev:full
 ```
 
+OCI build/promotion validation is documented in [`OCI-PIPELINE.md`](./OCI-PIPELINE.md). The static gate validates every target without registry access:
+
+```bash
+bun run oci:preflight
+bun run oci:build --target=m-ui --dry-run
+```
+
 Development process groups:
 
 - `bun run dev:core` - starts Docker Compose PostgreSQL + NATS, runs cert generation + migrations + seed data, then launches the full backend control-plane process group.
@@ -287,6 +294,16 @@ For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental 
 ### v0.2 NetBird Direction (`m-net@0.3.0`, `m-net-cn@0.3.0`, ADR-N04)
 
 v0.2 data-plane direction (ADR-N04): NetBird client sidecar + NetBird Signal + NetBird Relay/STUN. NetBird Management excluded. Viability gate: `bun run mnet:v02:sidecar-proof`. No wstunnel mixed/fallback mode in v0.2. Legacy wstunnel path retained for migration window only.
+
+### Closed-Loop Failure and Recovery Semantics
+
+- Join approval and explicit rejection, credential issue/rotate/revoke, relay policy, profile migration/rollback, and break-glass operations require service-side M-Policy plus M-Log Audit before authoritative mutation. UI command eligibility never substitutes for these checks.
+- A policy denial returns a typed denied outcome with no authoritative state change. Explicit join rejection is a separately authorized action and leaves no credential.
+- Successful mutation responses include `publication.status`. `pending` means PostgreSQL committed the fact and durable event intent but M-EventBus delivery is waiting for the startup retry sweep; do not repeat the control command solely because publication is pending.
+- If PostgreSQL fact decoding fails, treat M-Net as degraded and repair the corrupt row from a trusted backup or replay source. The service does not silently treat corrupt payloads as missing.
+- Credential and profile-migration failures report whether compensation completed or manual intervention is required. When manual intervention is required, inspect SecretProvider/profile runtime state before retrying; never paste secret material into logs or commands.
+- Break-glass activation requires `security-admin` initiation and an independent `break-glass-reviewer`. The grant is effective only until the exact `expiresAt = initiatedAt + 30 minutes`; access checks fail closed at that instant, and the background sweep persists `auto-revoked` state.
+- Tunnel health can be reported only through the node runtime-token route. Bearer-authenticated operator routes are read-only for this fact, and NetBird Management/Dashboard must not be introduced as an alternate authority.
 
 ---
 

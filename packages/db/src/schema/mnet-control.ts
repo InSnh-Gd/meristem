@@ -1,4 +1,13 @@
-import { integer, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex
+} from 'drizzle-orm/pg-core'
 
 import { networks } from './network.ts'
 import { policyDecisions } from './policy.ts'
@@ -105,3 +114,25 @@ export const mnetProfileDisablePolicies = pgTable('mnet_profile_disable_policies
   idempotencyKey: text('idempotency_key').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
 })
+
+/**
+ * Closed-loop facts remain Meristem-owned and contain redacted SecretRefs only.
+ * A single typed fact table keeps the committed schemas authoritative while allowing
+ * each lifecycle to evolve without duplicating contract fields into SQL columns.
+ */
+export const mnetClosedLoopFacts = pgTable(
+  'mnet_closed_loop_facts',
+  {
+    factKind: text('fact_kind').notNull(),
+    factId: text('fact_id').notNull(),
+    networkId: text('network_id')
+      .notNull()
+      .references(() => networks.id),
+    payload: jsonb('payload').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  table => [
+    primaryKey({ columns: [table.factKind, table.factId] }),
+    index('mnet_closed_loop_facts_network_kind_idx').on(table.networkId, table.factKind)
+  ]
+)

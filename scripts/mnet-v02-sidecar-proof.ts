@@ -3,7 +3,7 @@
  *
  * Validates that the NetBird client sidecar can be started, connects to
  * Signal/Relay/STUN infrastructure, and reports its state. If the required
- * infrastructure or binaries are absent, exit 0 with a typed
+ * infrastructure or binaries are absent, exit nonzero with a typed
  * prerequisite-missing JSON report.
  *
  * Usage: bun run mnet:v02:sidecar-proof
@@ -32,6 +32,10 @@ function missing(step: string, message: string): PrerequisiteMissing {
 
 function success(step: string, detail: string): ProofSuccess {
   return { status: 'success', step, detail }
+}
+
+function isSuccessfulHttpStatus(status: string): boolean {
+  return /^2\d\d$/.test(status)
 }
 
 for (const step of PROOF_STEPS) {
@@ -76,7 +80,11 @@ for (const step of PROOF_STEPS) {
               timeout: 10000
             }
           ).trim()
-          results.push(success(step, `Signal endpoint ${signalUrl} responded with HTTP ${resp}`))
+          results.push(
+            isSuccessfulHttpStatus(resp)
+              ? success(step, `Signal endpoint ${signalUrl} responded with HTTP ${resp}`)
+              : missing(step, `Signal endpoint ${signalUrl} responded with HTTP ${resp}`)
+          )
         } catch {
           results.push(
             missing(step, `Signal endpoint ${signalUrl} not reachable within 5s timeout`)
@@ -103,7 +111,11 @@ for (const step of PROOF_STEPS) {
               timeout: 10000
             }
           ).trim()
-          results.push(success(step, `STUN/Relay endpoint ${stunUrl} responded with HTTP ${resp}`))
+          results.push(
+            isSuccessfulHttpStatus(resp)
+              ? success(step, `STUN/Relay endpoint ${stunUrl} responded with HTTP ${resp}`)
+              : missing(step, `STUN/Relay endpoint ${stunUrl} responded with HTTP ${resp}`)
+          )
         } catch {
           results.push(
             missing(step, `STUN/Relay endpoint ${stunUrl} not reachable within 5s timeout`)
@@ -169,4 +181,4 @@ const output = {
   verdict: allSuccess ? 'pass' : 'prerequisite-missing'
 }
 process.stdout.write(`${JSON.stringify(output, null, 2)}\n`)
-process.exit(0)
+process.exit(output.verdict === 'pass' ? 0 : 1)

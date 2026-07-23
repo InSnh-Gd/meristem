@@ -21,7 +21,7 @@ MVP uses one PostgreSQL database. Services own table groups but do not get separ
 | Owner | Tables |
 |-------|--------|
 | Core | `nodes`, `node_credentials`, `node_join_tickets`, `service_definitions`, `tasks` (historical compatibility table), `actors`, `actor_tokens`, `actor_token_revocations` |
-| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations`, `mnet_global_defaults`, `mnet_profile_switch_operations`, `mnet_profile_switch_batches`, `mnet_profile_switch_batch_members`, `mnet_profile_switch_results`, `mnet_profile_switch_snapshots`, `mnet_profile_default_set_results`, `mnet_profile_disable_policies`, `mnet_profile_migrations`, `mnet_network_map_renders`, `mnet_node_public_keys`, `mnet_tunnel_address_allocations`, `mnet_relay_assignments`, `mnet_data_plane_operation_locks`, `mnet_sidecar_desired_configs`, `mnet_partition_states` |
+| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations`, `mnet_global_defaults`, `mnet_profile_switch_operations`, `mnet_profile_switch_batches`, `mnet_profile_switch_batch_members`, `mnet_profile_switch_results`, `mnet_profile_switch_snapshots`, `mnet_profile_default_set_results`, `mnet_profile_disable_policies`, `mnet_profile_migrations`, `mnet_closed_loop_facts`, `mnet_network_map_renders`, `mnet_node_public_keys`, `mnet_tunnel_address_allocations`, `mnet_relay_assignments`, `mnet_data_plane_operation_locks`, `mnet_sidecar_desired_configs`, `mnet_partition_states` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
@@ -450,6 +450,19 @@ M-Net data plane tables store authoritative metadata for node-to-node connectivi
 
 Primary key: `(network_id, operation_id)`.
 
+#### `mnet_closed_loop_facts`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `fact_kind` | text | join, credential, map, key, tunnel, sidecar, relay, migration, break-glass, or `event-intent` discriminator |
+| `fact_id` | text | stable domain fact or event-intent ID |
+| `network_id` | text | references `networks.id` |
+| `payload` | jsonb | versioned closed-loop fact; secret plaintext is forbidden |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+Primary key: `(fact_kind, fact_id)`. Closed-loop mutations write fact rows and pending event intents in one transaction. Published intents remain as delivery evidence; pending intents are retried after production composition startup.
+
 #### `mnet_network_map_renders`
 
 | Column | Type | Notes |
@@ -796,6 +809,103 @@ Transaction rules:
 - admission inserts the operation, signature evidence metadata, and initial outbox intents in one Drizzle transaction;
 - completion updates the operation, inserts runtime/rollback evidence and success intents, and updates last-successful/verified-envelope pointers in one transaction;
 - marking an intent published and updating the owning operation to `publication_status = published` occur in one transaction after the final pending intent is gone.
+
+#### `mdeploy_proposals`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | proposal ID |
+| `approval_status` | text | current approval status |
+| `proposal` | jsonb | versioned proposal snapshot (MDeployProposalV01) |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `mdeploy_approvals`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | approval ID |
+| `proposal_id` | text | references `mdeploy_proposals.id` |
+| `approval` | jsonb | versioned approval snapshot (MDeployApprovalV01) |
+| `created_at` | timestamptz | UTC |
+
+#### `mdeploy_operations`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | operation ID |
+| `agent_id` | text | originating agent |
+| `status` | text | operation lifecycle status |
+| `publication_status` | text | outbox publication status |
+| `operation` | jsonb | versioned operation snapshot (MDeployOperation) |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `mdeploy_evidence`
+
+M-Log storage references and correlation metadata keyed by `(operation_id, evidence_type)`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `operation_id` | text | references `mdeploy_operations.id` |
+| `evidence_type` | text | evidence vocabulary type |
+| `metadata` | jsonb | versioned evidence metadata (MDeployEvidenceMetadataV01) |
+| `created_at` | timestamptz | UTC |
+
+Primary key: `(operation_id, evidence_type)`.
+
+#### `mdeploy_event_intents`
+
+Outbox event intents for restart recovery, indexed by `(status, operation_id)`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | intent ID |
+| `operation_id` | text | references `mdeploy_operations.id` |
+| `status` | text | outbox delivery status |
+| `intent` | jsonb | versioned event intent (MDeployEventIntent) |
+| `created_at` | timestamptz | UTC |
+| `updated_at` | timestamptz | UTC |
+
+#### `mdeploy_agents`
+
+Agent enrollment and heartbeat records.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | agent ID |
+| `record` | jsonb | agent record (MDeployAgentRecord) |
+| `updated_at` | timestamptz | UTC |
+
+#### `mdeploy_drift_reports`
+
+Drift detection facts persisted for audit and recovery.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | text primary key | drift report ID |
+| `report` | jsonb | versioned drift report (MDeployDriftReportV01) |
+| `created_at` | timestamptz | UTC |
+
+#### `mdeploy_verified_envelopes`
+
+Signed envelopes that passed the trusted verifier, keyed by digest.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `digest_key` | text primary key | envelope digest key |
+| `envelope` | jsonb | verified signed envelope (MDeploySignedEnvelopeV01) |
+| `updated_at` | timestamptz | UTC |
+
+#### `mdeploy_last_successful`
+
+Last successful envelope per agent for recovery.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `agent_id` | text primary key | agent ID |
+| `envelope` | jsonb | last successful signed envelope (MDeploySignedEnvelopeV01) |
+| `updated_at` | timestamptz | UTC |
 
 ### Projection Platform Tables
 

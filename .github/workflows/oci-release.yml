@@ -1,0 +1,108 @@
+name: OCI release pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: OCI target declared by scripts/oci-pipeline.ts
+        required: true
+        type: choice
+        options:
+          - core
+          - m-deploy
+          - m-eventbus
+          - m-extension
+          - m-log
+          - m-net
+          - m-policy
+          - m-task
+          - m-ui-bff
+          - node-agent
+          - m-ui
+      source_environment:
+        description: Environment currently admitting the image
+        required: true
+        type: string
+      target_environment:
+        description: Environment to receive immutable promotion metadata
+        required: true
+        type: string
+      approval_actor:
+        description: Recorded M-Policy approval actor
+        required: true
+        type: string
+      rollback_digest:
+        description: Previously verified target-environment sha256 or sha512 digest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      OCI_TARGET: ${{ inputs.target }}
+      OCI_BUN_BASE_IMAGE: ${{ vars.OCI_BUN_BASE_IMAGE }}
+      OCI_STATIC_BASE_IMAGE: ${{ vars.OCI_STATIC_BASE_IMAGE }}
+      OCI_RELEASE_IMAGE_REPOSITORY: ${{ vars.OCI_RELEASE_IMAGE_REPOSITORY }}
+      OCI_SOURCE_COMMIT: ${{ github.sha }}
+      OCI_SOURCE_ENVIRONMENT: ${{ inputs.source_environment }}
+      OCI_TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+      OCI_APPROVAL_ACTOR: ${{ inputs.approval_actor }}
+      OCI_ROLLBACK_DIGEST: ${{ inputs.rollback_digest }}
+      COSIGN_IDENTITY: ${{ vars.COSIGN_IDENTITY }}
+      COSIGN_OIDC_ISSUER: ${{ vars.COSIGN_OIDC_ISSUER }}
+      OCI_RELEASE_OUTPUT_DIR: ${{ runner.temp }}/meristem-oci-release
+      OCI_REGISTRY_USERNAME: ${{ secrets.OCI_REGISTRY_USERNAME }}
+      OCI_REGISTRY_TOKEN: ${{ secrets.OCI_REGISTRY_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate OCI repository policy before release tools run
+        run: bun run oci:preflight
+
+      - name: Install Podman
+        run: sudo apt-get update && sudo apt-get install --yes podman
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.20.0
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.10.0
+
+      - name: Require protected registry credentials
+        run: |
+          if [ -z "$OCI_REGISTRY_USERNAME" ] || [ -z "$OCI_REGISTRY_TOKEN" ]; then
+            echo "release_environment_invalid: protected environment must provide OCI registry credentials" >&2
+            exit 1
+          fi
+
+      - name: Authenticate private registry without exposing credentials
+        run: printf '%s' "$OCI_REGISTRY_TOKEN" | podman login --username "$OCI_REGISTRY_USERNAME" --password-stdin "${OCI_RELEASE_IMAGE_REPOSITORY%%/*}"
+
+      - name: Build, attest, sign, verify, and emit immutable promotion metadata
+        run: bun run oci:release
+
+      - name: Upload release evidence and promotion metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oci-release-${{ github.sha }}-${{ inputs.target }}
+          path: ${{ runner.temp }}/meristem-oci-release/
+          if-no-files-found: warn
+          retention-days: 30

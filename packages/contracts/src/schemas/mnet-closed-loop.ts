@@ -88,6 +88,50 @@ export const MNetJoinCredentialSchema = Schema.Struct({
 })
 export type MNetJoinCredentialFromSchema = typeof MNetJoinCredentialSchema.Type
 
+export const MNetCredentialOperationStateSchema = Schema.Literal(
+  'pending_secret',
+  'pending_previous_revoke',
+  'completed'
+)
+export type MNetCredentialOperationStateFromSchema =
+  typeof MNetCredentialOperationStateSchema.Type
+
+/** 凭据操作在外部 SecretProvider 调用前持久化，重启后可继续执行。 */
+export const MNetCredentialOperationSchema = Schema.Struct({
+  operationId: Schema.String,
+  action: Schema.Literal('rotate', 'revoke'),
+  state: MNetCredentialOperationStateSchema,
+  networkId: Schema.String,
+  nodeId: Schema.String,
+  previousCredential: MNetJoinCredentialSchema,
+  replacementCredentialId: Schema.optional(Schema.String),
+  replacementExpiresAt: Schema.optional(Schema.String),
+  replacementCredential: Schema.optional(MNetJoinCredentialSchema),
+  evidence: MNetEvidenceBundleSchema,
+  correlationId: Schema.String,
+  createdAt: Schema.String,
+  lastError: Schema.optional(Schema.String)
+}).pipe(
+  Schema.filter(value => {
+    const issues: Array<Schema.FilterIssue> = []
+    if (
+      value.action === 'rotate' &&
+      (!value.replacementCredentialId || !value.replacementExpiresAt)
+    ) {
+      issues.push(
+        issue(['replacementCredentialId'], 'credential rotation requires replacement metadata')
+      )
+    }
+    if (value.state === 'pending_previous_revoke' && !value.replacementCredential) {
+      issues.push(
+        issue(['replacementCredential'], 'pending previous revocation requires the replacement credential')
+      )
+    }
+    return issues
+  })
+)
+export type MNetCredentialOperationFromSchema = typeof MNetCredentialOperationSchema.Type
+
 export const MNetPendingJoinRequestSchema = Schema.Struct({
   requestId: Schema.String,
   networkId: Schema.String,
@@ -140,19 +184,22 @@ export const MNetJoinApprovalRejectedSchema = Schema.Struct({
   result: Schema.Literal('rejected'),
   request: MNetPendingJoinRequestSchema,
   credential: Schema.Literal(null),
-  policy: MNetPolicyEvidenceSchema,
-  audit: MNetClosedLoopAuditEvidenceSchema,
+  evidence: MNetEvidenceBundleSchema,
   correlationId: Schema.String
 }).pipe(
   Schema.filter(value => {
     const issues: Array<Schema.FilterIssue> = []
     if (value.request.status !== 'rejected')
       issues.push(issue(['request', 'status'], 'rejected join requires a rejected request'))
-    if (value.policy.outcome !== 'deny')
-      issues.push(issue(['policy', 'outcome'], 'rejected join requires M-Policy deny'))
-    if (value.audit.result !== 'denied')
-      issues.push(issue(['audit', 'result'], 'rejected join requires denied Audit evidence'))
-    if (value.request.policyDecisionId !== value.policy.policyDecisionId)
+    if (value.evidence.policy.outcome !== 'allow')
+      issues.push(
+        issue(['evidence', 'policy', 'outcome'], 'join rejection requires M-Policy allow')
+      )
+    if (value.evidence.audit.result !== 'allowed')
+      issues.push(
+        issue(['evidence', 'audit', 'result'], 'join rejection requires allowed Audit evidence')
+      )
+    if (value.request.policyDecisionId !== value.evidence.policy.policyDecisionId)
       issues.push(
         issue(['request', 'policyDecisionId'], 'join rejection must reference its policy decision')
       )
@@ -401,6 +448,22 @@ export const MNetClosedLoopEventSubjectSchema = Schema.Literal(
   'mnet.sidecar.degraded.v0'
 )
 export type MNetClosedLoopEventSubjectFromSchema = typeof MNetClosedLoopEventSubjectSchema.Type
+
+export const MNetClosedLoopPublicationStatusSchema = Schema.Literal('pending', 'published')
+export type MNetClosedLoopPublicationStatusFromSchema =
+  typeof MNetClosedLoopPublicationStatusSchema.Type
+
+export const MNetClosedLoopPublicationSchema = Schema.Struct({
+  status: MNetClosedLoopPublicationStatusSchema,
+  pendingSubjects: Schema.Array(MNetClosedLoopEventSubjectSchema)
+})
+export type MNetClosedLoopPublicationFromSchema = typeof MNetClosedLoopPublicationSchema.Type
+
+export const MNetClosedLoopMutationContractVersionSchema = Schema.Literal(
+  'mnet-closed-loop-mutation@0.1.0'
+)
+export type MNetClosedLoopMutationContractVersionFromSchema =
+  typeof MNetClosedLoopMutationContractVersionSchema.Type
 
 export const MNetClosedLoopEventEnvelopeSchema = Schema.Union(
   Schema.Struct({

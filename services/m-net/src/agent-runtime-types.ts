@@ -1,7 +1,14 @@
 import type { ServerWebSocket } from 'bun'
 import type { MNetDb } from './clients.ts'
 import type { DataPlaneDeps } from './mnet-dataplane-support.ts'
-import type { NodeAgentRuntimeStatus } from '../../../packages/contracts/src/index.ts'
+import type {
+  MNetTunnelHealthFromSchema,
+  NodeAgentRuntimeStatus
+} from '../../../packages/contracts/src/index.ts'
+import type {
+  ClosedLoopFailure,
+  ClosedLoopMutationOutcome
+} from './closed-loop-workflow-types.ts'
 import type { JoinSessionData, PendingTask } from './shared.ts'
 
 export type CredentialStore = Pick<MNetDb, 'insert' | 'update'>
@@ -36,6 +43,11 @@ export type AgentRuntimeDeps = {
     nodeId: string
     runtimeStatus: NodeAgentRuntimeStatus
   }) => Promise<void>
+  reportTunnelHealth?: (input: {
+    networkId: string
+    nodeId: string
+    health: Omit<MNetTunnelHealthFromSchema, 'nodeId' | 'stateSource'>
+  }) => Promise<ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema> | ClosedLoopFailure>
 }
 
 export type AgentRuntimeState = {

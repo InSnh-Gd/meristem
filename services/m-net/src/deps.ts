@@ -27,6 +27,7 @@ import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import type { NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { MNetServiceResult } from './types.ts'
+import type { MNetClosedLoopService } from './closed-loop-workflow.ts'
 
 export type MNetAppDeps = {
   auth: {
@@ -221,5 +222,21 @@ export type MNetAppDeps = {
         }
     >
     reportStatus?(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
+    reportTunnelHealth?(input: {
+      nodeId: string
+      health: Omit<
+        import('../../../packages/contracts/src/index.ts').MNetTunnelHealthFromSchema,
+        'nodeId' | 'stateSource'
+      >
+    }): Promise<
+      | Awaited<ReturnType<MNetClosedLoopService['recordTunnelHealth']>>
+      | {
+          kind: 'failure'
+          status: 400 | 401 | 403 | 404 | 409 | 503
+          error: { code: string; message: string }
+        }
+    >
   }
+  /** Closed-loop service facade; omitted only in narrow route tests that do not exercise it. */
+  closedLoop?: MNetClosedLoopService
 }

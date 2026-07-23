@@ -1,4 +1,5 @@
 import { Elysia, t } from 'elysia'
+import { Value } from '@sinclair/typebox/value'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   NetworkMapFromSchema,
@@ -17,6 +18,7 @@ import {
   nodeKeyRegistrationBodySchema,
   nodeKeyRegistrationResponseSchema
 } from './route-schemas.ts'
+import { tunnelHealthMutationResponseSchema } from './closed-loop-route-schemas.ts'
 
 type NodeRuntimeContext = {
   nodeRuntime: NonNullable<MNetAppDeps['nodeRuntime']>
@@ -116,6 +118,87 @@ const nodeRuntimeStatusBodySchema = t.Object({
       version: t.Optional(t.Number())
     })
   )
+})
+
+const nodeTunnelHealthBodySchema = t.Object({
+  peerNodeId: t.String({ minLength: 1 }),
+  status: t.Union([t.Literal('up'), t.Literal('degraded'), t.Literal('down')]),
+  mode: t.Union([
+    t.Literal('direct'),
+    t.Literal('relay'),
+    t.Literal('forced-relay'),
+    t.Literal('none')
+  ]),
+  latencyMs: t.Optional(t.Number({ minimum: 0 })),
+  packetLossPct: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
+  relayStatus: t.Union([
+    t.Literal('not-required'),
+    t.Literal('available'),
+    t.Literal('forced'),
+    t.Literal('unavailable')
+  ]),
+  checkedAt: t.String({ minLength: 1 })
+})
+
+const latestNetworkMapResponseSchema = t.Object({
+  map: t.Object({
+    profileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
+    networkId: t.String(),
+    members: t.Array(
+      t.Object({
+        nodeId: t.String(),
+        tunnelIp: t.String(),
+        publicKey: t.String(),
+        endpoint: t.Optional(t.String())
+      })
+    ),
+    aclRules: t.Array(
+      t.Object({
+        ruleId: t.String(),
+        action: t.Union([t.Literal('allow'), t.Literal('deny')]),
+        sourceNodeId: t.String(),
+        targetNodeId: t.String(),
+        protocol: t.Union([
+          t.Literal('any'),
+          t.Literal('tcp'),
+          t.Literal('udp'),
+          t.Literal('icmp')
+        ])
+      })
+    ),
+    relayAssignment: t.Optional(
+      t.Object({
+        relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]),
+        relayEndpoint: t.String(),
+        nodeIds: t.Array(t.String())
+      })
+    ),
+    expiresAt: t.Number(),
+    mapVersion: t.Number(),
+    signatureMetadata: t.Object({
+      algorithm: t.Literal('ed25519'),
+      keyId: t.String(),
+      publicKey: t.String(),
+      value: t.String()
+    })
+  }),
+  sidecar: t.Object({
+    signalConfigRef: t.Object({ configRef: t.String() }),
+    relayConfigRef: t.Object({ configRef: t.String() }),
+    stunConfigRef: t.Object({ configRef: t.String() }),
+    sidecarCredentialRef: t.Object({
+      provider: t.String(),
+      keyPath: t.String(),
+      version: t.Optional(t.Number()),
+      metadata: t.Optional(t.Record(t.String(), t.String()))
+    }),
+    desiredState: t.String(),
+    credentialStatus: t.String(),
+    healthStatus: t.String(),
+    managementUrl: t.Optional(t.String()),
+    setupKey: t.Optional(t.String()),
+    configHash: t.Optional(t.String())
+  })
 })
 
 function toLatestNetworkMapResponse(input: {
@@ -236,12 +319,12 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
           return externalApiError(set, result.status, result.error.code, result.error.message)
         }
 
-        return toLatestNetworkMapResponse(result)
+        return Value.Parse(latestNetworkMapResponseSchema, toLatestNetworkMapResponse(result))
       },
       {
         params: nodeIdParamsSchema,
         response: {
-          200: t.Any(),
+          200: latestNetworkMapResponseSchema,
           401: externalWriteErrorResponses[401],
           404: externalWriteErrorResponses[404],
           409: externalWriteErrorResponses[409],
@@ -280,6 +363,45 @@ export function createNodeRuntimeRoutes(deps: Pick<MNetAppDeps, 'nodeRuntime'>) 
         response: {
           200: t.Object({ accepted: t.Literal(true), nodeId: t.String() }),
           401: externalWriteErrorResponses[401],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/tunnel-health',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+        if (!context.nodeRuntime.reportTunnelHealth) {
+          return externalApiError(
+            set,
+            503,
+            'feature.unavailable',
+            'node tunnel health reporting is not available'
+          )
+        }
+        const result = await context.nodeRuntime.reportTunnelHealth({
+          nodeId: params.nodeId,
+          health: body
+        })
+        if (result.kind === 'failure') {
+          return externalApiError(set, result.status, result.error.code, result.error.message)
+        }
+        return Value.Parse(tunnelHealthMutationResponseSchema, result)
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: nodeTunnelHealthBodySchema,
+        response: {
+          200: tunnelHealthMutationResponseSchema,
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
           503: externalWriteErrorResponses[503]
         }
       }

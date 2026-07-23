@@ -1,8 +1,13 @@
 
 import type {
+  MNetTunnelHealthFromSchema,
   NodeAgentRuntimeDesiredSidecar,
   NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
+import type {
+  ClosedLoopFailure,
+  ClosedLoopMutationOutcome
+} from './closed-loop-workflow-types.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { decodeMNetProfileV03Compatibility } from '../../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 import { validateNodeCredential } from './agent-runtime-session-lifecycle.ts'
@@ -30,6 +35,12 @@ type NodeRuntimeFacade = {
     endpoint?: string
   }): Promise<NodeKeyRegistrationSuccess | ProfileWorkflowFailure>
   reportStatus(input: { nodeId: string; runtimeStatus: NodeAgentRuntimeStatus }): Promise<void>
+  reportTunnelHealth(input: {
+    nodeId: string
+    health: Omit<MNetTunnelHealthFromSchema, 'nodeId' | 'stateSource'>
+  }): Promise<
+    ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema> | ClosedLoopFailure | ProfileWorkflowFailure
+  >
 }
 
 async function resolveSidecarRuntimeState(
@@ -91,6 +102,11 @@ export function createNodeRuntimeFacade(input: {
     nodeId: string
     runtimeStatus: NodeAgentRuntimeStatus
   }) => Promise<void>
+  reportTunnelHealth?: (input: {
+    networkId: string
+    nodeId: string
+    health: Omit<MNetTunnelHealthFromSchema, 'nodeId' | 'stateSource'>
+  }) => Promise<ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema> | ClosedLoopFailure>
 }): NodeRuntimeFacade | null {
   const dataPlaneDeps = input.dataPlaneDeps
   if (!dataPlaneDeps) return null
@@ -137,6 +153,26 @@ export function createNodeRuntimeFacade(input: {
         networkId: guard.networkId,
         nodeId: payload.nodeId,
         runtimeStatus: payload.runtimeStatus
+      })
+    },
+    async reportTunnelHealth(payload) {
+      const guard = await guardLegacyNodeRuntime(input.db, payload.nodeId)
+      if ('kind' in guard) return guard
+      if (!input.reportTunnelHealth) {
+        return {
+          kind: 'failure',
+          status: 503,
+          error: {
+            code: 'feature.unavailable',
+            message: 'node tunnel health reporting is not available'
+          },
+          recovery: 'no_side_effect'
+        }
+      }
+      return input.reportTunnelHealth({
+        networkId: guard.networkId,
+        nodeId: payload.nodeId,
+        health: payload.health
       })
     }
   }

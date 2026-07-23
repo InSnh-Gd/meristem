@@ -102,6 +102,16 @@ docker compose --profile apisix config
 rg -n "/internal/v0|/api/v0/\*" ops/apisix/apisix.yaml
 ```
 
+OCI static build and promotion checks:
+
+```bash
+bun run oci:preflight
+bun test tests/contracts/oci-pipeline.contract.test.ts \
+  tests/failure-modes/oci-pipeline.failure-mode.test.ts
+```
+
+These checks validate every OCI target, immutable base-image requirements, promotion provenance and rollback metadata, and secret-free build contexts. They are dry-run-only: registry push and Cosign signing require an authorized release environment and must never be faked by CI.
+
 APISIX, Redis, and OpenSearch profiles must not become prerequisites for the standard test suite.
 
 No core capability is complete until these pass or an explicit documented exception exists.
@@ -288,6 +298,20 @@ Required command gate:
 ```bash
 bun run test:failure-modes
 ```
+
+### 5.1.1 M-Net Closed-Loop Gates
+
+Closed-loop M-Net work is incomplete unless these focused suites pass together:
+
+```bash
+bun test tests/contracts/mnet-closed-loop.contract.test.ts \
+  tests/contracts/mnet-closed-loop-routes.contract.test.ts \
+  tests/contracts/mnet-node-runtime-tunnel-health.contract.test.ts \
+  tests/services/m-net/closed-loop-workflow.test.ts \
+  tests/failure-modes/mnet-closed-loop.failure-mode.test.ts
+```
+
+The suites must prove explicit authorized join rejection, policy/Audit fail-closed behavior with no authoritative mutation, credential issue/rotate/revoke failure handling, PostgreSQL decode/storage failure mapping, durable pending EventBus publication and retry, typed sidecar degradation, node-runtime-only tunnel health reporting, forced relay denial with `sideEffect: "none"`, profile migration compensation, and two-person break-glass expiry at exactly 30 minutes. Route suites must include malformed TypeBox input and reject the removed public tunnel-health writer.
 
 When claiming that M-Net virtual networking is **really usable** (not only control-plane healthy), pair the automated gates above with the operator runbook proof in `docs/operations/M-NET-THREE-NODE-VALIDATION.md`, including at least one successful in-tunnel flow over the published `100.96.x.x` addresses on the live harness.
 

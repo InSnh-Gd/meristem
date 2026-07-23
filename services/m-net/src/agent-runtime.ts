@@ -14,7 +14,8 @@ export function createAgentRuntime({
   writeFull,
   writeAudit,
   dataPlaneDeps,
-  reportRuntimeStatus
+  reportRuntimeStatus,
+  reportTunnelHealth
 }: AgentRuntimeDeps) {
   const context = {
     db,
@@ -29,7 +30,8 @@ export function createAgentRuntime({
   const nodeRuntimeInput = {
     db,
     ...(dataPlaneDeps !== undefined ? { dataPlaneDeps } : {}),
-    ...(reportRuntimeStatus ? { reportRuntimeStatus } : {})
+    ...(reportRuntimeStatus ? { reportRuntimeStatus } : {}),
+    ...(reportTunnelHealth ? { reportTunnelHealth } : {})
   }
   const nodeRuntime = createNodeRuntimeFacade(nodeRuntimeInput)
 

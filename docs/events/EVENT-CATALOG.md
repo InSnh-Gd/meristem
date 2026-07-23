@@ -29,6 +29,7 @@ Rules:
 - `version` is required.
 - `correlationId` must propagate across command -> event -> log -> trace when available.
 - Consumers must be idempotent by `id` or domain-specific key.
+- M-Net closed-loop mutations commit authoritative facts and event intents in one PostgreSQL transaction. If EventBus delivery fails, the service returns `publication.status = pending` and retries the durable intent at least once after startup; consumers must therefore tolerate duplicate delivery.
 
 ---
 
@@ -95,19 +96,19 @@ Rules:
 | `mnet.migration.required.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetMigrationRequiredPayload` | at-least-once |
 | `mnet.forced_relay.change.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayChangePayload` | at-least-once |
 | `mnet.credential.expiry.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialExpiryPayload` | at-least-once |
-| `mnet.join.requested.v0` | event | M-Net | M-Policy, M-Log, M-UI BFF | `MNetPendingJoinRequest` | at-least-once |
-| `mnet.join.approved.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetJoinApprovalGranted` | at-least-once |
-| `mnet.join.rejected.v0` | event | M-Net | M-Log, M-UI BFF | `MNetJoinApprovalRejected` | at-least-once |
-| `mnet.credential.issued.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
-| `mnet.credential.rotated.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
-| `mnet.credential.revoked.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
-| `mnet.topology.view.updated.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetTopologyView` | at-least-once |
-| `mnet.topology.map.status.v0` | event | M-Net | node-agent, M-Log, M-UI BFF | `MNetSignedTopologyMapStatus` | at-least-once |
-| `mnet.tunnel.health.v0` | event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetTunnelHealth` | at-least-once |
-| `mnet.relay_policy.changed.v0` | event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayPolicyResult` | at-least-once |
-| `mnet.profile.migration.changed.v0` | event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetProfileMigrationResult` | at-least-once |
-| `mnet.break_glass.changed.v0` | event | M-Net | Core, M-Log, M-Policy, M-UI BFF | `MNetBreakGlassGrant` | at-least-once |
-| `mnet.sidecar.degraded.v0` | event | M-Net | Core, M-Log, M-UI BFF | `MNetSidecarStatus` | at-least-once |
+| `mnet.join.requested.v0` | active event | M-Net | M-Policy, M-Log, M-UI BFF | `MNetPendingJoinRequest` | at-least-once |
+| `mnet.join.approved.v0` | active event | M-Net | node-agent, M-Log, M-UI BFF | `MNetJoinApprovalGranted` | at-least-once |
+| `mnet.join.rejected.v0` | active event | M-Net | M-Log, M-UI BFF | `MNetJoinApprovalRejected` | at-least-once |
+| `mnet.credential.issued.v0` | active event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.credential.rotated.v0` | active event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.credential.revoked.v0` | active event | M-Net | node-agent, M-Log, M-UI BFF | `MNetCredentialLifecycleResult` | at-least-once |
+| `mnet.topology.view.updated.v0` | active event | M-Net | Core, M-Log, M-UI BFF | `MNetTopologyView` | at-least-once |
+| `mnet.topology.map.status.v0` | active event | M-Net | node-agent, M-Log, M-UI BFF | `MNetSignedTopologyMapStatus` | at-least-once |
+| `mnet.tunnel.health.v0` | active event | M-Net | M-Log, M-Policy, M-UI BFF | `MNetTunnelHealth` | at-least-once |
+| `mnet.relay_policy.changed.v0` | active event | M-Net | node-agent, M-Log, M-Policy, M-UI BFF | `MNetForcedRelayPolicyResult` | at-least-once |
+| `mnet.profile.migration.changed.v0` | active event | M-Net | Core, node-agent, M-Log, M-UI BFF | `MNetProfileMigrationResult` | at-least-once |
+| `mnet.break_glass.changed.v0` | active event | M-Net | Core, M-Log, M-Policy, M-UI BFF | `MNetBreakGlassGrant` | at-least-once |
+| `mnet.sidecar.degraded.v0` | active event | M-Net | Core, M-Log, M-UI BFF | `MNetSidecarStatus` | at-least-once |
 | `mdeploy.proposal.created.v0` | active event | M-Deploy | M-Policy, M-Log, M-UI BFF | `MDeployProposalCreatedPayloadSchema` | at-least-once |
 | `mdeploy.approval.recorded.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployApprovalRecordedPayloadSchema` | at-least-once |
 | `mdeploy.apply.started.v0` | active event | M-Deploy | M-Log, M-UI BFF | `MDeployApplyStartedPayloadSchema` | at-least-once |

@@ -122,25 +122,27 @@ describe('M-Net closed-loop operation contracts', () => {
     expect(decoded.credential.status).toBe('issued')
   })
 
-  it('join denial produces no join credential and still writes denial audit evidence', () => {
+  it('authorized join rejection produces no credential and carries allow evidence', () => {
     const decoded = Schema.decodeUnknownSync(MNetJoinApprovalResultSchema)({
       result: 'rejected',
       request: pendingJoin({ status: 'rejected', policyDecisionId: 'pd-mnet-deny' }),
       credential: null,
-      policy: policy({
-        policyDecisionId: 'pd-mnet-deny',
-        outcome: 'deny',
-        reason: 'node is outside approved topology'
+      evidence: evidence({
+        policy: {
+          policyDecisionId: 'pd-mnet-deny',
+          outcome: 'allow',
+          reason: 'operator is authorized to reject this join'
+        },
+        audit: { action: 'mnet.join.reject', result: 'allowed' }
       }),
-      audit: audit({ action: 'mnet.join.reject', result: 'denied' }),
       correlationId
     })
 
     expect(decoded.result).toBe('rejected')
     if (decoded.result !== 'rejected') throw new Error('expected rejected join')
     expect(decoded.credential).toBeNull()
-    expect(decoded.audit.result).toBe('denied')
-    expect(decoded.audit.source).toBe('m-log-audit')
+    expect(decoded.evidence.audit.result).toBe('allowed')
+    expect(decoded.evidence.audit.source).toBe('m-log-audit')
   })
 
   it('credential revocation invalidates existing tunnels and records policy plus audit', () => {

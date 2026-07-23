@@ -157,6 +157,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 |------------|--------------|------|
 | `network:create` | create logical networks | high |
 | `network:join` | add a node to a logical network or approve/reject a pending join request | high |
+| `network:read` | read the closed-loop topology view | medium |
 | `network-profile:read` | list or show profile definitions and state | medium |
 | `network-profile:apply` | enable a profile on a network | high |
 | `network-profile:disable` | disable a profile on a network | medium |
@@ -166,7 +167,10 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 | `node:recover` | transition a disabled or isolated node back to runtime-derived status | high |
 | `network:profile-enable` | run M-Net profile migration or enable relay policy | high |
 | `network:profile-disable` | roll back a profile or disable relay policy as risk reduction | medium |
-| `node:issue-token` | issue, rotate, or revoke a join credential | high |
+| `secret:rotate` | rotate a join credential | high |
+| `secret:disable` | revoke a join credential | high |
+| `node:isolate` | initiate a network break-glass grant | high |
+| `policy:approval-approve` | provide the independent second break-glass approval | high |
 
 ---
 
@@ -178,6 +182,8 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 | M-Task | service | task delivery orchestration degrades; task lifecycle ownership remains external |
 | M-Policy | service | protected profile and membership operations fail closed |
 | M-Log | service | required Timeline / Audit writes block high-risk operations |
+| M-EventBus | service | mutation remains committed with a durable pending publication intent and retries at least once |
+| SecretProvider | service | credential issue/rotate/revoke fails closed; rotation and revocation persist an explicit M-Net credential operation before the external action, leave pending operations ineligible for tunnels, and resume them during startup and recovery sweeps |
 | PostgreSQL | datastore | authoritative network and profile state writes fail closed |
 
 ---

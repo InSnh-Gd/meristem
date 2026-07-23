@@ -5,6 +5,20 @@ import type postgres from 'postgres'
  */
 export async function migrateMNetDataPlane(tx: postgres.TransactionSql) {
   await tx`
+    create table if not exists mnet_closed_loop_facts (
+      fact_kind text not null,
+      fact_id text not null,
+      network_id text not null references networks(id),
+      payload jsonb not null,
+      updated_at timestamptz not null,
+      primary key (fact_kind, fact_id)
+    )
+  `
+  await tx`
+    create index if not exists mnet_closed_loop_facts_network_kind_idx
+    on mnet_closed_loop_facts (network_id, fact_kind)
+  `
+  await tx`
     create table if not exists mnet_profile_migrations (
       network_id text not null references networks(id),
       operation_id text not null,

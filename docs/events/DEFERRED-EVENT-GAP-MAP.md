@@ -3,7 +3,7 @@
 > Checked-in map of every event catalog subject that remains deferred after the current contract baseline.
 > A subject is deferred when it has neither a real `publish()` call nor an explicitly contract-activated schema/fixture mapping.
 > This map is a deferred-coverage audit artifact; it does not add schemas, publishers, or fixtures.
-> Contract-activated M-Net closed-loop subjects remain publisher-deferred even though their schema coverage is active.
+> M-Net closed-loop subjects are active through durable event-intent publishers and are not part of this deferred map.
 
 ---
 
@@ -11,9 +11,9 @@
 
 - `EVENT-CATALOG.md` remains the canonical event registry.
 - This file is a checked-in audit map of catalog subjects that are still deferred in the active codebase.
-- Active publisher subjects and explicitly contract-activated M-Net subjects have Effect Schema coverage and are intentionally absent from this contract-gap table.
-- Contract-activated M-Net closed-loop subjects must remain absent from `activePublishedEventSubjects` until T15 adds real service publishers.
-- The scanner behind `getActivePublisherSubjects()` reads literal subjects from `publish()`, `publishTaskEvent()`, `publish.post({ subject: ... })`, and known dynamic helpers in `services/m-extension/src/`. `getActiveCoverageSubjects()` additionally includes M-Net data-plane and closed-loop subjects whose versioned schemas and fixtures are activated before their service publishers land.
+- Active publisher subjects have Effect Schema coverage and are intentionally absent from this contract-gap table.
+- M-Net closed-loop subjects are active publishers because their authoritative mutations transactionally persist durable event intents and the production composition retries pending delivery.
+- The scanner behind `getActivePublisherSubjects()` reads literal subjects from `publish()`, `publishTaskEvent()`, `publish.post({ subject: ... })`, workflow subject options, durable event-intent objects, and known dynamic helpers in `services/m-extension/src/`. `getActiveCoverageSubjects()` additionally includes versioned schema and fixture mappings.
 
 ## Deferred event gap map
 

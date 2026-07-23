@@ -825,6 +825,45 @@ Protected by `network:read`.
 
 Returns logical network members or `404` if the network does not exist.
 
+### 6.1 M-Net Closed-Loop Management (M-Net External)
+
+M-Net exposes the following bearer-authenticated management routes under `/api/v0/mnet/closed-loop`. The canonical Effect contracts live in `packages/contracts/src/schemas/mnet-closed-loop.ts`; the executable HTTP adapters live in `services/m-net/src/closed-loop-route-schemas.ts` and are validated for every successful response.
+
+| Route | Permission / Trust Boundary | Request |
+|-------|-----------------------------|---------|
+| `POST /join-requests` | `network:join` + Audit | `nodeId`, `networkId`, `requestedProfileVersion`, `expiresAt` |
+| `POST /join-requests/:requestId/decision` | `network:join` + Audit | `{ decision: "approve", credentialExpiresAt }` or `{ decision: "reject", reason }` |
+| `POST /credentials/:credentialId/rotate` | `secret:rotate` + Audit | `expiresAt`, `reason` |
+| `POST /credentials/:credentialId/revoke` | `secret:disable` + Audit | `reason` |
+| `GET /networks/:networkId/topology` | `network:read` | none |
+| `PUT /networks/:networkId/relay-policy` | `network:profile-enable` or `network:profile-disable` + Audit | selector, enabled, reason |
+| `POST /migrations` | `network:profile-enable` + Audit | `networkId`, source/target profile versions, reason |
+| `POST /migrations/:migrationId/rollback` | `network:profile-disable` + Audit | `reason` |
+| `POST /break-glass` | `node:isolate` + Audit | `networkId`, `reason` |
+| `POST /break-glass/:grantId/approve` | `policy:approval-approve` + Audit | none |
+
+Explicit join rejection is an authorized operation. A policy denial of the decision command returns `MNetOperationDenied`, leaves the pending request unchanged, and does not issue a credential or publish a mutation event.
+
+Successful mutations return the versioned adapter envelope:
+
+```ts
+type MNetClosedLoopMutationResponse<T> = {
+  kind: "mutation";
+  contractVersion: "mnet-closed-loop-mutation@0.1.0";
+  value: T;
+  publication: {
+    status: "published" | "pending";
+    pendingSubjects: string[];
+  };
+};
+```
+
+`pending` means the authoritative PostgreSQL mutation and its event intent committed atomically, but EventBus delivery must be retried. It is not reported as a failed or rolled-back mutation. Policy/Audit/storage failures use the standard error envelope and occur before authoritative mutation; credential or migration compensation failures remain typed at the service boundary for operator recovery.
+
+Tunnel health is not writable through `/api/v0/mnet/closed-loop`. Node runtime agents report it through `POST /api/v0/node-runtime/nodes/:nodeId/tunnel-health`; the route requires the node runtime token, derives `nodeId` and `networkId` from trusted server context, and fixes `stateSource` to `node-runtime-report`. The body accepts only `status`, `peerCount`, optional latency/loss, `checkedAt`, and `reason`.
+
+Malformed TypeBox input returns `422`. Missing/invalid bearer or node runtime credentials return `401`; policy denial returns `403`; unavailable policy, Audit, storage, or required side effects return typed `503` errors.
+
 ---
 
 ## 7. Tasks

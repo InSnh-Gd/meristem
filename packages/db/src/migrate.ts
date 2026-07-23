@@ -29,6 +29,8 @@ import { migrateServices } from './migrate-services.ts'
 // create unique index if not exists mnet_data_plane_operation_locks_lock_row_unique
 // create table if not exists mnet_sidecar_desired_configs
 // create table if not exists mnet_partition_states
+// create table if not exists mnet_closed_loop_facts
+// create index if not exists mnet_closed_loop_facts_network_kind_idx
 
 const sql = createSqlClient()
 
