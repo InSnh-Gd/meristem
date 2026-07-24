@@ -54,6 +54,31 @@ bun run oci:preflight
 bun run oci:build --target=m-ui --dry-run
 ```
 
+### Docker Compose Compatibility Gate
+
+Docker Compose is a compatibility-only renderer for the versioned M-Deploy desired-state subset. It is useful for local migration checks and manifest portability, but it is not a production deployment path or an HA/security readiness signal.
+
+```bash
+# Render and validate the generated Compose manifest. `config --quiet` needs the
+# Docker Compose CLI but does not contact the Docker daemon.
+bun test tests/integration/docker-compose-compat-proof.test.ts
+
+# Opt into a local runtime smoke only when the Docker daemon and a local,
+# digest-pinned alpine image are available.
+MERISTEM_MDEPLOY_DOCKER_COMPOSE_PROOF=1 \
+  bun test tests/integration/docker-compose-compat-proof.test.ts
+```
+
+The Compose proof must remain separate from the Podman/systemd production gate. In particular, Docker Compose does **not** provide:
+
+- systemd supervision, user-unit ordering, or the rootless `meristem.target` lifecycle;
+- Podman Quadlet generation, installation, reload, or unit-manager drift checks;
+- M-Deploy-controlled rollback, signature/policy/Audit orchestration, or recovery by itself;
+- production runtime-health integration or the Podman full-HA/no-gap replacement proof; or
+- restart semantics equivalent to the systemd-managed production runtime.
+
+A failed or skipped Docker compatibility proof must not block Podman production readiness; conversely, a passing Compose proof must never be used to claim Podman/systemd parity.
+
 Development process groups:
 
 - `bun run dev:core` - starts Docker Compose PostgreSQL + NATS, runs cert generation + migrations + seed data, then launches the full backend control-plane process group.

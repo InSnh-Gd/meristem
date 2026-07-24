@@ -102,6 +102,30 @@ docker compose --profile apisix config
 rg -n "/internal/v0|/api/v0/\*" ops/apisix/apisix.yaml
 ```
 
+### M-Deploy Docker Compose Compatibility Gate
+
+```bash
+# Always proves versioned desired-state rendering and compatibility-only labels.
+# When the Docker Compose CLI is installed, it also runs `docker compose config --quiet`.
+bun test tests/integration/docker-compose-compat-proof.test.ts
+
+# Optional local runtime smoke. It requires Docker daemon access and a locally cached,
+# digest-pinned docker.io/library/alpine:3.20 image.
+MERISTEM_MDEPLOY_DOCKER_COMPOSE_PROOF=1 \
+  bun test tests/integration/docker-compose-compat-proof.test.ts
+```
+
+The static config invocation deliberately does not probe or contact the Docker daemon; it is a pure Compose manifest validation. If the Compose CLI is absent, that CLI-specific assertion skips explicitly while renderer and compatibility-boundary assertions still run. The live smoke also skips explicitly unless its opt-in environment variable, Docker daemon, and local pinned image are all available.
+
+This is a compatibility gate only. It must not replace, weaken, or block the Podman/user-systemd production proof:
+
+```bash
+MERISTEM_MDEPLOY_FULL_HA_PROOF=1 \
+  bun test tests/integration/mdeploy-full-ha-proof.test.ts
+```
+
+Compose does not prove systemd supervision, Quadlet lifecycle management, M-Deploy rollback/recovery, runtime-health integration, production restart semantics, or full-HA replacement behavior. A Compose failure or skip therefore does not make the Podman production gate fail; a Compose pass is never production-equivalence evidence.
+
 OCI static build and promotion checks:
 
 ```bash
