@@ -737,3 +737,70 @@ bun test tests/guards/evidence-paths.test.ts
 ```
 
 此守卫是独立门禁，不并入 `test:agent-submit`。生产轨道实现任务（T7-T30）必须在提交前确保此守卫通过。
+
+---
+
+## 10. Production Operator Validation Workflows
+
+Production validation proves the operator contracts in `docs/operations/RUNBOOK.md`; it does not turn Docker Compose, a local test double, a search index, or a dashboard into a production authority. All test-generated evidence uses `tests/evidence/` or a temporary directory. Operators run commands directly and must never pipe secret material, Vault output, tokens, private keys, unseal shares, or raw request headers into an evidence file.
+
+### 10.1 Required Submit and Production Baseline
+
+Run the focused submit guard for every documentation, contract, or implementation change:
+
+```bash
+bun run test:agent-submit
+```
+
+Before a production change, use the complete Bun-only validation baseline:
+
+```bash
+bun run format:check
+bun run lint
+bun run typecheck
+bun run typecheck:e2e
+bun run typecheck:m-ui
+bun run test:v02-gates
+```
+
+`test:v02-gates` includes the relevant contract, failure-mode, integration, CLI, UI-contract, and submit coverage. It does not prove live credential custody, an external IdP, a Vault ceremony, OCI registry publication, or a real multi-host data plane; those concerns require the scoped workflows below.
+
+### 10.2 Workflow-to-Gate Matrix
+
+| Production workflow | Trigger | Steps | Verification | Failure / rollback expectation |
+|---------------------|---------|-------|--------------|--------------------------------|
+| Bootstrap or rebuild | new control/state host or DR rehearsal | `bun run oci:preflight`; `bun run test:v02-gates`; `bun run mnet:libvirt-validation-gate` | image/provenance checks, authority contracts, and topology validation pass | do not start promotion; correct trust, runtime, or topology failure and repeat from the last verified state |
+| Podman production runtime | promotion candidate or runtime change | `MERISTEM_MDEPLOY_FULL_HA_PROOF=1 bun test tests/integration/mdeploy-full-ha-proof.test.ts` | rootless Podman, user-systemd/Quadlet lifecycle, replacement behavior, and runtime health are proven | block production apply; do not substitute Docker Compose or a manual container restart |
+| Docker compatibility | renderer/migration compatibility only | `bun test tests/integration/docker-compose-compat-proof.test.ts`; `docker compose config --quiet` | desired-state rendering and Docker-compatible manifest validation pass or explicitly skip | fix only the compatibility renderer; a failure does not invalidate a passing Podman production proof |
+| Propose, approve, and promote | signed desired-state and immutable OCI artifact are ready | `bun run oci:preflight`; `bun run test:contracts`; `bun run test:failure-modes`; `bun run test:integration`; `bun run test:e2e` | signed-envelope, two-person approval, provenance, Audit/evidence, and agent pull-reconcile tests pass | a rejected signature, policy proof, Audit write, or agent check blocks apply; test the separately authorized rollback path |
+| M-Deploy rollback and drift | runtime mismatch, failed rollout, or disconnected agent | `bun run test:failure-modes`; `bun run test:integration`; `bun run test:e2e` | drift is non-mutating; rollback uses a verified pointer and separate authorization | never repair drift through SSH, mutable tags, direct container replacement, or a Git write from M-Deploy |
+| M-Net lifecycle | join, profile migration, credential change, or sidecar change | `bun run test:failure-modes`; `bun run test:contracts`; `bun run mnet:v02:sidecar-proof` | policy/Audit before mutation, stale-map fail-closed, typed sidecar degradation, and redaction tests pass | isolate/disable through the authorized control path; a proof failure cannot be mocked into production readiness |
+| OIDC/local IAM and break-glass | IdP configuration change, principal lifecycle change, or outage rehearsal | `bun run test:contracts`; `bun run test:failure-modes`; `bun run test:e2e` | issuer+subject binding, pending-principal denial, session protections, two-person 30-minute break-glass, and Audit behavior pass | IdP outage must fail closed; revoke or expire break-glass and reauthenticate after recovery |
+| Vault and SecretProvider | unseal/rekey drill, SecretRef rotation, or restore rehearsal | `bun run test:contracts`; `bun run test:failure-modes`; `bun run test:integration` | sealed, unavailable, quorum-lost, stale, denied, revoked, rotation, and redaction paths pass | secret-bearing apply fails closed; do not use a plaintext local fallback or expired cache |
+| OpenSearch, Dashboards, and observability | index/template change, alert change, snapshot drill, or service outage | `bun run test:opensearch-failure-modes`; `bun run test:opensearch-contracts`; `bun run test:opensearch-integration`; `bun ops/opensearch/scripts/snapshot-restore-drill.ts --fixture` | write authority remains PostgreSQL/M-Log; Dashboards is read-only; restored projections rebuild from authority | remove/restore the projection path and rebuild; never reconstruct authority or Audit from OpenSearch |
+| Backup/restore | scheduled DR exercise or recovery declaration | `bun run test:failure-modes`; `bun run test:integration`; `bun ops/opensearch/scripts/snapshot-restore-drill.ts --fixture` | restore order, SecretRef reconciliation, audit preservation, and projection rebuild behavior pass | stop at the failed stage and restore the prior known-good recovery point; high-risk operations stay blocked until Audit is healthy |
+
+The Podman full-HA proof is opt-in because it exercises a real runtime boundary. Its absence is an explicit unproven environment condition, not a reason to claim Docker equivalence. `bun run mnet:v02:sidecar-proof` is likewise a live viability gate and must never be replaced by a mock in CI.
+
+### 10.3 Incident Test Expectations
+
+Every incident playbook must be backed by a failure-mode test before its remediation can be declared ready. Run the focused command group, then rerun `bun run test:agent-submit` after documentation or contract edits.
+
+| Incident | Required safe behavior | Minimum command group | Recovery assertion |
+|----------|------------------------|-----------------------|--------------------|
+| IdP outage | OIDC login and freshness-dependent sessions fail closed; only audited two-person local-IAM break-glass is available | `bun run test:failure-modes`; `bun run test:e2e`; `bun run test:contracts` | restored IdP requires issuer/JWKS revalidation and normal session establishment |
+| Vault sealed, unavailable, or quorum lost | secret reads, rotations, deployment resolution, and secret-dependent issue/rotation operations fail closed | `bun run test:failure-modes`; `bun run test:integration` | unseal/recovery restores redacted SecretRef resolution without a local plaintext fallback |
+| OpenSearch or Dashboards degraded | control, policy, PostgreSQL, and Audit continue; search/read models visibly degrade | `bun run test:opensearch-failure-modes`; `bun run test:opensearch-contracts`; `bun run test:opensearch-integration` | projections rebuild from PostgreSQL/M-Log and Dashboards remains read-only behind its proxy |
+| M-Deploy drift | no live mutation from a drift check; invalid desired state, agent trust, digest, or audit path blocks reconcile | `bun run test:failure-modes`; `bun run test:integration`; `bun run test:e2e` | only a separately authorized verified rollback or new promotion resolves drift |
+| M-Net sidecar failure | typed degraded fact; stale signed map expires into tunnel teardown/fail-closed | `bun run test:failure-modes`; `bun run mnet:v02:sidecar-proof` | fresh signed map and local sidecar probe are required before healthy state returns |
+| Failed Audit writes | all high-risk operations block before authoritative mutation | `bun run test:failure-modes`; `bun run test:contracts` | a verified successful Audit write is required before restricted control paths reopen |
+
+### 10.4 Evidence Review Rules
+
+Evidence is an operator aid, not a substitute for authority facts. A review must confirm all of the following:
+
+- a correlation ID joins the test, policy decision, Audit fact, runtime operation, and recovery result;
+- evidence contains only IDs, digests, redacted references, timestamps, status, and approved diagnostic metadata;
+- OpenSearch/Dashboards, Prometheus/Grafana/Alertmanager, and OTel are marked as degradable/read-only observation systems;
+- the report distinguishes a skipped live-environment proof from a passing proof; and
+- a failed production gate identifies the blocking authority and the safe rollback or containment action.

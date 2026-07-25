@@ -1,6 +1,6 @@
 # Operations Runbook
 
-> This runbook defines the minimum operational expectations before and during v0.1 implementation.
+> This runbook defines the operational contract for local v0.1 work and the post-v0.1 production track. Production runs on rootless Podman Quadlet units supervised by user systemd; Docker Compose is supported only to validate renderer compatibility and local migration assumptions. Neither is a Kubernetes or service-mesh deployment path.
 
 ---
 
@@ -750,3 +750,295 @@ Optional deployment pack:
 - detailed profile commands and failure behavior live in `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`.
 - APISIX, Redis, and OpenSearch profiles are optional and must not become test or local development prerequisites.
 - `ops/compose/full-stack.example.yml` is topology documentation, not a production deployment or CI gate.
+
+---
+
+## 11. Production Operator Workflows
+
+This section is the executable production counterpart to the trust chain and the subsystem RPO/RTO table in §8. A workflow completes only after its verification step succeeds and its Timeline, Full, Audit, and evidence metadata can be correlated. Automation may write non-secret evidence under `tests/evidence/`; never redirect tokens, unseal shares, private keys, or plaintext secret values into evidence or shell history.
+
+### 11.1 Runtime Compatibility Contract
+
+| Runtime | Supported use | Required conclusion |
+|---------|---------------|---------------------|
+| Podman + Quadlet + user systemd | production apply, promotion, rollback, health and drift reconciliation | production runtime of record |
+| Docker Compose | local renderer validation and migration compatibility only | never production readiness, HA, rollback, or supervision evidence |
+| Kubernetes / Helm / service mesh | none | not a supported deployment path |
+
+Run this before any production change:
+
+```bash
+podman info --format '{{.Host.Security.Rootless}}'
+systemctl --user is-system-running
+systemctl --user status meristem.target
+podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+```
+
+`podman info` must report a rootless-capable runtime, user systemd must be operational, and every running image must match the approved immutable digest. A Docker-compatible renderer check is intentionally separate:
+
+```bash
+bun test tests/integration/docker-compose-compat-proof.test.ts
+docker compose config --quiet
+```
+
+If either Docker command is unavailable or fails, fix the compatibility issue only when that compatibility is required; do not substitute Docker results for the Podman production proof. If the Podman checks fail, do not promote or reconcile. Restore the previous verified Podman desired-state through §11.4 after runtime health recovers.
+
+### 11.2 Bootstrap a Production Control Plane
+
+**Trigger:** first installation, a new control/state VM, or a deliberate rebuild after disaster recovery.
+
+**Steps:**
+
+```bash
+bun run oci:preflight
+bun run test:v02-gates
+vault operator status
+systemctl --user daemon-reload
+systemctl --user start meristem.target
+```
+
+Complete the offline root-of-trust, intermediate-CA, Vault custody, workload-identity, deployment-agent enrollment, and signed desired-state checks in §8.1 before starting the target. The bootstrap operator must use a protected terminal for any Vault ceremony; do not place material in shell variables, shell history, source control, or evidence.
+
+**Verification:**
+
+```bash
+systemctl --user status meristem.target
+podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/openapi.json" >/dev/null
+vault operator status
+```
+
+The Core must be ready, Vault must be unsealed and have quorum, and Podman must show digest-pinned workloads. The deployment controller must report a fresh signed desired-state before it is allowed to reconcile.
+
+**Rollback:** stop the newly started target, retain diagnostics without credentials, correct the failed trust or runtime dependency, and start from the last verified desired-state only:
+
+```bash
+systemctl --user stop meristem.target
+systemctl --user reset-failed meristem.target
+```
+
+Do not attempt a manual live-state edit, controller SSH push, or an unsigned image substitution as a bootstrap rollback.
+
+### 11.3 Propose, Approve, and Promote Desired State
+
+**Trigger:** a signed Git desired-state commit and immutable OCI artifacts are ready to move to the next environment.
+
+**Steps:** inspect the current authority state, submit a proposal using the versioned request described by Core OpenAPI, record independent approval, then queue the agent pull-reconcile:
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/desired-state"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @<verified-proposal-request.json> \
+  "$MERISTEM_CORE_URL/api/v0/deploy/proposals"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/proposals/<proposal-id>/approve"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"proposalId":"<proposal-id>","agentId":"<agent-id>"}' \
+  "$MERISTEM_CORE_URL/api/v0/deploy/apply"
+```
+
+The proposer cannot satisfy the approval requirement. Production apply requires the M-Policy proof for two distinct eligible security-admin approvers, a valid signature, digest pin, provenance/SBOM references, and an Audit write before the agent receives work.
+
+**Verification:**
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/agents"
+
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/evidence"
+
+systemctl --user status meristem.target
+podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+```
+
+Verify the reported operation and evidence IDs, the agent acknowledgement, the applied digest, and service readiness. `publicationStatus: pending` means runtime truth and evidence intent are durable but EventBus delivery is retryable; do not resubmit the operation solely because publication is pending.
+
+**Rollback:** if readiness, image-digest verification, policy, Audit, signature verification, or an agent acknowledgement fails, do not force a rerun. Use §11.4 to restore a previous verified digest after a new policy decision and Audit chain.
+
+### 11.4 Rollback and Drift Reconciliation
+
+**Trigger:** a failed promotion, a health regression, an immutable-digest mismatch, drift reported by an enrolled agent, or a reconciliation blocked after the Git snapshot TTL.
+
+**Steps:** read drift first; drift scan is non-mutating. For a confirmed unsafe state, queue a separate rollback against the previous verified digest. The supplied request must match the versioned OpenAPI schema.
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/drift"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/drift/check"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @<verified-rollback-request.json> \
+  "$MERISTEM_CORE_URL/api/v0/deploy/rollback"
+```
+
+Rollback is a new critical action: it needs its own M-Policy decision, Audit write, signed envelope verification, and local agent validation. It never reuses the authorization of the original apply.
+
+**Verification:**
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/desired-state"
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/deploy/drift"
+systemctl --user status meristem.target
+```
+
+The restored digest must match the verified rollback pointer, the drift report must be resolved or explicitly accepted by a new signed desired state, and the evidence/audit chain must identify both the failed operation and rollback.
+
+**Rollback of the rollback:** never repeatedly toggle runtimes. Create a new signed proposal for the intended digest and run the normal two-person promotion workflow after the root cause is understood.
+
+### 11.5 M-Net Lifecycle and Sidecar Recovery
+
+**Trigger:** a node join, credential rotation or revoke, profile migration, stale signed topology map, or a NetBird sidecar degraded fact.
+
+**Steps:**
+
+```bash
+bun run mnet:v02:sidecar-proof
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+curl --fail --silent --show-error http://127.0.0.1:9090/health
+systemctl status meristem-node-agent
+journalctl -u meristem-node-agent --since '15 minutes ago'
+```
+
+Use the Core public M-Net routes or M-CLI for join, profile, credential, and node-control changes; do not call M-Net internal routes, edit network maps, or use NetBird Management. A failed sidecar proof permits only the documented typed fallback decision, never an unverified mixed runtime.
+
+**Verification:** the node must report a fresh signed topology map, current session, expected sidecar state, and a non-stale map TTL. Confirm that all requested mutations have policy and Audit correlation IDs.
+
+**Rollback:** disable the affected profile or isolate the node through the Core-controlled operation. For stale-map or sidecar failure, existing tunnels may continue only until map TTL expiry; after that they must be torn down fail-closed. Restore service only after the new signed map and local probe both succeed.
+
+### 11.6 Identity Administration and Break-Glass
+
+**Trigger:** approve/reject a pending local principal, disable a principal, revoke access, or recover operator access during an IdP outage.
+
+**Steps:** use Core/local IAM as the authority and inspect state through the BFF/Core boundary; external IdP claims never grant permissions directly.
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens/<jti>"
+
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"reason":"<incident-or-administration-reason>"}' \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens/<jti>/revoke"
+
+MERISTEM_TOKEN="$MERISTEM_TOKEN" bun run meristem audit list
+```
+
+Issue a local actor token only through the protected Core route and capture its plaintext response only on the protected operator terminal; that response is intentionally one-time:
+
+```bash
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"actor":"<actor-id>","ttl":"<bounded-ttl>","purpose":"<approved-purpose>"}' \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens"
+```
+
+OIDC pending-principal approval, rejection, disablement, and role assignment remain local-IAM authority operations and must use the versioned production session contract when those routes are mounted; do not perform them by direct database change. Break-glass is restricted to local IAM during IdP outage, needs a security-admin initiator and a distinct reviewer, lasts exactly 30 minutes, and still requires M-Policy and Audit. It does not grant plaintext-secret access or allow a bypass around Audit.
+
+**Verification:** confirm the principal or break-glass grant state, both distinct approvers, exact expiry, policy decision, Audit record, and correlation ID. After IdP recovery, invalidate freshness-dependent sessions and require normal authentication.
+
+**Rollback:** reject or revoke the pending access, disable the principal when compromise is suspected, or allow the break-glass sweep to auto-revoke at expiry. Never extend an existing grant by changing its TTL; create a new independently approved grant only if the incident remains active.
+
+### 11.7 Vault Unseal, Rotation, and Recovery
+
+**Trigger:** Vault reports `sealed`, `unavailable`, or `quorum_lost`; a workload credential is due for rotation; or a DR restore requires Vault recovery.
+
+**Steps:**
+
+```bash
+vault operator status
+vault operator unseal
+vault operator status
+vault status
+```
+
+Use the approved multi-custodian ceremony and enter shares only in the protected Vault prompt. Never script shard entry, pass shares as command arguments, store them in an environment variable, or include them in evidence. Before a planned unseal-key rotation, start a quorum-controlled ceremony:
+
+```bash
+vault operator rekey -init
+vault operator status
+```
+
+For SecretRef rotation, first complete the Core/M-Policy/Audit request and then rotate the Vault KV v2 version at the protected workload-injection boundary. The rotate result must mark the prior version deactivated and the replacement active; plaintext values must never traverse Core, M-Deploy evidence, or operator output.
+
+**Verification:** Vault is unsealed, has Raft quorum and a leader, SecretProvider resolves only redacted references, and dependent workload readiness recovers without exposing a value. For a restore, compare Vault versions to PostgreSQL SecretRef metadata before restarting dependent workloads.
+
+**Rollback:** if an unseal, rotation, or restore check fails, stop secret-bearing apply/rollback and new session or token issuance that depends on the affected secret. Keep already running workloads only while their cached secret is valid. Restore the previous active Vault version through the approved SecretRef rotation workflow; never fall back to local plaintext storage.
+
+### 11.8 OpenSearch, Dashboards, and Observability
+
+**Trigger:** scheduled health check, a projection backlog, a failed snapshot, Dashboards access failure, or any observability alert.
+
+**Steps:**
+
+```bash
+curl --fail --silent --show-error "$OPENSEARCH_URL/_cluster/health"
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/deploy/drift"
+bun run test:opensearch-failure-modes
+bun run test:opensearch-contracts
+```
+
+Dashboards stays private or operator-VPN-only behind its OIDC/RBAC proxy. Its actions are limited to reading dashboards and querying projections; it must never become a control-plane, policy, or Audit writer.
+
+**Verification:** verify that authoritative PostgreSQL writes, M-Policy, and M-Log Audit writes remain healthy; then inspect projection health, alert delivery, Prometheus targets, OTel collector, and Grafana degradation indicators using correlation IDs. A degraded OpenSearch/Dashboards result is acceptable only when the read-model status is visible and the control path remains authority-safe.
+
+**Rollback:** isolate the failed read-model deployment, restore a valid OpenSearch snapshot if available, and backfill projections from PostgreSQL/M-Log. Do not roll back or reconstruct authority data from OpenSearch, Dashboards, Grafana, Prometheus, or OTel.
+
+### 11.9 Backup and Restore Drill
+
+**Trigger:** scheduled resilience exercise, detected data loss, or declared disaster recovery.
+
+**Steps:** take encrypted PostgreSQL PITR/WAL, Vault Raft, JetStream, immutable evidence archive, and OpenSearch snapshot backups under the owning platform controls. Validate the documented fixture-only projection drill separately:
+
+```bash
+bun ops/opensearch/scripts/snapshot-restore-drill.ts --fixture
+vault operator status
+```
+
+For a live DR event, follow the restore order in §8.2 exactly: trust custody, PKI, Vault, PostgreSQL, SecretRef reconciliation, IdP configuration, NATS, M-Deploy/Git trust, then OpenSearch projection rebuild. This order preserves PostgreSQL authority and prevents an auxiliary read model from becoming a recovery source.
+
+**Verification:** compare PostgreSQL recovery point to the subsystem RPO/RTO objective, verify Vault SecretRef version alignment, verify signed desired-state and image digests, then confirm projection catch-up and readiness. Record only redacted correlation, digest, custody, and outcome metadata.
+
+**Rollback:** if a restore step does not verify, stop before admitting control operations, return to the prior known-good recovery point, and repeat the failed stage. Audit metadata unavailability keeps high-risk operations blocked even if other services are reachable.
+
+### 11.10 Incident Response Playbooks
+
+Start every incident by recording the correlation ID, scope, operator, current authority health, and customer impact through M-Log. Preserve logs and evidence references; do not copy raw credentials, headers, tokens, unseal shares, or private keys into tickets.
+
+| Incident | Trigger | Immediate commands | Safe state and recovery verification | Rollback / containment |
+|----------|---------|--------------------|--------------------------------------|------------------------|
+| IdP outage | OIDC discovery/JWKS validation fails or login rejects valid users | `curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"`; `curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/policy/approvals"` | OIDC login fails closed; only a two-person, 30-minute local-IAM break-glass grant may be used. After IdP recovery, revalidate issuer/JWKS and invalidate freshness-dependent sessions. | Revoke the break-glass grant or let it auto-revoke; do not create a local role mapping from IdP claims. |
+| Vault sealed or quorum lost | `vault operator status` shows sealed, unavailable, or no quorum | `vault operator status`; `vault operator unseal`; `vault status` | Secret reads, rotates, deployments, and secret-bearing session/token operations fail closed until unsealed and SecretRef version alignment verifies. | Stop secret-bearing apply. Do not use local plaintext, expired cache, or an emergency root token as a runtime fallback. |
+| OpenSearch degraded | cluster health fails, projection queue/DLQ grows, or Dashboards is unavailable | `curl --fail --silent --show-error "$OPENSEARCH_URL/_cluster/health"`; `bun run test:opensearch-failure-modes` | Core, PostgreSQL, policy, and Audit writes remain available while projection/read surfaces show degraded. Rebuild from PostgreSQL/M-Log after the service recovers. | Remove the unhealthy projection from query ingress; never restore authority from a search index. |
+| M-Deploy drift or agent failure | digest mismatch, agent heartbeat timeout, Git snapshot TTL expires, or reconcile reports blocked | `curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/deploy/drift"`; `curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/deploy/agents"`; `systemctl --user status meristem.target` | New apply pauses for the target. Reconnect agent, revalidate controller trust, signature, digest, runtime health, and Audit/evidence before retry. | Queue a separately authorized rollback to a verified digest; never repair drift with SSH, manual container replacement, or mutable tags. |
+| M-Net sidecar failure | sidecar probe fails, NetBird viability check fails, or signed-map TTL approaches expiry | `bun run mnet:v02:sidecar-proof`; `curl --fail --silent --show-error http://127.0.0.1:9090/health`; `systemctl status meristem-node-agent` | Report a typed sidecar degraded fact. Existing tunnels survive only to fresh-map TTL; after expiry they tear down fail-closed. Validate fresh signed map and sidecar readiness before recovery. | Isolate the node or disable the unsafe profile through Core/M-Policy/Audit. Do not introduce NetBird Management or a mixed unverified sidecar path. |
+| Failed Audit writes | M-Log readiness or Audit write fails, or `failed_audit_writes` fires | `curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"`; `systemctl --user status meristem.target`; `journalctl --user -u meristem.target --since '15 minutes ago'` | High-risk identity, deploy, secret, node, and network actions are blocked before mutation. Restore PostgreSQL/M-Log Audit write health and confirm a successful protected-operation Audit record. | Keep the control plane in restricted mode. Do not bypass, buffer as success, disable, or recreate Audit facts from Full Log/OpenSearch. |
+
+After containment, run the focused failure-mode and contract gates for the affected boundary, then run `bun run test:agent-submit` before declaring the incident remediation ready for review.

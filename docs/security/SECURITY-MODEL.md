@@ -607,3 +607,138 @@ OpenSearch 和 OpenSearch Dashboards 在 authority matrix 中分类为：
 - Git desired-state 与 registry trust 是部署授权链的一部分：M-Deploy 必须验证 signed envelope、digest pin、rollback pointer、image signature 和 image digest；验证失败阻塞 reconcile 并写 Audit。
 - PostgreSQL authority 必须先于 OpenSearch projection 恢复；OpenSearch 不得作为审计、identity、secretRef、desired-state 或 deployment 的事实源。
 - Keycloak 只恢复 OIDC authentication provider config；本地 IAM / PostgreSQL 仍是 identity authorization authority。Keycloak client secret 和 JWKS material 必须从 Vault reload。
+
+---
+
+## 11. Production Security Operations
+
+This section converts the security model into operator procedures. Each security-changing workflow has a trigger, an authorization and Audit decision before mutation, a verification result, and an explicit revoke, rollback, or containment action. Commands use public Core, M-CLI, systemd, Podman, or Vault surfaces only; no workflow may call an internal service route, edit authority storage directly, or copy secrets into command lines, logs, shell history, or evidence.
+
+### 11.1 Identity Token Administration
+
+**Trigger:** issue a bounded local actor token for approved recovery or administration, inspect a suspected token, or immediately revoke a compromised token.
+
+**Steps:** a `security-admin` submits the request through Core. Token issuance is high risk: M-Policy and Audit must succeed before the one-time plaintext response is returned.
+
+```bash
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"actor":"<actor-id>","ttl":"<bounded-ttl>","purpose":"<approved-purpose>"}' \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens"
+
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens/<jti>"
+```
+
+The issue response is intentionally the only plaintext-token response. Consume it only through an approved protected channel and never write it to an evidence artifact, terminal capture, chat, configuration file, or shell history.
+
+**Verification:** inspect the returned metadata by `jti`, verify bounded expiry and active state, then confirm the Audit fact through the normal audit read boundary:
+
+```bash
+MERISTEM_TOKEN="$MERISTEM_TOKEN" bun run meristem audit list
+```
+
+**Rollback / containment:** revoke by `jti` before changing the principal or role assignment; revoke itself must be audited before status mutation.
+
+```bash
+curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $MERISTEM_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"reason":"<revocation-reason>"}' \
+  "$MERISTEM_CORE_URL/api/v0/identity/tokens/<jti>/revoke"
+```
+
+Missing Audit, unavailable token introspection, an expired token, or a revoked token fails closed. No capability-domain service may read Core token storage directly or cache a denied result as active.
+
+### 11.2 OIDC Local-IAM Principal Administration
+
+**Trigger:** first federated login creates a pending principal, an operator needs approval/rejection or disablement, an issuer/subject conflict is detected, or an IdP recovery is completed.
+
+**Steps:** treat `(issuer, subject)` as the only principal key. Use the mounted versioned local-IAM approval route when it is present in the deployed Core OpenAPI contract; until that route is mounted, principal mutation is deliberately unavailable rather than performed by a database change. Inspect the deployed contract before operating:
+
+```bash
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/openapi.json" >/dev/null
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+```
+
+The operator must not bind by email, name, username, Keycloak group, realm role, or client role. External claims remain authentication/display inputs only; Core local IAM and M-Policy assign Meristem roles and permissions.
+
+**Verification:** an approved principal has a local-IAM role assignment and an Audit fact; a pending, rejected, or disabled principal cannot receive or rotate a BFF session. Confirm that BFF cookies remain `__Host-`, `HttpOnly`, `Secure`, scoped to `/`, and server-side only.
+
+**Rollback / containment:** reject the pending principal, disable the principal, and revoke affected sessions when compromise or a binding conflict is suspected. Never repair an issuer/subject conflict by reassigning identity attributes or mutating the database.
+
+### 11.3 IdP Outage and Break-Glass
+
+**Trigger:** OIDC discovery, JWKS refresh, issuer validation, or the Keycloak provider is unavailable.
+
+**Steps:** declare the IdP degraded, verify Core and Audit availability, and use local-IAM break-glass only when the incident requires a protected operation:
+
+```bash
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+MERISTEM_TOKEN="$MERISTEM_TOKEN" bun run meristem audit list
+bun run test:failure-modes
+```
+
+Break-glass needs a `security-admin` initiator, an independent reviewer, M-Policy approval, a successful Audit write, and an exact 30-minute TTL. The original initiator may not approve their own request. It grants only the approved limited scope, never a default right to read plaintext secrets or bypass Audit.
+
+**Verification:** record the grant ID, two distinct actors, policy decision ID, audit ID, and `expiresAt`. Verify the grant becomes inactive at the exact expiry instant and that the expiry sweep persists auto-revocation.
+
+**Rollback / containment:** revoke the grant or allow automatic expiry; do not extend its TTL. Once the IdP returns, revalidate issuer/JWKS data, invalidate freshness-dependent sessions, and require normal OIDC authentication. No fallback maps Keycloak claims directly to Meristem roles.
+
+### 11.4 Vault Unseal, Rekey, and Secret Rotation
+
+**Trigger:** Vault reports `sealed`, `unavailable`, or `quorum_lost`; a key-custody rotation is due; a SecretRef version is being rotated; or Vault must be restored after a disaster.
+
+**Steps:** first inspect Vault state. For a planned unseal, use the split-custody ceremony at a protected terminal. The CLI must prompt for shares; operators must not script share entry or include shares in command arguments.
+
+```bash
+vault operator status
+vault operator unseal
+vault operator status
+vault status
+```
+
+For planned unseal-key rotation, start the quorum-controlled Vault ceremony and retain only the generated ceremony metadata, not the shares:
+
+```bash
+vault operator rekey -init
+vault operator status
+```
+
+SecretRef rotation is a separate high-risk Core/M-Policy/M-Log workflow. It activates a new Vault KV v2 version and deactivates the old version before the new version is used for signing, deployment injection, OIDC, session, registry, or node-sidecar credentials. Do not use `vault kv put` or an environment variable as an operator shortcut around SecretRef, Audit, or redaction.
+
+**Verification:** Vault is unsealed, Raft has a leader and quorum, affected SecretRefs resolve only as redacted references, the new version is active, the old version is deactivated, and each mutation has an Audit record. A restored Vault must also reconcile with PostgreSQL SecretRef metadata before dependent services restart.
+
+**Rollback / containment:** stop secret-bearing deployment/config/session/token operations. Restore the previous approved SecretRef version only through the audited rotation workflow. Existing workloads may use a cached secret only until its explicit TTL; after expiry, `stale_secret` fails closed. There is no production fallback to `local-dev-env`, plaintext files, or manually exported Vault values.
+
+### 11.5 Audit Integrity and Failed Audit Writes
+
+**Trigger:** M-Log Audit readiness fails, an Audit write times out or returns an error, or the `failed_audit_writes` critical alert fires.
+
+**Steps:** prove the scope without attempting another privileged mutation:
+
+```bash
+curl --fail --silent --show-error "$MERISTEM_CORE_URL/api/v0/health"
+systemctl --user status meristem.target
+journalctl --user -u meristem.target --since '15 minutes ago'
+bun run test:failure-modes
+```
+
+**Verification:** high-risk identity, SecretRef, M-Net, M-Deploy, policy, and configuration operations must be rejected before their authority state changes. Confirm recovery only after a protected test operation records a valid M-Policy decision and independent Audit fact with a correlation ID.
+
+**Rollback / containment:** keep restricted mode active. Do not downgrade Audit to Full Log, recreate facts from OpenSearch, batch an action for later success, or use break-glass as an Audit bypass. Restore PostgreSQL/M-Log Audit write health before re-opening any protected operation.
+
+### 11.6 Production Security Incident Matrix
+
+| Failure type | Required security posture | Prohibited recovery shortcut | Return-to-service condition |
+|--------------|---------------------------|------------------------------|-----------------------------|
+| IdP outage | OIDC login fails closed; only audited, two-person, time-bounded local-IAM break-glass is possible | external claim-to-role mapping, session extension, unreviewed emergency account | issuer/JWKS recover, affected sessions are invalidated, normal authentication succeeds |
+| Vault sealed / no quorum | SecretProvider operations and secret-bearing deployment/config/session/token paths fail closed | plaintext fallback, stale cache after TTL, root-token-as-runtime-secret | unsealed Vault with leader/quorum, SecretRef metadata/version reconciliation, audited readiness |
+| OpenSearch / Dashboards degraded | search and observation degrade; PostgreSQL, M-Policy, M-Log Audit, and control remain authoritative | reconstructing Audit or identity facts from projections, Dashboard control actions | projection is restored/rebuilt from authority; Dashboards remains private and read-only |
+| M-Deploy drift | signed desired-state, agent trust, digest, policy, and Audit validation gate reconcile | SSH push, manual Podman replacement, mutable tag, Git write by M-Deploy | agent reconnects and validates the signed envelope; verified rollback or new approved promotion resolves drift |
+| M-Net sidecar failure | typed degraded state; stale topology map eventually tears down tunnels fail-closed | NetBird Management, unverified mixed sidecars, direct map editing | fresh signed map, policy/Audit chain, and node-sidecar health all verify |
+| Failed Audit writes | all high-risk actions block before authority mutation | bypass, deferred success, Audit replacement by Full Log/OpenSearch | a real Audit write succeeds and failure-mode verification confirms fail-closed behavior |
+
+These procedures are validated with the contract, failure-mode, integration, and end-to-end gates documented in `docs/testing/TESTING.md`. A security incident is not closed until the relevant test gates pass, the authority state is verified, and recovery evidence remains redacted.
