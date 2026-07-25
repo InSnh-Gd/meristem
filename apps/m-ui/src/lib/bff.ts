@@ -10,6 +10,8 @@ import type {
   GlobalDefaultsResponseData,
   JoinTicketListResponseData,
   MigrationStatusResponseData,
+  MNetJoinDecisionData,
+  MNetManagementTopologyData,
   NetworkDetailResponseData,
   NetworkListResponseData,
   NetworkProfileDetailResponseData,
@@ -253,6 +255,42 @@ export function fetchOperationalState(token: string, networkId: string) {
   return bffFetch<OperationalStateData>(
     `/api/v0/networks/${encodeURIComponent(networkId)}/operational-state`,
     token
+  )
+}
+
+/** M-Net 管理页通过 BFF 读取带来源标记的 closed-loop 拓扑，不直连 M-Net。 */
+export function fetchMNetManagementTopology(token: string, networkId: string) {
+  return bffFetch<MNetManagementTopologyData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/mnet-management/topology`,
+    token
+  )
+}
+
+/** 加入审批经过 BFF 进入 M-Net 的公开 closed-loop workflow，结果保留 policy/audit 证据。 */
+export function approveMNetJoinRequest(
+  token: string,
+  networkId: string,
+  requestId: string,
+  credentialExpiresAt: string
+) {
+  return bffFetch<MNetJoinDecisionData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/mnet-management/join-requests/${encodeURIComponent(requestId)}/approve`,
+    token,
+    { method: 'POST', body: JSON.stringify({ credentialExpiresAt }) }
+  )
+}
+
+/** 拒绝加入同样保持在 BFF → M-Net 的公开契约路径，不由浏览器解释策略结果。 */
+export function rejectMNetJoinRequest(
+  token: string,
+  networkId: string,
+  requestId: string,
+  reason: string
+) {
+  return bffFetch<MNetJoinDecisionData>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/mnet-management/join-requests/${encodeURIComponent(requestId)}/reject`,
+    token,
+    { method: 'POST', body: JSON.stringify({ reason }) }
   )
 }
 

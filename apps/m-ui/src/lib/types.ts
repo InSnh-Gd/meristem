@@ -15,6 +15,10 @@ import type {
   BffOperationalProofPathResponseFromSchema,
   BffOperationalRuntimeTruthFromSchema,
   MNetOperationalSnapshotFromSchema,
+  MNetJoinApprovalResultFromSchema,
+  MNetClosedLoopPublicationFromSchema,
+  MNetOperationDeniedFromSchema,
+  MNetTopologyViewFromSchema,
   NetworkProfileState,
   NetworkSummary,
   OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
@@ -39,6 +43,20 @@ export type StateSourceMetadata = {
 export type WithStateSource<T extends object> = T & { stateSource: StateSourceMetadata }
 
 export type OperationalStateData = WithStateSource<MNetOperationalSnapshotFromSchema>
+
+export type MNetManagementTopologyData = {
+  topology: MNetTopologyViewFromSchema
+  stateSource: StateSourceMetadata
+}
+
+export type MNetJoinDecisionData =
+  | {
+      kind: 'mutation'
+      contractVersion: 'mnet-closed-loop-mutation@0.1.0'
+      value: MNetJoinApprovalResultFromSchema
+      publication: MNetClosedLoopPublicationFromSchema
+    }
+  | MNetOperationDeniedFromSchema
 
 export type RouteDefinition = SduiV02Route
 

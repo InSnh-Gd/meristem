@@ -3,6 +3,7 @@ import type { MUiBffRouteDeps } from '../deps.ts'
 import { createBffDetailRoutes } from './bff-detail-routes.ts'
 import { createBffListRoutes } from './bff-list-routes.ts'
 import { createBffMNetDataplaneRoutes } from './bff-mnet-dataplane-routes.ts'
+import { createBffMNetManagementRoutes } from './bff-mnet-management-routes.ts'
 import { createBffOverviewRoute } from './bff-overview-route.ts'
 
 /**
@@ -13,6 +14,12 @@ export function createBffDataRoutes(deps: MUiBffRouteDeps) {
   const overviewRoute = createBffOverviewRoute(deps)
   const detailRoutes = createBffDetailRoutes(deps)
   const mnetDataplaneRoutes = createBffMNetDataplaneRoutes(deps)
+  const mnetManagementRoutes = createBffMNetManagementRoutes(deps)
 
-  return new Elysia().use(listRoutes).use(overviewRoute).use(detailRoutes).use(mnetDataplaneRoutes)
+  return new Elysia()
+    .use(listRoutes)
+    .use(overviewRoute)
+    .use(detailRoutes)
+    .use(mnetDataplaneRoutes)
+    .use(mnetManagementRoutes)
 }
