@@ -4,6 +4,8 @@ import { Elysia } from 'elysia'
 import { createMUiBffRouteDeps, type MUiBffDeps } from './deps.ts'
 import { createBffAuthRoutes } from './routes/bff-auth-routes.ts'
 import { createBffDataRoutes } from './routes/bff-data-routes.ts'
+import { createBffMDeployManagementRoutes } from './routes/mdeploy-management-routes.ts'
+import { createBffMNetManagementRoutes } from './routes/bff-mnet-management-routes.ts'
 import { createCommandWellRoutes } from './routes/command-well-routes.ts'
 import { bffError } from './routes/route-helpers.ts'
 import { createSduiScreenRoutes } from './routes/sdui-screen-routes.ts'
@@ -81,6 +83,8 @@ export function createMUiBffApp(deps: MUiBffDeps) {
       .use(createSduiScreenRoutes(routeDeps))
       .use(createBffDataRoutes(routeDeps))
       .use(createCommandWellRoutes(routeDeps))
+      .use(createBffMNetManagementRoutes(routeDeps))
+      .use(createBffMDeployManagementRoutes(routeDeps))
   )
 }
 
