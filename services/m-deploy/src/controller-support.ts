@@ -6,11 +6,9 @@ import {
   type MDeployGitSourceRefV01FromSchema,
   type MDeployProposalV01FromSchema,
   type MDeployReconcileResultV01FromSchema,
-  type MDeployRollbackResultV01FromSchema,
-  type MDeploySignedEnvelopeV01FromSchema
+  type MDeployRollbackResultV01FromSchema
 } from '../../../packages/contracts/src/index.ts'
 import type {
-  MDeployAgentRecord,
   MDeployDeps,
   MDeployError,
   MDeployOperation,

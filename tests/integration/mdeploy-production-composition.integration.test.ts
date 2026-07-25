@@ -194,7 +194,7 @@ describe('integration: M-Deploy production composition recovery', () => {
         controllerTrust: fixture.controllerTrust,
         enrolledAt: now
       }
-      let first = await createProductionMDeployComposition(options)
+      const first = await createProductionMDeployComposition(options)
       try {
         expect(await first.deps.store.upsertAgent({ enrollment })).toMatchObject({ ok: true })
         expect(

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { applyHeartbeat } from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
-import {
-  createMNetClosedLoopService,
-  projectNodeAgentSidecarStatus
-} from '../../services/m-net/src/closed-loop-workflow.ts'
+import { projectNodeAgentSidecarStatus } from '../../services/m-net/src/closed-loop-workflow.ts'
 import { breakGlassFailClosed } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
 import { shouldTransitionOffline } from '../../services/m-net/src/runtime.ts'
 import { applySidecarDesiredState } from '../../services/node-agent/src/node-agent-sidecar-lifecycle.ts'
