@@ -3,22 +3,22 @@ import type {
   ApprovalActionResponse,
   ApprovalStatus,
   AuditLog,
+  BffOperationalProofPathResponseFromSchema,
+  BffOperationalRuntimeTruthFromSchema,
   ApprovalDetailResponse as ContractApprovalDetailResponse,
   CoreDependencies,
   CoreMode,
   EventBusPublishMetricsSummaryFromSchema,
   MinimalPolicyDecisionSummaryFromSchema as MinimalPolicyDecisionSummary,
+  MNetClosedLoopPublicationFromSchema,
+  MNetJoinApprovalResultFromSchema,
+  MNetOperationalSnapshotFromSchema,
+  MNetOperationDeniedFromSchema,
   MNetProfileRegion,
   MNetProfileVersion,
   MNetRegionalProfile,
-  MNode,
-  BffOperationalProofPathResponseFromSchema,
-  BffOperationalRuntimeTruthFromSchema,
-  MNetOperationalSnapshotFromSchema,
-  MNetJoinApprovalResultFromSchema,
-  MNetClosedLoopPublicationFromSchema,
-  MNetOperationDeniedFromSchema,
   MNetTopologyViewFromSchema,
+  MNode,
   NetworkProfileState,
   NetworkSummary,
   OperationalCommandPreviewCommandIdFromSchema as OperationalCommandPreviewCommandId,
@@ -32,6 +32,8 @@ import type {
   SubmitTaskResponse,
   TimelineLog
 } from '../../../../packages/contracts/src/index.ts'
+import type { MDeployInfrastructureTopologyV01FromSchema } from '../../../../packages/contracts/src/schemas/mdeploy-infrastructure.ts'
+import type { MDeployEvidenceMetadataV01FromSchema } from '../../../../packages/contracts/src/schemas/mdeploy-operations.ts'
 
 export type StateSourceMetadata = {
   sourceType: 'authoritative' | 'event' | 'cache' | 'read-model' | 'log' | 'audit' | 'policy'
@@ -47,6 +49,41 @@ export type OperationalStateData = WithStateSource<MNetOperationalSnapshotFromSc
 export type MNetManagementTopologyData = {
   topology: MNetTopologyViewFromSchema
   stateSource: StateSourceMetadata
+}
+
+export type MDeployTopologyData = {
+  topology: MDeployInfrastructureTopologyV01FromSchema
+  stateSource: StateSourceMetadata
+}
+
+export type MDeployStatusData = {
+  status: {
+    latestDigest?: { algorithm: 'sha256' | 'sha512'; value: string }
+    lastSuccessfulDigest?: { algorithm: 'sha256' | 'sha512'; value: string }
+    syncedAt?: string
+    stale: boolean
+    controllerAvailable: boolean
+  }
+  stateSource: StateSourceMetadata
+}
+
+export type MDeployHistoryData = {
+  evidence: MDeployEvidenceMetadataV01FromSchema[]
+  stateSource: StateSourceMetadata
+}
+
+export type MDeployOperationResult = {
+  operation: {
+    operationId: string
+    kind: 'apply' | 'rollback'
+    agentId: string
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'blocked'
+    policyDecisionId: string
+    auditId: string
+    correlationId: string
+    createdAt: string
+    completedAt?: string
+  }
 }
 
 export type MNetJoinDecisionData =

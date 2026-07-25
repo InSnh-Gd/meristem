@@ -22,7 +22,10 @@
     'networks.index': '/networks',
     'mnet.dataplane.status': '/mnet/dataplane-status',
     'mnet.profile.migration': '/mnet/profile-migration',
-    'mnet.break-glass': '/mnet/break-glass'
+    'mnet.break-glass': '/mnet/break-glass',
+    'deploy.topology': '/deploy/topology',
+    'deploy.operations': '/deploy',
+    'deploy.history': '/deploy/history'
   }
   const developmentBearerMode = isDevelopmentBearerMode()
 

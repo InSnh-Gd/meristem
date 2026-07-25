@@ -9,6 +9,10 @@ import type {
   GenericCommandParams,
   GlobalDefaultsResponseData,
   JoinTicketListResponseData,
+  MDeployHistoryData,
+  MDeployOperationResult,
+  MDeployStatusData,
+  MDeployTopologyData,
   MigrationStatusResponseData,
   MNetJoinDecisionData,
   MNetManagementTopologyData,
@@ -264,6 +268,37 @@ export function fetchMNetManagementTopology(token: string, networkId: string) {
     `/api/v0/networks/${encodeURIComponent(networkId)}/mnet-management/topology`,
     token
   )
+}
+
+/** M-Deploy 页只通过 BFF 读取拓扑、状态和审计证据，不直连 Core 或 M-Deploy。 */
+export function fetchMDeployTopology(token: string) {
+  return bffFetch<MDeployTopologyData>('/api/v0/deploy/topology', token)
+}
+
+export function fetchMDeployStatus(token: string) {
+  return bffFetch<MDeployStatusData>('/api/v0/deploy/status', token)
+}
+
+export function fetchMDeployHistory(token: string) {
+  return bffFetch<MDeployHistoryData>('/api/v0/deploy/history', token)
+}
+
+export function startMDeployApply(token: string, proposalId: string, agentId: string) {
+  return bffFetch<MDeployOperationResult>('/api/v0/deploy/apply', token, {
+    method: 'POST',
+    body: JSON.stringify({ proposalId, agentId })
+  })
+}
+
+export function startMDeployRollback(
+  token: string,
+  agentId: string,
+  targetDigest: { algorithm: 'sha256' | 'sha512'; value: string }
+) {
+  return bffFetch<MDeployOperationResult>('/api/v0/deploy/rollback', token, {
+    method: 'POST',
+    body: JSON.stringify({ agentId, targetDigest })
+  })
 }
 
 /** 加入审批经过 BFF 进入 M-Net 的公开 closed-loop workflow，结果保留 policy/audit 证据。 */
