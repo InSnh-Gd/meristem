@@ -7,7 +7,8 @@ vi.mock('$lib/bff.ts', () => ({
   }),
   formatBffError: vi.fn((error: unknown, fallback: string) => {
     return `${fallback}: ${error instanceof Error ? error.message : 'Unknown error'}`
-  })
+  }),
+  isDevelopmentBearerMode: vi.fn(() => false)
 }))
 
 import CommandWell from '../../src/lib/components/modules/command/CommandWell.svelte'

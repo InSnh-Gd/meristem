@@ -2,7 +2,7 @@
 
 ## Status
 
-**Scope completion: 29/29 production-track tasks completed.** This summary
+**Scope completion: 30/30 production-track tasks completed.** This summary
 consolidates the implemented contracts, test sources, operator workflows, and
 final repository-gate record for the post-v0.1 production track. It is an
 engineering evidence index, not a production-change approval or a substitute
@@ -174,9 +174,22 @@ dependency-cruiser reports 0 errors.
 dependency warnings. They are documented as warnings, not production-track
 errors, and should be addressed independently rather than hidden or suppressed.
 
+## T30 Containerfile Security Hardening
+
+**Delivered:** OCI build contexts exclude `testing.ts` modules and other
+test-only source files from production images, preventing test fixtures and
+mock implementations from leaking into deployed artifacts.
+
+**Key gate results:** Containerfile patterns for all seven services exclude
+`*.testing.ts` and `*.vitest.ts` files; the OCI preflight gate validates
+that no test modules appear in the image layer.
+
+**Known limitations:** this is a build-time guard. Runtime filesystem
+inspection in the target environment provides the final verification.
+
 ## Final Readiness Assessment
 
-- **Completed scope:** all 29 production-track tasks are complete and their
+- **Completed scope:** all 30 production-track tasks are complete and their
   delivery, tests, contracts, and operator procedures are represented above.
 - **Repository health:** the final record is green for typecheck, lint,
   agent-submit, and dependency-cruiser errors; no unsafe type-suppression or

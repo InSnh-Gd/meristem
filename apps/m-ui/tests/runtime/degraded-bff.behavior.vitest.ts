@@ -15,7 +15,8 @@ vi.mock('$lib/bff.ts', () => ({
     }
 
     return fallback
-  })
+  }),
+  isDevelopmentBearerMode: vi.fn(() => false)
 }))
 
 import GlobalProfileControls from '../../src/lib/components/modules/network/GlobalProfileControls.svelte'

@@ -10,6 +10,11 @@ COPY services ./services
 COPY scripts ./scripts
 COPY tsconfig.base.json tsconfig.e2e.json tsconfig.json biome.json ./
 
+# Remove test-only files from production image (security: no test keys/fixtures)
+RUN find services -name '*.test.ts' -delete \
+    && find services -name 'testing.ts' -delete \
+    && rm -f tsconfig.e2e.json
+
 RUN bun install --frozen-lockfile
 
 ARG SERVICE_ENTRY

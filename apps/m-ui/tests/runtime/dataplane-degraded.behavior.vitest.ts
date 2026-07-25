@@ -10,7 +10,8 @@ vi.mock('$lib/bff.ts', () => ({
   }),
   formatBffError: vi.fn((error: unknown, fallback: string) => {
     return `${fallback}: ${error instanceof Error ? error.message : 'Unknown error'}`
-  })
+  }),
+  isDevelopmentBearerMode: vi.fn(() => false)
 }))
 
 import { appState } from '../../src/lib/stores.svelte.ts'

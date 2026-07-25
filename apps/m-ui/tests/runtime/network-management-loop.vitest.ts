@@ -27,7 +27,8 @@ vi.mock('$lib/bff.ts', () => ({
   }),
   getBffUrl: vi.fn(() => 'http://localhost:3200'),
   normalizeBearerTokenInput: vi.fn((input: string) => input),
-  bffFetch: vi.fn(async () => null)
+  bffFetch: vi.fn(async () => null),
+  isDevelopmentBearerMode: vi.fn(() => false)
 }))
 
 import { appState } from '../../src/lib/stores.svelte.ts'
