@@ -23,6 +23,24 @@ The production track keeps PostgreSQL and local IAM authoritative, Git as the
 desired-state source, M-Policy and M-Log as required high-risk controls, and
 OpenSearch/Dashboards as degradable projections only.
 
+## Production Architecture Decision Evidence
+
+The four architecture decisions required by `MERISTEM-ROADMAP.md §7.4` are
+accepted and provide the canonical production-track decision record:
+
+| ADR | Evidence |
+| --- | --- |
+| [ADR-P01](../adr/ADR-P01-oidc-iam-architecture.md) | OIDC federation, local IAM authority, issuer-and-subject binding, pending principals, BFF sessions, and audited break-glass |
+| [ADR-P02](../adr/ADR-P02-vault-integration.md) | Vault HA/key custody posture, SecretRef-only boundary, secret-zero, rotation, and sealed/denied failure behavior |
+| [ADR-P03](../adr/ADR-P03-m-deploy-service.md) | GitOps pull-reconcile, signed envelopes, Podman runtime, OCI provenance, policy/Audit/evidence, and rollback |
+| [ADR-P04](../adr/ADR-P04-production-topology.md) | 3 control/state + 3 OpenSearch + 2 Leaf topology, network isolation, RPO/RTO, and degraded operation |
+
+ADR-N04 remains the accepted, separately evidence-gated decision for the
+NetBird client-sidecar direction and its `wireguard-rendered` fallback. ADR
+acceptance records architecture; it does not replace target-environment proof
+gates for Podman Full-HA, Vault custody, NetBird viability, OCI publication or
+backup/restore.
+
 ## T1-T13 Contract Foundation
 
 | Task | Delivered |
@@ -205,10 +223,3 @@ inspection in the target environment provides the final verification.
   a custom SIEM, a custom registry, Kubernetes/Helm/service mesh deployment,
   NetBird Management/Dashboard, runtime SDUI rendering, and plugin-delivered UI
   remain out of scope.
-
-### Documentation Navigation Caveat
-
-The production-track entries in `docs/README.md` retain planning-oriented
-wording. The active contracts and operational sources listed in this summary
-are the authoritative engineering references until that index language is
-synchronized in a separate documentation-only change.

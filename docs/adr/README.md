@@ -11,6 +11,10 @@
 | [ADR-F01](ADR-F01-foundational-technology-stack.md) | 基础技术栈 | Accepted | TypeScript / Elysia / REST+OpenAPI / Eden / Effect / SvelteKit / 负面清单 |
 | [ADR-F02](ADR-F02-architecture-organization.md) | 架构组织原则 | Accepted | 微服务 / Core 微内核 / M-Extension / 横切关注点 / M-Policy 起点 |
 | [ADR-F03](ADR-F03-infrastructure-backbone.md) | 基础设施主干 | Accepted | NATS / PostgreSQL / OpenSearch / NATS KV / OpenTelemetry / APISIX / M-Log 语义 |
+| [ADR-P01](ADR-P01-oidc-iam-architecture.md) | OIDC 联邦与本地 IAM 权威 | Accepted | OIDC federation / issuer+subject binding / JIT pending principal / BFF session / break-glass |
+| [ADR-P02](ADR-P02-vault-integration.md) | Vault 集成与 SecretProvider 边界 | Accepted | Vault HA / key custody / SecretRef-only / secret-zero / rotation / fail-closed |
+| [ADR-P03](ADR-P03-m-deploy-service.md) | M-Deploy GitOps Pull-Reconcile 服务 | Accepted | Git desired-state / signed envelope / Podman / OCI provenance / policy-audit-evidence / rollback |
+| [ADR-P04](ADR-P04-production-topology.md) | 生产 VM 拓扑与降级运行 | Accepted | 3 control/state + 3 OpenSearch + 2 Leaf / Podman Quadlet / RPO-RTO / degradation |
 | [ADR-TOOLING](ADR-TOOLING-effect-platform-bun-pilot.md) | @effect/platform-bun coexistence pilot | Accepted | Bun compatibility probe / internal HTTP coexistence guardrails |
 | [ADR-N01](ADR-N01-m-net-default-network.md) | M-Net 默认网络 | Superseded by ADR-N03 | M-Net 默认组网策略 |
 | [ADR-N02](ADR-N02-m-net-cn-profile.md) | M-Net CN 区域网络 Profile | Accepted (data-plane scope superseded by ADR-N03; control-plane profile lifecycle active) | 区域网络 Profile |
