@@ -15,7 +15,11 @@ import {
 import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
 import { createInMemoryMNetClosedLoopStore } from '../../services/m-net/src/closed-loop-store-memory.ts'
 import { createMNetClosedLoopService } from '../../services/m-net/src/closed-loop-workflow.ts'
-import { createInMemoryMDeployDeps, createMDeployApp } from '../../services/m-deploy/src/index.ts'
+import {
+  createInMemoryMDeployDeps,
+  createMDeployApp,
+  runtimeTestControllerFingerprint
+} from '../../services/m-deploy/src/index.ts'
 import { applySidecarDesiredState } from '../../services/node-agent/src/node-agent-sidecar-lifecycle.ts'
 
 const networkId = 'production-security-network'
@@ -154,7 +158,7 @@ async function enrollMDeployAgent(
         controllerTrust: {
           issuer: 'm-deploy-controller',
           audience: 'mdeploy-agent',
-          publicKeyFingerprint: 'bUJeB6vhE-Jgmm6dHWWUZ6t-FhjaXlFEPLUKwHkPE6o',
+          publicKeyFingerprint: runtimeTestControllerFingerprint(),
           expiresAt: '2026-07-25T00:00:00.000Z'
         },
         enrolledAt: initialNow

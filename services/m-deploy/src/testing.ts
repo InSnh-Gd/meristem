@@ -1,7 +1,6 @@
 import {
   createHash,
-  createPrivateKey,
-  createPublicKey,
+  generateKeyPairSync,
   type KeyObject,
   sign,
   verify
@@ -45,12 +44,22 @@ export type InMemoryMDeployOptions = {
   existingPolicyApprovers?: readonly string[]
 }
 
-const controllerPrivateKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEINMdNhlojYXNuTsV2jIzvvkkkxAfM4WsoNimETskcgXa
------END PRIVATE KEY-----`)
-const controllerPublicKey = createPublicKey(`-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEA9GbIdIMiL0RtjbpfNXfjIYju/o2/ZjnY+z7qHvG09y8=
------END PUBLIC KEY-----`)
+/**
+ * Lazily-generated Ed25519 key pair used as test-only signing material.
+ *
+ * Fresh key material is produced at runtime so no literal private key ever
+ * appears in production source text. The pair is cached for the process
+ * lifetime so that signing and verification within the same test use a
+ * consistent key.
+ */
+let _testKeyPair: { privateKey: KeyObject; publicKey: KeyObject } | undefined
+
+function runtimeTestKeyPair(): { privateKey: KeyObject; publicKey: KeyObject } {
+  if (_testKeyPair) return _testKeyPair
+  const kp = generateKeyPairSync('ed25519')
+  _testKeyPair = { privateKey: kp.privateKey, publicKey: kp.publicKey }
+  return _testKeyPair
+}
 
 function digestKey(digest: MDeployDigestFromSchema): string {
   return `${digest.algorithm}:${digest.value}`
@@ -66,6 +75,16 @@ function controllerFingerprint(publicKey: KeyObject): string {
   return createHash('sha256')
     .update(publicKey.export({ type: 'spki', format: 'der' }))
     .digest('base64url')
+}
+
+/**
+ * Returns the base64url SHA-256 fingerprint of the runtime-generated test
+ * controller public key.  Test files that enrol agents against the in-memory
+ * fixture must use this value (not a hardcoded string) so the enrolled
+ * fingerprint always matches the runtime key material.
+ */
+export function runtimeTestControllerFingerprint(): string {
+  return controllerFingerprint(runtimeTestKeyPair().publicKey)
 }
 
 function fixtureEnvelope(
@@ -147,10 +166,10 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
   const controllerTrust: MDeployControllerTrustMaterialV01FromSchema = {
     issuer: 'm-deploy-controller',
     audience: 'mdeploy-agent',
-    publicKeyFingerprint: controllerFingerprint(controllerPublicKey),
+    publicKeyFingerprint: controllerFingerprint(runtimeTestKeyPair().publicKey),
     expiresAt: '2026-07-14T00:00:00.000Z'
   }
-  const envelope = fixtureEnvelope(now, controllerPrivateKey, controllerTrust)
+  const envelope = fixtureEnvelope(now, runtimeTestKeyPair().privateKey, controllerTrust)
   const proposals = new Map<string, MDeployProposalV01FromSchema>()
   const approvals = new Map<string, MDeployApprovalV01FromSchema>()
   const policyApprovers = new Map<string, Set<string>>()
@@ -492,7 +511,7 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
             message: 'desired-state signature encoding is invalid'
           })
         }
-        return verify(null, input.signedBytes, controllerPublicKey, signature)
+        return verify(null, input.signedBytes, runtimeTestKeyPair().publicKey, signature)
           ? ok(undefined)
           : err({
               code: 'signature_verification_failed',

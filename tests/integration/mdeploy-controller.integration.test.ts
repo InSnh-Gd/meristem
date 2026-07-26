@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { createInMemoryMDeployDeps, createMDeployApp } from '../../services/m-deploy/src/index.ts'
+import {
+  createInMemoryMDeployDeps,
+  createMDeployApp,
+  runtimeTestControllerFingerprint
+} from '../../services/m-deploy/src/index.ts'
 
 const digest = { algorithm: 'sha256', value: 'sha256:desired-state-001' }
 
@@ -41,7 +45,7 @@ describe('M-Deploy controller and agent pull-reconcile', () => {
             controllerTrust: {
               issuer: 'm-deploy-controller',
               audience: 'mdeploy-agent',
-              publicKeyFingerprint: 'bUJeB6vhE-Jgmm6dHWWUZ6t-FhjaXlFEPLUKwHkPE6o',
+              publicKeyFingerprint: runtimeTestControllerFingerprint(),
               expiresAt: '2026-07-14T00:00:00.000Z'
             },
             enrolledAt: '2026-07-13T00:00:00.000Z'
@@ -155,7 +159,7 @@ describe('M-Deploy controller and agent pull-reconcile', () => {
             controllerTrust: {
               issuer: 'm-deploy-controller',
               audience: 'mdeploy-agent',
-              publicKeyFingerprint: 'bUJeB6vhE-Jgmm6dHWWUZ6t-FhjaXlFEPLUKwHkPE6o',
+              publicKeyFingerprint: runtimeTestControllerFingerprint(),
               expiresAt: '2026-07-14T00:00:00.000Z'
             },
             enrolledAt: '2026-07-13T00:00:00.000Z'

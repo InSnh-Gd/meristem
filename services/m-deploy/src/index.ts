@@ -8,7 +8,11 @@ export type {
   MDeployOperationStatus,
   MDeployPermission
 } from './deps.ts'
-export { createInMemoryMDeployDeps, type InMemoryMDeployOptions } from './testing.ts'
+export {
+  createInMemoryMDeployDeps,
+  runtimeTestControllerFingerprint,
+  type InMemoryMDeployOptions
+} from './testing.ts'
 export { createPostgresMDeployStore, type PostgresMDeployStore } from './postgres-store.ts'
 export {
   createProductionMDeployComposition,
