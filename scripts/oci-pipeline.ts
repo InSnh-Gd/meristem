@@ -160,12 +160,8 @@ function excludedFromBuildContext(path: string): boolean {
 }
 
 /** 测试签名夹具可随源码进入构建上下文，但不是部署凭据，不能触发生产密钥泄漏告警。 */
-function containsFixtureOnlyKey(path: string, content: string): boolean {
-  return (
-    path.endsWith('/testing.ts') ||
-    path === 'services/m-deploy/src/testing.ts' ||
-    content.includes('TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM')
-  )
+function containsFixtureOnlyKey(path: string): boolean {
+  return path.endsWith('/testing.ts') || path === 'services/m-deploy/src/testing.ts'
 }
 
 /**
@@ -179,7 +175,7 @@ export function scanBuildContextForSecrets(contextDir = rootDir): readonly strin
     const fullPath = entry.startsWith(contextDir) ? entry : join(contextDir, entry)
     if (statSync(fullPath).size > 1024 * 1024) continue
     const text = readFileSync(fullPath, 'utf8')
-    if (containsFixtureOnlyKey(contextPath, text)) continue
+    if (containsFixtureOnlyKey(contextPath)) continue
     if (plaintextSecretPattern.test(text)) issues.push(contextPath)
   }
   return issues

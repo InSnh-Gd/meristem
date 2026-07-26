@@ -1,4 +1,10 @@
-import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto'
+import {
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  sign,
+  verify
+} from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
@@ -10,9 +16,24 @@ export const NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY = 'MERISTEM_MNET_MAP_SIGNING
 
 export const DEFAULT_NETWORK_MAP_SIGNING_KEY_ID = 'mnet-signing-key-v1'
 
-const TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
-MC4CAQAwBQYDK2VwBCIEINIE+26drFFp0l3biujeSbNTQ2u84uS1XBquEbem5Gfz
------END PRIVATE KEY-----`
+/**
+ * Lazily-generated Ed25519 key pair used as test-only default signing material.
+ *
+ * Unlike a fixed PEM constant, this produces fresh key material at runtime so
+ * no literal private key ever appears in production source text. The generated
+ * pair is cached for the lifetime of the process so that signing and
+ * verification within the same test/file use a consistent key.
+ */
+let _testKeyPair: { privateKeyPem: string; publicKey: string } | undefined
+
+function runtimeTestKeyPair(): { privateKeyPem: string; publicKey: string } {
+  if (_testKeyPair) return _testKeyPair
+  const kp = generateKeyPairSync('ed25519')
+  const privateKeyPem = kp.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+  const publicKey = kp.publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+  _testKeyPair = { privateKeyPem, publicKey }
+  return _testKeyPair
+}
 
 type NetworkMapSigningEnv = Readonly<Record<string, string | undefined>>
 type NetworkMapSigningOptions = {
@@ -65,7 +86,7 @@ function resolvePrivateKeyPem(
     const fileContent = readFileSync(keyFile, 'utf8')
     return normalizePem(fileContent)
   }
-  if (allowTestDefaults(env, options)) return normalizePem(TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM)
+  if (allowTestDefaults(env, options)) return normalizePem(runtimeTestKeyPair().privateKeyPem)
   throw new Error(
     `${NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY} or ${NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY} is required for M-Net network-map signing`
   )
@@ -79,8 +100,7 @@ function resolvePublicKeyFromEnv(
   if (configured) return configured.trim()
   const privateKeyPem = env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]
   if (privateKeyPem) return exportPublicKey(privateKeyPem)
-  if (allowTestDefaults(env, options))
-    return exportPublicKey(TEST_NETWORK_MAP_SIGNING_PRIVATE_KEY_PEM)
+  if (allowTestDefaults(env, options)) return runtimeTestKeyPair().publicKey
   throw new Error(
     `${NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY} or ${NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY} is required for node-agent network-map verification`
   )
