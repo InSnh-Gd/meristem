@@ -96,40 +96,56 @@ gRPC everywhere
 - 微服务不是独立一级模块，而是各功能域的主要实现形态。
 - 共享包只承载纯函数、schema、validator、policy、parser、event envelope helper 等无隐式状态的能力。
 
-建议目录结构：
+当前目录结构：
 
 ```text
 apps/
   core/
     src/
-      app.ts              Elysia instance assembly + openapi + route composition
-      types.ts            CoreDeps, CoreStorage and port interfaces
-      adapters.ts         createProductionDeps dependency assembly + re-export
-      schemas.ts          REST/OpenAPI adapter schemas; complex shared contracts should come from packages/contracts Effect Schema modules
-      effect-helpers.ts   Effect infrastructure (runServiceEffect, tryServiceCall, etc.)
-      storage-adapter.ts  PostgreSQL authoritative write model adapter
-      adapters/           per-service adapter ports (http-policy, http-log, http-eventbus, http-mnet, http-agent-task, rpc-legacy, service-lifecycle)
-      middleware/          auth middleware (requireActor, authorize) + route helpers
-      routes/             per-resource routes (health, services, networks, nodes, tasks, logs, policy)
-  m-ui/                 SvelteKit + SDUI
-  m-cli/                official CLI
+      app.ts                    Elysia instance assembly + openapi + route composition
+      types.ts                  CoreDeps, CoreStorage 与 port 接口定义
+      adapters.ts               createProductionDeps 依赖组装与 re-export
+      schemas.ts                REST/OpenAPI adapter schemas barrel
+      schemas/                  per-resource OpenAPI schema 模块
+      effect-helpers.ts         Effect 基础设施（runServiceEffect, tryServiceCall 等）
+      config-state-machine.ts   配置状态机
+      core-error.ts             Core 统一错误类型
+      errors.ts                 错误辅助
+      public-types.ts           对外暴露的公共类型
+      storage-adapter.ts        PostgreSQL 权威写模型适配器（主）
+      storage-adapter-*.ts      按资源拆分的存储适配器（config, core, identity, secret-refs, records-*）
+      adapters/                 per-service adapter ports（http-policy, http-log, http-eventbus, http-mnet, http-mdeploy-facade, http-agent-task, rpc-legacy, service-lifecycle 等）
+      middleware/               auth middleware（requireActor, authorize）+ route helpers
+      routes/                   per-resource routes（health, services, networks, nodes, tasks, logs, policy, config, secrets, identity, deploy-facade 等）
+      types/                    per-resource port 接口
+      testing/                  Core 内部测试 helper 与 in-memory deps
+  m-ui/                         SvelteKit + SDUI
+  m-cli/                        官方运维 CLI
 
 packages/
-  contracts/            Eden contracts, OpenAPI helpers, Effect Schema executable contracts, shared schemas
-  events/               MEventEnvelope, event schemas, subject helpers
-  service-definition/   MServiceDefinition types and validators
-  policy/               RBAC and policy primitives
-  log-schema/           Timeline / Full / Audit schemas
-  config/               config schema, lifecycle, version/hash helpers
-  telemetry/            OpenTelemetry helpers
-  testing/              shared semantic tests and fixtures
+  auth/                JWT、OIDC、actor token 签发与校验
+  common/              跨包共享纯函数（Result 类型、secret 脱敏等）
+  config/              配置 schema、生命周期、版本/hash helpers
+  contracts/           Eden contracts、OpenAPI helpers、Effect Schema 可执行契约、共享 schemas
+  db/                  PostgreSQL 客户端、迁移脚本与数据库 schema
+  events/              MEventEnvelope、事件 schemas、subject helpers
+  internal-http/       内部 HTTP 客户端工厂与动态路由辅助
+  nats-rpc/            NATS RPC 通信原语
+  policy/              RBAC 与策略基元
+  secrets/             密钥管理（provider、consumer、脱敏、manager）
+  telemetry/           OpenTelemetry helpers
+  testing/             共享语义测试 helper 与 fixtures
 
 services/
-  m-net/
-  m-eventbus/
-  m-log/
-  m-policy/
-  m-extension/
+  m-deploy/            部署编排与 agent reconcile 服务
+  m-eventbus/          事件总线接口与消息辅助
+  m-extension/         受控扩展接口
+  m-log/               Timeline / Full / Audit 日志服务
+  m-net/               网络与配置文件生命周期服务
+  m-policy/            授权与审批决策服务
+  m-task/              任务生命周期与调度服务
+  m-ui-bff/            面向 UI 的后端代理
+  node-agent/          托管节点代理运行时
 
 docs/
   adr/
