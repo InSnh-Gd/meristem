@@ -267,8 +267,6 @@ Evaluate generated concepts in this order:
 
 The M-UI design exploration is complete. This section records the outcome so future implementation can proceed from a single convergent direction rather than re-exploring.
 
-> Current status: this section is retained as historical reference. It should inform context, not override explicit current product or user requirements during the frontend reboot.
-
-- **Selected concept:** Focus-Flow Ledger. See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](./M-UI-DESIGN-EXPLORATION-DECISION.md) for the convergence rationale and the rejected concept.
-- **Audit reference:** Earlier structure and test concerns remain recorded in [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md).
+- **Selected concept:** Focus-Flow Ledger. See [`M-UI-DESIGN-EXPLORATION-DECISION.md`](../archive/ui/M-UI-DESIGN-EXPLORATION-DECISION.md) (archived) for the convergence rationale and the rejected concept.
+- **Audit reference:** Earlier structure and test concerns remain recorded in [`M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](../archive/ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) (archived).
 - **Current boundary:** Active implementation gates are the SDUI contract, M-UI BFF contract, M-UI typecheck, M-UI tests, and explicit current requirements.

@@ -30,7 +30,8 @@
 | `config/` | 配置生命周期状态机与回滚规则 | `config/CONFIG-LIFECYCLE.md` |
 | `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md` |
 | `testing/` | 测试策略与 CI 门禁 | `testing/TESTING.md` |
-| `ui/` | M-UI / SDUI 契约和保留的历史参考材料。当前可执行 UI 边界以 SDUI schema、M-UI BFF 服务契约和用户当前要求为准；保留的设计探索文档只作背景参考。 | `ui/SDUI-SCHEMA.md` |
+| `ui/` | M-UI / SDUI 契约与活跃设计简报 | `ui/SDUI-SCHEMA.md` |
+| `archive/` | 已归档的历史参考材料（非权威） | `archive/README.md` |
 | `references/` | 上游技术快照 | `references/elysiajs-latest.md` |
 | `agents/` | Agent issue tracker、分类标签与领域上下文说明 | `agents/domain.md` |
 
@@ -63,19 +64,16 @@
 
 ---
 
-## 5. UI 参考材料
+## 5. UI 契约
 
-The active UI contract is [`ui/SDUI-SCHEMA.md`](./ui/SDUI-SCHEMA.md), together with the M-UI BFF service contract. The following documents are preserved as historical or exploratory reference only; they are not mandatory style authorities and should not override current product requirements.
+| Document | Role |
+|----------|------|
+| [`ui/SDUI-SCHEMA.md`](./ui/SDUI-SCHEMA.md) | Executable SDUI/BFF route and component contract |
+| [`ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md) | Authoritative design brief for M-UI Transitional Workbench redesign |
 
-| Document | Purpose |
-|----------|---------|
-| [`ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md) | Historical workbench brief and operator workflow framing |
-| [`ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](./ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md) | Historical structure/test gap audit |
-| [`ui/M-UI-STITCH-CONCEPTS.md`](./ui/M-UI-STITCH-CONCEPTS.md) | Historical layout concept exploration |
-| [`ui/M-UI-DESIGN-EXPLORATION-DECISION.md`](./ui/M-UI-DESIGN-EXPLORATION-DECISION.md) | Historical convergence rationale |
-| [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](./ui/M-UI-DESIGN-TOOL-AVAILABILITY.md) | Historical design-tool availability notes |
-| [`ui/M-UI-DESIGN-MD-CLI-EVALUATION.md`](./ui/M-UI-DESIGN-MD-CLI-EVALUATION.md) | Historical design-system CLI evaluation |
-| [`ui/M-UI-FIGMA-CONTEXT-VALIDATION.md`](./ui/M-UI-FIGMA-CONTEXT-VALIDATION.md) | Historical Figma context validation notes |
+The M-UI BFF service contract ([`services/m-ui-bff.md`](./services/m-ui-bff.md)) complements the above.
+
+Earlier design exploration docs (tool evaluations, concept sketches, convergence rationale) have been moved to [`archive/ui/`](./archive/README.md) and are no longer authoritative.
 
 ---
 

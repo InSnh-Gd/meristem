@@ -379,9 +379,9 @@ This test:
 | 10. Sidecar proof gate failure | `wireguard-rendered` (typed fallback transport) | `bun run mnet:v02:sidecar-proof` (live gate), ADR-N04 §5-§6 | Gap: live-only gate |
 | 11. M-UI disabled repair | `disabled` / `command.invalid_body` / `feature.unavailable` | `m-ui-bff-mnet-commands.test.ts` | Covered |
 
-**Sidecar proof gate note:** `bun run mnet:v02:sidecar-proof` is a live-environment viability gate (ADR-N04 §5). It must not be mocked to pass in CI. CI coverage is limited to typed failure paths. If the proof gate exits nonzero, the typed fallback transport is `wireguard-rendered` (ADR-N04 §6). See `docs/runbooks/MNET-V02-RUNBOOK.md §2.10` for the full proof-gate failure recovery path.
+**Sidecar proof gate note:** `bun run mnet:v02:sidecar-proof` is a live-environment viability gate (ADR-N04 §5). It must not be mocked to pass in CI. CI coverage is limited to typed failure paths. If the proof gate exits nonzero, the typed fallback transport is `wireguard-rendered` (ADR-N04 §6). See `docs/operations/MNET-V02-RUNBOOK.md §2.10` for the full proof-gate failure recovery path.
 
-See `docs/runbooks/MNET-V02-RUNBOOK.md` for full recovery paths and diagnostic commands for each class.
+See `docs/operations/MNET-V02-RUNBOOK.md` for full recovery paths and diagnostic commands for each class.
 
 ---
 

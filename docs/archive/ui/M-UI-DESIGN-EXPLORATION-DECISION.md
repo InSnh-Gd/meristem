@@ -11,7 +11,7 @@ The Focus-Flow Ledger is chosen as the convergent direction for the M-UI Transit
 
 ## Selection criteria
 
-The following criteria were used to compare the two concepts. The order reflects the priorities stated in [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](./M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md):
+The following criteria were used to compare the two concepts. The order reflects the priorities stated in [`M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](../../ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md):
 
 1. **Workflow fit** — covers all six core workflows (orient, inspect, evaluate eligibility, execute, trace, handle degraded).
 2. **Information hierarchy** — clear, scannable structure that works across the eight information domains.
