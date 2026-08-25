@@ -1180,3 +1180,185 @@ Resolved in this tranche:
 - DFW-002: SDUI / BFF display contract, CommandWell behavior for approve / reject, UI contract tests.
 - DFW-016: BFF display contract, SDUI schema update, UI contract tests for high-risk command placement and non-misleading data-plane wording.
 - DFW-030: Foundation now includes mutation execution flows. Display-only previews coexist with live execute commands.
+
+---
+
+## 3. Deferred Refactor Work (Repo-Wide Cleanup Pass)
+
+> 以下条目记录 repo-wide 结构清理通过（8 commits）中识别但**刻意未执行**的重构工作。主要阻塞原因：78 个未提交文件属于 M-Deploy facade feature WIP，清理会纠缠该分支。每条记录具体原因和解除条件，确保 WIP 落地后可立即拾起。
+
+---
+
+### DFW-031: apps/core 四条循环依赖
+
+Status: deferred — `warn` severity, `depcruise` exit code 仍为 0。
+
+Owner: Core。
+
+Source: `apps/core/src/types.ts`, `apps/core/src/types/shared.ts`, `apps/core/src/types/mdeploy-facade.ts`, `apps/core/src/routes/facade-support.ts`, `apps/core/src/middleware/auth.ts`。
+
+问题描述:
+
+- `apps/core/src/types/mdeploy-facade.ts:14` 从 `../routes/facade-support.ts` 导入 `FacadeServiceResult`，形成 `types/ → routes/` 反向边，引发四条循环依赖。
+- `FacadeServiceResult<T>`（声明于 `facade-support.ts:10`）结构上等价于 `Result<T, ServiceErrorLike>`（来自 `packages/common/src/result.ts`）。
+
+精确修复方案:
+
+1. 新建 `apps/core/src/types/facade-result.ts`，定义 `FacadeServiceResult<T>` 为 `Result<T, ServiceErrorLike>`，复用 `packages/common/src/result.ts`。
+2. `apps/core/src/routes/facade-support.ts` 改为从 `../types/facade-result.ts` re-export `FacadeServiceResult`（保持兼容）。
+3. `apps/core/src/types/mdeploy-facade.ts:14` 改为从 `./facade-result.ts` 导入。
+4. 该单次移动即可断开全部四条循环。
+
+Reason deferred:
+
+- 循环涉及的全部文件均为 M-Deploy facade WIP 未提交文件；修复需 stage 另一 agent 的未完成 feature。
+
+Reopen trigger:
+
+- M-Deploy facade WIP 落地后。
+
+---
+
+### DFW-032: services/m-net 六条预存循环依赖
+
+Status: deferred — `warn` severity, 不影响 gate。
+
+Owner: M-Net。
+
+Source: `services/m-net/src/deps.ts`, `services/m-net/src/clients.ts`, `services/m-net/src/migration-engine.ts`, `services/m-net/src/migration-engine-rollback.ts`, `services/m-net/src/profile-workflow-types.ts`, `services/m-net/src/mnet-dataplane-support.ts`, `services/m-net/src/data-plane-security-support.ts`。
+
+问题描述:
+
+- hub 循环经过 `deps.ts` ⇄ `clients.ts` ⇄ `migration-engine*.ts` ⇄ `profile-workflow-types.ts`。`deps.ts` 出现在 3 条循环中，`clients.ts` 出现在 2 条，其余文件各出现 1 次。
+- 需要真正的依赖反转而非简单文件移动。
+
+Reason deferred:
+
+- 预存问题，超出结构清理通过的范围。
+
+Reopen trigger:
+
+- 一个专门的 m-net 依赖反转任务。
+
+---
+
+### DFW-033: 文档内容去重与目录移动
+
+Status: deferred — WIP 文件阻塞。
+
+Owner: docs / operations。
+
+Source: `docs/operations/RUNBOOK.md`, `docs/operations/MNET-V02-RUNBOOK.md`, `docs/operations/M-NET-THREE-NODE-VALIDATION.md`, `docs/production-readiness/READINESS-SUMMARY.md`, `docs/releases/`, root `README.md`。
+
+Deferred work:
+
+- `docs/operations/RUNBOOK.md` §5.1 + §6.1 与 `docs/operations/MNET-V02-RUNBOOK.md`（M-Net 故障矩阵 / 诊断）内容重叠。
+- `docs/operations/RUNBOOK.md` §6.1 与 `docs/operations/M-NET-THREE-NODE-VALIDATION.md`（同一 3-node harness 流程）内容重叠。
+- `docs/production-readiness/READINESS-SUMMARY.md` 应考虑并入 `docs/operations/`，但移动会断开 root `README.md:249` 的链接。
+- `docs/releases/` 只含 2 个文件，但其中 1 个被 `tests/contracts/v02-gate-split.contract.test.ts` 断言。
+- Root `README.md` "Monorepo 结构" tree 需要与 `MERISTEM-DEV.md` §1.2 同步对齐。
+
+Reason deferred:
+
+- `RUNBOOK.md`、`EVENT-CATALOG.md`、`POSTGRES-SCHEMA-MVP.md`、`REST-API-MVP.md`、`SECURITY-MODEL.md`、`CLI-COMMANDS.md`、`docs/services/m-cli.md`、`docs/services/m-deploy.md` 和 root `README.md` 均已在 WIP 中被修改；去重会将本次重构与 WIP 内容纠缠。
+
+Reopen trigger:
+
+- M-Deploy facade WIP 落地后。
+
+---
+
+### DFW-034: apps/core/src/ 与 apps/core/src/routes/ 目录分层整合
+
+Status: deferred — WIP 文件阻塞。
+
+Owner: Core。
+
+Source: `apps/core/src/`（20 flat files）, `apps/core/src/routes/`（33 flat files）。
+
+Deferred work:
+
+- `routes/` 33 个文件和 `src/` 20 个文件均超过 flat-directory 阈值。`services/m-net/src` 和 `services/m-ui-bff/src/routes` 已完成的分层模式应回应用到 Core。
+
+Reason deferred:
+
+- 8 个 `apps/core` 文件为 WIP-dirty，包括 `app.ts`、`adapters.ts`、`types.ts`、`middleware/route-support.ts`——正是分层重写导入时必须修改的文件。
+
+Reopen trigger:
+
+- M-Deploy facade WIP 落地后。
+
+---
+
+### DFW-035: 两个超尺寸文件无法拆分
+
+Status: deferred — 已登记到 `tests/contracts/file-size-budget.contract.test.ts` allowlist，WIP-BLOCKED 原因。
+
+Owner: scripts / M-Deploy。
+
+Source: `scripts/v02-deploy-proof.ts`（1120 行）, `services/m-deploy/src/testing.ts`（602 行）。
+
+Deferred work:
+
+- 两个文件超出 500 行硬限制但因 WIP 修改无法拆分。
+- 当前已在 `file-size-budget.contract.test.ts` allowlist 中注册并标注 WIP-BLOCKED 原因。
+
+Reason deferred:
+
+- 两个文件均为 M-Deploy facade WIP 修改对象。
+
+Reopen trigger:
+
+- M-Deploy facade WIP 落地后；拆分文件并移除 allowlist 条目。
+
+---
+
+### DFW-036: WIP 文件格式化漂移（发布阻塞项）
+
+Status: deferred — **release blocker**，`test:v02-gates` 无法通过。
+
+Owner: M-Deploy facade feature owner。
+
+Source: `bun run format:check` output, `scripts/git-hooks/pre-push`。
+
+问题描述:
+
+- `bun run format:check` 是 `scripts/git-hooks/pre-push` 和 `test:v02-gates` 链的**第一个** gate。HEAD 时报 106 个违规文件。
+- 其中 83 个已在清理通过中格式化（commits `5dc36d2` 和 `a70c0f5`，经 transpiler normalization 验证语义等价）。
+- 剩余 **23 个违规文件全部为 WIP 文件**：`apps/core/src/adapters/http-mdeploy-facade.ts`、`apps/core/src/routes/deploy-facade.ts`、`apps/m-cli/src/cli.ts`、`apps/m-cli/src/commands/deploy-*.ts`、`packages/contracts/src/routes/deploy.ts`、`packages/contracts/src/schemas/mdeploy-*.ts`、`packages/contracts/src/types/cli-client.ts`、`packages/db/src/seed.ts`、`scripts/local-stack-runtime.ts`、`scripts/v02-deploy-proof.ts`、`services/m-deploy/src/serve-local.ts`、`services/m-deploy/src/testing.ts`，以及 8 个新 `tests/` 文件。
+
+精确修复方案:
+
+- 在 M-Deploy facade feature 落地时，执行 `bunx biome format --write` 覆盖全部 23 个 WIP 文件。
+
+Reason deferred:
+
+- 格式化 WIP 文件会修改另一 agent 的 working tree。
+
+Reopen trigger:
+
+- M-Deploy facade WIP 落地时，作为 landing 流程的一部分立即执行。**此项为发布阻塞项**——`test:v02-gates` 在此项解决前无法通过。
+
+---
+
+### DFW-037: 已知合约测试间歇性失败（flake）
+
+Status: 持续观察——非阻塞，无代码修复需要。
+
+Owner: test infrastructure。
+
+Source: `bun run test:contracts`。
+
+观察记录:
+
+- 规划阶段发现一次间歇性失败：1156 pass / 1 fail → 连续三次 re-run 均 1157 / 0。
+- 清理通过中再次出现：`packet forwarding architecture guard` 测试 1158 pass / 2 fail → re-run 即 1160 / 0。
+- 无代码变更即恢复通过，确认为 flake 而非回归。
+- 当前健康基线：**1160 pass / 0 fail across 132 files**。
+
+处理建议:
+
+- 未来 agent 遇到 `test:contracts` 单次不可复现失败时，**re-run 一次**再开始诊断。
+- 如同一测试连续两次失败，则视为真实回归进行调查。
+
+---
