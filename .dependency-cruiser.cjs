@@ -27,7 +27,10 @@ module.exports = {
           '(^|/)[.][^/]+[.](?:js|cjs|mjs|ts|cts|mts|json)$',                  // dot files
           '[.]d[.]ts$',                                                       // TypeScript declaration files
           '(^|/)tsconfig[.]json$',                                            // TypeScript config
-          '(^|/)(?:babel|webpack)[.]config[.](?:js|cjs|mjs|ts|cts|mts|json)$' // other configs
+          '(^|/)(?:babel|webpack)[.]config[.](?:js|cjs|mjs|ts|cts|mts|json)$', // other configs
+          // packages/testing 是共享测试辅助包，只被 tests/ 树消费；本次 cruise 范围是 apps/services/packages，
+          // 不包含 tests/，因此这些真实在用的 helper 会被误判为孤儿。例外仅限该包，不放宽到其他目录。
+          '^packages/testing/'
         ]
       },
       to: {},
@@ -149,11 +152,15 @@ module.exports = {
       comment:
         "Apps and services must not reach into another service's or package's internal app entry point. " +
         "These entries are reserved for that module's own runtime bootstrap. " +
-        "The module's own index.ts, public-types.ts and startup.ts are allowed to import app.ts for bootstrapping.",
+        "The module's own index.ts, public-types.ts, startup.ts, serve.ts and serve-local.ts are allowed to " +
+        "import app.ts for bootstrapping.",
       severity: 'error',
       from: {
         path: '^(apps|services|packages)/([^/]+)/src/',
-        pathNot: '^services/([^/]+)/src/(app|index|public-types|startup)\\.tsx?$|^packages/([^/]+)/src/(app|index)\\.tsx?$'
+        // serve.ts 与 serve-local.ts 同属服务自身的运行时 bootstrap 入口：serve-local.ts 是本地开发运行入口，
+        // 由 package.json 的 dev:m-deploy 脚本和本地栈运行器直接拉起。把它们纳入允许名单是补全规则原有意图
+        // （只允许模块自己的 bootstrap 入口导入 app.ts），而不是放宽跨服务内部引用的禁令。
+        pathNot: '^services/([^/]+)/src/(app|index|public-types|startup|serve|serve-local)\\.tsx?$|^packages/([^/]+)/src/(app|index)\\.tsx?$'
       },
       to: {
         path: '^services/([^/]+)/src/app\\.tsx?$|^packages/([^/]+)/src/app\\.tsx?$'
@@ -255,10 +262,12 @@ module.exports = {
     },
 
     // Which modules to exclude
-    // exclude : {
-    //   // path: an array of regular expressions in strings to match against
-    //   path: '',
-    // },
+    exclude: {
+      // apps/m-ui/build 与 apps/m-ui/.svelte-kit 是 SvelteKit 构建产物，不是源码：
+      // 它们既会产生虚假的孤儿模块告警，也会引入 Node 生成代码对 async_hooks 的过时依赖告警。
+      // 架构规则只针对手写源码，因此这些生成目录整体排除在 cruise 之外。
+      path: ['^apps/m-ui/(build|[.]svelte-kit)/']
+    },
 
     // Which modules to exclusively include (array of regular expressions in strings)
     // dependency-cruiser will skip everything that doesn't match this pattern
