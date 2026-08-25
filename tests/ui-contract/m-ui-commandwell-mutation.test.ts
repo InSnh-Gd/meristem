@@ -108,7 +108,7 @@ describe('M-UI CommandWell Mutation UI Contract', () => {
 
   it('BFF helper exports typed execute support for the four mutation commands', () => {
     const bffSource = readFileSync(`${M_UI_SRC}/lib/bff.ts`, 'utf-8')
-    // RED PHASE: execute commands not yet wired in BFF helper.
+    // RED: execute commands not yet wired in BFF helper.
     // After implementation, bff.ts should reference execute or command-specific helpers.
     const hasExecuteSupport =
       bffSource.includes('execute') &&

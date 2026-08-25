@@ -1,5 +1,5 @@
 /**
- * Core Approval & Network Profile Write Facade — Contract Tests (TDD Red Phase)
+ * Core Approval & Network Profile Write Facade — Contract Tests (TDD RED: not yet implemented)
  *
  * Tests the Core facade write contract for approval and network-profile mutations.
  * Core authenticates, authorizes, and forwards to M-Policy/M-Net public HTTP APIs.

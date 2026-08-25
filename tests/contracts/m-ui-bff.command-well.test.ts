@@ -543,7 +543,7 @@ describe('M-UI BFF contract tests', () => {
   })
 
   // =============================================================================
-  // Execute commands (RED PHASE — must fail before Tasks 5-6 implementation)
+  // Execute commands (RED: must fail before Tasks 5-6 implementation)
   // Desired contract: these return 200 with task/policyDecision/correlationId.
   // Current behavior: the BFF route only knows task.noop.submit, returns 400 command.unknown.
   // These tests FAIL (red) now and will PASS once Tasks 5-6 wire the execute paths.
@@ -699,7 +699,7 @@ describe('M-UI BFF contract tests', () => {
   })
 
   // =============================================================================
-  // Random / unsupported command id (RED PHASE)
+  // Random / unsupported command id (RED: not yet implemented)
   // =============================================================================
 
   it('POST /api/v0/commands/:commandId/execute rejects random.unknown.command as unknown (RED)', async () => {
