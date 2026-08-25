@@ -66,11 +66,7 @@ function decodeRequired<A, I>(schema: Schema.Schema<A, I>, value: unknown, label
 }
 
 function decodeRelay(value: unknown): StoredRelayPolicy {
-  const decoded = decodeRequired(
-    MNetForcedRelayPolicyResultSchema,
-    value,
-    'relay-policy fact'
-  )
+  const decoded = decodeRequired(MNetForcedRelayPolicyResultSchema, value, 'relay-policy fact')
   if (decoded.result !== 'denied') return decoded
   throw new MNetClosedLoopStorageError(
     'mnet.store.decode_failed',
@@ -78,9 +74,7 @@ function decodeRelay(value: unknown): StoredRelayPolicy {
   )
 }
 
-export function decodeStoredMNetClosedLoopJoin(
-  value: unknown
-): MNetPendingJoinRequestFromSchema {
+export function decodeStoredMNetClosedLoopJoin(value: unknown): MNetPendingJoinRequestFromSchema {
   return decodeRequired<MNetPendingJoinRequestFromSchema, MNetPendingJoinRequestFromSchema>(
     MNetPendingJoinRequestSchema,
     value,
@@ -191,9 +185,7 @@ export function createPgMNetClosedLoopStore(db: MeristemDb): MNetClosedLoopStore
     }
   }
 
-  async function claimCredentialTransition(
-    input: MNetCredentialTransitionClaim
-  ): Promise<boolean> {
+  async function claimCredentialTransition(input: MNetCredentialTransitionClaim): Promise<boolean> {
     try {
       return await db.transaction(async tx => {
         const [row] = await tx
@@ -300,7 +292,8 @@ export function createPgMNetClosedLoopStore(db: MeristemDb): MNetClosedLoopStore
       return (await list('event-intent'))
         .map(value => decodeRequired(eventIntentSchema, value, 'event intent'))
         .filter(
-          intent => intent.status === 'pending' && (!operationId || intent.operationId === operationId)
+          intent =>
+            intent.status === 'pending' && (!operationId || intent.operationId === operationId)
         )
     },
     async markEventIntentPublished(intentId, publishedAt) {
@@ -320,9 +313,7 @@ export function createPgMNetClosedLoopStore(db: MeristemDb): MNetClosedLoopStore
       },
       async get(requestId) {
         const value = await get('join', requestId)
-        return value === null
-          ? null
-          : decodeStoredMNetClosedLoopJoin(value)
+        return value === null ? null : decodeStoredMNetClosedLoopJoin(value)
       },
       async listByNetwork(networkId) {
         return (await list('join', networkId)).map(decodeStoredMNetClosedLoopJoin)
@@ -392,11 +383,10 @@ export function createPgMNetClosedLoopStore(db: MeristemDb): MNetClosedLoopStore
         const value = await get('migration', migrationId)
         return value === null
           ? null
-          : decodeRequired<MNetProfileMigrationResultFromSchema, MNetProfileMigrationResultFromSchema>(
-              MNetProfileMigrationResultSchema,
-              value,
-              'migration fact'
-            )
+          : decodeRequired<
+              MNetProfileMigrationResultFromSchema,
+              MNetProfileMigrationResultFromSchema
+            >(MNetProfileMigrationResultSchema, value, 'migration fact')
       }
     },
     breakGlass: {

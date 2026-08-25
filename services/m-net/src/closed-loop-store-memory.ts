@@ -78,10 +78,7 @@ function applyCommit(state: MemoryState, input: MNetClosedLoopCommit): void {
         state.breakGlass.set(fact.value.grantId, structuredClone(fact.value))
         break
       case 'sidecar':
-        state.sidecars.set(
-          `${fact.networkId}:${fact.value.nodeId}`,
-          structuredClone(fact.value)
-        )
+        state.sidecars.set(`${fact.networkId}:${fact.value.nodeId}`, structuredClone(fact.value))
         break
       case 'tunnel':
         state.tunnels.set(
@@ -106,9 +103,7 @@ export function createInMemoryMNetClosedLoopStore(): MNetClosedLoopStore {
     state = next
   }
 
-  async function claimCredentialTransition(
-    input: MNetCredentialTransitionClaim
-  ): Promise<boolean> {
+  async function claimCredentialTransition(input: MNetCredentialTransitionClaim): Promise<boolean> {
     const current = state.credentials.get(input.credentialId)
     if (!current || !input.expectedStatuses.includes(current.status)) return false
     const next = cloneState(state)
@@ -123,7 +118,8 @@ export function createInMemoryMNetClosedLoopStore(): MNetClosedLoopStore {
     async listPendingEventIntents(operationId) {
       return [...state.eventIntents.values()]
         .filter(
-          intent => intent.status === 'pending' && (!operationId || intent.operationId === operationId)
+          intent =>
+            intent.status === 'pending' && (!operationId || intent.operationId === operationId)
         )
         .map(intent => structuredClone(intent))
     },

@@ -65,7 +65,9 @@ describe('OpenSearch production deployment contract', () => {
     expect(dashboards).not.toContain('ports:')
     expect(proxy).toContain('127.0.0.1:8443:8443')
     expect(proxyConfig).toContain('provider = "oidc"')
-    expect(proxyConfig).toContain('allowed_groups = ["meristem-operator", "meristem-security-admin"]')
+    expect(proxyConfig).toContain(
+      'allowed_groups = ["meristem-operator", "meristem-security-admin"]'
+    )
     expect(proxyConfig).toContain('https_address = "0.0.0.0:8443"')
     expect(proxyConfig).toContain('auth_logging = true')
     expect(auditPolicy).toContain('dashboards:unauthorized')

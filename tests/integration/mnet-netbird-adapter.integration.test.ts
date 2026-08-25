@@ -69,10 +69,7 @@ function requireObject(value: unknown): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value))
 }
 
-function requireNestedObject(
-  value: Record<string, unknown>,
-  key: string
-): Record<string, unknown> {
+function requireNestedObject(value: Record<string, unknown>, key: string): Record<string, unknown> {
   return requireObject(value[key])
 }
 
@@ -81,7 +78,9 @@ function requireString(value: unknown, label: string): string {
   return value
 }
 
-function createHarness(input?: { resolveNetBirdControlPlane?: MNetAppDeps['resolveNetBirdControlPlane'] }) {
+function createHarness(input?: {
+  resolveNetBirdControlPlane?: MNetAppDeps['resolveNetBirdControlPlane']
+}) {
   const networkId = `mnet-netbird-runtime-${crypto.randomUUID()}`
   const members = [
     joinedMember({ networkId, nodeId: 'stem-runtime-1', nodeKind: 'stem' }),

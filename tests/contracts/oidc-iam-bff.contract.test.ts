@@ -62,7 +62,9 @@ function createTestEnvironment() {
   const oidc: OidcAuthorizationCodeClient = {
     async createAuthorizationUrl(input) {
       observedAuthorizations.push(input)
-      const url = new URL('https://keycloak.example.com/realms/meristem/protocol/openid-connect/auth')
+      const url = new URL(
+        'https://keycloak.example.com/realms/meristem/protocol/openid-connect/auth'
+      )
       url.searchParams.set('state', input.state)
       url.searchParams.set('nonce', input.nonce)
       url.searchParams.set('code_challenge', input.codeChallenge)
@@ -191,11 +193,14 @@ describe('OIDC local IAM BFF session contract', () => {
     const adminSession = await issueSecurityAdminSession(environment)
 
     const approval = await environment.app.handle(
-      new Request(`http://localhost/api/v0/auth/principals/${pending.principal.principalId}/approve`, {
-        method: 'POST',
-        headers: sessionHeaders(adminSession),
-        body: JSON.stringify({ roles: ['operator'] })
-      })
+      new Request(
+        `http://localhost/api/v0/auth/principals/${pending.principal.principalId}/approve`,
+        {
+          method: 'POST',
+          headers: sessionHeaders(adminSession),
+          body: JSON.stringify({ roles: ['operator'] })
+        }
+      )
     )
 
     expect(approval.status).toBe(200)
@@ -223,11 +228,14 @@ describe('OIDC local IAM BFF session contract', () => {
     const adminSession = await issueSecurityAdminSession(environment)
 
     const rejection = await environment.app.handle(
-      new Request(`http://localhost/api/v0/auth/principals/${pending.principal.principalId}/reject`, {
-        method: 'POST',
-        headers: sessionHeaders(adminSession),
-        body: JSON.stringify({ reason: 'Identity proof could not be approved' })
-      })
+      new Request(
+        `http://localhost/api/v0/auth/principals/${pending.principal.principalId}/reject`,
+        {
+          method: 'POST',
+          headers: sessionHeaders(adminSession),
+          body: JSON.stringify({ reason: 'Identity proof could not be approved' })
+        }
+      )
     )
     expect(rejection.status).toBe(200)
 
@@ -251,11 +259,15 @@ describe('OIDC local IAM BFF session contract', () => {
     const state = login.searchParams.get('state')
     if (state === null) throw new Error('Expected OIDC state')
     const first = await environment.app.handle(
-      new Request(`http://localhost/api/v0/auth/oidc/callback?code=once&state=${encodeURIComponent(state)}`)
+      new Request(
+        `http://localhost/api/v0/auth/oidc/callback?code=once&state=${encodeURIComponent(state)}`
+      )
     )
     expect(first.status).toBe(409)
     const replay = await environment.app.handle(
-      new Request(`http://localhost/api/v0/auth/oidc/callback?code=once&state=${encodeURIComponent(state)}`)
+      new Request(
+        `http://localhost/api/v0/auth/oidc/callback?code=once&state=${encodeURIComponent(state)}`
+      )
     )
     expect(replay.status).toBe(400)
   })
@@ -274,7 +286,9 @@ describe('OIDC local IAM BFF session contract', () => {
   test('does not reflect arbitrary credentialed CORS origins in OIDC mode', async () => {
     const environment = createTestEnvironment()
     const response = await environment.app.handle(
-      new Request('http://localhost/health', { headers: { origin: 'https://untrusted.example.test' } })
+      new Request('http://localhost/health', {
+        headers: { origin: 'https://untrusted.example.test' }
+      })
     )
 
     expect(response.headers.get('access-control-allow-origin')).toBeNull()

@@ -35,7 +35,11 @@ const errorResponses = {
 
 function mapFailure(
   set: { status?: number | string },
-  result: { kind: 'failure'; status: 400 | 401 | 403 | 404 | 409 | 503; error: { code: string; message: string } }
+  result: {
+    kind: 'failure'
+    status: 400 | 401 | 403 | 404 | 409 | 503
+    error: { code: string; message: string }
+  }
 ) {
   return externalApiError(set, result.status, result.error.code, result.error.message)
 }
@@ -185,7 +189,10 @@ export function createClosedLoopRoutes(deps: Pick<MNetAppDeps, 'auth' | 'closedL
           ? mapFailure(set, result)
           : Value.Parse(migrationResponseSchema, result)
       },
-      { body: migrateProfileBodySchema, response: { 200: migrationResponseSchema, ...errorResponses } }
+      {
+        body: migrateProfileBodySchema,
+        response: { 200: migrationResponseSchema, ...errorResponses }
+      }
     )
     .post(
       '/migrations/:id/rollback',
@@ -217,7 +224,10 @@ export function createClosedLoopRoutes(deps: Pick<MNetAppDeps, 'auth' | 'closedL
           ? mapFailure(set, result)
           : Value.Parse(breakGlassResponseSchema, result)
       },
-      { body: initiateBreakGlassBodySchema, response: { 200: breakGlassResponseSchema, ...errorResponses } }
+      {
+        body: initiateBreakGlassBodySchema,
+        response: { 200: breakGlassResponseSchema, ...errorResponses }
+      }
     )
     .post(
       '/break-glass/:id/approve',

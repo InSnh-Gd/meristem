@@ -93,8 +93,7 @@ export const MNetCredentialOperationStateSchema = Schema.Literal(
   'pending_previous_revoke',
   'completed'
 )
-export type MNetCredentialOperationStateFromSchema =
-  typeof MNetCredentialOperationStateSchema.Type
+export type MNetCredentialOperationStateFromSchema = typeof MNetCredentialOperationStateSchema.Type
 
 /** 凭据操作在外部 SecretProvider 调用前持久化，重启后可继续执行。 */
 export const MNetCredentialOperationSchema = Schema.Struct({
@@ -124,7 +123,10 @@ export const MNetCredentialOperationSchema = Schema.Struct({
     }
     if (value.state === 'pending_previous_revoke' && !value.replacementCredential) {
       issues.push(
-        issue(['replacementCredential'], 'pending previous revocation requires the replacement credential')
+        issue(
+          ['replacementCredential'],
+          'pending previous revocation requires the replacement credential'
+        )
       )
     }
     return issues

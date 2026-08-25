@@ -3,7 +3,7 @@ import { Value } from '@sinclair/typebox/value'
 import { extractBearerToken } from '../../../packages/auth/src/index.ts'
 import type {
   NetworkMapFromSchema,
-  NodeAgentRuntimeDesiredSidecar,
+  NodeAgentRuntimeDesiredSidecar
 } from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
 import {
@@ -24,10 +24,7 @@ type NodeRuntimeContext = {
   nodeRuntime: NonNullable<MNetAppDeps['nodeRuntime']>
 }
 
-const dependencyStateSchema = t.Union([
-  t.Literal('ready'),
-  t.Literal('unavailable')
-])
+const dependencyStateSchema = t.Union([t.Literal('ready'), t.Literal('unavailable')])
 
 const healthStatusSchema = t.Union([
   t.Literal('unknown'),
@@ -101,7 +98,9 @@ const nodeRuntimeStatusBodySchema = t.Object({
   processPid: t.Optional(t.Number()),
   processStartedAt: t.Optional(t.String()),
   lastProbeAt: t.Optional(t.String()),
-  observedHealth: t.Optional(t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('unknown')])),
+  observedHealth: t.Optional(
+    t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('unknown')])
+  ),
   degradedReason: t.Optional(degradedReasonSchema),
   correlationId: t.String(),
   observedAt: t.String(),
@@ -158,12 +157,7 @@ const latestNetworkMapResponseSchema = t.Object({
         action: t.Union([t.Literal('allow'), t.Literal('deny')]),
         sourceNodeId: t.String(),
         targetNodeId: t.String(),
-        protocol: t.Union([
-          t.Literal('any'),
-          t.Literal('tcp'),
-          t.Literal('udp'),
-          t.Literal('icmp')
-        ])
+        protocol: t.Union([t.Literal('any'), t.Literal('tcp'), t.Literal('udp'), t.Literal('icmp')])
       })
     ),
     relayAssignment: t.Optional(

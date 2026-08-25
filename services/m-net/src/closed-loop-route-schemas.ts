@@ -7,10 +7,7 @@ export const closedLoopIdParamsSchema = t.Object({ id: nonEmptyString })
 export const closedLoopNetworkParamsSchema = t.Object({ networkId: nonEmptyString })
 
 const nodeKindSchema = t.Union([t.Literal('core'), t.Literal('stem'), t.Literal('leaf')])
-const v03ProfileSchema = t.Union([
-  t.Literal('m-net@0.3.0'),
-  t.Literal('m-net-cn@0.3.0')
-])
+const v03ProfileSchema = t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')])
 const historicalProfileSchema = t.Union([
   t.Literal('m-net-default@0.1.0'),
   t.Literal('m-net-cn@0.1.0'),
@@ -139,23 +136,25 @@ const operationDeniedSchema = t.Object({
 
 const publicationSchema = t.Object({
   status: t.Union([t.Literal('pending'), t.Literal('published')]),
-  pendingSubjects: t.Readonly(t.Array(
-    t.Union([
-      t.Literal('mnet.join.requested.v0'),
-      t.Literal('mnet.join.approved.v0'),
-      t.Literal('mnet.join.rejected.v0'),
-      t.Literal('mnet.credential.issued.v0'),
-      t.Literal('mnet.credential.rotated.v0'),
-      t.Literal('mnet.credential.revoked.v0'),
-      t.Literal('mnet.topology.view.updated.v0'),
-      t.Literal('mnet.topology.map.status.v0'),
-      t.Literal('mnet.tunnel.health.v0'),
-      t.Literal('mnet.relay_policy.changed.v0'),
-      t.Literal('mnet.profile.migration.changed.v0'),
-      t.Literal('mnet.break_glass.changed.v0'),
-      t.Literal('mnet.sidecar.degraded.v0')
-    ])
-  ))
+  pendingSubjects: t.Readonly(
+    t.Array(
+      t.Union([
+        t.Literal('mnet.join.requested.v0'),
+        t.Literal('mnet.join.approved.v0'),
+        t.Literal('mnet.join.rejected.v0'),
+        t.Literal('mnet.credential.issued.v0'),
+        t.Literal('mnet.credential.rotated.v0'),
+        t.Literal('mnet.credential.revoked.v0'),
+        t.Literal('mnet.topology.view.updated.v0'),
+        t.Literal('mnet.topology.map.status.v0'),
+        t.Literal('mnet.tunnel.health.v0'),
+        t.Literal('mnet.relay_policy.changed.v0'),
+        t.Literal('mnet.profile.migration.changed.v0'),
+        t.Literal('mnet.break_glass.changed.v0'),
+        t.Literal('mnet.sidecar.degraded.v0')
+      ])
+    )
+  )
 })
 
 function mutationSchema<T extends TSchema>(value: T) {
@@ -300,9 +299,7 @@ const breakGlassSchema = t.Object({
   grantId: nonEmptyString,
   networkId: nonEmptyString,
   initiatedBy: t.Literal('security-admin'),
-  secondApprover: t.Optional(
-    t.Union([t.Literal('break-glass-reviewer'), t.Undefined()])
-  ),
+  secondApprover: t.Optional(t.Union([t.Literal('break-glass-reviewer'), t.Undefined()])),
   state: t.Union([
     t.Literal('initiated'),
     t.Literal('second_approval_pending'),
@@ -339,9 +336,7 @@ const sidecarStatusSchema = t.Object({
     t.Literal('runtime-probe'),
     t.Literal('operator-report')
   ]),
-  fallbackTransport: t.Optional(
-    t.Union([t.Literal('wireguard-rendered'), t.Undefined()])
-  ),
+  fallbackTransport: t.Optional(t.Union([t.Literal('wireguard-rendered'), t.Undefined()])),
   uiFacingFact: t.Literal(true),
   healthy: t.Boolean(),
   checkedAt: nonEmptyString
@@ -358,9 +353,7 @@ export const tunnelHealthSchema = t.Object({
     t.Literal('none')
   ]),
   latencyMs: t.Optional(t.Union([t.Number({ minimum: 0 }), t.Undefined()])),
-  packetLossPct: t.Optional(
-    t.Union([t.Number({ minimum: 0, maximum: 100 }), t.Undefined()])
-  ),
+  packetLossPct: t.Optional(t.Union([t.Number({ minimum: 0, maximum: 100 }), t.Undefined()])),
   relayStatus: t.Union([
     t.Literal('not-required'),
     t.Literal('available'),
@@ -368,10 +361,7 @@ export const tunnelHealthSchema = t.Object({
     t.Literal('unavailable')
   ]),
   checkedAt: nonEmptyString,
-  stateSource: t.Union([
-    t.Literal('opensearch-projection'),
-    t.Literal('node-runtime-report')
-  ])
+  stateSource: t.Union([t.Literal('opensearch-projection'), t.Literal('node-runtime-report')])
 })
 
 const mapStatusSchema = t.Object({
@@ -400,56 +390,60 @@ const topologySchema = t.Object({
   contractVersion: t.Literal('mnet-closed-loop@0.1.0'),
   generatedAt: nonEmptyString,
   stateSource: t.Literal('composed-ui-fact'),
-  networks: t.Readonly(t.Array(
-    t.Object({
-      networkId: nonEmptyString,
-      displayName: nonEmptyString,
-      profileVersion: v03ProfileSchema,
-      status: t.Union([
-        t.Literal('healthy'),
-        t.Literal('degraded'),
-        t.Literal('fail_closed'),
-        t.Literal('migration_required')
-      ]),
-      mapStatus: mapStatusSchema,
-      relayPolicyState: t.Union([
-        t.Literal('enabled'),
-        t.Literal('disabled'),
-        t.Literal('denied')
-      ])
-    })
-  )),
-  nodes: t.Readonly(t.Array(
-    t.Object({
-      nodeId: nonEmptyString,
-      nodeKind: nodeKindSchema,
-      runtimeState: t.Union([
-        t.Literal('joining'),
-        t.Literal('healthy'),
-        t.Literal('degraded'),
-        t.Literal('offline'),
-        t.Literal('disabled'),
-        t.Literal('isolated'),
-        t.Literal('recovering'),
-        t.Literal('revoked')
-      ]),
-      profileVersion: v03ProfileSchema,
-      sidecar: sidecarStatusSchema,
-      credentialStatus: credentialSchema.properties.status,
-      keyStatus: t.Object({
-        nodeId: nonEmptyString,
-        publicKeyFingerprint: nonEmptyString,
+  networks: t.Readonly(
+    t.Array(
+      t.Object({
+        networkId: nonEmptyString,
+        displayName: nonEmptyString,
+        profileVersion: v03ProfileSchema,
         status: t.Union([
-          t.Literal('registered'),
-          t.Literal('rotation_required'),
-          t.Literal('revoked'),
-          t.Literal('stale')
+          t.Literal('healthy'),
+          t.Literal('degraded'),
+          t.Literal('fail_closed'),
+          t.Literal('migration_required')
         ]),
-        lastValidatedAt: nonEmptyString,
-        auditId: t.Optional(t.Union([nonEmptyString, t.Undefined()]))
+        mapStatus: mapStatusSchema,
+        relayPolicyState: t.Union([
+          t.Literal('enabled'),
+          t.Literal('disabled'),
+          t.Literal('denied')
+        ])
       })
-    })
-  )),
+    )
+  ),
+  nodes: t.Readonly(
+    t.Array(
+      t.Object({
+        nodeId: nonEmptyString,
+        nodeKind: nodeKindSchema,
+        runtimeState: t.Union([
+          t.Literal('joining'),
+          t.Literal('healthy'),
+          t.Literal('degraded'),
+          t.Literal('offline'),
+          t.Literal('disabled'),
+          t.Literal('isolated'),
+          t.Literal('recovering'),
+          t.Literal('revoked')
+        ]),
+        profileVersion: v03ProfileSchema,
+        sidecar: sidecarStatusSchema,
+        credentialStatus: credentialSchema.properties.status,
+        keyStatus: t.Object({
+          nodeId: nonEmptyString,
+          publicKeyFingerprint: nonEmptyString,
+          status: t.Union([
+            t.Literal('registered'),
+            t.Literal('rotation_required'),
+            t.Literal('revoked'),
+            t.Literal('stale')
+          ]),
+          lastValidatedAt: nonEmptyString,
+          auditId: t.Optional(t.Union([nonEmptyString, t.Undefined()]))
+        })
+      })
+    )
+  ),
   profiles: t.Readonly(t.Array(v03ProfileSchema)),
   tunnelHealth: t.Readonly(t.Array(tunnelHealthSchema)),
   sidecarStatuses: t.Readonly(t.Array(sidecarStatusSchema)),

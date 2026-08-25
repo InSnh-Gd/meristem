@@ -1,10 +1,4 @@
-import {
-  createPrivateKey,
-  createPublicKey,
-  generateKeyPairSync,
-  sign,
-  verify
-} from 'node:crypto'
+import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { NetworkMapFromSchema as NetworkMap } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 

@@ -9,14 +9,8 @@ import type {
   MNetTunnelHealthFromSchema
 } from '../../../packages/contracts/src/index.ts'
 import type { ClosedLoopWorkflowContext } from './closed-loop-workflow-support.ts'
-import {
-  closedLoopFailure,
-  closedLoopFailureFromUnknown
-} from './closed-loop-workflow-support.ts'
-import type {
-  ClosedLoopFailure,
-  ClosedLoopMutationOutcome
-} from './closed-loop-workflow-types.ts'
+import { closedLoopFailure, closedLoopFailureFromUnknown } from './closed-loop-workflow-support.ts'
+import type { ClosedLoopFailure, ClosedLoopMutationOutcome } from './closed-loop-workflow-types.ts'
 
 function missingSidecarStatus(nodeId: string, checkedAt: string): MNetSidecarStatusFromSchema {
   return {
@@ -63,7 +57,8 @@ export function createTopologyWorkflow(context: ClosedLoopWorkflowContext) {
     const gated = await authorizeAndAudit({
       actor: input.actor,
       permission: input.state === 'enabled' ? 'network:profile-enable' : 'network:profile-disable',
-      auditAction: input.state === 'enabled' ? 'mnet.relay_policy.enable' : 'mnet.relay_policy.disable',
+      auditAction:
+        input.state === 'enabled' ? 'mnet.relay_policy.enable' : 'mnet.relay_policy.disable',
       resource: `network:${input.networkId}:relay-policy`,
       correlationId,
       payload: { state: input.state, reason: input.reason }

@@ -84,17 +84,24 @@ export function resolveOciTarget(name: string): PipelineResult<OciTarget> {
 }
 
 /** Ensures the declared OCI surface accounts for every runnable workspace entrypoint. */
-export function validateOciTargetInventory(contextDir = rootDir): PipelineResult<readonly string[]> {
+export function validateOciTargetInventory(
+  contextDir = rootDir
+): PipelineResult<readonly string[]> {
   const discoveredEntrypoints = [
     ...new Bun.Glob('apps/*/src/index.ts').scanSync({ cwd: contextDir, onlyFiles: true }),
     ...new Bun.Glob('services/*/src/index.ts').scanSync({ cwd: contextDir, onlyFiles: true }),
     ...new Bun.Glob('services/*/src/serve.ts').scanSync({ cwd: contextDir, onlyFiles: true })
   ].sort()
   const declaredEntrypoints = ociTargets
-    .filter((target): target is OciTarget & { readonly entrypoint: string } => target.entrypoint !== undefined)
+    .filter(
+      (target): target is OciTarget & { readonly entrypoint: string } =>
+        target.entrypoint !== undefined
+    )
     .map(target => target.entrypoint)
     .sort()
-  const excludedEntrypoints = new Set<string>(ociTargetExclusions.map(exclusion => exclusion.entrypoint))
+  const excludedEntrypoints = new Set<string>(
+    ociTargetExclusions.map(exclusion => exclusion.entrypoint)
+  )
   const unaccountedEntrypoints = discoveredEntrypoints.filter(
     entrypoint => !declaredEntrypoints.includes(entrypoint) && !excludedEntrypoints.has(entrypoint)
   )
@@ -232,7 +239,10 @@ export function validateOciStaticPreflight(
   if (!existsSync(containerfilePath)) {
     return {
       ok: false,
-      error: { code: 'build_context_policy_invalid', message: `missing Containerfile: ${target.containerfile}` }
+      error: {
+        code: 'build_context_policy_invalid',
+        message: `missing Containerfile: ${target.containerfile}`
+      }
     }
   }
 
@@ -260,8 +270,12 @@ export function validateOciStaticPreflight(
     missingIgnoreRules.length > 0
   ) {
     const details = [
-      containerfile.includes('COPY . .') ? 'Containerfiles must not copy the entire build context' : '',
-      !requiresBunRuntime ? 'Containerfile does not preserve the required Bun runtime/build boundary' : '',
+      containerfile.includes('COPY . .')
+        ? 'Containerfiles must not copy the entire build context'
+        : '',
+      !requiresBunRuntime
+        ? 'Containerfile does not preserve the required Bun runtime/build boundary'
+        : '',
       !mDeployEntrypointIsServing
         ? 'M-Deploy must use a production-serving entrypoint rather than its export barrel'
         : '',
@@ -335,8 +349,11 @@ type ConfiguredBaseImages = {
   readonly staticBaseImage: string | undefined
 }
 
-function validateConfiguredBaseImages(input: ConfiguredBaseImages): PipelineResult<readonly string[]> {
-  if (input.bunBaseImage === undefined && input.staticBaseImage === undefined) return { ok: true, value: [] }
+function validateConfiguredBaseImages(
+  input: ConfiguredBaseImages
+): PipelineResult<readonly string[]> {
+  if (input.bunBaseImage === undefined && input.staticBaseImage === undefined)
+    return { ok: true, value: [] }
   const bunBase = validateDigestPinnedImage(input.bunBaseImage)
   if (!bunBase.ok) return bunBase
   const staticBase = validateDigestPinnedImage(input.staticBaseImage)
@@ -374,7 +391,8 @@ function dryRunBuild(target: OciTarget): void {
     JSON.stringify(
       {
         mode: 'dry-run',
-        preflight: 'static OCI policy validated; no registry, build, signing, or attestation executed',
+        preflight:
+          'static OCI policy validated; no registry, build, signing, or attestation executed',
         target: target.name,
         activation: target.activation,
         command: ['podman', 'build', ...baseArgs, '-f', target.containerfile, '.'],
@@ -421,7 +439,8 @@ function runPreflight(): void {
       {
         mode: 'static-preflight',
         targets: ociTargets.map(target => target.name),
-        result: 'validated repository inventory, build context, Containerfiles, and secret exclusions'
+        result:
+          'validated repository inventory, build context, Containerfiles, and secret exclusions'
       },
       null,
       2

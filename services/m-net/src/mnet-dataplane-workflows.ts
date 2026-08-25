@@ -54,7 +54,9 @@ export type DataPlaneAdapterSelection =
   | NetBirdAdapterRejectedResult
   | DisabledDataPlaneAdapterResult
 
-function isV03ProfileVersion(value: string): value is typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION {
+function isV03ProfileVersion(
+  value: string
+): value is typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION {
   return value === V03_PROFILE_VERSION || value === V03_CN_PROFILE_VERSION
 }
 
@@ -64,9 +66,10 @@ function isNetBirdEnabled(
   return adapter.enabled === true
 }
 
-function readAdapterRejection(
-  adapter: DataPlaneAdapterSelection
-): { code: string; message: string } {
+function readAdapterRejection(adapter: DataPlaneAdapterSelection): {
+  code: string
+  message: string
+} {
   if ('error' in adapter) return adapter.error
   return {
     code: 'netbird.adapter.noop',
@@ -76,7 +79,10 @@ function readAdapterRejection(
 
 async function selectAdapterForEnable(
   deps: DataPlaneDeps,
-  input: { networkId: string; profileVersion: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION }
+  input: {
+    networkId: string
+    profileVersion: typeof V03_PROFILE_VERSION | typeof V03_CN_PROFILE_VERSION
+  }
 ): Promise<DataPlaneAdapterSelection> {
   const controlPlane = deps.resolveNetBirdControlPlane
     ? await deps.resolveNetBirdControlPlane(input)

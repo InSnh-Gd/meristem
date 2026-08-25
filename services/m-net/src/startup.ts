@@ -165,36 +165,27 @@ export async function startMNetService(): Promise<void> {
     },
     Math.max(heartbeatTimeoutMs(), 5000)
   )
-  const breakGlassExpirySweep = setInterval(
-    () => {
-      void closedLoop.enforceExpiry().catch(error => {
-        console.warn(
-          `m-net: break-glass expiry sweep degraded - ${error instanceof Error ? error.message : String(error)}`
-        )
-      })
-    },
-    60_000
-  )
-  const closedLoopPublicationSweep = setInterval(
-    () => {
-      void closedLoop.flushPendingEvents().catch(error => {
-        console.warn(
-          `m-net: closed-loop publication sweep degraded - ${error instanceof Error ? error.message : String(error)}`
-        )
-      })
-    },
-    30_000
-  )
-  const credentialRecoverySweep = setInterval(
-    () => {
-      void closedLoop.recoverCredentialOperations().catch(error => {
-        console.warn(
-          `m-net: credential recovery sweep degraded - ${error instanceof Error ? error.message : String(error)}`
-        )
-      })
-    },
-    30_000
-  )
+  const breakGlassExpirySweep = setInterval(() => {
+    void closedLoop.enforceExpiry().catch(error => {
+      console.warn(
+        `m-net: break-glass expiry sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
+  }, 60_000)
+  const closedLoopPublicationSweep = setInterval(() => {
+    void closedLoop.flushPendingEvents().catch(error => {
+      console.warn(
+        `m-net: closed-loop publication sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
+  }, 30_000)
+  const credentialRecoverySweep = setInterval(() => {
+    void closedLoop.recoverCredentialOperations().catch(error => {
+      console.warn(
+        `m-net: credential recovery sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
+  }, 30_000)
 
   process.on('SIGINT', () => {
     clearInterval(offlineSweep)

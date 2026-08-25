@@ -173,7 +173,10 @@ async function startFreshRealm(runtime: KeycloakRuntime): Promise<KeycloakDevRea
   const configuredPort = process.env.MERISTEM_KEYCLOAK_PORT
   const hostPort = configuredPort ? Number(configuredPort) : await allocatePort()
   if (!Number.isFinite(hostPort) || hostPort <= 0) {
-    return prerequisiteMissing('port_allocation', 'Could not allocate a local host port for the Keycloak dev realm')
+    return prerequisiteMissing(
+      'port_allocation',
+      'Could not allocate a local host port for the Keycloak dev realm'
+    )
   }
 
   const realm = buildRealmState(runtime, hostPort)
@@ -303,7 +306,9 @@ export async function mintKeycloakTokenForActor(
   if (!response.ok) {
     const code = typeof payload.error === 'string' ? payload.error : 'unknown_error'
     const description =
-      typeof payload.error_description === 'string' ? payload.error_description : `HTTP ${response.status}`
+      typeof payload.error_description === 'string'
+        ? payload.error_description
+        : `HTTP ${response.status}`
     throw new Error(`Keycloak token mint failed for ${actor}: ${code} ${description}`)
   }
 
@@ -356,7 +361,11 @@ export async function runKeycloakProof(): Promise<{
   const results: KeycloakProofResult[] = []
 
   try {
-    results.push({ status: 'success', step: 'realm.start', detail: `${realm.runtime}:${realm.hostPort}` })
+    results.push({
+      status: 'success',
+      step: 'realm.start',
+      detail: `${realm.runtime}:${realm.hostPort}`
+    })
 
     const discoveryResponse = await fetch(realm.discoveryUrl)
     const discoveryPayload = (await discoveryResponse.json()) as Record<string, unknown>

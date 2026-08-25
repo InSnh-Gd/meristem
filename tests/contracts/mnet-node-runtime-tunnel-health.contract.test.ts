@@ -82,9 +82,7 @@ describe('M-Net node-runtime tunnel health route', () => {
 
   it('rejects malformed tunnel telemetry before invoking the reporter', async () => {
     const fixture = createFixture()
-    const response = await fixture.app.handle(
-      request({ ...validBody, packetLossPct: 101 })
-    )
+    const response = await fixture.app.handle(request({ ...validBody, packetLossPct: 101 }))
     expect(response.status).toBe(422)
     expect(fixture.reports).toEqual([])
   })

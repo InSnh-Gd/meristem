@@ -87,7 +87,9 @@ function rejectConfig(
 function validateResolvedConfig(
   config: NetBirdResolvedControlPlaneConfig
 ): Result<ValidatedNetBirdConfig, NetBirdAdapterRejection> {
-  const forbiddenFields = forbiddenControlPlaneFields.filter(field => hasForbiddenField(config, field))
+  const forbiddenFields = forbiddenControlPlaneFields.filter(field =>
+    hasForbiddenField(config, field)
+  )
   if (forbiddenFields.length > 0) {
     return err({
       code: 'netbird.config.forbidden_management_plane',

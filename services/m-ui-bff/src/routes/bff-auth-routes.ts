@@ -11,7 +11,9 @@ import { createBffAuthSupport, toBffAuthResponse } from './bff-auth-support.ts'
 
 const principalParamsSchema = t.Object({ principalId: t.String({ minLength: 1 }) })
 
-async function respond(result: Promise<Parameters<typeof toBffAuthResponse>[0]>): Promise<Response> {
+async function respond(
+  result: Promise<Parameters<typeof toBffAuthResponse>[0]>
+): Promise<Response> {
   return toBffAuthResponse(await result)
 }
 
@@ -23,16 +25,12 @@ export function createBffAuthRoutes(auth: MUiBffOidcAuthDeps | undefined) {
   const support = createBffAuthSupport(auth)
 
   return new Elysia()
-    .get(
-      '/api/v0/auth/oidc/login',
-      ({ query }) => respond(support.startLogin(query.returnTo)),
-      { query: OidcIamAuthorizationStartV01TypeBoxSchema }
-    )
-    .get(
-      '/api/v0/auth/oidc/callback',
-      ({ query }) => respond(support.completeLogin(query)),
-      { query: OidcIamAuthorizationCallbackV01TypeBoxSchema }
-    )
+    .get('/api/v0/auth/oidc/login', ({ query }) => respond(support.startLogin(query.returnTo)), {
+      query: OidcIamAuthorizationStartV01TypeBoxSchema
+    })
+    .get('/api/v0/auth/oidc/callback', ({ query }) => respond(support.completeLogin(query)), {
+      query: OidcIamAuthorizationCallbackV01TypeBoxSchema
+    })
     .get('/api/v0/auth/session', ({ headers }) => respond(support.session(headers)))
     .post('/api/v0/auth/session/rotate', ({ headers }) => respond(support.rotate(headers)))
     .post('/api/v0/auth/logout', ({ headers }) => respond(support.logout(headers)))

@@ -49,7 +49,8 @@ export function dockerComposeCompatibilityFixture(options: ComposeFixtureOptions
 } {
   const desiredState = dockerComposeDesiredState(options)
   const rendered = renderComposeCompatibility(desiredState)
-  if (!rendered.ok) throw new Error(`render Docker Compose compatibility manifest: ${rendered.error.message}`)
+  if (!rendered.ok)
+    throw new Error(`render Docker Compose compatibility manifest: ${rendered.error.message}`)
   return { serviceId: dockerComposeServiceId, desiredState, manifest: rendered.value }
 }
 
@@ -116,7 +117,9 @@ export async function detectDockerComposeCli(): Promise<DockerComposeCli> {
       }
 }
 
-export async function runDockerCompose(args: readonly string[]): Promise<DockerComposeCommandResult> {
+export async function runDockerCompose(
+  args: readonly string[]
+): Promise<DockerComposeCommandResult> {
   return await runProcess('docker', ['compose', ...args])
 }
 

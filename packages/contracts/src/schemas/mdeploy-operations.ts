@@ -173,20 +173,23 @@ export const MDeployOciReferrerReferenceV01Schema = Schema.Struct({
   predicateType: Schema.optional(Schema.String),
   verification: MDeployOciReferrerVerificationV01Schema
 }).pipe(
-  Schema.filter(reference => {
-    const isSignature =
-      reference.artifact === 'signature' &&
-      reference.verification.operation === 'download-signature' &&
-      reference.predicateType === undefined
-    const isAttestation =
-      reference.artifact === 'attestation' &&
-      reference.verification.operation === 'download-attestation' &&
-      typeof reference.predicateType === 'string' &&
-      reference.predicateType.length > 0
-    return isSignature || isAttestation
-  }, {
-    message: () => 'OCI referrer artifact and Cosign retrieval operation must agree'
-  })
+  Schema.filter(
+    reference => {
+      const isSignature =
+        reference.artifact === 'signature' &&
+        reference.verification.operation === 'download-signature' &&
+        reference.predicateType === undefined
+      const isAttestation =
+        reference.artifact === 'attestation' &&
+        reference.verification.operation === 'download-attestation' &&
+        typeof reference.predicateType === 'string' &&
+        reference.predicateType.length > 0
+      return isSignature || isAttestation
+    },
+    {
+      message: () => 'OCI referrer artifact and Cosign retrieval operation must agree'
+    }
+  )
 )
 export type MDeployOciReferrerReferenceV01FromSchema =
   typeof MDeployOciReferrerReferenceV01Schema.Type

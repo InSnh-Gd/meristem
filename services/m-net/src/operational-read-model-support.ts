@@ -110,12 +110,18 @@ export function buildSidecars(
           lifecycle?.profileVersion ??
           profileVersion
       ),
-      desiredState: desired?.desiredState?.desiredState ?? runtime?.desiredState ?? lifecycle?.desiredState,
+      desiredState:
+        desired?.desiredState?.desiredState ?? runtime?.desiredState ?? lifecycle?.desiredState,
       credentialStatus,
       ...(credential?.credentialRef ? { credentialRef: credential.credentialRef } : {}),
       ...(credential?.expiresAt ? { expiresAt: credential.expiresAt } : {}),
-      healthStatus: runtime?.healthStatus ?? health?.healthStatus ?? (expectsSidecar ? 'unknown' : 'healthy'),
-      ...(runtime?.observedAt ? { checkedAt: runtime.observedAt } : health?.checkedAt ? { checkedAt: health.checkedAt } : {}),
+      healthStatus:
+        runtime?.healthStatus ?? health?.healthStatus ?? (expectsSidecar ? 'unknown' : 'healthy'),
+      ...(runtime?.observedAt
+        ? { checkedAt: runtime.observedAt }
+        : health?.checkedAt
+          ? { checkedAt: health.checkedAt }
+          : {}),
       ...(health ? { signalReachable: health.signalReachable } : {}),
       ...(health ? { relayReachable: health.relayReachable } : {}),
       ...(health ? { stunReachable: health.stunReachable } : {}),

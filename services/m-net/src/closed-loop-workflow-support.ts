@@ -109,8 +109,8 @@ export function createClosedLoopWorkflowContext(deps: MNetClosedLoopDeps) {
         writtenAt,
         correlationId: input.correlationId
       }
-  } catch {
-    return closedLoopFailure(503, 'audit.write_failed', 'Audit write is unavailable')
+    } catch {
+      return closedLoopFailure(503, 'audit.write_failed', 'Audit write is unavailable')
     }
   }
 
@@ -126,8 +126,8 @@ export function createClosedLoopWorkflowContext(deps: MNetClosedLoopDeps) {
     const decidedAt = timestamp()
     try {
       decision = await deps.policy.authorize(input.actor, input.permission, input.resource)
-  } catch {
-    return closedLoopFailure(503, 'policy.unavailable', 'M-Policy is unavailable')
+    } catch {
+      return closedLoopFailure(503, 'policy.unavailable', 'M-Policy is unavailable')
     }
     const policy = policyEvidence(decision, input.permission, decidedAt)
     const allowed = decision.result === 'allow'
@@ -165,8 +165,8 @@ export function createClosedLoopWorkflowContext(deps: MNetClosedLoopDeps) {
     let decision: PolicyDecision
     try {
       decision = await deps.policy.authorize(input.actor, input.permission, input.resource)
-  } catch {
-    return closedLoopFailure(503, 'policy.unavailable', 'M-Policy is unavailable')
+    } catch {
+      return closedLoopFailure(503, 'policy.unavailable', 'M-Policy is unavailable')
     }
     return decision.result === 'allow'
       ? null

@@ -33,11 +33,13 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     name: 'OIDC unavailable',
     description:
       'Keycloak discovery endpoint unreachable, JWKS fetch fails, or OIDC provider returns non-200. SharedAuthVerifier readiness check returns typed invalid_discovery failure.',
-    testCoverage: 'fails readiness when Keycloak discovery is unavailable without local JWT fallback',
+    testCoverage:
+      'fails readiness when Keycloak discovery is unavailable without local JWT fallback',
     testFile: 'tests/failure-modes/auth-shared-verifier.failure-mode.test.ts',
     status: 'covered',
     runtimeCode: 'invalid_discovery (OidcDiscoveryFailure)',
-    recovery: 'Restore Keycloak / network connectivity; Core readiness probe heals automatically after next discovery attempt.'
+    recovery:
+      'Restore Keycloak / network connectivity; Core readiness probe heals automatically after next discovery attempt.'
   },
   {
     id: 2,
@@ -46,9 +48,11 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
       'Token with wrong issuer, wrong audience, bad signature, unsupported algorithm, missing claims, or expired expiry. SharedAuthVerifier returns typed OidcAuthFailure with code bad_issuer, bad_audience, unsupported_algorithm, expired_token, missing_claim, or invalid_token.',
     testCoverage:
       'rejects expired OIDC tokens (expired_token), rejects OIDC tokens with an invalid signature (invalid_token), contract tests for bad_issuer and bad_audience',
-    testFile: 'tests/failure-modes/auth-shared-verifier.failure-mode.test.ts, tests/contracts/auth-shared-verifier.contract.test.ts',
+    testFile:
+      'tests/failure-modes/auth-shared-verifier.failure-mode.test.ts, tests/contracts/auth-shared-verifier.contract.test.ts',
     status: 'covered',
-    runtimeCode: 'bad_issuer | bad_audience | unsupported_algorithm | expired_token | missing_claim | invalid_token (OidcAuthFailure union)',
+    runtimeCode:
+      'bad_issuer | bad_audience | unsupported_algorithm | expired_token | missing_claim | invalid_token (OidcAuthFailure union)',
     recovery: 'Obtain a fresh, valid token from Keycloak; no restart needed.'
   },
   {
@@ -58,10 +62,13 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
       'A credential ref (e.g., OIDC client secret, NetBird setup key, NetBird infra credential) points to a provider/keyPath that returns no secret. Core startup fails closed with CoreSecretStartupError (reason: secret_missing). Node-agent reports typed secret.missing degraded reason.',
     testCoverage:
       'fails Core startup closed when required OIDC client secret is missing; degrades without spawning when the NetBird sidecar credential is missing',
-    testFile: 'tests/failure-modes/secret-provider.failure-mode.test.ts, tests/failure-modes/node-agent-sidecar-lifecycle.failure-mode.test.ts',
+    testFile:
+      'tests/failure-modes/secret-provider.failure-mode.test.ts, tests/failure-modes/node-agent-sidecar-lifecycle.failure-mode.test.ts',
     status: 'covered',
-    runtimeCode: 'core.secret_startup_failed (CoreSecretStartupError), secret_missing (SecretMissingFailure)',
-    recovery: 'Populate the missing secret in the configured provider (Vault KV v2 / local-dev-env env mapping); restart the service.'
+    runtimeCode:
+      'core.secret_startup_failed (CoreSecretStartupError), secret_missing (SecretMissingFailure)',
+    recovery:
+      'Populate the missing secret in the configured provider (Vault KV v2 / local-dev-env env mapping); restart the service.'
   },
   {
     id: 4,
@@ -73,7 +80,8 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     testFile: 'tests/failure-modes/secret-provider.failure-mode.test.ts',
     status: 'covered',
     runtimeCode: 'permission_denied (SecretPermissionDeniedFailure), core.secret_startup_failed',
-    recovery: 'Grant the Core / node-agent service account read access to the secret path in the configured SecretProvider; restart the service.'
+    recovery:
+      'Grant the Core / node-agent service account read access to the secret path in the configured SecretProvider; restart the service.'
   },
   {
     id: 5,
@@ -102,7 +110,8 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     gapReason:
       'Process spawn failure requires OS-level process spawning; the test below exercises the typed failure path by injecting a failing spawn mock. Real NetBird binary not available in CI.',
     runtimeCode: 'netbird.start_failed (degraded reason from spawnNetBirdProcess)',
-    recovery: 'Check NetBird binary permissions, configuration, and system resources; restart the node-agent.'
+    recovery:
+      'Check NetBird binary permissions, configuration, and system resources; restart the node-agent.'
   },
   {
     id: 7,
@@ -114,8 +123,10 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     testFile:
       'tests/failure-modes/node-agent-sidecar.test.ts, tests/failure-modes/runtime-failure-matrix.test.ts (inline)',
     status: 'covered',
-    runtimeCode: 'netbird.process.not_running | netbird.<probe_reason> (degraded reason from probeNetBirdProcess)',
-    recovery: 'Investigate NetBird client connectivity to Signal/Relay/STUN; restore infrastructure or restart the sidecar process.'
+    runtimeCode:
+      'netbird.process.not_running | netbird.<probe_reason> (degraded reason from probeNetBirdProcess)',
+    recovery:
+      'Investigate NetBird client connectivity to Signal/Relay/STUN; restore infrastructure or restart the sidecar process.'
   },
   {
     id: 8,
@@ -127,7 +138,8 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     testFile: 'tests/failure-modes/mnet-dataplane-security-hardening.test.ts',
     status: 'covered',
     runtimeCode: 'relay.unavailable → direct_fallback | fail_closed (resolveRelayAvailability)',
-    recovery: 'Restore relay/STUN/Signal infrastructure; node-agent re-establishes tunnels on next network-map pull.'
+    recovery:
+      'Restore relay/STUN/Signal infrastructure; node-agent re-establishes tunnels on next network-map pull.'
   },
   {
     id: 9,
@@ -139,7 +151,8 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
     testFile: 'tests/failure-modes/mnet-dataplane-security-hardening.test.ts',
     status: 'covered',
     runtimeCode: 'network_map.stale → network_map.expired (stale → fail_closed partition states)',
-    recovery: 'Restore M-Net control-plane connectivity; node-agent pulls a fresh signed map and re-applies tunnel configuration.'
+    recovery:
+      'Restore M-Net control-plane connectivity; node-agent pulls a fresh signed map and re-applies tunnel configuration.'
   },
   {
     id: 10,
@@ -150,8 +163,10 @@ const FAILURE_CLASSES: FailureClassEntry[] = [
       'viewer eligibility returns disabled reason and does not call upstream mutation; break-glass execute without confirmation returns validation error; Core facade errors are returned as typed error envelopes',
     testFile: 'tests/failure-modes/m-ui-bff-mnet-commands.test.ts',
     status: 'covered',
-    runtimeCode: 'disabled (command eligibility return shape), command.invalid_body (confirmation missing), feature.unavailable (upstream error envelope)',
-    recovery: 'Obtain appropriate permissions (operator / admin / security-admin); re-attempt the action through the UI.'
+    runtimeCode:
+      'disabled (command eligibility return shape), command.invalid_body (confirmation missing), feature.unavailable (upstream error envelope)',
+    recovery:
+      'Obtain appropriate permissions (operator / admin / security-admin); re-attempt the action through the UI.'
   }
 ]
 
@@ -185,8 +200,12 @@ describe('runtime failure matrix', () => {
       matrix: 'meristem-v02-runtime-failure',
       generatedAt: new Date().toISOString(),
       totalClasses: FAILURE_CLASSES.length,
-      coveredClasses: FAILURE_CLASSES.filter(e => e.status === 'covered' || e.status === 'covered_in_contract').length,
-      gapClasses: FAILURE_CLASSES.filter(e => e.status === 'gap_prerequisite' || e.status === 'gap_documented').length,
+      coveredClasses: FAILURE_CLASSES.filter(
+        e => e.status === 'covered' || e.status === 'covered_in_contract'
+      ).length,
+      gapClasses: FAILURE_CLASSES.filter(
+        e => e.status === 'gap_prerequisite' || e.status === 'gap_documented'
+      ).length,
       entries: matrix
     }
 
@@ -196,12 +215,18 @@ describe('runtime failure matrix', () => {
   })
 
   it('verifies every documented failure class has an automated test or explicit gap reason', () => {
-    const gaps = FAILURE_CLASSES.filter(e => e.status === 'gap_prerequisite' || e.status === 'gap_documented')
+    const gaps = FAILURE_CLASSES.filter(
+      e => e.status === 'gap_prerequisite' || e.status === 'gap_documented'
+    )
     for (const gap of gaps) {
       expect(gap.gapReason).toBeTruthy()
     }
     const uncovered = FAILURE_CLASSES.filter(
-      e => e.status !== 'covered' && e.status !== 'covered_in_contract' && e.status !== 'gap_prerequisite' && e.status !== 'gap_documented'
+      e =>
+        e.status !== 'covered' &&
+        e.status !== 'covered_in_contract' &&
+        e.status !== 'gap_prerequisite' &&
+        e.status !== 'gap_documented'
     )
     expect(uncovered).toHaveLength(0)
   })
@@ -209,7 +234,9 @@ describe('runtime failure matrix', () => {
   // --- Inline gap-coverage: NetBird binary missing (class 5) ---
   it('resolveLaunchConfig returns netbird.binary.invalid when path is empty', () => {
     // validateExecutablePath receives empty string
-    const validateExecutablePath = (path: string): { ok: true; value: string } | { ok: false; error: string } => {
+    const validateExecutablePath = (
+      path: string
+    ): { ok: true; value: string } | { ok: false; error: string } => {
       if (path.trim().length === 0) return { ok: false, error: 'binary path is empty' }
       return { ok: true, value: path }
     }
@@ -220,7 +247,9 @@ describe('runtime failure matrix', () => {
   })
 
   it('resolveLaunchConfig returns netbird.binary.invalid when path contains traversal', () => {
-    const validateExecutablePath = (path: string): { ok: true; value: string } | { ok: false; error: string } => {
+    const validateExecutablePath = (
+      path: string
+    ): { ok: true; value: string } | { ok: false; error: string } => {
       if (path.includes('..')) return { ok: false, error: 'path.traversal' }
       if (path.trim().length === 0) return { ok: false, error: 'binary path is empty' }
       return { ok: true, value: path }

@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  createSharedAuthVerifier,
-  mintLocalToken
-} from '../../packages/auth/src/index.ts'
+import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
 import {
   createKeycloakVerifierFixture,
   localJwtSecret,
@@ -45,7 +42,10 @@ describe('shared auth verifier failure modes', () => {
 
   test('rejects expired OIDC tokens', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const nowSeconds = Math.floor(Date.now() / 1_000)
     const token = await fixture.signKeycloakToken({
       issuedAtSeconds: nowSeconds - 600,
@@ -60,7 +60,10 @@ describe('shared auth verifier failure modes', () => {
 
   test('rejects OIDC tokens with an invalid signature', async () => {
     const fixture = await createKeycloakVerifierFixture()
-    const verifier = createSharedAuthVerifier({ auth: fixture.authConfig, oidc: { fetch: fixture.fetch } })
+    const verifier = createSharedAuthVerifier({
+      auth: fixture.authConfig,
+      oidc: { fetch: fixture.fetch }
+    })
     const token = await fixture.signWithUntrustedKey()
 
     await expect(verifier.verify(token)).resolves.toMatchObject({

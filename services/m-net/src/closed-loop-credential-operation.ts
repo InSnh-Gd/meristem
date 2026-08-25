@@ -114,9 +114,7 @@ export function createCredentialOperationRunner(context: ClosedLoopWorkflowConte
     }
   }
 
-  async function resume(
-    operation: MNetCredentialOperation
-  ): Promise<CredentialOperationOutcome> {
+  async function resume(operation: MNetCredentialOperation): Promise<CredentialOperationOutcome> {
     if (operation.action === 'revoke') {
       const revokedSecret = await deps.credentials.revoke({
         credentialId: operation.previousCredential.credentialId,

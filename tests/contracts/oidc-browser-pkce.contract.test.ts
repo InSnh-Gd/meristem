@@ -52,7 +52,8 @@ describe('OIDC authorization-code PKCE client', () => {
         localIamAuthority: true
       },
       async fetch(input, init) {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url === `${issuer}/.well-known/openid-configuration`) {
           return Response.json({
             issuer,

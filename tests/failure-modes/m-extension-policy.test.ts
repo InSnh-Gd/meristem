@@ -34,7 +34,8 @@ function authForSecret(secret: string): MExtensionDeps['auth'] {
   return {
     async verify(token) {
       const verified = await verifier.verify(token)
-      if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+      if (!verified.ok)
+        return { ok: false as const, code: verified.code, message: verified.message }
       return { ok: true as const, actor: verified.session.actor.id }
     }
   }

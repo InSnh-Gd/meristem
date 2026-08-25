@@ -70,7 +70,11 @@ export function createMUiBffApp(deps: MUiBffDeps) {
           !path.startsWith('/api/v0/auth/') &&
           request.headers.has('authorization')
         ) {
-          return bffError(403, 'auth.bearer_development_only', 'Bearer authentication is local-dev only')
+          return bffError(
+            403,
+            'auth.bearer_development_only',
+            'Bearer authentication is local-dev only'
+          )
         }
         return undefined
       })

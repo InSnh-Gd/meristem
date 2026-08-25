@@ -31,10 +31,9 @@ import type { MNetClosedLoopService } from './closed-loop-workflow.ts'
 
 export type MNetAppDeps = {
   auth: {
-    verify(token: string): Promise<
-      | { ok: true; actor: ActorId }
-      | { ok: false; code: string; message: string }
-    >
+    verify(
+      token: string
+    ): Promise<{ ok: true; actor: ActorId } | { ok: false; code: string; message: string }>
   }
   db?: MNetDb
   readiness(): Promise<{ ready: boolean }>

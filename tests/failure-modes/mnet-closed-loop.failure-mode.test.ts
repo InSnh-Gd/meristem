@@ -462,9 +462,9 @@ describe('failure mode: M-Net closed-loop control', () => {
       recovery: 'no_side_effect'
     })
     const credentials = await fixture.store.credentials.listByNetwork(networkId)
-    expect(credentials.filter(item => item.status === 'issued' || item.status === 'active')).toHaveLength(
-      1
-    )
+    expect(
+      credentials.filter(item => item.status === 'issued' || item.status === 'active')
+    ).toHaveLength(1)
   })
 
   it('sanitizes unknown dependency messages at the workflow boundary', async () => {

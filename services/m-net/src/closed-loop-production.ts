@@ -56,7 +56,9 @@ export type ClosedLoopProduction = {
   recoverCredentialOperations(): ReturnType<
     ReturnType<typeof createMNetClosedLoopService>['recoverPendingCredentialOperations']
   >
-  flushPendingEvents(): ReturnType<ReturnType<typeof createMNetClosedLoopService>['dispatchPendingEvents']>
+  flushPendingEvents(): ReturnType<
+    ReturnType<typeof createMNetClosedLoopService>['dispatchPendingEvents']
+  >
 }
 
 /**

@@ -93,12 +93,14 @@ export type MNetClosedLoopDeps = {
   }
   network: {
     listNetworks(): Promise<
-      { ok: true; value: NetworkSummary[] } | { ok: false; error: { code: string; message: string } }
+      | { ok: true; value: NetworkSummary[] }
+      | { ok: false; error: { code: string; message: string } }
     >
     listMembers(input: {
       networkId: string
     }): Promise<
-      { ok: true; value: MNetworkMember[] } | { ok: false; error: { code: string; message: string } }
+      | { ok: true; value: MNetworkMember[] }
+      | { ok: false; error: { code: string; message: string } }
     >
   }
   migration: {

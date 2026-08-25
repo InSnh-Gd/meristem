@@ -358,7 +358,11 @@ export function createBffMNetDataplaneRoutes({ cf, mf, pf }: MUiBffRouteDeps) {
         if (policyDecision instanceof Response) return policyDecision
 
         return Schema.decodeUnknownSync(BffOperationalProofPathResponseSchema)(
-          mapOperationalSnapshotToProofPath(operational, session.permissions, policyDecision?.decision)
+          mapOperationalSnapshotToProofPath(
+            operational,
+            session.permissions,
+            policyDecision?.decision
+          )
         )
       },
       {

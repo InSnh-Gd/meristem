@@ -147,8 +147,9 @@ export async function probePodmanRuntimeHealth(
 export function createMDeployInfrastructureAgentAdapter(
   options: MDeployInfrastructureAgentAdapterOptions
 ) {
-  async function inspect(input: RuntimeOperationInput & { readonly operationId: string })
-    : Promise<Result<MDeployInfrastructureInspection, MDeployDriverError>> {
+  async function inspect(
+    input: RuntimeOperationInput & { readonly operationId: string }
+  ): Promise<Result<MDeployInfrastructureInspection, MDeployDriverError>> {
     const iacDriver = input.envelope.payload.runtime.iacDriver
     const iac =
       iacDriver === 'disabled'

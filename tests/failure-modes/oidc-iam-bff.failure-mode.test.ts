@@ -54,7 +54,10 @@ function createEnvironment() {
     audit: {
       async write(fact) {
         if (failAudit) {
-          return { ok: false, error: { code: 'audit_unavailable', message: 'M-Log is unavailable' } }
+          return {
+            ok: false,
+            error: { code: 'audit_unavailable', message: 'M-Log is unavailable' }
+          }
         }
         auditFacts.push(fact)
         return { ok: true, value: undefined }
@@ -110,8 +113,14 @@ function createEnvironment() {
   }
 }
 
-async function issueSession(environment: ReturnType<typeof createEnvironment>, principalId: string) {
-  const result = await environment.iam.issueSession({ principalId, correlationId: `corr-${principalId}` })
+async function issueSession(
+  environment: ReturnType<typeof createEnvironment>,
+  principalId: string
+) {
+  const result = await environment.iam.issueSession({
+    principalId,
+    correlationId: `corr-${principalId}`
+  })
   expect(result.ok).toBe(true)
   if (!result.ok) throw new Error(result.error.message)
   return result.value
@@ -217,13 +226,20 @@ describe('OIDC local IAM BFF failure modes', () => {
           approvedBy: 'security-admin'
         }
       ],
-      policy: { async authorize() { return { ok: true, value: undefined } } },
+      policy: {
+        async authorize() {
+          return { ok: true, value: undefined }
+        }
+      },
       audit: {
         async write(fact) {
           if (fact.action === 'session.revoked') {
             revocationWrites += 1
             if (revocationWrites === 2) {
-              return { ok: false, error: { code: 'audit_unavailable', message: 'M-Log unavailable' } }
+              return {
+                ok: false,
+                error: { code: 'audit_unavailable', message: 'M-Log unavailable' }
+              }
             }
             if (fact.sessionId !== undefined) auditedSessionIds.push(fact.sessionId)
           }
@@ -231,8 +247,14 @@ describe('OIDC local IAM BFF failure modes', () => {
         }
       }
     })
-    const first = await iam.issueSession({ principalId: 'principal-operator', correlationId: 'corr-first' })
-    const second = await iam.issueSession({ principalId: 'principal-operator', correlationId: 'corr-second' })
+    const first = await iam.issueSession({
+      principalId: 'principal-operator',
+      correlationId: 'corr-first'
+    })
+    const second = await iam.issueSession({
+      principalId: 'principal-operator',
+      correlationId: 'corr-second'
+    })
     expect(first.ok).toBe(true)
     expect(second.ok).toBe(true)
     if (!first.ok || !second.ok) throw new Error('Expected active operator sessions')
@@ -246,8 +268,14 @@ describe('OIDC local IAM BFF failure modes', () => {
     })
     expect(result).toMatchObject({ ok: false, error: { code: 'audit_unavailable' } })
 
-    const firstRead = await iam.getSession({ sessionId: first.value.session.sessionId, correlationId: 'corr-check-first' })
-    const secondRead = await iam.getSession({ sessionId: second.value.session.sessionId, correlationId: 'corr-check-second' })
+    const firstRead = await iam.getSession({
+      sessionId: first.value.session.sessionId,
+      correlationId: 'corr-check-first'
+    })
+    const secondRead = await iam.getSession({
+      sessionId: second.value.session.sessionId,
+      correlationId: 'corr-check-second'
+    })
     expect(firstRead).toMatchObject({ ok: false, error: { code: 'session_revoked' } })
     expect(secondRead.ok).toBe(true)
     expect(auditedSessionIds).toEqual([first.value.session.sessionId])

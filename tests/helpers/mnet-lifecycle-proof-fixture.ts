@@ -254,22 +254,23 @@ export function createDataPlaneLifecycleFixture() {
     async writeFull() {},
     async writeAudit() {}
   }
-  const resolveNetBirdControlPlane: NonNullable<DataPlaneDeps['resolveNetBirdControlPlane']> =
-    async () => ({
-      managementUrl: 'https://netbird.lifecycle.test',
-      setupKey: 'netbird-lifecycle-setup-key',
-      signalConfigRef: { configRef: 'netbird/signal/lifecycle' },
-      relayConfigRef: { configRef: 'netbird/relay/lifecycle' },
-      stunConfigRef: { configRef: 'netbird/stun/lifecycle' },
-      sidecarCredentialRef: {
-        provider: 'vault-kv-v2',
-        keyPath: 'secret/data/mnet/lifecycle-sidecar',
-        version: 1
-      },
-      sidecarCredentialStatus: 'ready',
-      sidecarHealthStatus: 'healthy',
-      prerequisites: { signalReady: true, relayReady: true, stunReady: true }
-    })
+  const resolveNetBirdControlPlane: NonNullable<
+    DataPlaneDeps['resolveNetBirdControlPlane']
+  > = async () => ({
+    managementUrl: 'https://netbird.lifecycle.test',
+    setupKey: 'netbird-lifecycle-setup-key',
+    signalConfigRef: { configRef: 'netbird/signal/lifecycle' },
+    relayConfigRef: { configRef: 'netbird/relay/lifecycle' },
+    stunConfigRef: { configRef: 'netbird/stun/lifecycle' },
+    sidecarCredentialRef: {
+      provider: 'vault-kv-v2',
+      keyPath: 'secret/data/mnet/lifecycle-sidecar',
+      version: 1
+    },
+    sidecarCredentialStatus: 'ready',
+    sidecarHealthStatus: 'healthy',
+    prerequisites: { signalReady: true, relayReady: true, stunReady: true }
+  })
   const dataPlaneDeps: DataPlaneDeps = {
     profileStore,
     policyAuthorize,

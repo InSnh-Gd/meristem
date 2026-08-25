@@ -9,10 +9,7 @@ import type {
 import { createCredentialOperationRunner } from './closed-loop-credential-operation.ts'
 import type { MNetCredentialOperation } from './closed-loop-store.ts'
 import type { ClosedLoopWorkflowContext } from './closed-loop-workflow-support.ts'
-import {
-  closedLoopFailure,
-  closedLoopFailureFromUnknown
-} from './closed-loop-workflow-support.ts'
+import { closedLoopFailure, closedLoopFailureFromUnknown } from './closed-loop-workflow-support.ts'
 import type {
   ClosedLoopFailure,
   ClosedLoopMutationOutcome,
@@ -98,7 +95,9 @@ export function createJoinCredentialWorkflow(context: ClosedLoopWorkflowContext)
       auditAction: approving ? 'mnet.join.approve' : 'mnet.join.reject',
       resource: `network:${request.networkId}:join:${request.requestId}`,
       correlationId,
-      payload: approving ? { nodeId: request.nodeId } : { nodeId: request.nodeId, reason: input.reason }
+      payload: approving
+        ? { nodeId: request.nodeId }
+        : { nodeId: request.nodeId, reason: input.reason }
     })
     if ('kind' in gated || 'result' in gated) return gated
 

@@ -47,6 +47,14 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
   {
+    filePath: 'scripts/mnet-v02-live-proof.ts',
+    reason: '仓库级 biome 格式化补齐后越过 500 行阈值，待按取证阶段职责拆分'
+  },
+  {
+    filePath: 'scripts/oci-release.ts',
+    reason: '仓库级 biome 格式化补齐后越过 500 行阈值，待按发布步骤职责拆分'
+  },
+  {
     filePath: 'apps/m-ui/src/lib/components/modules/control-room/ControlRoomWorkspace.svelte',
     reason: 'M-UI 控制室工作台单体组件，待按 layout / modules / ui 边界拆分'
   },

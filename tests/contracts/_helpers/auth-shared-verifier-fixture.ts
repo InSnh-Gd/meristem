@@ -138,7 +138,8 @@ export async function createKeycloakVerifierFixture(): Promise<KeycloakVerifierF
       }
       return jsonResponse({ error: 'not_found' }, 404)
     },
-    signKeycloakToken: overrides => signToken(trusted.privateKey, 'trusted-keycloak-key', overrides),
+    signKeycloakToken: overrides =>
+      signToken(trusted.privateKey, 'trusted-keycloak-key', overrides),
     signWithUntrustedKey: overrides =>
       signToken(untrusted.privateKey, 'untrusted-keycloak-key', overrides),
     discoveryCalls: () => discoveryCallCount,

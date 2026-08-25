@@ -20,9 +20,7 @@ describe('M-Log OpenSearch read-model failure modes', () => {
     })
 
     await expect(adapter.clusterHealth()).resolves.toBe('ready')
-    expect(observed.authorization).toBe(
-      `Basic ${btoa('m-log-projection:fixture-password')}`
-    )
+    expect(observed.authorization).toBe(`Basic ${btoa('m-log-projection:fixture-password')}`)
   })
 
   it('keeps M-Log ready when authoritative dependencies are ready but OpenSearch is unavailable', async () => {

@@ -108,12 +108,21 @@ function runTofuCommand(
       cwd: workDir,
       stdio: ['pipe', 'pipe', 'pipe']
     })
-    return { status: 'pass', step: label, detail: stdout.trim().slice(0, 200) || `${label} succeeded` }
+    return {
+      status: 'pass',
+      step: label,
+      detail: stdout.trim().slice(0, 200) || `${label} succeeded`
+    }
   } catch (err: unknown) {
     const exitCode = (err as { status?: number }).status ?? 1
-    const stderr =
-      (err as { stderr?: string }).stderr?.trim().slice(0, 300) ?? 'no stderr captured'
-    return { status: 'fail', step: label, message: `${label} failed with exit code ${exitCode}`, exitCode, stderr }
+    const stderr = (err as { stderr?: string }).stderr?.trim().slice(0, 300) ?? 'no stderr captured'
+    return {
+      status: 'fail',
+      step: label,
+      message: `${label} failed with exit code ${exitCode}`,
+      exitCode,
+      stderr
+    }
   }
 }
 
@@ -166,14 +175,28 @@ function executeGate(): GateOutcome {
     const initResult = runTofuCommand('tofu-init', ['init', '-input=false'], workDir, tofuPath)
     results.push(initResult)
     if (initResult.status === 'fail') {
-      return { proof: 'libvirt-opentofu-validation', topoId: topology.topologyId, schemaVersion: 'mdeploy.opentofu-module-input@0.1.0', nodeCount: topology.nodes.length, results, verdict: 'fail' }
+      return {
+        proof: 'libvirt-opentofu-validation',
+        topoId: topology.topologyId,
+        schemaVersion: 'mdeploy.opentofu-module-input@0.1.0',
+        nodeCount: topology.nodes.length,
+        results,
+        verdict: 'fail'
+      }
     }
 
     // Step 4: tofu validate
     const validateResult = runTofuCommand('tofu-validate', ['validate'], workDir, tofuPath)
     results.push(validateResult)
     if (validateResult.status === 'fail') {
-      return { proof: 'libvirt-opentofu-validation', topoId: topology.topologyId, schemaVersion: 'mdeploy.opentofu-module-input@0.1.0', nodeCount: topology.nodes.length, results, verdict: 'fail' }
+      return {
+        proof: 'libvirt-opentofu-validation',
+        topoId: topology.topologyId,
+        schemaVersion: 'mdeploy.opentofu-module-input@0.1.0',
+        nodeCount: topology.nodes.length,
+        results,
+        verdict: 'fail'
+      }
     }
 
     // Step 5: tofu plan (resources disabled — static validation only)
@@ -196,7 +219,11 @@ function executeGate(): GateOutcome {
     }
   } finally {
     // Clean up temp workspace — never commit artifacts
-    try { rmSync(workDir, { recursive: true, force: true }) } catch { /* best-effort */ }
+    try {
+      rmSync(workDir, { recursive: true, force: true })
+    } catch {
+      /* best-effort */
+    }
   }
 }
 

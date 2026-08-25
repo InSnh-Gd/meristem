@@ -58,10 +58,26 @@ export type MNetV02LiveProofReport = {
   readonly oidc: 'keycloak'
   readonly profileVersion: 'm-net@0.3.0'
   readonly deployProof?: DeployProofReport
-  readonly keycloakTokenVerification: { readonly status: 'success' | 'failure' | 'not-run'; readonly detail: string }
-  readonly profileEnable: { readonly status: 'success' | 'failure' | 'not-run'; readonly detail: string; readonly networkId?: string }
-  readonly nodeAgentJoin: ReadonlyArray<{ readonly host: 'node-a' | 'node-b'; readonly status: 'success' | 'failure' | 'not-run'; readonly detail: string; readonly nodeId?: string }>
-  readonly netbirdProcessHealth: ReadonlyArray<{ readonly host: 'node-a' | 'node-b'; readonly status: 'healthy' | 'degraded' | 'not-run'; readonly detail: string }>
+  readonly keycloakTokenVerification: {
+    readonly status: 'success' | 'failure' | 'not-run'
+    readonly detail: string
+  }
+  readonly profileEnable: {
+    readonly status: 'success' | 'failure' | 'not-run'
+    readonly detail: string
+    readonly networkId?: string
+  }
+  readonly nodeAgentJoin: ReadonlyArray<{
+    readonly host: 'node-a' | 'node-b'
+    readonly status: 'success' | 'failure' | 'not-run'
+    readonly detail: string
+    readonly nodeId?: string
+  }>
+  readonly netbirdProcessHealth: ReadonlyArray<{
+    readonly host: 'node-a' | 'node-b'
+    readonly status: 'healthy' | 'degraded' | 'not-run'
+    readonly detail: string
+  }>
   readonly packetReachability: PacketReachabilityEvidence
   readonly results: readonly ProofResult[]
   readonly releaseSuccess: boolean

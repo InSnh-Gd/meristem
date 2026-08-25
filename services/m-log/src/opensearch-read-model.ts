@@ -5,10 +5,7 @@ const logger = createLogger('m-log')
 
 export type OpenSearchReadModelStatus = 'ready' | 'degraded' | 'unavailable'
 
-type OpenSearchReadModelAdapter = Pick<
-  OpenSearchAdapter,
-  'clusterHealth' | 'ensureAllIndices'
->
+type OpenSearchReadModelAdapter = Pick<OpenSearchAdapter, 'clusterHealth' | 'ensureAllIndices'>
 
 /**
  * 维护 OpenSearch 读模型的独立可用性状态；该状态绝不能参与 PostgreSQL 日志事实写入的判定。

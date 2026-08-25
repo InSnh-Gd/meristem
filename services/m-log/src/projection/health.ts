@@ -38,18 +38,18 @@ export function createProjectionHealthService(
           return 'unavailable' as const
         })
       : os.health
-        ? await os.health().catch(error => {
-          logger.warn(
-            {
-              error: error instanceof Error ? error.message : String(error)
-            },
-            'opensearch_health_probe_failed'
-          )
-          return false
-        })
-        ? 'ready'
-        : 'unavailable'
-      : 'ready'
+        ? (await os.health().catch(error => {
+            logger.warn(
+              {
+                error: error instanceof Error ? error.message : String(error)
+              },
+              'opensearch_health_probe_failed'
+            )
+            return false
+          }))
+          ? 'ready'
+          : 'unavailable'
+        : 'ready'
     const osAvailable = osStatus !== 'unavailable'
 
     for (const index of indices) {

@@ -75,13 +75,10 @@ describe('OCI pipeline failure modes', () => {
 
   it('runs static preflight before dry-run construction and rejects configured mutable base images', () => {
     expect(
-      createOciBuildPlan(
-        ['--target=core', '--dry-run'],
-        {
-          bunBaseImage: 'ghcr.io/oven-sh/bun:latest',
-          staticBaseImage: `caddy@sha256:${digest}`
-        }
-      )
+      createOciBuildPlan(['--target=core', '--dry-run'], {
+        bunBaseImage: 'ghcr.io/oven-sh/bun:latest',
+        staticBaseImage: `caddy@sha256:${digest}`
+      })
     ).toEqual({
       ok: false,
       error: expect.objectContaining({ code: 'base_image_not_pinned' })
@@ -110,7 +107,10 @@ describe('OCI pipeline failure modes', () => {
   })
 
   it('retrieves persisted Cosign referrers before creating promotion metadata', () => {
-    const releaseScript = readFileSync(join(import.meta.dir, '../../scripts/oci-release.ts'), 'utf8')
+    const releaseScript = readFileSync(
+      join(import.meta.dir, '../../scripts/oci-release.ts'),
+      'utf8'
+    )
 
     expect(releaseScript).toMatch(/'download',\s*'attestation'/)
     expect(releaseScript).toMatch(/'download',\s*'signature'/)

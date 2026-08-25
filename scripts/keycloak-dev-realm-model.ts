@@ -12,7 +12,8 @@ export const realmImportFile = join(workspaceDir, 'meristem-realm.json')
 
 export const keycloakRealmName = 'meristem'
 export const keycloakContainerName = 'meristem-keycloak-dev-realm'
-export const keycloakImage = process.env.MERISTEM_KEYCLOAK_IMAGE ?? 'quay.io/keycloak/keycloak:26.2.5'
+export const keycloakImage =
+  process.env.MERISTEM_KEYCLOAK_IMAGE ?? 'quay.io/keycloak/keycloak:26.2.5'
 export const keycloakClientId = 'meristem-core'
 export const keycloakClientSecret = 'meristem-dev-realm-client-secret'
 export const keycloakClientSecretEnvVar = 'MERISTEM_FIXTURE_KEYCLOAK_CLIENT_SECRET'
@@ -58,11 +59,7 @@ export type KeycloakDevRealmPrerequisiteMissing = {
   readonly ok: false
   readonly message: string
   readonly status: 'prerequisite-missing'
-  readonly step:
-    | 'container_runtime'
-    | 'container_runtime_access'
-    | 'image_pull'
-    | 'port_allocation'
+  readonly step: 'container_runtime' | 'container_runtime_access' | 'image_pull' | 'port_allocation'
 }
 
 export type KeycloakDevRealmReady = {
@@ -257,7 +254,9 @@ export function writeRealmImport(realm: KeycloakRealmState): void {
   writeFileSync(realm.realmImportFile, `${JSON.stringify(realmImportPayload(realm), null, 2)}\n`)
 }
 
-export function buildKeycloakAuthConfig(realm: KeycloakRealmState): OidcAuthProviderConfigFromSchema {
+export function buildKeycloakAuthConfig(
+  realm: KeycloakRealmState
+): OidcAuthProviderConfigFromSchema {
   return {
     provider: 'oidc',
     issuer: realm.issuer,
@@ -281,7 +280,9 @@ export function buildKeycloakAuthConfig(realm: KeycloakRealmState): OidcAuthProv
 /**
  * 部署配置 fixture 仍然是通用 OIDC 契约，只把 issuer/discovery/client secret 绑定到本地 realm。
  */
-export function buildKeycloakDeploymentConfig(realm: KeycloakRealmState): DeploymentConfigV02FromSchema {
+export function buildKeycloakDeploymentConfig(
+  realm: KeycloakRealmState
+): DeploymentConfigV02FromSchema {
   return {
     track: 'oci',
     serviceUrls: {
@@ -341,7 +342,11 @@ export function buildKeycloakDeploymentConfig(realm: KeycloakRealmState): Deploy
       log: { kind: 'http-get', target: 'm-log', endpoint: 'http://127.0.0.1:3102/ready' },
       eventbus: { kind: 'http-get', target: 'm-eventbus', endpoint: 'http://127.0.0.1:3103/ready' },
       task: { kind: 'http-get', target: 'm-task', endpoint: 'http://127.0.0.1:3105/health' },
-      extension: { kind: 'http-get', target: 'm-extension', endpoint: 'http://127.0.0.1:3106/ready' },
+      extension: {
+        kind: 'http-get',
+        target: 'm-extension',
+        endpoint: 'http://127.0.0.1:3106/ready'
+      },
       uiBff: { kind: 'http-get', target: 'm-ui-bff', endpoint: 'http://127.0.0.1:3200/ready' },
       nodeAgent: {
         kind: 'command',

@@ -5,10 +5,7 @@ import type {
   MNetTunnelHealthFromSchema,
   NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
-import type {
-  ClosedLoopFailure,
-  ClosedLoopMutationOutcome
-} from './closed-loop-workflow-types.ts'
+import type { ClosedLoopFailure, ClosedLoopMutationOutcome } from './closed-loop-workflow-types.ts'
 import type { JoinSessionData, PendingTask } from './shared.ts'
 
 export type CredentialStore = Pick<MNetDb, 'insert' | 'update'>

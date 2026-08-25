@@ -98,9 +98,9 @@ describe('OCI build and promotion pipeline contracts', () => {
         entrypoint: 'services/m-deploy/src/serve.ts'
       })
     })
-    expect(readFileSync(join(import.meta.dir, '../../services/m-deploy/src/serve.ts'), 'utf8')).toContain(
-      'serveProductionMDeployApp'
-    )
+    expect(
+      readFileSync(join(import.meta.dir, '../../services/m-deploy/src/serve.ts'), 'utf8')
+    ).toContain('serveProductionMDeployApp')
     expect(validateOciTargetInventory()).toEqual({ ok: true, value: [] })
     const coreTarget = resolveOciTarget('core')
     if (!coreTarget.ok) throw new Error(coreTarget.error.message)

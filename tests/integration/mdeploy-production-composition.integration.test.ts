@@ -18,7 +18,10 @@ import type {
 } from '../../packages/contracts/src/index.ts'
 import type { SecretManager } from '../../packages/secrets/src/index.ts'
 import { reconcileMDeployAgent } from '../../services/m-deploy/src/agent-workflow.ts'
-import type { MDeployHostAdapters, ProductionMDeployOptions } from '../../services/m-deploy/src/production.ts'
+import type {
+  MDeployHostAdapters,
+  ProductionMDeployOptions
+} from '../../services/m-deploy/src/production.ts'
 import { createProductionMDeployComposition } from '../../services/m-deploy/src/production.ts'
 import { mDeployEnvelopeVerificationBytes } from '../../services/m-deploy/src/envelope-verification.ts'
 
@@ -79,9 +82,11 @@ function signedFixture() {
     ...unsigned,
     signature: {
       ...unsigned.signature,
-      value: sign(null, mDeployEnvelopeVerificationBytes(unsigned, controllerTrust), privateKey).toString(
-        'base64url'
-      )
+      value: sign(
+        null,
+        mDeployEnvelopeVerificationBytes(unsigned, controllerTrust),
+        privateKey
+      ).toString('base64url')
     }
   }
   return { publicKeyPem, fingerprint, controllerTrust, envelope }
@@ -267,7 +272,10 @@ describe('integration: M-Deploy production composition recovery', () => {
     }
   )
 
-  test.skipIf(pgAvailable)('skipped: PostgreSQL unavailable, run docker compose up -d postgres', () => {
-    expect(pgAvailable).toBe(false)
-  })
+  test.skipIf(pgAvailable)(
+    'skipped: PostgreSQL unavailable, run docker compose up -d postgres',
+    () => {
+      expect(pgAvailable).toBe(false)
+    }
+  )
 })

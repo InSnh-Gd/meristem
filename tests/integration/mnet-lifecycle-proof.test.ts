@@ -34,7 +34,8 @@ describe('integration: M-Net production lifecycle proof', () => {
     if (!('kind' in approved) || approved.kind !== 'mutation') {
       throw new Error('expected topology admission approval mutation')
     }
-    if (approved.value.result !== 'approved') throw new Error('expected approved topology admission')
+    if (approved.value.result !== 'approved')
+      throw new Error('expected approved topology admission')
 
     await fixture.dataPlane.networkMaps.save({
       networkId: lifecycleNetworkId,
@@ -256,9 +257,14 @@ describe('integration: M-Net production lifecycle proof', () => {
       result: 'rotated',
       previousCredentialId: approved.value.credential.credentialId,
       existingTunnelsInvalidated: true,
-      credential: { status: 'issued', rotatedFromCredentialId: approved.value.credential.credentialId }
+      credential: {
+        status: 'issued',
+        rotatedFromCredentialId: approved.value.credential.credentialId
+      }
     })
-    expect(await fixture.store.credentials.get(approved.value.credential.credentialId)).toMatchObject({
+    expect(
+      await fixture.store.credentials.get(approved.value.credential.credentialId)
+    ).toMatchObject({
       status: 'revoked'
     })
     expect(await fixture.service.isTunnelEligible(lifecycleNetworkId, lifecycleNodeId)).toBe(true)

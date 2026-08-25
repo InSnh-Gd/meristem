@@ -462,5 +462,4 @@ describe('OpenSearch search contracts', () => {
     expect(failedAuditAlert?.severity).toBe('critical')
     expect(failedAuditAlert?.owner).toBe('m-log')
   })
-
 })

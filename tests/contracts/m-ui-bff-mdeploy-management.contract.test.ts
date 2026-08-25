@@ -144,10 +144,7 @@ function createMockCoreApp(options?: MockCoreOptions) {
 
       if (method === 'GET' && url.pathname === '/api/v0/deploy/evidence') {
         if (!evidenceAvailable) {
-          return json(
-            { error: { code: 'deploy.not_found', message: 'evidence not found' } },
-            404
-          )
+          return json({ error: { code: 'deploy.not_found', message: 'evidence not found' } }, 404)
         }
         return json(EVIDENCE_HISTORY_BODY)
       }

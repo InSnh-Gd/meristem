@@ -109,9 +109,9 @@ export function requireDataPlaneDeps(
     | 'dataPlane'
     | 'events'
     | 'log'
-      | 'networkUpdater'
-      | 'listMembers'
-      | 'resolveNetBirdControlPlane'
+    | 'networkUpdater'
+    | 'listMembers'
+    | 'resolveNetBirdControlPlane'
   >
 ): DataPlaneDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.policyAuthorize || !deps.listMembers) {

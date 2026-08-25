@@ -219,7 +219,10 @@ describe('integration: M-Deploy blocked rejection recovery', () => {
     }
   )
 
-  test.skipIf(pgAvailable)('skipped: PostgreSQL unavailable, run docker compose up -d postgres', () => {
-    expect(pgAvailable).toBe(false)
-  })
+  test.skipIf(pgAvailable)(
+    'skipped: PostgreSQL unavailable, run docker compose up -d postgres',
+    () => {
+      expect(pgAvailable).toBe(false)
+    }
+  )
 })

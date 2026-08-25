@@ -8,7 +8,7 @@ import {
   checkWgTooling,
   computeConfigHash,
   DEFAULT_WG_LISTEN_PORT,
-  renderWireGuardConfig,
+  renderWireGuardConfig
 } from '../../services/node-agent/src/node-agent-wg-config.ts'
 
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })

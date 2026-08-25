@@ -57,7 +57,9 @@ export function createTrustedEnvelopeVerifier(
           .update(publicKey.export({ type: 'spki', format: 'der' }))
           .digest('base64url')
         if (actualFingerprint !== options.publicKeyFingerprint) {
-          return err(verificationFailure('resolved controller key fingerprint does not match trust'))
+          return err(
+            verificationFailure('resolved controller key fingerprint does not match trust')
+          )
         }
         const signature = Buffer.from(input.signature.value, 'base64url')
         return verify(null, input.signedBytes, publicKey, signature)

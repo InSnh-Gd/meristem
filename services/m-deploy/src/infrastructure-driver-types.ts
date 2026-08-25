@@ -54,12 +54,7 @@ export type MDeployDriverCommandPort = {
     command: string,
     args: readonly string[],
     options?: { readonly cwd?: string }
-  ): Promise<
-    Result<
-      { readonly stdout: string; readonly stderr: string },
-      MDeployDriverError
-    >
-  >
+  ): Promise<Result<{ readonly stdout: string; readonly stderr: string }, MDeployDriverError>>
 }
 
 export type MDeployDriverEffects = MDeployDriverFilePort & MDeployDriverCommandPort

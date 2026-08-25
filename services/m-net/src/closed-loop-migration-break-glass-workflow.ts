@@ -8,28 +8,15 @@ import type {
   MNetProfileV03VersionFromSchema
 } from '../../../packages/contracts/src/index.ts'
 import type { ClosedLoopWorkflowContext } from './closed-loop-workflow-support.ts'
-import {
-  closedLoopFailure,
-  closedLoopFailureFromUnknown
-} from './closed-loop-workflow-support.ts'
-import type {
-  ClosedLoopFailure,
-  ClosedLoopMutationOutcome
-} from './closed-loop-workflow-types.ts'
+import { closedLoopFailure, closedLoopFailureFromUnknown } from './closed-loop-workflow-support.ts'
+import type { ClosedLoopFailure, ClosedLoopMutationOutcome } from './closed-loop-workflow-types.ts'
 
 const BREAK_GLASS_TTL_MS = 30 * 60 * 1000
 
 /** Profile migration and emergency grants share rollback/expiry enforcement semantics. */
 export function createMigrationBreakGlassWorkflow(context: ClosedLoopWorkflowContext) {
-  const {
-    deps,
-    id,
-    now,
-    timestamp,
-    authorizeAndAudit,
-    writeAuditEvidence,
-    commitMutation
-  } = context
+  const { deps, id, now, timestamp, authorizeAndAudit, writeAuditEvidence, commitMutation } =
+    context
 
   async function migrateProfile(input: {
     actor: ActorId
@@ -313,7 +300,9 @@ export function createMigrationBreakGlassWorkflow(context: ClosedLoopWorkflowCon
   async function enforceBreakGlassExpiry(
     grantId: string
   ): Promise<
-    MNetBreakGlassGrantFromSchema | ClosedLoopMutationOutcome<MNetBreakGlassGrantFromSchema> | ClosedLoopFailure
+    | MNetBreakGlassGrantFromSchema
+    | ClosedLoopMutationOutcome<MNetBreakGlassGrantFromSchema>
+    | ClosedLoopFailure
   > {
     const grant = await deps.store.breakGlass.get(grantId)
     if (!grant) {
@@ -360,9 +349,7 @@ export function createMigrationBreakGlassWorkflow(context: ClosedLoopWorkflowCon
       const result = await enforceBreakGlassExpiry(grant.grantId)
       if (
         (!('kind' in result) && result.state === 'auto_revoked') ||
-        ('kind' in result &&
-          result.kind === 'mutation' &&
-          result.value.state === 'auto_revoked')
+        ('kind' in result && result.kind === 'mutation' && result.value.state === 'auto_revoked')
       ) {
         revoked += 1
       }

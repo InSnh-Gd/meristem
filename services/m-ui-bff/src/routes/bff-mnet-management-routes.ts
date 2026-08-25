@@ -1,11 +1,7 @@
 import { Elysia } from 'elysia'
 import { MNetTopologyViewSchema } from '../../../../packages/contracts/src/index.ts'
 import type { MUiBffRouteDeps } from '../deps.ts'
-import {
-  fetchDecodedUpstream,
-  requireBearerToken,
-  withStateSourceDetail
-} from './route-helpers.ts'
+import { fetchDecodedUpstream, requireBearerToken, withStateSourceDetail } from './route-helpers.ts'
 import {
   approveMnetJoinRequestBodySchema,
   mnetManagementJoinRequestParamsSchema,
@@ -65,10 +61,10 @@ export function createBffMNetManagementRoutes({ mf }: MUiBffRouteDeps) {
       {
         params: mnetManagementJoinRequestParamsSchema,
         body: approveMnetJoinRequestBodySchema,
-        detail: withStateSourceDetail('Approve a pending M-Net node join through its public workflow', [
-          'policy',
-          'audit'
-        ])
+        detail: withStateSourceDetail(
+          'Approve a pending M-Net node join through its public workflow',
+          ['policy', 'audit']
+        )
       }
     )
     .post(
@@ -89,10 +85,10 @@ export function createBffMNetManagementRoutes({ mf }: MUiBffRouteDeps) {
       {
         params: mnetManagementJoinRequestParamsSchema,
         body: rejectMnetJoinRequestBodySchema,
-        detail: withStateSourceDetail('Reject a pending M-Net node join through its public workflow', [
-          'policy',
-          'audit'
-        ])
+        detail: withStateSourceDetail(
+          'Reject a pending M-Net node join through its public workflow',
+          ['policy', 'audit']
+        )
       }
     )
 }

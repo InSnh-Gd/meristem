@@ -74,7 +74,9 @@ function secretProviderStatus(
   }
 }
 
-function observedProcessStatus(value: string | undefined): 'running' | 'stopped' | 'not-run' | 'unknown' {
+function observedProcessStatus(
+  value: string | undefined
+): 'running' | 'stopped' | 'not-run' | 'unknown' {
   if (value === 'healthy' || value === 'degraded') return 'running'
   if (value === 'not-run') return 'not-run'
   if (value === 'stopped') return 'stopped'
@@ -141,7 +143,9 @@ function packetProof(
 ): BffOperationalRuntimeTruthFromSchema['packetProof'] {
   const evidence = liveProof.packetReachability
   const status =
-    evidence?.status === 'success' || evidence?.status === 'failure' || evidence?.status === 'not-run'
+    evidence?.status === 'success' ||
+    evidence?.status === 'failure' ||
+    evidence?.status === 'not-run'
       ? evidence.status
       : 'not-run'
   return {
@@ -200,7 +204,9 @@ function repairActions(
 ): BffOperationalRuntimeTruthFromSchema['repairActions'] {
   const commandId = 'network.forced-relay.change.execute'
   const permission: Permission = 'network:profile-enable'
-  const source = input.policyDecision ? policyStateSource(input.snapshot.networkId) : runtimeStateSource(input.snapshot.networkId, 'policyEligibility')
+  const source = input.policyDecision
+    ? policyStateSource(input.snapshot.networkId)
+    : runtimeStateSource(input.snapshot.networkId, 'policyEligibility')
   const disabledReason = !input.permissions.includes(permission)
     ? missingPermissionReason(permission)
     : input.policyDecision?.result === 'deny'

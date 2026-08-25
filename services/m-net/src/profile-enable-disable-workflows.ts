@@ -52,10 +52,10 @@ export function requireProfileWriteDeps(
     | 'log'
     | 'profileDisablePolicy'
     | 'networkUpdater'
-      | 'listMembers'
-      | 'migrationEngine'
-      | 'dataPlane'
-      | 'resolveNetBirdControlPlane'
+    | 'listMembers'
+    | 'migrationEngine'
+    | 'dataPlane'
+    | 'resolveNetBirdControlPlane'
   >
 ): ProfileWriteDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.suspendedOps || !deps.approvals || !deps.policyAuthorize) {

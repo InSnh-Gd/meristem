@@ -343,7 +343,11 @@ export function createPostgresMDeployStore(db: MeristemDb): MDeployStore {
               }
               await tx
                 .update(mdeployOperations)
-                .set({ publicationStatus: 'published', operation, updatedAt: new Date(publishedAt) })
+                .set({
+                  publicationStatus: 'published',
+                  operation,
+                  updatedAt: new Date(publishedAt)
+                })
                 .where(eq(mdeployOperations.id, intent.operationId))
             }
           }
@@ -362,7 +366,11 @@ export function createPostgresMDeployStore(db: MeristemDb): MDeployStore {
           .where(eq(mdeployEventIntents.id, intentId))
           .limit(1)
         if (!row) return ok(null)
-        const intent: MDeployEventIntent = { ...row.intent, status: 'pending', lastError: errorCode }
+        const intent: MDeployEventIntent = {
+          ...row.intent,
+          status: 'pending',
+          lastError: errorCode
+        }
         await db
           .update(mdeployEventIntents)
           .set({ status: 'pending', intent, updatedAt: new Date() })

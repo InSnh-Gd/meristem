@@ -301,10 +301,14 @@ function buildStatus(input: {
   }
 }
 
-function validateExecutablePath(path: string): { ok: true; value: string } | { ok: false; error: string } {
+function validateExecutablePath(
+  path: string
+): { ok: true; value: string } | { ok: false; error: string } {
   if (path.trim().length === 0) return { ok: false, error: 'binary path is empty' }
   const validated = validateSidecarConfigPath(path)
-  return validated.ok ? { ok: true, value: validated.value } : { ok: false, error: validated.error.reason }
+  return validated.ok
+    ? { ok: true, value: validated.value }
+    : { ok: false, error: validated.error.reason }
 }
 
 function netbirdBinaryPath(env: NodeJS.ProcessEnv): string {
@@ -315,12 +319,18 @@ function resolveLaunchConfig(input: {
   env: NodeJS.ProcessEnv
   deploymentConfig: DeploymentConfigV02FromSchema
   secrets: ResolvedSecrets
-}): { ok: true; value: NetBirdLaunchConfig } | { ok: false; reason: NodeAgentRuntimeStatus['degradedReasons'][number] } {
+}):
+  | { ok: true; value: NetBirdLaunchConfig }
+  | { ok: false; reason: NodeAgentRuntimeStatus['degradedReasons'][number] } {
   const binary = validateExecutablePath(netbirdBinaryPath(input.env))
   if (!binary.ok) {
     return {
       ok: false,
-      reason: degradedReason('netbird.binary.invalid', 'NetBird binary path is invalid', binary.error)
+      reason: degradedReason(
+        'netbird.binary.invalid',
+        'NetBird binary path is invalid',
+        binary.error
+      )
     }
   }
 
@@ -336,7 +346,8 @@ function resolveLaunchConfig(input: {
     ok: true,
     value: {
       binaryPath: binary.value,
-      managementUrl: input.env.MERISTEM_NETBIRD_MANAGEMENT_URL ?? input.deploymentConfig.netbird.signalEndpoint,
+      managementUrl:
+        input.env.MERISTEM_NETBIRD_MANAGEMENT_URL ?? input.deploymentConfig.netbird.signalEndpoint,
       setupKey
     }
   }
@@ -382,7 +393,10 @@ function secretFailureReason(
   source: 'sidecar' | 'infrastructure',
   error: SecretFailureFromSchema
 ): NodeAgentRuntimeStatus['degradedReasons'][number] {
-  const reasonByFailure: Record<SecretFailureFromSchema['code'], NodeAgentRuntimeStatus['degradedReasons'][number]['code']> = {
+  const reasonByFailure: Record<
+    SecretFailureFromSchema['code'],
+    NodeAgentRuntimeStatus['degradedReasons'][number]['code']
+  > = {
     secret_missing: 'secret.missing',
     permission_denied: 'secret.denied',
     provider_unavailable: 'secret.provider_unavailable',
@@ -480,13 +494,23 @@ async function spawnNetBirdProcess(input: {
   process: SidecarProcessState
   env: NodeJS.ProcessEnv
   observedAt: string
-}): Promise<{ ok: true; value: SidecarProcessState } | { ok: false; reason: NodeAgentRuntimeStatus['degradedReasons'][number]; process: SidecarProcessState }> {
+}): Promise<
+  | { ok: true; value: SidecarProcessState }
+  | {
+      ok: false
+      reason: NodeAgentRuntimeStatus['degradedReasons'][number]
+      process: SidecarProcessState
+    }
+> {
   const spawn = input.deps.spawnProcess ?? defaultSpawnProcess
   try {
-    const started = await spawn(startCommand(input.launch, input.process.sidecarConfigPath ?? DEFAULT_SIDECAR_CONFIG_PATH), {
-      ...input.env,
-      MERISTEM_NETBIRD_CONFIG_HASH: input.process.configHash ?? ''
-    })
+    const started = await spawn(
+      startCommand(input.launch, input.process.sidecarConfigPath ?? DEFAULT_SIDECAR_CONFIG_PATH),
+      {
+        ...input.env,
+        MERISTEM_NETBIRD_CONFIG_HASH: input.process.configHash ?? ''
+      }
+    )
     return {
       ok: true,
       value: {
@@ -516,13 +540,21 @@ function probeReason(result: CommandResult): SidecarUnhealthyReason {
 }
 
 function parseProbeResult(result: CommandResult, probeAt: string): SidecarHealthProbe {
-  const detail = (result.stdout.trim() || result.stderr.trim() || `netbird status exited ${result.exitCode}`).slice(0, 400)
+  const detail = (
+    result.stdout.trim() ||
+    result.stderr.trim() ||
+    `netbird status exited ${result.exitCode}`
+  ).slice(0, 400)
   if (result.exitCode !== 0) {
     return { ok: false, probeAt, reason: probeReason(result), detail }
   }
 
   const normalized = result.stdout.toLowerCase()
-  if (normalized.includes('connected') || normalized.includes('running') || normalized.includes('healthy')) {
+  if (
+    normalized.includes('connected') ||
+    normalized.includes('running') ||
+    normalized.includes('healthy')
+  ) {
     return { ok: true, probeAt, detail }
   }
 
@@ -535,9 +567,15 @@ async function probeNetBirdProcess(input: {
   env: NodeJS.ProcessEnv
   process: SidecarProcessState
   observedAt: string
-}): Promise<{ process: SidecarProcessState; reason?: NodeAgentRuntimeStatus['degradedReasons'][number] }> {
+}): Promise<{
+  process: SidecarProcessState
+  reason?: NodeAgentRuntimeStatus['degradedReasons'][number]
+}> {
   if (!processIsRunning(input.deps, input.process)) {
-    const reason = degradedReason('netbird.process.not_running', 'NetBird client process is not running')
+    const reason = degradedReason(
+      'netbird.process.not_running',
+      'NetBird client process is not running'
+    )
     return {
       process: {
         ...input.process,
@@ -599,7 +637,8 @@ async function reconcileNetBirdProcess(input: {
   })
   const hasDrift = drift.kind === 'drift_detected'
   const running = processIsRunning(input.deps, input.currentProcess)
-  const shouldRun = input.desired.desiredState === 'start' || input.desired.desiredState === 'configure'
+  const shouldRun =
+    input.desired.desiredState === 'start' || input.desired.desiredState === 'configure'
 
   if (!shouldRun) {
     await stopProcessIfRunning(input.deps, input.currentProcess)
@@ -607,21 +646,32 @@ async function reconcileNetBirdProcess(input: {
   }
 
   if (hasDrift) {
-    reasons.push(degradedReason('netbird.config_drift_repaired', 'NetBird config drift was detected and repaired'))
+    reasons.push(
+      degradedReason(
+        'netbird.config_drift_repaired',
+        'NetBird config drift was detected and repaired'
+      )
+    )
     await stopProcessIfRunning(input.deps, input.currentProcess)
   } else if (!running && input.currentProcess?.processPid) {
-    reasons.push(degradedReason('netbird.process_restarted', 'NetBird client stopped unexpectedly and was restarted'))
+    reasons.push(
+      degradedReason(
+        'netbird.process_restarted',
+        'NetBird client stopped unexpectedly and was restarted'
+      )
+    )
   }
 
-  const processToProbe = hasDrift || !running
-    ? await spawnNetBirdProcess({
-        deps: input.deps,
-        launch: input.launch,
-        process: input.nextProcess,
-        env: input.env,
-        observedAt: input.observedAt
-      })
-    : { ok: true as const, value: { ...input.nextProcess, ...input.currentProcess } }
+  const processToProbe =
+    hasDrift || !running
+      ? await spawnNetBirdProcess({
+          deps: input.deps,
+          launch: input.launch,
+          process: input.nextProcess,
+          env: input.env,
+          observedAt: input.observedAt
+        })
+      : { ok: true as const, value: { ...input.nextProcess, ...input.currentProcess } }
 
   if (!processToProbe.ok) {
     return {
@@ -679,7 +729,11 @@ export async function applySidecarDesiredState(
     input.correlationId
   )
 
-  const launch = resolveLaunchConfig({ env: runtimeEnv, deploymentConfig: config, secrets: resolved.value })
+  const launch = resolveLaunchConfig({
+    env: runtimeEnv,
+    deploymentConfig: config,
+    secrets: resolved.value
+  })
   if (!launch.ok) degradedReasons.push(launch.reason)
 
   const processResult = launch.ok
@@ -700,7 +754,8 @@ export async function applySidecarDesiredState(
       ? 'stopped'
       : degradedReasons.length > 0 || input.desired.healthStatus === 'degraded'
         ? 'degraded'
-        : processResult.process.observedHealth === 'healthy' || input.desired.healthStatus === 'healthy'
+        : processResult.process.observedHealth === 'healthy' ||
+            input.desired.healthStatus === 'healthy'
           ? 'healthy'
           : 'starting'
 

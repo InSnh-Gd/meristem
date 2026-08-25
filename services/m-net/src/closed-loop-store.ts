@@ -10,10 +10,7 @@ import type {
   MNetTunnelHealthFromSchema
 } from '../../../packages/contracts/src/index.ts'
 
-export type StoredRelayPolicy = Exclude<
-  MNetForcedRelayPolicyResultFromSchema,
-  { result: 'denied' }
->
+export type StoredRelayPolicy = Exclude<MNetForcedRelayPolicyResultFromSchema, { result: 'denied' }>
 
 export type MNetClosedLoopEventIntent = {
   intentId: string

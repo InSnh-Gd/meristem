@@ -1,5 +1,9 @@
 import type { SharedAuthVerifierResult } from '../../../packages/auth/src/index.ts'
-import type { DeploymentConfigV02FromSchema, OidcAuthProviderConfigFromSchema, Permission } from '../../../packages/contracts/src/index.ts'
+import type {
+  DeploymentConfigV02FromSchema,
+  OidcAuthProviderConfigFromSchema,
+  Permission
+} from '../../../packages/contracts/src/index.ts'
 import { createLocalJWKSet, jwtVerify, type JWK } from 'jose'
 import {
   buildKeycloakAuthConfig,

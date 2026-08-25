@@ -38,10 +38,7 @@ function stringField(value: unknown, name: string): string | null {
   return typeof candidate === 'string' ? candidate : null
 }
 
-function serviceFailure(
-  value: unknown,
-  fallback: { code: string; message: string }
-): MDeployError {
+function serviceFailure(value: unknown, fallback: { code: string; message: string }): MDeployError {
   return serviceErrorFromEnvelope(value, fallback)
 }
 
@@ -193,7 +190,11 @@ export function createProductionMDeployBoundaryAdapters(
         const approversValue = field(response.value, 'approvers')
         const first = Array.isArray(approversValue) ? approversValue[0] : undefined
         const second = Array.isArray(approversValue) ? approversValue[1] : undefined
-        return proofId && proposalId && issuedAt && typeof first === 'string' && typeof second === 'string'
+        return proofId &&
+          proposalId &&
+          issuedAt &&
+          typeof first === 'string' &&
+          typeof second === 'string'
           ? ok({ proofId, proposalId, approvers: [first, second], issuedAt })
           : err({ code: 'policy.invalid_response', message: 'invalid quorum proof response' })
       }

@@ -18,14 +18,14 @@ describe('m-net v0.2 live proof harness contract', () => {
     expect(script).toContain('prerequisite-missing')
     expect(script).toContain('runV02DeployProof')
     expect(script).not.toContain('NetBird Management')
-    expect(packageJson).toContain(
-      '"mnet:v02:live-proof": "bun run scripts/mnet-v02-live-proof.ts"'
-    )
+    expect(packageJson).toContain('"mnet:v02:live-proof": "bun run scripts/mnet-v02-live-proof.ts"')
   })
 
   it('returns typed prerequisite-missing when live host capabilities are unavailable', async () => {
     const report = await runMNetV02LiveProof(
-      { argv: ['bun', 'scripts/mnet-v02-live-proof.ts', '--topology=three-host', '--oidc=keycloak'] },
+      {
+        argv: ['bun', 'scripts/mnet-v02-live-proof.ts', '--topology=three-host', '--oidc=keycloak']
+      },
       {
         detectHostCapabilities: async () => ({
           docker: false,

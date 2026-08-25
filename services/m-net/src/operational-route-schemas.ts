@@ -137,7 +137,9 @@ export const operationalSnapshotResponseSchema = t.Object({
       signalReachable: t.Optional(t.Boolean()),
       relayReachable: t.Optional(t.Boolean()),
       stunReachable: t.Optional(t.Boolean()),
-      adapterStatus: t.Optional(t.Union([t.Literal('netbird'), t.Literal('noop'), t.Literal('degraded')])),
+      adapterStatus: t.Optional(
+        t.Union([t.Literal('netbird'), t.Literal('noop'), t.Literal('degraded')])
+      ),
       desiredConfigHash: t.Optional(t.String()),
       observedConfigHash: t.Optional(t.String()),
       stale: t.Boolean(),

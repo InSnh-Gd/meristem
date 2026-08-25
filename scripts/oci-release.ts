@@ -1,7 +1,12 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createOciBuildPlan, type OciTarget, validateOciBuildPreflight, validatePromotionMetadata } from './oci-pipeline.ts'
+import {
+  createOciBuildPlan,
+  type OciTarget,
+  validateOciBuildPreflight,
+  validatePromotionMetadata
+} from './oci-pipeline.ts'
 
 type Digest = {
   readonly algorithm: 'sha256' | 'sha512'
@@ -30,7 +35,9 @@ type ReleaseFailure = {
   readonly message: string
 }
 
-type ReleaseResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: ReleaseFailure }
+type ReleaseResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: ReleaseFailure }
 
 function readString(input: unknown, field: string): string | undefined {
   if (typeof input !== 'object' || input === null) return undefined
@@ -229,7 +236,11 @@ function persistDownloadedReferrer(
   return { ok: true, value: path }
 }
 
-function buildArguments(target: OciTarget, input: OciReleaseInput, localImage: string): readonly string[] {
+function buildArguments(
+  target: OciTarget,
+  input: OciReleaseInput,
+  localImage: string
+): readonly string[] {
   return [
     'build',
     '--tag',
@@ -367,13 +378,7 @@ async function release(input: OciReleaseInput): Promise<ReleaseResult<string>> {
   if (!signature.ok) return signature
 
   const persistedSbom = persistDownloadedReferrer(
-    runTool('cosign', [
-      'download',
-      'attestation',
-      '--predicate-type',
-      'spdxjson',
-      imageReference
-    ]),
+    runTool('cosign', ['download', 'attestation', '--predicate-type', 'spdxjson', imageReference]),
     'SPDX SBOM attestation',
     sbomReferrerPath
   )
@@ -403,7 +408,11 @@ async function release(input: OciReleaseInput): Promise<ReleaseResult<string>> {
     '--certificate-oidc-issuer',
     input.signerIssuer
   ]
-  const signatureVerification = runTool('cosign', ['verify', ...verificationArguments, imageReference])
+  const signatureVerification = runTool('cosign', [
+    'verify',
+    ...verificationArguments,
+    imageReference
+  ])
   if (!signatureVerification.ok) return signatureVerification
   const verifiedSbom = runTool('cosign', [
     'verify-attestation',
@@ -426,7 +435,10 @@ async function release(input: OciReleaseInput): Promise<ReleaseResult<string>> {
   if (!rollbackDigest) {
     return {
       ok: false,
-      error: { code: 'release_execution_failed', message: 'validated rollback digest became invalid' }
+      error: {
+        code: 'release_execution_failed',
+        message: 'validated rollback digest became invalid'
+      }
     }
   }
   const promotion = {

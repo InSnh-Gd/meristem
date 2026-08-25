@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import type { DeploymentConfigV02FromSchema, NodeAgentRuntimeDesiredSidecar } from '../../packages/contracts/src/index.ts'
+import type {
+  DeploymentConfigV02FromSchema,
+  NodeAgentRuntimeDesiredSidecar
+} from '../../packages/contracts/src/index.ts'
 import type { SecretManager } from '../../packages/secrets/src/index.ts'
 import { applySidecarDesiredState } from '../../services/node-agent/src/node-agent-sidecar-lifecycle.ts'
 
@@ -132,8 +135,15 @@ describe('node-agent SecretProvider sidecar lifecycle failure modes', () => {
     )
 
     expect(result.runtimeStatus.kind).toBe('healthy')
-    expect(result.runtimeStatus.dependencies).toEqual({ signal: 'ready', relay: 'ready', stun: 'ready' })
-    expect(result.runtimeStatus.credentialRef).toEqual({ provider: 'runtime', keyPath: 'netbird/sidecar/test' })
+    expect(result.runtimeStatus.dependencies).toEqual({
+      signal: 'ready',
+      relay: 'ready',
+      stun: 'ready'
+    })
+    expect(result.runtimeStatus.credentialRef).toEqual({
+      provider: 'runtime',
+      keyPath: 'netbird/sidecar/test'
+    })
     expect(result.process.processRef).toBe('sidecar:node-1:1')
     expect(writes).toHaveLength(1)
     expect(writes.join('\n')).not.toContain('sidecar-secret')
@@ -165,7 +175,11 @@ describe('node-agent SecretProvider sidecar lifecycle failure modes', () => {
 
     expect(result.runtimeStatus.kind).toBe('degraded')
     expect(result.runtimeStatus.degradedReasons).toEqual([
-      { code: 'secret.missing', message: 'sidecar secret resolution failed', detail: 'secret_missing' }
+      {
+        code: 'secret.missing',
+        message: 'sidecar secret resolution failed',
+        detail: 'secret_missing'
+      }
     ])
     expect(result.process.processRef).toBeUndefined()
     expect(writes).toHaveLength(0)

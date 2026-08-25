@@ -239,20 +239,23 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
 
   const observedAt = new Date().toISOString()
   const lifecycleCorrelationId = crypto.randomUUID()
-  currentLifecycleState = await applySidecarDesiredState({
-    nodeId,
-    correlationId: lifecycleCorrelationId,
-    observedAt,
- 	  desired: latestMap.sidecar,
-	  runtimeMap: {
-	    networkId: latestMap.map.networkId,
-	    mapVersion: latestMap.map.mapVersion
-	  },
-	  currentProcess: currentLifecycleState.process
-	}, {
-    deploymentConfig: runtimeDeploymentConfig.raw,
-    secretManager: nodeAgentSecretManager
-  })
+  currentLifecycleState = await applySidecarDesiredState(
+    {
+      nodeId,
+      correlationId: lifecycleCorrelationId,
+      observedAt,
+      desired: latestMap.sidecar,
+      runtimeMap: {
+        networkId: latestMap.map.networkId,
+        mapVersion: latestMap.map.mapVersion
+      },
+      currentProcess: currentLifecycleState.process
+    },
+    {
+      deploymentConfig: runtimeDeploymentConfig.raw,
+      secretManager: nodeAgentSecretManager
+    }
+  )
 
   if (currentLifecycleState.runtimeStatus.kind !== 'healthy') {
     forwardLog('warn', 'node sidecar lifecycle is degraded', lifecycleCorrelationId, {

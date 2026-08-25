@@ -1,13 +1,9 @@
-
 import type {
   MNetTunnelHealthFromSchema,
   NodeAgentRuntimeDesiredSidecar,
   NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
-import type {
-  ClosedLoopFailure,
-  ClosedLoopMutationOutcome
-} from './closed-loop-workflow-types.ts'
+import type { ClosedLoopFailure, ClosedLoopMutationOutcome } from './closed-loop-workflow-types.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { decodeMNetProfileV03Compatibility } from '../../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 import { validateNodeCredential } from './agent-runtime-session-lifecycle.ts'
@@ -39,7 +35,9 @@ type NodeRuntimeFacade = {
     nodeId: string
     health: Omit<MNetTunnelHealthFromSchema, 'nodeId' | 'stateSource'>
   }): Promise<
-    ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema> | ClosedLoopFailure | ProfileWorkflowFailure
+    | ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema>
+    | ClosedLoopFailure
+    | ProfileWorkflowFailure
   >
 }
 

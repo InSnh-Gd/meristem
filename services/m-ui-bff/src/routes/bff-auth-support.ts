@@ -101,7 +101,9 @@ function providerFailure(error: OidcAuthFailure): BffAuthResponse {
     body: {
       error: {
         code: unavailable ? 'auth.keycloak_unavailable' : 'auth.invalid_oidc_token',
-        message: unavailable ? 'OIDC provider is unavailable' : 'OIDC identity could not be verified'
+        message: unavailable
+          ? 'OIDC provider is unavailable'
+          : 'OIDC identity could not be verified'
       }
     }
   }
@@ -121,13 +123,15 @@ function safeReturnTo(value: string | undefined): string | null {
 export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
   const transactions = auth?.transactions ?? createOidcLoginTransactionStore()
 
-  async function authenticate(headers: Record<string, string | undefined>): Promise<
-    BffAuthenticatedSession | BffAuthResponse
-  > {
+  async function authenticate(
+    headers: Record<string, string | undefined>
+  ): Promise<BffAuthenticatedSession | BffAuthResponse> {
     if (!auth) {
       return {
         status: 503,
-        body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } }
+        body: {
+          error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+        }
       }
     }
     const sessionId = readSessionCookie(headers.cookie)
@@ -147,14 +151,19 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       session: result.value.session,
       csrfToken: result.value.csrfToken,
       ...(result.value.kind === 'rotated'
-        ? { sessionCookie: sessionCookie(result.value.session.sessionId, result.value.session.expiresAt) }
+        ? {
+            sessionCookie: sessionCookie(
+              result.value.session.sessionId,
+              result.value.session.expiresAt
+            )
+          }
         : {})
     }
   }
 
-  async function csrfAuthenticated(headers: Record<string, string | undefined>): Promise<
-    BffAuthenticatedSession | BffAuthResponse
-  > {
+  async function csrfAuthenticated(
+    headers: Record<string, string | undefined>
+  ): Promise<BffAuthenticatedSession | BffAuthResponse> {
     const authenticated = await authenticate(headers)
     if ('status' in authenticated) return authenticated
     const csrfToken = headers['x-csrf-token'] ?? headers['X-CSRF-Token']
@@ -173,14 +182,18 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       if (!auth) {
         return {
           status: 503,
-          body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } }
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
         }
       }
       const destination = safeReturnTo(returnTo)
       if (destination === null) {
         return {
           status: 400,
-          body: { error: { code: 'auth.invalid_return_to', message: 'returnTo must be a local path' } }
+          body: {
+            error: { code: 'auth.invalid_return_to', message: 'returnTo must be a local path' }
+          }
         }
       }
       const transaction = await transactions.create({ returnTo: destination })
@@ -191,8 +204,12 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       })
       if (!authorization.ok) {
         if (!isProviderUnavailable(authorization.error)) return providerFailure(authorization.error)
-        const invalidated = await auth.iam.invalidateProviderSessions({ correlationId: correlationId() })
-        return invalidated.ok ? providerFailure(authorization.error) : localIamFailure(invalidated.error, true)
+        const invalidated = await auth.iam.invalidateProviderSessions({
+          correlationId: correlationId()
+        })
+        return invalidated.ok
+          ? providerFailure(authorization.error)
+          : localIamFailure(invalidated.error, true)
       }
       return { status: 302, location: authorization.value.authorizationUrl }
     },
@@ -201,14 +218,18 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       if (!auth) {
         return {
           status: 503,
-          body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } }
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
         }
       }
       const transaction = transactions.consume(input.state)
       if (transaction === null) {
         return {
           status: 400,
-          body: { error: { code: 'auth.invalid_state', message: 'OIDC state is invalid or expired' } }
+          body: {
+            error: { code: 'auth.invalid_state', message: 'OIDC state is invalid or expired' }
+          }
         }
       }
       const identity = await auth.oidc.exchangeAuthorizationCode({
@@ -218,8 +239,12 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       })
       if (!identity.ok) {
         if (!isProviderUnavailable(identity.error)) return providerFailure(identity.error)
-        const invalidated = await auth.iam.invalidateProviderSessions({ correlationId: correlationId() })
-        return invalidated.ok ? providerFailure(identity.error) : localIamFailure(invalidated.error, true)
+        const invalidated = await auth.iam.invalidateProviderSessions({
+          correlationId: correlationId()
+        })
+        return invalidated.ok
+          ? providerFailure(identity.error)
+          : localIamFailure(invalidated.error, true)
       }
       const resolved = await auth.iam.resolveLogin({
         identity: identity.value,
@@ -278,7 +303,9 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       if (!auth) {
         return {
           status: 503,
-          body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } }
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
         }
       }
       const authenticated = await csrfAuthenticated(headers)
@@ -296,7 +323,10 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
           csrfToken: rotated.value.csrfToken,
           expiresAt: rotated.value.session.expiresAt
         },
-        sessionCookie: sessionCookie(rotated.value.session.sessionId, rotated.value.session.expiresAt)
+        sessionCookie: sessionCookie(
+          rotated.value.session.sessionId,
+          rotated.value.session.expiresAt
+        )
       }
     },
 
@@ -304,7 +334,9 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       if (!auth) {
         return {
           status: 503,
-          body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } }
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
         }
       }
       const authenticated = await csrfAuthenticated(headers)
@@ -335,7 +367,13 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       principalId: string,
       roles: readonly LocalIamRole[]
     ): Promise<BffAuthResponse> {
-      if (!auth) return { status: 503, body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } } }
+      if (!auth)
+        return {
+          status: 503,
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
+        }
       const authenticated = await csrfAuthenticated(headers)
       if ('status' in authenticated) return authenticated
       const result = await auth.iam.approve({
@@ -346,7 +384,11 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
         correlationId: correlationId()
       })
       return result.ok
-        ? { status: 200, body: result.value, ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {}) }
+        ? {
+            status: 200,
+            body: result.value,
+            ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {})
+          }
         : localIamFailure(result.error)
     },
 
@@ -355,7 +397,13 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       principalId: string,
       reason: string
     ): Promise<BffAuthResponse> {
-      if (!auth) return { status: 503, body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } } }
+      if (!auth)
+        return {
+          status: 503,
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
+        }
       const authenticated = await csrfAuthenticated(headers)
       if ('status' in authenticated) return authenticated
       const result = await auth.iam.reject({
@@ -366,7 +414,11 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
         correlationId: correlationId()
       })
       return result.ok
-        ? { status: 200, body: result.value, ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {}) }
+        ? {
+            status: 200,
+            body: result.value,
+            ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {})
+          }
         : localIamFailure(result.error)
     },
 
@@ -375,7 +427,13 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       principalId: string,
       roles: readonly LocalIamRole[]
     ): Promise<BffAuthResponse> {
-      if (!auth) return { status: 503, body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } } }
+      if (!auth)
+        return {
+          status: 503,
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
+        }
       const authenticated = await csrfAuthenticated(headers)
       if ('status' in authenticated) return authenticated
       const result = await auth.iam.replaceRoles({
@@ -386,7 +444,11 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
         correlationId: correlationId()
       })
       return result.ok
-        ? { status: 200, body: result.value, ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {}) }
+        ? {
+            status: 200,
+            body: result.value,
+            ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {})
+          }
         : localIamFailure(result.error)
     },
 
@@ -395,7 +457,13 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
       principalId: string,
       reason: string
     ): Promise<BffAuthResponse> {
-      if (!auth) return { status: 503, body: { error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' } } }
+      if (!auth)
+        return {
+          status: 503,
+          body: {
+            error: { code: 'auth.not_configured', message: 'OIDC session support is unavailable' }
+          }
+        }
       const authenticated = await csrfAuthenticated(headers)
       if ('status' in authenticated) return authenticated
       const result = await auth.iam.disable({
@@ -406,7 +474,11 @@ export function createBffAuthSupport(auth: MUiBffOidcAuthDeps | undefined) {
         correlationId: correlationId()
       })
       return result.ok
-        ? { status: 200, body: result.value, ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {}) }
+        ? {
+            status: 200,
+            body: result.value,
+            ...(authenticated.sessionCookie ? { sessionCookie: authenticated.sessionCookie } : {})
+          }
         : localIamFailure(result.error)
     }
   }

@@ -8,7 +8,6 @@ import {
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
-
 const jwtSecret = 'test-jwt-secret'
 const sharedAuthVerifier = createSharedAuthVerifier({
   auth: { provider: 'local-dev' },
@@ -118,7 +117,8 @@ function createTestApp(overrides: {
     auth: {
       async verify(token: string) {
         const verified = await sharedAuthVerifier.verify(token)
-        if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+        if (!verified.ok)
+          return { ok: false as const, code: verified.code, message: verified.message }
         return { ok: true as const, actor: verified.session.actor.id }
       }
     }

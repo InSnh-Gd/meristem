@@ -112,7 +112,12 @@ async function reconcileQueuedOperation(
   if (!running.value)
     return err({ code: 'deploy.operation_not_found', message: 'operation not found' })
 
-  const infrastructure = await inspectInfrastructure(deps, agent.value, running.value, validated.value)
+  const infrastructure = await inspectInfrastructure(
+    deps,
+    agent.value,
+    running.value,
+    validated.value
+  )
   if (!infrastructure.ok) {
     await deps.store.transitionOperation(running.value.operationId, 'failed', deps.now())
     await deps.log.writeFull({
