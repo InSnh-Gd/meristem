@@ -6,15 +6,19 @@ import type {
   StateSourceMetadata
 } from '../../../src/lib/types.ts'
 
-type DeepMutable<T> = T extends ReadonlyArray<infer U>
-  ? Array<DeepMutable<U>>
-  : T extends object
-    ? { -readonly [K in keyof T]: DeepMutable<T[K]> }
-    : T
+type DeepMutable<T> =
+  T extends ReadonlyArray<infer U>
+    ? Array<DeepMutable<U>>
+    : T extends object
+      ? { -readonly [K in keyof T]: DeepMutable<T[K]> }
+      : T
 
 const NETWORK_ID = 'net-loop-001'
 
-function stateSource(sourceType: StateSourceMetadata['sourceType'], sourceId: string): StateSourceMetadata {
+function stateSource(
+  sourceType: StateSourceMetadata['sourceType'],
+  sourceId: string
+): StateSourceMetadata {
   return { sourceType, sourceId }
 }
 
@@ -37,7 +41,10 @@ export function createNetworkDetailFixture(): DeepMutable<NetworkDetailResponseD
         membershipMode: 'operator-managed',
         status: 'active',
         joinedAt: '2026-07-01T00:00:00.000Z',
-        stateSource: stateSource('authoritative', `mnet:/api/v0/networks/${NETWORK_ID}/members/stem-loop-001`)
+        stateSource: stateSource(
+          'authoritative',
+          `mnet:/api/v0/networks/${NETWORK_ID}/members/stem-loop-001`
+        )
       },
       {
         networkId: NETWORK_ID,
@@ -46,7 +53,10 @@ export function createNetworkDetailFixture(): DeepMutable<NetworkDetailResponseD
         membershipMode: 'join-ticket',
         status: 'active',
         joinedAt: '2026-07-01T00:00:00.000Z',
-        stateSource: stateSource('authoritative', `mnet:/api/v0/networks/${NETWORK_ID}/members/leaf-loop-001`)
+        stateSource: stateSource(
+          'authoritative',
+          `mnet:/api/v0/networks/${NETWORK_ID}/members/leaf-loop-001`
+        )
       }
     ],
     profileState: {
@@ -82,7 +92,10 @@ export function createNetworkDetailFixture(): DeepMutable<NetworkDetailResponseD
           lastMapVersion: 'map-001',
           lastMapAt: '2026-07-01T12:00:00.000Z',
           partitionState: 'connected',
-          stateSource: stateSource('read-model', `mnet:/api/v0/networks/${NETWORK_ID}/dataplane/stem-loop-001`)
+          stateSource: stateSource(
+            'read-model',
+            `mnet:/api/v0/networks/${NETWORK_ID}/dataplane/stem-loop-001`
+          )
         },
         {
           networkId: NETWORK_ID,
@@ -96,7 +109,10 @@ export function createNetworkDetailFixture(): DeepMutable<NetworkDetailResponseD
           lastMapVersion: 'map-001',
           lastMapAt: '2026-07-01T12:00:00.000Z',
           partitionState: 'connected',
-          stateSource: stateSource('read-model', `mnet:/api/v0/networks/${NETWORK_ID}/dataplane/leaf-loop-001`)
+          stateSource: stateSource(
+            'read-model',
+            `mnet:/api/v0/networks/${NETWORK_ID}/dataplane/leaf-loop-001`
+          )
         }
       ],
       stateSource: stateSource('read-model', `mnet:/api/v0/networks/${NETWORK_ID}/dataplane`)
@@ -153,11 +169,28 @@ export function createOperationalStateFixture(): DeepMutable<OperationalStateDat
       topologyRevision: 'topo-001',
       routeClass: 'standard',
       nodes: [
-        { nodeId: 'stem-loop-001', label: 'Stem', nodeKind: 'stem', healthStatus: 'healthy', state: 'healthy' },
-        { nodeId: 'leaf-loop-001', label: 'Leaf', nodeKind: 'leaf', healthStatus: 'healthy', state: 'healthy' }
+        {
+          nodeId: 'stem-loop-001',
+          label: 'Stem',
+          nodeKind: 'stem',
+          healthStatus: 'healthy',
+          state: 'healthy'
+        },
+        {
+          nodeId: 'leaf-loop-001',
+          label: 'Leaf',
+          nodeKind: 'leaf',
+          healthStatus: 'healthy',
+          state: 'healthy'
+        }
       ],
       edges: [
-        { edgeId: 'edge-001', fromNodeId: 'stem-loop-001', toNodeId: 'leaf-loop-001', relation: 'peer' }
+        {
+          edgeId: 'edge-001',
+          fromNodeId: 'stem-loop-001',
+          toNodeId: 'leaf-loop-001',
+          relation: 'peer'
+        }
       ],
       summary: 'topology is connected'
     },
@@ -167,14 +200,22 @@ export function createOperationalStateFixture(): DeepMutable<OperationalStateDat
         {
           nodeId: 'stem-loop-001',
           credentialStatus: 'ready',
-          credentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/sidecar', version: 1 },
+          credentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/sidecar',
+            version: 1
+          },
           expiresAt: '2026-08-01T00:00:00.000Z',
           summary: 'stem credential is ready'
         },
         {
           nodeId: 'leaf-loop-001',
           credentialStatus: 'ready',
-          credentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/sidecar', version: 1 },
+          credentialRef: {
+            provider: 'vault-kv-v2',
+            keyPath: 'secret/data/mnet/sidecar',
+            version: 1
+          },
           expiresAt: '2026-08-01T00:00:00.000Z',
           summary: 'leaf credential is ready'
         }
@@ -242,11 +283,28 @@ export function createProofPathFixture(): DeepMutable<NetworkRuntimeStateData> {
         topologyRevision: 'topo-001',
         routeClass: 'standard',
         nodes: [
-          { nodeId: 'stem-loop-001', label: 'Stem', nodeKind: 'stem', healthStatus: 'healthy', state: 'healthy' },
-          { nodeId: 'leaf-loop-001', label: 'Leaf', nodeKind: 'leaf', healthStatus: 'healthy', state: 'healthy' }
+          {
+            nodeId: 'stem-loop-001',
+            label: 'Stem',
+            nodeKind: 'stem',
+            healthStatus: 'healthy',
+            state: 'healthy'
+          },
+          {
+            nodeId: 'leaf-loop-001',
+            label: 'Leaf',
+            nodeKind: 'leaf',
+            healthStatus: 'healthy',
+            state: 'healthy'
+          }
         ],
         edges: [
-          { edgeId: 'edge-001', fromNodeId: 'stem-loop-001', toNodeId: 'leaf-loop-001', relation: 'peer' }
+          {
+            edgeId: 'edge-001',
+            fromNodeId: 'stem-loop-001',
+            toNodeId: 'leaf-loop-001',
+            relation: 'peer'
+          }
         ],
         summary: 'topology is connected'
       },
@@ -286,14 +344,22 @@ export function createProofPathFixture(): DeepMutable<NetworkRuntimeStateData> {
           {
             nodeId: 'stem-loop-001',
             credentialStatus: 'ready',
-            credentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/sidecar', version: 1 },
+            credentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/sidecar',
+              version: 1
+            },
             expiresAt: '2026-08-01T00:00:00.000Z',
             summary: 'stem credential is ready'
           },
           {
             nodeId: 'leaf-loop-001',
             credentialStatus: 'ready',
-            credentialRef: { provider: 'vault-kv-v2', keyPath: 'secret/data/mnet/sidecar', version: 1 },
+            credentialRef: {
+              provider: 'vault-kv-v2',
+              keyPath: 'secret/data/mnet/sidecar',
+              version: 1
+            },
             expiresAt: '2026-08-01T00:00:00.000Z',
             summary: 'leaf credential is ready'
           }
@@ -376,7 +442,10 @@ export function createProofPathFixture(): DeepMutable<NetworkRuntimeStateData> {
             detail: 'NetBird is running on leaf'
           }
         ],
-        stateSource: stateSource('read-model', `mnet:/api/v0/networks/${NETWORK_ID}/netbird-process`)
+        stateSource: stateSource(
+          'read-model',
+          `mnet:/api/v0/networks/${NETWORK_ID}/netbird-process`
+        )
       },
       packetProof: {
         status: 'success',
@@ -390,13 +459,19 @@ export function createProofPathFixture(): DeepMutable<NetworkRuntimeStateData> {
       profile: {
         state: 'enabled',
         reason: 'Profile 已成功启用',
-        stateSource: stateSource('read-model', `mnet:/api/v0/networks/${NETWORK_ID}/operational-state#network`)
+        stateSource: stateSource(
+          'read-model',
+          `mnet:/api/v0/networks/${NETWORK_ID}/operational-state#network`
+        )
       },
       repairActions: [
         {
           commandId: 'network.forced-relay.change.execute',
           state: 'enabled',
-          stateSource: stateSource('policy', `m-policy:/internal/v0/authorize#network:${NETWORK_ID}`)
+          stateSource: stateSource(
+            'policy',
+            `m-policy:/internal/v0/authorize#network:${NETWORK_ID}`
+          )
         }
       ]
     }

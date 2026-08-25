@@ -25,8 +25,7 @@ export const MDeployInfrastructureNodeV01Schema = Schema.Struct({
   resources: MDeployInfrastructureResourcesV01Schema,
   runtimeDriver: MDeployRuntimeDriverSchema
 })
-export type MDeployInfrastructureNodeV01FromSchema =
-  typeof MDeployInfrastructureNodeV01Schema.Type
+export type MDeployInfrastructureNodeV01FromSchema = typeof MDeployInfrastructureNodeV01Schema.Type
 
 export const MDeployInfrastructureNetworkV01Schema = Schema.Struct({
   networkId: Schema.String,

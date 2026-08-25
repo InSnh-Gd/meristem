@@ -26,7 +26,8 @@ export function createJwtAuthPort(secret = requiredSecret()) {
   return {
     async verify(token: string) {
       const verified = await verifier.verify(token)
-      if (!verified.ok) return { ok: false as const, code: verified.code, message: verified.message }
+      if (!verified.ok)
+        return { ok: false as const, code: verified.code, message: verified.message }
       const jti = verified.session.tokenId
       if (!jti) {
         return {

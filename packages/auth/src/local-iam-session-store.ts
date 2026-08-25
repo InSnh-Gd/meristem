@@ -27,7 +27,9 @@ type LocalIamSessionStoreOptions = {
   readonly sessionTtlMs: number
   readonly getPrincipal: (principalId: string) => LocalIamPrincipal | null
   readonly auditFact: (input: LocalIamAuditFactInput) => LocalIamAuditFact
-  readonly writeAudit: (fact: LocalIamAuditFact) => Promise<Result<LocalIamAuditFact, LocalIamError>>
+  readonly writeAudit: (
+    fact: LocalIamAuditFact
+  ) => Promise<Result<LocalIamAuditFact, LocalIamError>>
 }
 
 export type LocalIamSessionStore = {
@@ -57,7 +59,9 @@ export type LocalIamSessionStore = {
 }
 
 /** BFF session 存储隔离 opaque ID、CSRF 材料、轮换和撤销，避免它们混入 principal 状态转换。 */
-export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions): LocalIamSessionStore {
+export function createLocalIamSessionStore(
+  options: LocalIamSessionStoreOptions
+): LocalIamSessionStore {
   const sessions = new Map<string, StoredSession>()
   const sessionIdsByPrincipal = new Map<string, Set<string>>()
 
@@ -78,7 +82,12 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
         rolesSnapshot: [...principal.roles],
         cookie: { ...oidcIamCookiePolicyV01 },
         csrf: { required: true, mode: 'synchronizer-token', tokenBinding: 'server-side-session' },
-        oidc: { stateRequired: true, nonceRequired: true, pkceRequired: true, tokensHeldBy: 'bff-server' },
+        oidc: {
+          stateRequired: true,
+          nonceRequired: true,
+          pkceRequired: true,
+          tokensHeldBy: 'bff-server'
+        },
         storage: { kind: 'server-side', storesOidcTokens: false },
         issuedAt: issuedAt.toISOString(),
         expiresAt: new Date(issuedAt.getTime() + options.sessionTtlMs).toISOString(),
@@ -113,7 +122,10 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
   }): Promise<Result<void, LocalIamError>> {
     const active = [...(sessionIdsByPrincipal.get(input.principal.principalId) ?? [])]
       .map(sessionId => sessions.get(sessionId))
-      .filter((record): record is StoredSession => record !== undefined && record.session.status === 'active')
+      .filter(
+        (record): record is StoredSession =>
+          record !== undefined && record.session.status === 'active'
+      )
     const revokedAt = nowIso()
     for (const record of active) {
       const fact = options.auditFact({
@@ -126,7 +138,12 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
       })
       const written = await options.writeAudit(fact)
       if (!written.ok) return written
-      record.session = { ...record.session, status: 'revoked', revokedAt, revokedReason: input.reason }
+      record.session = {
+        ...record.session,
+        status: 'revoked',
+        revokedAt,
+        revokedReason: input.reason
+      }
     }
     return ok(undefined)
   }
@@ -167,29 +184,41 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
     rotateForPrivilegeChange: boolean
   }): Promise<Result<LocalIamSessionRead, LocalIamError>> {
     const record = sessions.get(input.sessionId)
-    if (record === undefined) return err(localIamStateFailure('session_not_found', 'Session was not found'))
+    if (record === undefined)
+      return err(localIamStateFailure('session_not_found', 'Session was not found'))
     if (record.session.status === 'revoked' || record.session.status === 'rotated') {
       return err(localIamStateFailure('session_revoked', 'Session is no longer active'))
     }
-    if (record.session.status === 'expired' || new Date(record.session.expiresAt).getTime() <= options.now().getTime()) {
+    if (
+      record.session.status === 'expired' ||
+      new Date(record.session.expiresAt).getTime() <= options.now().getTime()
+    ) {
       record.session = { ...record.session, status: 'expired' }
       return err(localIamStateFailure('session_expired', 'Session has expired'))
     }
     const principal = options.getPrincipal(record.session.principalId)
-    if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+    if (principal === null)
+      return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
     if (principal.status === 'disabled') {
       const revoked = await revokeForPrincipal({
         principal,
         reason: 'principal_disabled',
         correlationId: input.correlationId
       })
-      return revoked.ok ? err(localIamStateFailure('principal_disabled', 'Principal is disabled')) : revoked
+      return revoked.ok
+        ? err(localIamStateFailure('principal_disabled', 'Principal is disabled'))
+        : revoked
     }
     if (principal.status === 'rejected') {
       return err(localIamStateFailure('principal_rejected', 'Principal is rejected'))
     }
     if (principal.status !== 'approved' || principal.roles.length === 0) {
-      return err(localIamStateFailure('principal_not_approved', 'Principal is not approved for a local session'))
+      return err(
+        localIamStateFailure(
+          'principal_not_approved',
+          'Principal is not approved for a local session'
+        )
+      )
     }
     if (hasRoleRemoval(record.session.rolesSnapshot, principal.roles)) {
       const revoked = await revokeForPrincipal({
@@ -197,7 +226,9 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
         reason: 'role_revoked',
         correlationId: input.correlationId
       })
-      return revoked.ok ? err(localIamStateFailure('session_revoked', 'Session was revoked after role removal')) : revoked
+      return revoked.ok
+        ? err(localIamStateFailure('session_revoked', 'Session was revoked after role removal'))
+        : revoked
     }
     if (!sameRoles(record.session.rolesSnapshot, principal.roles) || record.rotationRequired) {
       if (!input.rotateForPrivilegeChange) {
@@ -247,16 +278,20 @@ export function createLocalIamSessionStore(options: LocalIamSessionStoreOptions)
       const read = await readActive({ ...input, rotateForPrivilegeChange: false })
       if (!read.ok) return read
       const record = sessions.get(input.sessionId)
-      if (record === undefined) return err(localIamStateFailure('session_not_found', 'Session was not found'))
+      if (record === undefined)
+        return err(localIamStateFailure('session_not_found', 'Session was not found'))
       const principal = options.getPrincipal(record.session.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       return rotate(record, principal, 'manual_rotation', input.correlationId)
     },
     async logout(input) {
       const record = sessions.get(input.sessionId)
-      if (record === undefined) return err(localIamStateFailure('session_not_found', 'Session was not found'))
+      if (record === undefined)
+        return err(localIamStateFailure('session_not_found', 'Session was not found'))
       const principal = options.getPrincipal(record.session.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       const fact = options.auditFact({
         action: 'session.logout',
         actor: 'system',

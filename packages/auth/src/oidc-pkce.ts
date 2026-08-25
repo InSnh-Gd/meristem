@@ -46,7 +46,8 @@ export function createOidcLoginTransactionStore(
 ): OidcLoginTransactionStore {
   const now = options.now ?? (() => new Date())
   const ttlMs = options.ttlMs ?? defaultLoginTransactionTtlMs
-  const randomBytes = options.randomBytes ?? (length => crypto.getRandomValues(new Uint8Array(length)))
+  const randomBytes =
+    options.randomBytes ?? (length => crypto.getRandomValues(new Uint8Array(length)))
   const transactions = new Map<string, OidcLoginTransaction>()
 
   return {

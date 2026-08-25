@@ -63,7 +63,10 @@ export type {
   OidcLoginTransactionStoreOptions
 } from './oidc-pkce.ts'
 export { createOidcLoginTransactionStore } from './oidc-pkce.ts'
-export type { OidcAuthorizationCodeClient, OidcAuthorizationCodeClientOptions } from './oidc-browser.ts'
+export type {
+  OidcAuthorizationCodeClient,
+  OidcAuthorizationCodeClientOptions
+} from './oidc-browser.ts'
 export { createOidcAuthorizationCodeClient } from './oidc-browser.ts'
 export { extractBearerToken, isActorId } from './shared.ts'
 export type {

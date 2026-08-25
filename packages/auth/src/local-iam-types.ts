@@ -194,7 +194,10 @@ export function sameRoles(left: readonly LocalIamRole[], right: readonly LocalIa
   return left.length === right.length && left.every(role => right.includes(role))
 }
 
-export function hasRoleRemoval(before: readonly LocalIamRole[], after: readonly LocalIamRole[]): boolean {
+export function hasRoleRemoval(
+  before: readonly LocalIamRole[],
+  after: readonly LocalIamRole[]
+): boolean {
   return before.some(role => !after.includes(role))
 }
 

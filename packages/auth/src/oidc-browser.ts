@@ -5,7 +5,11 @@ import type {
   OidcIamProviderConfigV01FromSchema
 } from '../../contracts/src/index.ts'
 import { err, ok, type Result } from '../../common/src/result.ts'
-import { createOidcAuthProvider, type OidcAuthFailure, type OidcAuthProviderDeps } from './oidc-provider.ts'
+import {
+  createOidcAuthProvider,
+  type OidcAuthFailure,
+  type OidcAuthProviderDeps
+} from './oidc-provider.ts'
 import type { LocalIamIdentity } from './local-iam-types.ts'
 
 export type OidcAuthorizationCodeClient = {
@@ -60,9 +64,7 @@ function toRuntimeProviderConfig(
 export function createOidcAuthorizationCodeClient(
   options: OidcAuthorizationCodeClientOptions
 ): OidcAuthorizationCodeClient {
-  const verifier = options.fetch
-    ? { ...options.verifier, fetch: options.fetch }
-    : options.verifier
+  const verifier = options.fetch ? { ...options.verifier, fetch: options.fetch } : options.verifier
   const provider = createOidcAuthProvider(toRuntimeProviderConfig(options.provider), verifier)
   const fetchImpl = options.fetch ?? fetch
 
@@ -105,7 +107,10 @@ export function createOidcAuthorizationCodeClient(
         if (!Value.Check(OidcTokenResponseSchema, payload)) {
           return err(invalidTokenFailure('OIDC token response is missing id_token'))
         }
-        const verified = await provider.verifyIdToken({ token: payload.id_token, nonce: input.nonce })
+        const verified = await provider.verifyIdToken({
+          token: payload.id_token,
+          nonce: input.nonce
+        })
         if (!verified.ok) return err(verified)
         return ok({
           oidcIssuer: verified.session.issuer,

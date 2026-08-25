@@ -65,7 +65,9 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
     }
   }
 
-  async function writeAudit(fact: LocalIamAuditFact): Promise<Result<LocalIamAuditFact, LocalIamError>> {
+  async function writeAudit(
+    fact: LocalIamAuditFact
+  ): Promise<Result<LocalIamAuditFact, LocalIamError>> {
     const result = await options.audit.write(fact)
     return result.ok ? ok(fact) : err(result.error)
   }
@@ -73,7 +75,11 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
   async function authorizeMutation(input: {
     actorPrincipalId: string
     actorRoles: readonly LocalIamRole[]
-    action: 'principal.approve' | 'principal.reject' | 'principal.disable' | 'principal.roles.assign'
+    action:
+      | 'principal.approve'
+      | 'principal.reject'
+      | 'principal.disable'
+      | 'principal.roles.assign'
     targetPrincipalId: string
     correlationId: string
   }): Promise<Result<void, LocalIamError>> {
@@ -128,7 +134,8 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
       }
 
       const existing = getPrincipal(existingId)
-      if (existing === null) return err(localIamStateFailure('principal_not_found', 'Principal binding is invalid'))
+      if (existing === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal binding is invalid'))
       const displayUpdatedAt = nowIso()
       const updated: LocalIamPrincipal = {
         ...existing,
@@ -168,15 +175,22 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
 
     async issueSession(input) {
       const principal = getPrincipal(input.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       if (principal.status === 'disabled') {
-        return err(localIamStateFailure('principal_disabled', 'Disabled principals cannot receive sessions'))
+        return err(
+          localIamStateFailure('principal_disabled', 'Disabled principals cannot receive sessions')
+        )
       }
       if (principal.status === 'rejected') {
-        return err(localIamStateFailure('principal_rejected', 'Rejected principals cannot receive sessions'))
+        return err(
+          localIamStateFailure('principal_rejected', 'Rejected principals cannot receive sessions')
+        )
       }
       if (principal.status !== 'approved' || principal.roles.length === 0) {
-        return err(localIamStateFailure('principal_not_approved', 'Approved local roles are required'))
+        return err(
+          localIamStateFailure('principal_not_approved', 'Approved local roles are required')
+        )
       }
       return sessions.issueSession({ principal, correlationId: input.correlationId })
     },
@@ -186,13 +200,21 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
     logout: sessions.logout,
 
     async approve(input) {
-      if (input.roles.length === 0) return err(localIamStateFailure('roles_required', 'At least one local role is required'))
+      if (input.roles.length === 0)
+        return err(localIamStateFailure('roles_required', 'At least one local role is required'))
       const principal = getPrincipal(input.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       if (principal.status !== 'pending') {
-        return err(localIamStateFailure('principal_not_pending', 'Only pending principals can be approved'))
+        return err(
+          localIamStateFailure('principal_not_pending', 'Only pending principals can be approved')
+        )
       }
-      const authorized = await authorizeMutation({ ...input, action: 'principal.approve', targetPrincipalId: input.principalId })
+      const authorized = await authorizeMutation({
+        ...input,
+        action: 'principal.approve',
+        targetPrincipalId: input.principalId
+      })
       if (!authorized.ok) return authorized
       const fact = auditFact({
         action: 'principal.approved',
@@ -218,11 +240,18 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
 
     async reject(input) {
       const principal = getPrincipal(input.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       if (principal.status !== 'pending') {
-        return err(localIamStateFailure('principal_not_pending', 'Only pending principals can be rejected'))
+        return err(
+          localIamStateFailure('principal_not_pending', 'Only pending principals can be rejected')
+        )
       }
-      const authorized = await authorizeMutation({ ...input, action: 'principal.reject', targetPrincipalId: input.principalId })
+      const authorized = await authorizeMutation({
+        ...input,
+        action: 'principal.reject',
+        targetPrincipalId: input.principalId
+      })
       if (!authorized.ok) return authorized
       const fact = auditFact({
         action: 'principal.rejected',
@@ -249,11 +278,21 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
 
     async replaceRoles(input) {
       const principal = getPrincipal(input.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
       if (principal.status !== 'approved') {
-        return err(localIamStateFailure('principal_not_approved', 'Only approved principals have local roles'))
+        return err(
+          localIamStateFailure(
+            'principal_not_approved',
+            'Only approved principals have local roles'
+          )
+        )
       }
-      const authorized = await authorizeMutation({ ...input, action: 'principal.roles.assign', targetPrincipalId: input.principalId })
+      const authorized = await authorizeMutation({
+        ...input,
+        action: 'principal.roles.assign',
+        targetPrincipalId: input.principalId
+      })
       if (!authorized.ok) return authorized
       const rolesRemoved = hasRoleRemoval(principal.roles, input.roles)
       const fact = auditFact({
@@ -275,15 +314,24 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
       } else if (!sameRoles(principal.roles, input.roles)) {
         sessions.requireRotation(principal.principalId)
       }
-      const updated: LocalIamPrincipal = { ...principal, roles: [...input.roles], updatedAt: nowIso() }
+      const updated: LocalIamPrincipal = {
+        ...principal,
+        roles: [...input.roles],
+        updatedAt: nowIso()
+      }
       principalsById.set(updated.principalId, updated)
       return ok<LocalIamPrincipalMutation>({ principal: copyPrincipal(updated), audit: fact })
     },
 
     async disable(input) {
       const principal = getPrincipal(input.principalId)
-      if (principal === null) return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
-      const authorized = await authorizeMutation({ ...input, action: 'principal.disable', targetPrincipalId: input.principalId })
+      if (principal === null)
+        return err(localIamStateFailure('principal_not_found', 'Principal was not found'))
+      const authorized = await authorizeMutation({
+        ...input,
+        action: 'principal.disable',
+        targetPrincipalId: input.principalId
+      })
       if (!authorized.ok) return authorized
       const fact = auditFact({
         action: 'principal.disabled',

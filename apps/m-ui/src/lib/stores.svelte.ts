@@ -59,7 +59,9 @@ declare const $derived: {
 
 class AppState {
   // 浏览器内存只在显式 local-dev 模式保留开发 token，生产模式从不持有 OIDC token。
-  token = $state(isDevelopmentBearerMode() ? (import.meta.env.PUBLIC_MERISTEM_DEFAULT_TOKEN ?? '') : '')
+  token = $state(
+    isDevelopmentBearerMode() ? (import.meta.env.PUBLIC_MERISTEM_DEFAULT_TOKEN ?? '') : ''
+  )
   loading = $state(false)
   error = $state<string | null>(null)
   overview = $state<OverviewData | null>(null)
