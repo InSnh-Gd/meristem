@@ -1,33 +1,69 @@
-/**
- * Node agent runtime types — sidecar lifecycle status tracking for internal node-agent
- * consumption. These are NOT deserialized from any external boundary; they are defined
- * as plain type aliases rather than Effect Schema types.
- */
-import type { RedactedSecretRefFromSchema } from '../schemas/secret-provider.ts'
+import type {
+  RedactedSecretRefFromSchema,
+  SecretRefFromSchema
+} from '../schemas/secret-provider.ts'
 
-/** Sidecar desired state literal. */
+export type DependencyState = 'ready' | 'unavailable'
+
+export type NodeAgentRuntimeStatusKind = 'starting' | 'healthy' | 'degraded' | 'stopped' | 'failed'
+
+export type NodeAgentDegradedReasonCode =
+  | 'expired_credentials'
+  | 'missing_signal'
+  | 'missing_relay'
+  | 'missing_stun'
+  | 'secret.missing'
+  | 'secret.denied'
+  | 'secret.provider_unavailable'
+  | 'secret.unsupported_backend'
+  | 'secret.stale'
+  | 'sidecar_crash'
+  | 'config_drift'
+  | 'secret_resolution_failed'
+  | 'break_glass_stop'
+  | 'profile_disabled'
+  | 'netbird.binary.invalid'
+  | 'netbird.setup_key.missing'
+  | 'netbird.start_failed'
+  | 'netbird.process.not_running'
+  | 'netbird.config_drift_repaired'
+  | 'netbird.process_restarted'
+  | 'netbird.probe.timeout'
+  | 'netbird.probe.failed'
+  | 'netbird.endpoint.unreachable'
+
+export type NodeAgentRedactedSecretRef = RedactedSecretRefFromSchema
+
 export type NodeAgentRuntimeDesiredSidecar = {
-  desiredState: string
-  credentialStatus: string
-  healthStatus: string
   signalConfigRef: { configRef: string }
   relayConfigRef: { configRef: string }
   stunConfigRef: { configRef: string }
-  sidecarCredentialRef: { provider: string; keyPath: string; version?: number }
+  sidecarCredentialRef: SecretRefFromSchema
+  desiredState: 'install' | 'configure' | 'start' | 'drain' | 'stop'
+  credentialStatus: 'missing' | 'pending' | 'ready' | 'expired' | 'rotation_required'
+  healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
   managementUrl?: string
   setupKey?: string
   configHash?: string
 }
 
-/** Runtime status kind discriminated by health and workflow stage. */
-export type NodeAgentRuntimeStatusKind = 'healthy' | 'degraded' | 'starting' | 'stopped'
+export type NodeAgentRuntimeDependencyStatus = {
+  signal: DependencyState
+  relay: DependencyState
+  stun: DependencyState
+}
 
-/** Agent runtime status — emitted as node-agent lifecycle state, not persisted. */
+export type NodeAgentRuntimeDegradedReason = {
+  code: NodeAgentDegradedReasonCode
+  message: string
+  detail?: string
+}
+
 export type NodeAgentRuntimeStatus = {
   kind: NodeAgentRuntimeStatusKind
-  desiredState: string
-  credentialStatus: string
-  healthStatus: string
+  desiredState: 'install' | 'configure' | 'start' | 'drain' | 'stop'
+  credentialStatus: 'missing' | 'pending' | 'ready' | 'expired' | 'rotation_required'
+  healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
   configHash?: string
   sidecarConfigPath?: string
   processRef?: string
@@ -35,14 +71,10 @@ export type NodeAgentRuntimeStatus = {
   processStartedAt?: string
   lastProbeAt?: string
   observedHealth?: 'healthy' | 'degraded' | 'unknown'
-  degradedReason?: { code: string; message: string; detail?: string }
+  degradedReason?: NodeAgentRuntimeDegradedReason
   correlationId: string
   observedAt: string
-  dependencies: {
-    signal: 'ready' | 'unavailable'
-    relay: 'ready' | 'unavailable'
-    stun: 'ready' | 'unavailable'
-  }
-  degradedReasons: Array<{ code: string; message: string; detail?: string }>
-  credentialRef?: RedactedSecretRefFromSchema
+  dependencies: NodeAgentRuntimeDependencyStatus
+  degradedReasons: NodeAgentRuntimeDegradedReason[]
+  credentialRef?: NodeAgentRedactedSecretRef
 }
