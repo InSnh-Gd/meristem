@@ -71,10 +71,6 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'node-agent sidecar 生命周期编排，待抽出状态机与副作用发布 seam'
   },
   {
-    filePath: 'apps/m-ui/src/routes/networks/[id]/+page.svelte',
-    reason: 'M-UI 网络详情路由页面承载过多交互结构，待下沉到 modules 组件'
-  },
-  {
     filePath: 'services/m-deploy/src/testing.ts',
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
