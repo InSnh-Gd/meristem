@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { SDUI_V02_ROUTE_REGISTRY } from '../../services/m-ui-bff/src/routes/route-registry.ts'
+import { SDUI_V02_ROUTE_REGISTRY } from '../../services/m-ui-bff/src/routes/sdui/route-registry.ts'
 
 describe('M-UI Route Registry Contract', () => {
   it('all routes declare requiredPermissions and stateSources', () => {

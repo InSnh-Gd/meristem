@@ -4,7 +4,7 @@ import type {
   DisabledCommandExplanationFromSchema as DisabledCommandExplanation,
   MNetMigrationRequired,
   Permission
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 
 export const BffJoinTicketRecordSchema = Schema.Struct({
   ticketId: Schema.String,

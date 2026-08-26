@@ -1,14 +1,14 @@
 import { Either } from 'effect'
 import * as Schema from 'effect/Schema'
-import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
-import type { CommandWellEligibilityFromSchema as CommandWellEligibility } from '../../../../packages/contracts/src/index.ts'
-import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
-import type { ServiceFetch, ServiceFetchResult } from '../deps.ts'
+import { extractBearerToken } from '../../../../../packages/auth/src/index.ts'
+import type { CommandWellEligibilityFromSchema as CommandWellEligibility } from '../../../../../packages/contracts/src/index.ts'
+import { SessionResponseSchema } from '../../../../../packages/contracts/src/index.ts'
+import type { ServiceFetch, ServiceFetchResult } from '../../deps.ts'
 import {
   GENERIC_NOOP_COMMAND_ID,
   type GenericNoopEligibility,
   type StateSourceMetadata
-} from '../types.ts'
+} from '../../types.ts'
 
 /**
  * 从请求头里提取 Bearer token，兼容不同大小写拼写。

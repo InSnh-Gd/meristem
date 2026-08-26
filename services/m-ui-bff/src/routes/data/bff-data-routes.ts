@@ -1,9 +1,9 @@
 import { Elysia } from 'elysia'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import { createBffDetailRoutes } from './bff-detail-routes.ts'
 import { createBffListRoutes } from './bff-list-routes.ts'
-import { createBffMNetDataplaneRoutes } from './bff-mnet-dataplane-routes.ts'
-import { createBffMNetManagementRoutes } from './bff-mnet-management-routes.ts'
+import { createBffMNetDataplaneRoutes } from '../mnet/bff-mnet-dataplane-routes.ts'
+import { createBffMNetManagementRoutes } from '../mnet/bff-mnet-management-routes.ts'
 import { createBffOverviewRoute } from './bff-overview-route.ts'
 
 /**

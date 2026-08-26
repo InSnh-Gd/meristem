@@ -8,8 +8,8 @@ import {
   NetworkMembersResponseSchema,
   PolicyDecisionResponseSchema,
   SessionResponseSchema
-} from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+} from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   BffDataPlaneStatusResponseSchema,
   BffJoinTicketListResponseSchema,
@@ -21,8 +21,8 @@ import {
   requireBearerToken,
   withStateSource,
   withStateSourceDetail
-} from './route-helpers.ts'
-import { networkIdParamsSchema } from './route-schemas.ts'
+} from '../_shared/route-helpers.ts'
+import { networkIdParamsSchema } from '../_shared/route-schemas.ts'
 
 function relayEndpointFromOperationalSnapshot(snapshot: MNetOperationalSnapshotFromSchema) {
   const selector = snapshot.forcedRelay.selector

@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import type { MinimalPolicyDecisionSummaryFromSchema as MinimalPolicyDecisionSummary } from '../../../../packages/contracts/src/index.ts'
+import type { MinimalPolicyDecisionSummaryFromSchema as MinimalPolicyDecisionSummary } from '../../../../../packages/contracts/src/index.ts'
 import {
   ApprovalDetailResponseSchema,
   EventBusPublishMetricsSummarySchema,
@@ -9,15 +9,15 @@ import {
   PolicyInternalSummarySchema,
   ProjectionHealthResponseSchema,
   ServiceListResponseSchema
-} from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+} from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   decodeUpstreamData,
   fetchDecodedUpstream,
   requireBearerToken,
   withStateSource
-} from './route-helpers.ts'
-import { idParamsSchema } from './route-schemas.ts'
+} from '../_shared/route-helpers.ts'
+import { idParamsSchema } from '../_shared/route-schemas.ts'
 
 /**
  * createBffDetailRoutes 负责单对象详情读模型，保持 Core 错误和数据形状透传。
@@ -82,21 +82,21 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
         }
 
         let eventBusMetrics = null as
-          | import('../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
+          | import('../../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
           | null
         let eventBusMetricsStateSource = null as {
           sourceType: 'read-model'
           sourceId: string
         } | null
         let logProjectionHealth = null as
-          | import('../../../../packages/contracts/src/index.ts').ProjectionHealthResponseFromSchema
+          | import('../../../../../packages/contracts/src/index.ts').ProjectionHealthResponseFromSchema
           | null
         let logProjectionHealthStateSource = null as {
           sourceType: 'read-model'
           sourceId: string
         } | null
         let policySummary = null as
-          | import('../../../../packages/contracts/src/index.ts').PolicyInternalSummaryFromSchema
+          | import('../../../../../packages/contracts/src/index.ts').PolicyInternalSummaryFromSchema
           | null
         let policySummaryStateSource = null as { sourceType: 'policy'; sourceId: string } | null
         if (params.id === 'm-eventbus') {
@@ -149,7 +149,7 @@ export function createBffDetailRoutes({ cf, ef, pf }: MUiBffRouteDeps) {
           }
         }
 
-        const response: import('../../../../packages/contracts/src/index.ts').ServiceInspectorResponseFromSchema =
+        const response: import('../../../../../packages/contracts/src/index.ts').ServiceInspectorResponseFromSchema =
           {
             service: withStateSource(matched, {
               sourceType: 'authoritative',

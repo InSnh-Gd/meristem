@@ -4,7 +4,7 @@ import type {
   MNetOperationalSnapshotFromSchema,
   Permission,
   PolicyDecisionFromSchema
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 
 type StateSource = BffOperationalRuntimeTruthFromSchema['auth']['stateSource']
 

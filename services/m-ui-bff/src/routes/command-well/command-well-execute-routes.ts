@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   APPROVAL_APPROVE_EXECUTE_COMMAND_ID,
   APPROVAL_REJECT_EXECUTE_COMMAND_ID,
@@ -11,7 +11,7 @@ import {
   PROFILE_ENABLE_EXECUTE_COMMAND_ID,
   PROFILE_GLOBAL_SWITCH_APPLY_EXECUTE_COMMAND_ID,
   PROFILE_GLOBAL_SWITCH_PLAN_EXECUTE_COMMAND_ID
-} from '../types.ts'
+} from '../../types.ts'
 import {
   handleMNetExecuteCommand,
   requireExecuteSessionPermission
@@ -30,8 +30,8 @@ import {
   readNetworkProfileGlobalSwitchApplyBody,
   readNetworkProfileGlobalSwitchPlanBody
 } from './command-well-support.ts'
-import { bearerTokenFromHeaders, bffError, passthroughCoreError } from './route-helpers.ts'
-import { commandIdParamsSchema, genericCommandExecuteBodySchema } from './route-schemas.ts'
+import { bearerTokenFromHeaders, bffError, passthroughCoreError } from '../_shared/route-helpers.ts'
+import { commandIdParamsSchema, genericCommandExecuteBodySchema } from '../_shared/route-schemas.ts'
 
 /**
  * createCommandWellExecuteRoutes 保留通用 CommandWell 执行路由与所有命令分支。

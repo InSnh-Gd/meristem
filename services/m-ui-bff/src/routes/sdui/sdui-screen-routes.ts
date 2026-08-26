@@ -1,8 +1,8 @@
 import { Elysia } from 'elysia'
-import type { MUiBffRouteDeps } from '../deps.ts'
-import { bffError, requireCoreSession } from './route-helpers.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
+import { bffError, requireCoreSession } from '../_shared/route-helpers.ts'
 import { SDUI_V02_ROUTE_REGISTRY } from './route-registry.ts'
-import { idParamsSchema } from './route-schemas.ts'
+import { idParamsSchema } from '../_shared/route-schemas.ts'
 
 /**
  * SDUI 路由注册表通过 Core session 校验 Bearer token，再发布 BFF 自己的展示契约。

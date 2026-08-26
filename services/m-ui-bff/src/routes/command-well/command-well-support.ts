@@ -3,7 +3,7 @@ import type {
   MNode,
   MNodeFromSchema,
   Permission
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 import {
   type ApprovalPreviewBody,
   COMMAND_PREVIEW_DEFINITIONS,
@@ -17,8 +17,8 @@ import {
   type NetworkProfileGlobalSwitchApplyBody,
   type NetworkProfileGlobalSwitchPlanBody,
   type NetworkProfilePreviewBody
-} from '../types.ts'
-import { bffError } from './route-helpers.ts'
+} from '../../types.ts'
+import { bffError } from '../_shared/route-helpers.ts'
 
 export type SessionFacts = {
   actor: ActorId

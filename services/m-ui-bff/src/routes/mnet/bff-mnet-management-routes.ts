@@ -1,7 +1,11 @@
 import { Elysia } from 'elysia'
-import { MNetTopologyViewSchema } from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
-import { fetchDecodedUpstream, requireBearerToken, withStateSourceDetail } from './route-helpers.ts'
+import { MNetTopologyViewSchema } from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
+import {
+  fetchDecodedUpstream,
+  requireBearerToken,
+  withStateSourceDetail
+} from '../_shared/route-helpers.ts'
 import {
   approveMnetJoinRequestBodySchema,
   mnetManagementJoinRequestParamsSchema,

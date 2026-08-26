@@ -5,8 +5,8 @@ import {
   OidcIamPrincipalApprovalV01TypeBoxSchema,
   OidcIamPrincipalReasonV01TypeBoxSchema,
   OidcIamPrincipalRolesV01TypeBoxSchema
-} from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffOidcAuthDeps } from '../deps.ts'
+} from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffOidcAuthDeps } from '../../deps.ts'
 import { createBffAuthSupport, toBffAuthResponse } from './bff-auth-support.ts'
 
 const principalParamsSchema = t.Object({ principalId: t.String({ minLength: 1 }) })

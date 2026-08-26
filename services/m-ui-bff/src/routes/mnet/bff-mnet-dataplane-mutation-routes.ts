@@ -1,10 +1,10 @@
 import { Elysia } from 'elysia'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   bffIdempotencyKey,
   forwardCoreExecute,
   invalidExecuteBody
-} from './command-well-support.ts'
+} from '../command-well/command-well-support.ts'
 import {
   redactCredentialMutationResponse,
   readBreakGlassBody,
@@ -16,7 +16,11 @@ import {
   readMigrationRollbackBody,
   readProfileToggleBody
 } from './mnet-dataplane-support.ts'
-import { requireBearerToken, requireObjectRecord, withStateSourceDetail } from './route-helpers.ts'
+import {
+  requireBearerToken,
+  requireObjectRecord,
+  withStateSourceDetail
+} from '../_shared/route-helpers.ts'
 import {
   breakGlassBodySchema,
   credentialRevokeBodySchema,
@@ -28,7 +32,7 @@ import {
   networkIdParamsSchema,
   networkNodeParamsSchema,
   profileToggleBodySchema
-} from './route-schemas.ts'
+} from '../_shared/route-schemas.ts'
 
 /**
  * createBffMNetDataplaneMutationRoutes 暴露 M-UI 直接调用的 BFF 数据面 mutation façade。

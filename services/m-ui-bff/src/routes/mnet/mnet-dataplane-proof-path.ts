@@ -3,7 +3,7 @@ import type {
   MNetOperationalSnapshotFromSchema,
   Permission,
   PolicyDecisionFromSchema
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 import { aggregateRuntimeTruth } from './mnet-proof-path-runtime-support.ts'
 
 const operationalStateSource = (networkId: string, suffix: string) => ({

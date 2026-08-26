@@ -4,7 +4,7 @@ import {
   MNetJoinApprovalResultSchema,
   MNetOperationDeniedSchema,
   MNetTopologyViewSchema
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 
 /** M-Net closed-loop 公共响应在 BFF 重新解码，避免把未知上游数据送入工作台。 */
 export const BffMNetJoinDecisionResponseSchema = Schema.Union(

@@ -4,15 +4,15 @@ import {
   MNetProfileDetailResponseSchema,
   NodeDetailResponseSchema,
   SessionResponseSchema
-} from '../../../../packages/contracts/src/index.ts'
+} from '../../../../../packages/contracts/src/index.ts'
 import {
   deriveNodeControlCommandEligibility,
   deriveNoopCommandEligibility,
   isNodeControlExecuteCommandId,
   missingPermissionCommandEligibility,
   targetMissingCommandEligibility
-} from '../command-well/eligibility.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+} from '../../command-well/eligibility.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   COMMAND_PREVIEW_DEFINITIONS,
   GENERIC_NOOP_COMMAND_ID,
@@ -29,7 +29,7 @@ import {
   MNET_NODE_CREDENTIAL_ROTATE_EXECUTE_COMMAND_ID,
   MNET_PROFILE_DISABLE_EXECUTE_COMMAND_ID,
   MNET_PROFILE_ENABLE_EXECUTE_COMMAND_ID
-} from '../types.ts'
+} from '../../types.ts'
 import {
   deriveApprovalPreviewEligibility,
   deriveNetworkProfilePreviewEligibility,
@@ -50,19 +50,19 @@ import {
   readCredentialTargetBody,
   readMigrationOperationBody,
   readNodeControlBody
-} from './mnet-dataplane-support.ts'
+} from '../mnet/mnet-dataplane-support.ts'
 import {
   bearerTokenFromHeaders,
   bffError,
   decodeUpstreamData,
   passthroughCoreError,
   toGenericNoopEligibility
-} from './route-helpers.ts'
+} from '../_shared/route-helpers.ts'
 import {
   commandIdParamsSchema,
   genericCommandEligibilityBodySchema,
   leafNodeIdBodySchema
-} from './route-schemas.ts'
+} from '../_shared/route-schemas.ts'
 
 /**
  * createCommandWellEligibilityRoutes 保留 noop 命令派生与通用 eligibility 语义。

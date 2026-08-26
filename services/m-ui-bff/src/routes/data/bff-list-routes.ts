@@ -9,9 +9,9 @@ import {
   PolicyDecisionSchema,
   ServiceListResponseSchema,
   TimelineLogListResponseSchema
-} from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
-import type { StateSourceMetadata } from '../types.ts'
+} from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
+import type { StateSourceMetadata } from '../../types.ts'
 import {
   fetchDecodedUpstream,
   fetchDecodedUpstreamAllow404,
@@ -19,7 +19,7 @@ import {
   requireBearerToken,
   requireObjectRecord,
   withStateSource
-} from './route-helpers.ts'
+} from '../_shared/route-helpers.ts'
 
 const PolicyDecisionListResponseSchema = Schema.Struct({
   decisions: Schema.Array(PolicyDecisionSchema)

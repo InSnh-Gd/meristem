@@ -1,6 +1,6 @@
-import { SessionResponseSchema } from '../../../../packages/contracts/src/index.ts'
-import { isNodeControlExecuteCommandId } from '../command-well/eligibility.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import { SessionResponseSchema } from '../../../../../packages/contracts/src/index.ts'
+import { isNodeControlExecuteCommandId } from '../../command-well/eligibility.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
   MNET_BREAK_GLASS_EXECUTE_COMMAND_ID,
@@ -20,7 +20,7 @@ import {
   NODE_DISABLE_EXECUTE_COMMAND_ID,
   NODE_ISOLATE_EXECUTE_COMMAND_ID,
   NODE_RECOVER_EXECUTE_COMMAND_ID
-} from '../types.ts'
+} from '../../types.ts'
 import {
   bffIdempotencyKey,
   forwardCoreExecute,
@@ -39,8 +39,8 @@ import {
   readMigrationRollbackBody,
   readNodeControlBody,
   readProfileToggleBody
-} from './mnet-dataplane-support.ts'
-import { bffError, decodeUpstreamData, passthroughCoreError } from './route-helpers.ts'
+} from '../mnet/mnet-dataplane-support.ts'
+import { bffError, decodeUpstreamData, passthroughCoreError } from '../_shared/route-helpers.ts'
 
 /** M-Net execute 命令集合。 */
 const MNET_EXECUTE_COMMANDS = new Set([

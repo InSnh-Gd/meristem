@@ -4,7 +4,7 @@ import {
   idParamsSchema,
   leafNodeIdBodySchema,
   nodeControlCommandBodySchema
-} from '../../../services/m-ui-bff/src/routes/route-schemas.ts'
+} from '../../../services/m-ui-bff/src/routes/_shared/route-schemas.ts'
 import {
   EXECUTE_COMMAND_REQUIRED_PERMISSIONS,
   GENERIC_NOOP_COMMAND_ID,

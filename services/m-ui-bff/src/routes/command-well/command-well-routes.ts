@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import { createCommandWellEligibilityRoutes } from './command-well-eligibility-routes.ts'
 import { createCommandWellExecuteRoutes } from './command-well-execute-routes.ts'
 

@@ -9,7 +9,7 @@ import type {
   MNetMigrationRollbackBody,
   MNetNodeControlBody,
   MNetProfileToggleBody
-} from '../types.ts'
+} from '../../types.ts'
 
 function asObject(body: unknown): object | null {
   return typeof body === 'object' && body !== null ? body : null

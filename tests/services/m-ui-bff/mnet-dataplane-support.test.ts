@@ -4,8 +4,8 @@ import {
   BffCredentialMutationResponseSchema,
   disabledEligibility,
   enabledEligibility
-} from '../../../services/m-ui-bff/src/routes/mnet-dataplane-contracts.ts'
-import { readJoinTicketCreateBody } from '../../../services/m-ui-bff/src/routes/mnet-dataplane-body-readers.ts'
+} from '../../../services/m-ui-bff/src/routes/mnet/mnet-dataplane-contracts.ts'
+import { readJoinTicketCreateBody } from '../../../services/m-ui-bff/src/routes/mnet/mnet-dataplane-body-readers.ts'
 
 describe('M-Net dataplane support characterization', () => {
   it('decodes a credential lifecycle response without exposing token material', () => {

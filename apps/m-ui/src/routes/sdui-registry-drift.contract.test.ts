@@ -7,7 +7,7 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url))
 const COMPONENTS_DIR = resolve(TEST_DIR, '../lib/components')
 
 const registrySource = readFileSync(
-  resolve(TEST_DIR, '../../../../services/m-ui-bff/src/routes/route-registry.ts'),
+  resolve(TEST_DIR, '../../../../services/m-ui-bff/src/routes/sdui/route-registry.ts'),
   'utf8'
 )
 

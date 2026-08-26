@@ -7,8 +7,8 @@ import {
   SessionResponseSchema,
   StatusResponseSchema,
   TimelineLogListResponseSchema
-} from '../../../../packages/contracts/src/index.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+} from '../../../../../packages/contracts/src/index.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   toOverviewAuditEntry,
   toOverviewNode,
@@ -16,7 +16,11 @@ import {
   toOverviewStatus,
   toOverviewTimelineEntry
 } from './bff-data-support.ts'
-import { decodeUpstreamData, passthroughCoreError, requireBearerToken } from './route-helpers.ts'
+import {
+  decodeUpstreamData,
+  passthroughCoreError,
+  requireBearerToken
+} from '../_shared/route-helpers.ts'
 
 /**
  * createBffOverviewRoute 负责 overview 聚合读模型；失败映射沿用上游 Core 响应。
@@ -82,7 +86,7 @@ export function createBffOverviewRoute({ cf, ef }: MUiBffRouteDeps) {
       timeline = decodedTimeline.entries.map(toOverviewTimelineEntry)
     }
     let eventBusMetrics = null as
-      | import('../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
+      | import('../../../../../packages/contracts/src/index.ts').EventBusPublishMetricsSummaryFromSchema
       | null
     if (eventBusMetricsRes.ok) {
       const decodedEventBusMetrics = decodeUpstreamData(

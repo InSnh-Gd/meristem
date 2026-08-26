@@ -1,14 +1,14 @@
 import * as Schema from 'effect/Schema'
 import { Elysia } from 'elysia'
-import { MDeployDigestSchema } from '../../../../packages/contracts/src/schemas/mdeploy-common.ts'
-import { MDeployInfrastructureTopologyV01Schema } from '../../../../packages/contracts/src/schemas/mdeploy-infrastructure.ts'
-import { MDeployEvidenceMetadataV01Schema } from '../../../../packages/contracts/src/schemas/mdeploy-operations.ts'
-import type { MUiBffRouteDeps } from '../deps.ts'
+import { MDeployDigestSchema } from '../../../../../packages/contracts/src/schemas/mdeploy-common.ts'
+import { MDeployInfrastructureTopologyV01Schema } from '../../../../../packages/contracts/src/schemas/mdeploy-infrastructure.ts'
+import { MDeployEvidenceMetadataV01Schema } from '../../../../../packages/contracts/src/schemas/mdeploy-operations.ts'
+import type { MUiBffRouteDeps } from '../../deps.ts'
 import {
   deployApplyBodySchema,
   deployRollbackBodySchema
 } from './mdeploy-management-route-schemas.ts'
-import { fetchDecodedUpstream, requireBearerToken } from './route-helpers.ts'
+import { fetchDecodedUpstream, requireBearerToken } from '../_shared/route-helpers.ts'
 
 const desiredStateSummarySchema = Schema.Struct({
   latestDigest: Schema.optional(MDeployDigestSchema),
