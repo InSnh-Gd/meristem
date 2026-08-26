@@ -1,17 +1,13 @@
-export type { PlanMigrationResult } from './migration-engine-pure.ts'
+export type { PlanMigrationResult } from './migration-engine-types.ts'
 
 import { isCandidate } from './migration-engine-helpers.ts'
-import {
-  applyNetwork,
-  fail,
-  type MigrationEngineDeps,
-  ok,
-  TARGET_CN_PROFILE_VERSION
-} from './migration-engine-pure.ts'
+import { applyNetwork } from './migration-engine-application.ts'
+import { fail, ok } from './migration-engine-locks.ts'
+import { type MigrationEngineDeps, TARGET_CN_PROFILE_VERSION } from './migration-engine-types.ts'
 import { rollbackNetwork } from './migration-engine-rollback.ts'
 
-export type { MigrationEngineDeps, SwitchOperationStatus } from './migration-engine-pure.ts'
-export { TARGET_CN_PROFILE_VERSION } from './migration-engine-pure.ts'
+export type { MigrationEngineDeps, SwitchOperationStatus } from './migration-engine-types.ts'
+export { TARGET_CN_PROFILE_VERSION } from './migration-engine-types.ts'
 
 import type { NetworkProfileMigrationResult, SwitchBatch } from './global-defaults-store.ts'
 import type { NetworkSnapshot } from './migration-engine-helpers.ts'
