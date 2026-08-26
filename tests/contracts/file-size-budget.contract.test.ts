@@ -63,32 +63,12 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'M-UI 网络 profile 工作台单体组件，待拆分为子模块'
   },
   {
-    filePath: 'services/node-agent/src/node-agent-sidecar-lifecycle.ts',
-    reason: 'node-agent sidecar 生命周期编排，待抽出状态机与副作用发布 seam'
-  },
-  {
     filePath: 'services/m-deploy/src/testing.ts',
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
   {
-    filePath: 'services/m-net/src/migration-engine-pure.ts',
-    reason: 'M-Net 迁移引擎纯函数集合，待按迁移步骤族拆分'
-  },
-  {
-    filePath: 'services/node-agent/src/node-agent-session.ts',
-    reason: 'node-agent 会话逻辑，待抽出握手与心跳 seam'
-  },
-  {
     filePath: 'services/m-deploy/src/postgres-store.ts',
     reason: 'M-Deploy PostgreSQL 存储适配层，待按聚合根拆分查询与写入'
-  },
-  {
-    filePath: 'services/m-net/src/agent-runtime-session-lifecycle.ts',
-    reason: 'M-Net agent runtime 会话生命周期，待抽出状态转换 seam'
-  },
-  {
-    filePath: 'services/m-net/src/forced-relay-workflow.ts',
-    reason: 'M-Net 强制 relay 工作流，待抽出决策与副作用 seam'
   },
   {
     filePath: 'tests/contracts/m-ui-bff.command-well.test.ts',
