@@ -59,11 +59,6 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'M-Net 多主机 harness 支撑脚本，待按 preflight / 编排 / 断言职责拆分'
   },
   {
-    filePath: 'apps/m-ui/tests/runtime/_specs/GoldenControlRoomWorkspace.svelte',
-    reason:
-      '控制室工作台拆分前的冻结基线夹具，供 DOM 等价性测试逐字比对；按定义不可拆分，拆分即失去比对意义'
-  },
-  {
     filePath: 'apps/m-ui/src/lib/components/modules/network/NetworkProfileWorkspace.svelte',
     reason: 'M-UI 网络 profile 工作台单体组件，待拆分为子模块'
   },
@@ -84,44 +79,16 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'node-agent 会话逻辑，待抽出握手与心跳 seam'
   },
   {
-    filePath: 'packages/contracts/src/types.ts',
-    reason: '共享契约类型聚合文件，待按功能域拆分到 types/ 子模块'
-  },
-  {
     filePath: 'services/m-deploy/src/postgres-store.ts',
     reason: 'M-Deploy PostgreSQL 存储适配层，待按聚合根拆分查询与写入'
-  },
-  {
-    filePath: 'services/m-eventbus/src/publisher.ts',
-    reason: 'M-EventBus publisher 承载多主题发布分支，待按主题族拆分'
-  },
-  {
-    filePath: 'packages/auth/src/oidc-provider-support.ts',
-    reason: 'OIDC provider 支撑逻辑，待按 discovery / token / session 拆分'
-  },
-  {
-    filePath: 'packages/contracts/src/schemas/mnet-closed-loop.ts',
-    reason: 'M-Net 闭环 schema 聚合，拆分需配套契约迁移'
-  },
-  {
-    filePath: 'services/m-ui-bff/src/routes/mnet-dataplane-support.ts',
-    reason: 'BFF 数据面 support 文件，待按操作族拆分'
   },
   {
     filePath: 'services/m-net/src/agent-runtime-session-lifecycle.ts',
     reason: 'M-Net agent runtime 会话生命周期，待抽出状态转换 seam'
   },
   {
-    filePath: 'packages/contracts/src/schemas/mnet-profile-v03.ts',
-    reason: 'M-Net Profile v0.3 schema 聚合，拆分需配套契约迁移'
-  },
-  {
     filePath: 'services/m-net/src/forced-relay-workflow.ts',
     reason: 'M-Net 强制 relay 工作流，待抽出决策与副作用 seam'
-  },
-  {
-    filePath: 'packages/contracts/src/schemas/mdeploy-operations.ts',
-    reason: 'M-Deploy 操作 schema 聚合，拆分需配套契约迁移'
   },
   {
     filePath: 'tests/contracts/m-ui-bff.command-well.test.ts',
@@ -291,8 +258,52 @@ describe('file size budget ratchet guard', () => {
     expect(findings, buildOversizeMessage(findings)).toEqual([])
   })
 
-  // 豁免清单陈旧性断言（“每条 allowlist 记录必须仍然 >500 行”）在此处有意留空。
-  // 原因：多个重构任务会并行缩减这些文件，如果现在就强制清单不得含已达标文件，
-  // 每个重构任务都必须同时修改本文件，从而在同一常量上互相冲突。
-  // 该断言由后续独立任务在并行重构收敛后统一启用。
+  it('registers every allowlist entry against a file that still exists', async () => {
+    // 清单条目指向已删除文件时，ratchet 会静默失去约束对象：
+    // 该路径既不会被扫描命中，也不会有人回头清理记录。
+    const missingPaths: string[] = []
+
+    for (const entry of OVERSIZE_ALLOWLIST) {
+      const exists = await Bun.file(path.join(repositoryRoot, entry.filePath)).exists()
+      if (!exists) {
+        missingPaths.push(entry.filePath)
+      }
+    }
+
+    expect(
+      missingPaths,
+      [
+        `OVERSIZE_ALLOWLIST references ${missingPaths.length} path(s) that no longer exist.`,
+        'Remove the stale entries; an allowlist entry without a file constrains nothing.',
+        ...missingPaths.map(filePath => `- ${filePath}`)
+      ].join('\n')
+    ).toEqual([])
+  })
+
+  it('keeps the allowlist a shrinking ratchet with no already-compliant entries', async () => {
+    // 清单语义是“只允许收缩”：一旦文件拆分到阈值内，记录必须移除。
+    // 否则该文件会永久脱离预算约束，重新膨胀时守卫不会报警。
+    const compliantEntries: OversizeFinding[] = []
+
+    for (const entry of OVERSIZE_ALLOWLIST) {
+      const exists = await Bun.file(path.join(repositoryRoot, entry.filePath)).exists()
+      if (!exists) {
+        continue
+      }
+
+      const lineCount = await countLines(entry.filePath)
+      if (lineCount <= MAX_FILE_LINES) {
+        compliantEntries.push({ filePath: entry.filePath, lineCount })
+      }
+    }
+
+    expect(
+      compliantEntries,
+      [
+        `OVERSIZE_ALLOWLIST holds ${compliantEntries.length} entry(ies) already within ${MAX_FILE_LINES} lines.`,
+        'Remove them: a compliant file left on the allowlist is permanently exempt from the budget.',
+        ...compliantEntries.map(entry => `- ${entry.filePath} (${entry.lineCount} lines)`)
+      ].join('\n')
+    ).toEqual([])
+  })
 })
