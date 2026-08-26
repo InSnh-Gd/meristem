@@ -55,12 +55,13 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: '仓库级 biome 格式化补齐后越过 500 行阈值，待按发布步骤职责拆分'
   },
   {
-    filePath: 'apps/m-ui/src/lib/components/modules/control-room/ControlRoomWorkspace.svelte',
-    reason: 'M-UI 控制室工作台单体组件，待按 layout / modules / ui 边界拆分'
-  },
-  {
     filePath: 'scripts/mnet-multihost-harness-support.ts',
     reason: 'M-Net 多主机 harness 支撑脚本，待按 preflight / 编排 / 断言职责拆分'
+  },
+  {
+    filePath: 'apps/m-ui/tests/runtime/_specs/GoldenControlRoomWorkspace.svelte',
+    reason:
+      '控制室工作台拆分前的冻结基线夹具，供 DOM 等价性测试逐字比对；按定义不可拆分，拆分即失去比对意义'
   },
   {
     filePath: 'apps/m-ui/src/lib/components/modules/network/NetworkProfileWorkspace.svelte',
