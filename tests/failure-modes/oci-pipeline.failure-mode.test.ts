@@ -107,14 +107,16 @@ describe('OCI pipeline failure modes', () => {
   })
 
   it('retrieves persisted Cosign referrers before creating promotion metadata', () => {
+    // 发布流程正文已拆分至 oci-release-workflow.ts；oci-release.ts 仅保留 CLI 入口。
     const releaseScript = readFileSync(
-      join(import.meta.dir, '../../scripts/oci-release.ts'),
+      join(import.meta.dir, '../../scripts/oci-release-workflow.ts'),
       'utf8'
     )
 
     expect(releaseScript).toMatch(/'download',\s*'attestation'/)
     expect(releaseScript).toMatch(/'download',\s*'signature'/)
-    expect(releaseScript.indexOf("'download',\n      'signature'")).toBeLessThan(
+    // 断言取证顺序而非源码缩进：签名 referrer 必须先落盘，才能生成 promotion 元数据。
+    expect(releaseScript.search(/'download',\s*'signature'/)).toBeLessThan(
       releaseScript.indexOf('const promotion =')
     )
   })
