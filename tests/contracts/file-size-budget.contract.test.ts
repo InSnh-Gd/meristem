@@ -47,32 +47,12 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
   {
-    filePath: 'scripts/mnet-v02-live-proof.ts',
-    reason: '仓库级 biome 格式化补齐后越过 500 行阈值，待按取证阶段职责拆分'
-  },
-  {
-    filePath: 'scripts/oci-release.ts',
-    reason: '仓库级 biome 格式化补齐后越过 500 行阈值，待按发布步骤职责拆分'
-  },
-  {
-    filePath: 'scripts/mnet-multihost-harness-support.ts',
-    reason: 'M-Net 多主机 harness 支撑脚本，待按 preflight / 编排 / 断言职责拆分'
-  },
-  {
     filePath: 'services/m-deploy/src/testing.ts',
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
   {
     filePath: 'services/m-deploy/src/postgres-store.ts',
     reason: 'M-Deploy PostgreSQL 存储适配层，待按聚合根拆分查询与写入'
-  },
-  {
-    filePath: 'tests/contracts/m-ui-bff.command-well.test.ts',
-    reason: '已排期拆分：CommandWell 契约测试将按动作族拆成多个测试文件'
-  },
-  {
-    filePath: 'tests/contracts/m-ui-bff.routes.test.ts',
-    reason: '已排期拆分：BFF 路由契约测试将按路由族拆成多个测试文件'
   },
   {
     filePath: 'tests/contracts/m-net-global-profile-defaults.contract.test.ts',
