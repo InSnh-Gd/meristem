@@ -1354,11 +1354,53 @@ Source: `bun run test:contracts`。
 - 规划阶段发现一次间歇性失败：1156 pass / 1 fail → 连续三次 re-run 均 1157 / 0。
 - 清理通过中再次出现：`packet forwarding architecture guard` 测试 1158 pass / 2 fail → re-run 即 1160 / 0。
 - 无代码变更即恢复通过，确认为 flake 而非回归。
-- 当前健康基线：**1160 pass / 0 fail across 132 files**。
+- 当前健康基线：**1174 pass / 0 fail**（结构清理通过收束后）。
 
 处理建议:
 
 - 未来 agent 遇到 `test:contracts` 单次不可复现失败时，**re-run 一次**再开始诊断。
 - 如同一测试连续两次失败，则视为真实回归进行调查。
+
+---
+
+### DFW-038: services/m-net/src 115 个平铺文件的目录分层
+
+Status: deferred — 有硬前置条件，未满足前不得启动。
+
+Owner: M-Net。
+
+Source: `services/m-net/src/`（115 个平铺 `.ts` 文件）。
+
+问题描述:
+
+- `services/m-net/src/` 目前是仓库内最大的单层目录：115 个平铺 `.ts` 文件，仅有一个既存子目录 `data-plane/`（1 个文件）。
+- 命名已自然聚成领域簇：profile（15）、closed-loop（15）、migration（13）、agent（12）、node（8）、forced-relay（8）、data（5）、operational（4）、network（4）、global（4）。
+- 后缀同时聚成层次簇：workflow（11）、types（9）、support（9）、routes（9）、store（4）、runtime（4）。
+
+爆炸半径（已实测）:
+
+- **70 个仓库外部文件**从 `services/m-net/src/` 导入：`tests/contracts` 30、`tests/integration` 14、`tests/failure-modes` 9、`scripts/` 5、`tests/perf` 4、`tests/services/m-net` 3、`apps/core/src/adapters` 2、`tests/helpers`/`tests/e2e`/`tests/contracts/_helpers` 各 1。
+- **61 个 m-net 模块被外部引用**，全部为硬编码相对路径（形如 `from '../../services/m-net/src/profile-store.ts'`），仓库**没有配置任何 path alias**。
+- 引用最密集：`profile-store.ts`（25）、`suspended-operations.ts`（17）、`app.ts`（13）、`data-plane-store-memory.ts`（12）。
+
+目标形态（已定档，执行时不再重新决策）:
+
+- 采用**按领域（feature-based）**切分：`profile/`、`closed-loop/`、`migration/`、`agent/`、`forced-relay/`、`data-plane/`（复用既存目录）。**不采用**按层次（`domain/`/`store/`/`workflow/`）切分——层次切分会让同一领域的状态机、存储与工作流散落三处，反而加重跨领域耦合。
+- **不得**在 `src/` 根保留 61 个单文件 re-export barrel。用 61 个纯转发文件替换 115 个平铺文件是把问题换了个形状，不是解决问题。
+- 外部导入的迁移方式：先引入 path alias（如 `@m-net/`），再据此更新 70 个外部导入点。
+
+硬前置条件（全部满足前不得启动）:
+
+1. **DFW-032 先行**：`deps.ts` ⇄ `clients.ts` ⇄ `migration-engine*.ts` 的 hub 循环必须先做真正的依赖反转。在 hub 循环仍存在时划定目录边界，会把错误的边界固化进目录结构；而依赖反转的结果本身就会决定这些文件应该落在哪个领域目录下。
+2. **M-Deploy facade WIP 落地**：`services/m-net/src/store-codecs.ts` 当前处于 WIP 修改中，另有 78 个 WIP 文件在途。在此期间移动 m-net 文件必然与在途特性产生大范围冲突。
+3. **path alias 独立落地**：monorepo 级 tsconfig `paths` 变更属于独立结构改动，必须自带验证通过（typecheck ×3、lint、depcruise、全测试链），不得与文件搬迁混在同一次提交内。
+
+Reason deferred:
+
+- 前置条件 1 与 2 均未满足；在 hub 循环与在途 WIP 存在的前提下执行 115 文件搬迁，收益不足以抵偿回归与冲突风险。本次结构清理通过的高价值项（gate 链解锁、超尺寸文件拆分、文档归档）已全部落地并提交。
+
+Reopen trigger:
+
+- DFW-032 完成 **且** M-Deploy facade WIP 落地 **且** `@m-net/` path alias 已独立落地并通过全 gate 链后，方可启动本项。
 
 ---
