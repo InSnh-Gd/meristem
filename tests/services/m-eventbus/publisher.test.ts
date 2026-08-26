@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { createEventEnvelope } from '../../../packages/events/src/index.ts'
 import {
-  calculatePublishBackoffMs,
   createEventBusPublisher,
   type EventBusPublishError
-} from '../../../services/m-eventbus/src/publisher.ts'
+} from '../../../services/m-eventbus/src/publisher-runtime.ts'
+import { calculatePublishBackoffMs } from '../../../services/m-eventbus/src/publisher-subject-retry.ts'
 
 type PublishCall = {
   subject: string
