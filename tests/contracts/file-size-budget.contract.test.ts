@@ -59,10 +59,6 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: 'M-Net 多主机 harness 支撑脚本，待按 preflight / 编排 / 断言职责拆分'
   },
   {
-    filePath: 'apps/m-ui/src/lib/components/modules/network/NetworkProfileWorkspace.svelte',
-    reason: 'M-UI 网络 profile 工作台单体组件，待拆分为子模块'
-  },
-  {
     filePath: 'services/m-deploy/src/testing.ts',
     reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
   },
