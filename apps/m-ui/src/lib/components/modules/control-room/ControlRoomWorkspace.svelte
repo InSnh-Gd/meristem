@@ -300,4 +300,15 @@
       align-items: flex-start;
     }
   }
+
+  /* 与拆分前一致的 zone eyebrow 样式；app.css 的全局规则使用 --text-40、
+     硬编码 12px 且缺少 margin 归零，必须保留 scoped 规则以维持原有渲染。 */
+  .zone-eyebrow {
+    color: var(--text-60);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
 </style>
