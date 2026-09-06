@@ -89,98 +89,17 @@ Meristem 采用 `ADR-F01` 中的 Effect 使用边界：
 - `.agents/skills/effect-ts/SKILL.md`
 - 对应服务文档、契约文档与测试门禁
 
-## 类型安全与路由架构边界规则
+## 类型安全与路由架构边界（摘要）
 
-### 类型断言边界
+生产代码禁止 `as unknown as`、`as any`、`@ts-ignore`、`@ts-expect-error`（测试中 `@ts-expect-error` 仅用于验证编译器错误路径）；跨服务 HTTP 边界必须用 Effect Schema / TypeBox 校验后再使用数据，不得直接断言；端口返回值复用 `packages/common/src/result.ts` 的 `Result`/`ok()`/`err()`；schema companion type 统一 `XFromSchema` 命名；TypeBox `t.*` 是 Elysia 路由 primary input validator，错误 envelope 复用 `apiErrorRouteSchema`；路由 handler 保持薄（schema + auth/policy + 调用 + 返回），业务逻辑下沉 support/workflow；support helper 返回显式 tagged failure union，不得用 `as never` 短路；`bun run typecheck`、`typecheck:e2e`、`typecheck:m-ui` 三道门禁全过。
 
-- 对于仓库内部使用 `ok/error` 语义的同步/异步端口返回值，默认复用 `packages/common/src/result.ts` 的 `Result<T, E>`、`ok()`、`err()`，不要在服务内部重复声明相同的 `{ ok: true; value } | { ok: false; error }` 联合形状。
-- `packages/contracts/src/schemas/**` 中的 Effect Schema companion type 默认使用 `XFromSchema` 命名；如果需要提供无后缀的消费层别名，应放在 `packages/contracts/src/types/**` 或调用侧 import alias，不要在 schema 文件里混用 bare-name companion type。
-- 历史兼容命名（如 `SecretRefV01` 这类 schema 常量）可以保留在 schema value 层；但它们的 companion type 仍应统一为 `SecretRefV01FromSchema`，无后缀类型名只允许出现在 `types/**` re-export 或调用侧 alias。
-- 生产代码禁止 `as unknown as` 双重断言，除非是文档化的 ORM/runtime 限制（如 Drizzle 动态列访问、`globalThis` 非标准属性读取），且必须在行内注释说明限制原因。
-- 跨服务 HTTP 边界不得用 `result.data as { ... }` 直接断言；必须用 Effect Schema `Schema.decodeUnknownSync` 或 TypeBox 校验后再使用已验证数据。
-- `as any`、`@ts-ignore`、`@ts-expect-error` 在生产代码中全面禁止；测试代码中 `@ts-expect-error` 仅用于验证编译器错误路径，不得用于绕过测试基础设施类型。
-- `skipLibCheck: true` 是当前已知放松点，接受但不可扩展到项目自身 `.d.ts`。
-- 测试 helper 构造 mock 时应优先用结构化部分对象 + 覆盖特定方法，而非 `as unknown as TargetType` 整体强转；当目标类型过于刚性导致无法合理构造时，应先放宽目标类型定义而非用断言绕过。
+完整规则（类型断言边界、Support helper 错误传播、TypeBox/Elysia 输入边界、路由层职责、类型门禁覆盖）见 [references/type-safety-and-routing.md](references/type-safety-and-routing.md)。
 
-### Support helper 错误传播
+## 注释、文件组织与命名（摘要）
 
-- 从路由层提取的 support helper 不得依赖 `externalApiError(...) as never` 或类似 never-return helper 在 helper 内部短路。
-- Support helper 必须返回显式 tagged failure union（如 `{ kind: 'failure'; status: ...; error: ... }`），由路由顶层统一 `return` 做最终状态映射。
-- 路由层负责唯一的 `return` / `set.status` 调用；support 层不得直接操作 Elysia response 对象。
-- 这条规则同样适用于 Core 路由的 `CoreError` throw 模式：support 层可以 throw `CoreError`，但不得在 helper 内部调用 Elysia `status()` 回调。
+注释用中文、解释边界与原因而非语法；非平凡逻辑必须有代码块级注释，导出/边界/校验/状态转换函数与 Elysia 方法链必须有注释；`FIXME` 之外的 `TODO`/`NOTE`/`HACK` 不得替代边界性标记。单文件不超过 500 行、一文件一职责、禁止 god-file；重构优先做最小存在性改造，第一刀抽同文件私有 helper；新 seam 必须补直接测试；源文件与测试文件命名必须反映职责（`{源文件名}.test.ts`、`{契约名}.contract.test.ts`、`{场景}.integration.test.ts`、`{流程}.e2e.test.ts`），目录 kebab-case。
 
-### TypeBox / Elysia 输入边界
-
-- TypeBox `t.*` 是 Elysia 路由的 primary input validator；禁止在路由 handler 内手写 body parser 替代 schema 校验。
-- preview body 和 execute body 必须使用独立的 TypeBox union，不得复用同一个 union 消化不同语义的请求体。
-- 共享 response schema helper 应集中定义 401/403/404/409/500/503 响应形状，避免每个路由重复堆定义。
-- Elysia 路由错误 envelope 默认复用 `packages/contracts/src/elysia.ts` 的 `apiErrorRouteSchema`，不要在服务内重复手写 `{ error: { code, message, correlationId? } }`。
-- 路由 body/params/response 的类型推导应直接来自 TypeBox schema，不靠中间断言补回。
-
-### 路由层职责
-
-- 路由 handler 应保持薄：schema 定义 + auth/policy 守卫 + service/port 调用 + response 返回。
-- 业务逻辑（状态机、事件序列、审计链、多步副作用编排）必须下沉到共址 support / workflow 文件。
-- 共享路由脚手架（auth、policy authorize、result unwrap、audit、not-found、timeline）应抽到 support 文件，不在每个 handler 内重复拼装。
-- 新增路由文件应在同目录或共址位置提供对应 `-support.ts` 文件，承载非编排逻辑。
-- 路由文件超过 300 行时，必须评估是否需要拆分 support / workflow；超过 500 行按文件模块化规则禁止。
-
-### 类型门禁覆盖
-
-- `bun run typecheck`（主仓库）、`bun run typecheck:e2e`（e2e）、`bun run typecheck:m-ui`（M-UI SvelteKit）三道门禁必须全部通过。
-- `scripts/git-hooks/pre-push` 必须包含 typecheck 门禁，不能只跑格式和 drift guard。
-- 新增 app 或独立子项目时，必须同时接入仓库级 typecheck 覆盖。
-
-## 注释规则
-
-代码注释不要求引用来源文档或章节号。注释应使用中文，除非引用外部协议字段、错误码、API 名称或英文专有名词。
-
-不要给显而易见的赋值写注释。注释用于解释边界、契约、故障处理和安全原因。
-
-维持 `MERISTEM-DEV.md §8.4` 的要求：
-
-- 非平凡逻辑必须有代码块级注释。
-- 导出函数、边界函数、校验函数、状态转换函数必须有函数注释。
-- Elysia 方法链必须有特别注释，解释鉴权、策略、生命周期、日志和错误映射。
-- 注释优先解释边界和原因，不重复语法本身。
-
-`FIXME` 只能用于临时方案、已知技术债、未完成安全边界、临时降级路径、尚未处理的异常情况、未来必须修复的问题。不得用无说明的 `TODO`、`NOTE` 或 `HACK` 代替这些边界性标记。
-
-## 文件模块化规则
-
-禁止超大单体文件。代码必须按职责、功能域和边界合理拆分，见 `MERISTEM-DEV.md §8.2`。
-
-- 单文件不超过 500 行（非表格、非自动生成文件）。超限必须在 commit message 中说明原因并记录拆分计划。
-- 每个文件只承担一个明确功能或职责边界。
-- 目录结构反映功能域、服务、路由、组件或工具边界。
-- 禁止 god-file：入口文件只做组装和导出，不承载业务逻辑、存储适配、类型定义或错误处理。
-- 拆分粒度合理：紧密耦合的内部辅助函数可共存于同一文件，但须在行数上限内。
-
-### 本仓库验证过的重构风格
-
-- 优先做**最小存在性重构**：先问“这段抽象是否真的需要存在”，再动手拆分；能用同文件私有 helper、相邻 `-support.ts`、现有共享模块解决的问题，不要先引入新的 workflow/framework 层。
-- 长函数或长文件的第一刀，优先抽**同文件私有 helper**（如分支处理、成功收尾、副作用发布、前置校验），而不是立刻拆成多个新模块。只有当责任边界已经稳定且复用真实存在时，才继续外移到相邻 support/workflow 文件。
-- 路由层的重构优先级固定为：`schema -> auth/policy guard -> orchestration call -> response mapping`。如果 handler 内重复出现 auth unwrap、policy authorize、idempotency 读取、事件/审计发布、迁移 apply/resume 等业务编排，必须下沉到相邻 support 文件。
-- 对“共享样板”采取**小原语优先**：例如 shared result helper、error envelope helper、单一 readiness probe；禁止因为 2-3 处重复就先造“大一统 startup template”或“generic workflow engine”。
-- 现有模块已经提供合适语义位置时，优先回填到现有模块（如 `packages/internal-http`、`packages/common/src/result.ts`），不要平行再造一个“common-utils”层。
-
-### 拆分后的测试责任
-
-- 代码从旧文件拆到新 seam（新文件、新 helper、新 support）后，不能只依赖旧的间接覆盖；至少补一组**直接测试**，证明新 seam 的成功路径、失败映射或 fail-closed 语义。
-- 新 seam 的直接测试优先级：
-  1. 新抽出的纯函数 / state helper -> unit/contract test
-  2. 新抽出的 client factory / adapter -> contract test
-  3. 新抽出的 route support / workflow -> integration/contract test
-- 如果总覆盖率下降，先区分“本轮新增 seam 缺直接覆盖”与“历史低覆盖债务”，不要把历史覆盖债误判为本轮行为漏测。
-
-## 文件与测试命名规则
-
-文件名和测试文件名必须准确反映功能与职责，禁止随意命名，见 `MERISTEM-DEV.md §8.3`。
-
-- 源文件以单一职责命名（如 `task-state-machine.ts`、`auth-middleware.ts`），禁止 `utils.ts`、`helpers.ts`、`misc.ts` 等模糊名称承载单一功能。
-- 测试文件命名：单元测试 `{源文件名}.test.ts`，契约测试 `{契约名}.contract.test.ts`，集成测试 `{场景}.integration.test.ts`，E2E `{流程}.e2e.test.ts`。
-- 测试文件与源文件同目录或 `__tests__/` 子目录。
-- 目录命名使用 kebab-case，反映功能域或模块边界。
+完整规则见 [references/file-organization-and-naming.md](references/file-organization-and-naming.md) 与 [references/comments-and-doc-sync.md](references/comments-and-doc-sync.md)。
 
 ## Phase 字段禁令
 
@@ -209,17 +128,12 @@ Meristem 采用 `ADR-F01` 中的 Effect 使用边界：
 
 微服务、高权限能力和跨节点契约还必须满足 `MERISTEM-DEV.md` 与 `MERISTEM-ROADMAP.md` 的专项完成标准。
 
-## 文档同步责任
+## 文档同步责任（摘要）
 
-如果修改引入以下变化，必须建议或执行同步文档更新：
+代码变更引入技术栈或默认依赖、M-* 功能域边界、Core 职责、服务定义字段、契约/事件/配置/M-Net Profile 版本规则、权限/审计/日志/安全边界、UI token/组件/布局/SDUI schema 或分阶段路线护栏变化时，必须建议或执行同步文档更新。文档漂移是 Meristem 最大的工程风险之一；完整变化清单见 [references/comments-and-doc-sync.md](references/comments-and-doc-sync.md)。
 
-- 技术栈或默认依赖变化
-- M-* 功能域边界变化
-- Core 职责变化
-- 服务定义字段变化
-- 契约、事件、配置、M-Net Profile 版本规则变化
-- 权限、审计、日志、安全边界变化
-- UI token、组件、布局或 SDUI schema 变化
-- 分阶段路线或 v0.1 护栏变化
+## 参考文件
 
-文档漂移是 Meristem 最大的工程风险之一。代码变更不能让文档成为过期口号。
+- **[type-safety-and-routing.md](references/type-safety-and-routing.md)**：类型断言边界、Support helper 错误传播、TypeBox/Elysia 输入边界、路由层职责、类型门禁覆盖。
+- **[file-organization-and-naming.md](references/file-organization-and-naming.md)**：文件模块化规则、本仓库验证过的重构风格、拆分后的测试责任、文件与测试命名规则。
+- **[comments-and-doc-sync.md](references/comments-and-doc-sync.md)**：注释规则、文档同步责任完整清单。

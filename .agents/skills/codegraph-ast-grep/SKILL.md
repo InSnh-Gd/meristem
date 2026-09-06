@@ -1,11 +1,6 @@
 ---
 name: codegraph-ast-grep
 description: Set up, update, or diagnose CodeGraph and ast-grep so coding agents can use semantic repository scope and structural syntax evidence automatically. Use when a repository needs an idempotent CodeGraph/ast-grep installation, stable tool and index migrations, MCP reconnection, persisted agent guidance, or a read-only setup diagnosis.
-license: Apache-2.0
-metadata:
-  author: stark-ai-de
-  category: engineering-workflows
-  version: "0.3.3"
 ---
 
 # CodeGraph + ast-grep
@@ -141,3 +136,10 @@ Report the selected workflow and rationale, exact root, protected state, install
 - If setup/update needs an unauthorized privilege, channel, scope, destructive rebuild, or external action, preserve current state and request that specific authority.
 - If a tool or client remains unavailable, retain verified intermediates/configuration, report incomplete readiness, and give the narrowest next action.
 - If evidence conflicts, report the disagreement and confidence rather than claiming complete semantic or structural coverage.
+
+## About This Skill
+
+- License: Apache-2.0
+- Author: stark-ai-de
+- Category: engineering-workflows
+- Version: 0.3.3

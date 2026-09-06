@@ -9,103 +9,37 @@ Patterns from [effect-solutions](https://effect.solutions) and the [Effect sourc
 
 ## Source-First Rule
 
-When working in any repo that uses Effect (`effect` or `@effect/*` in package/dependency files), reference the official Effect source before writing, reviewing, or refactoring Effect code. Do not rely on stale memory, blog posts, or high-level docs alone.
+When working in any repo that uses Effect (`effect` or `@effect/*` in package/dependency files), reference the official Effect source before writing, reviewing, or refactoring Effect code — never stale memory, blog posts, or high-level docs alone. Search the repo-local shallow mirror at `.agent-sources/effect/` (create it before doing Effect work if missing) under `packages/effect/src/` and package tests/examples before calling something an Effect best practice.
 
-- If the `effect_source` tool is available, use it for `status`, `hydrate`, and `search` instead of hand-rolled shell commands.
-- First check for a repo-local shallow source mirror at `.agent-sources/effect/`.
-- If it is missing, create it before doing Effect work:
-  `mkdir -p .agent-sources && git clone --depth 1 --filter=blob:none https://github.com/effect-ts/effect.git .agent-sources/effect`
-- Keep the mirror out of product commits. If needed, add `.agent-sources/` to `.git/info/exclude`, not the project `.gitignore`, unless Joel explicitly wants it committed.
-- Search the mirror for current patterns and APIs, especially under `packages/effect/src/` and package tests/examples, before calling something an Effect best practice.
+See [references/source-mirror.md](references/source-mirror.md) for the mirror bootstrap command, commit hygiene, and local source locations.
 
-## Local Source References
+## Core Patterns
 
-- **repo-local Effect source mirror** (canonical for current work): `.agent-sources/effect/`
-- **effect-solutions** (best practices, docs, examples): `~/Code/kitlangton/effect-solutions/`
-- **fallback global Effect monorepo**: `~/Code/effect-ts/effect/`
-- Search source for implementations: `grep -r "pattern" .agent-sources/effect/packages/effect/src/`
+### Effect.gen and Effect.fn
 
-## Effect.gen and Effect.fn
-
-`Effect.gen` provides sequential, readable composition (like async/await for Effect):
+`Effect.gen` gives sequential, readable composition (async/await style). `Effect.fn` adds call-site tracing and named spans — use it for all service methods; its optional second argument composes cross-cutting concerns (retry, timeout):
 
 ```typescript
-import { Effect } from "effect"
-
 const program = Effect.gen(function* () {
   const data = yield* fetchData
   yield* Effect.logInfo(`Processing: ${data}`)
   return yield* processData(data)
 })
-```
 
-`Effect.fn` adds call-site tracing and named spans. Use for all service methods:
-
-```typescript
-const processUser = Effect.fn("processUser")(function* (userId: string) {
-  yield* Effect.logInfo(`Processing user ${userId}`)
-  const user = yield* getUser(userId)
-  return yield* processData(user)
-})
-
-// Second argument for cross-cutting concerns (retry, timeout)
 const fetchWithRetry = Effect.fn("fetchWithRetry")(
   function* (url: string) {
     const data = yield* fetchData(url)
     return yield* processData(data)
   },
-  flow(
-    Effect.retry(Schedule.recurs(3)),
-    Effect.timeout("5 seconds")
-  )
+  flow(Effect.retry(Schedule.recurs(3)), Effect.timeout("5 seconds"))
 )
 ```
 
-## ServiceMap.Service
+See [references/composition-patterns.md](references/composition-patterns.md).
 
-Define services as classes with a unique tag and typed interface:
+### ServiceMap.Service
 
-```typescript
-import { Effect, ServiceMap } from "effect"
-
-class Database extends ServiceMap.Service<
-  Database,
-  {
-    readonly query: (sql: string) => Effect.Effect<unknown[]>
-    readonly execute: (sql: string) => Effect.Effect<void>
-  }
->()("@app/Database") {}
-```
-
-Implement with `Layer.effect` or `Layer.sync`, using `Effect.fn` for all methods:
-
-```typescript
-import { Effect, Layer } from "effect"
-
-class Users extends ServiceMap.Service<
-  Users,
-  {
-    readonly findById: (id: UserId) => Effect.Effect<User, UserNotFoundError>
-    readonly all: () => Effect.Effect<readonly User[]>
-  }
->()("@app/Users") {
-  static readonly layer = Layer.effect(
-    Users,
-    Effect.gen(function* () {
-      const http = yield* HttpClient.HttpClient
-      const findById = Effect.fn("Users.findById")(function* (id: UserId) {
-        const response = yield* http.get(`/users/${id}`)
-        return yield* HttpClientResponse.schemaBodyJson(User)(response)
-      })
-      const all = Effect.fn("Users.all")(function* () {
-        const response = yield* http.get("/users")
-        return yield* HttpClientResponse.schemaBodyJson(Schema.Array(User))(response)
-      })
-      return { findById, all }
-    })
-  )
-}
-```
+Define services as classes with a unique tag and typed interface; implement with `Layer.effect` / `Layer.sync`, wrapping every method in `Effect.fn`.
 
 **Rules:**
 - Tag identifiers must be unique. Use `@app/ServiceName` pattern
@@ -114,68 +48,22 @@ class Users extends ServiceMap.Service<
 
 See [references/services-and-layers.md](references/services-and-layers.md) for service-driven development, test layers, layer memoization, and full composition patterns.
 
-## Schema.Class and Branded Types
+### Schema.Class and Branded Types
 
-Use `Schema.Class` for domain records. Brand all entity IDs and domain primitives:
-
-```typescript
-import { Schema } from "effect"
-
-const UserId = Schema.String.pipe(Schema.brand("UserId"))
-type UserId = typeof UserId.Type
-
-const Email = Schema.String.pipe(Schema.brand("Email"))
-type Email = typeof Email.Type
-
-class User extends Schema.Class("User")({
-  id: UserId,
-  name: Schema.String,
-  email: Email,
-  createdAt: Schema.Date,
-}) {
-  get displayName() { return `${this.name} (${this.email})` }
-}
-
-// Construct with makeUnsafe for brands
-const userId = UserId.makeUnsafe("user-123")
-```
-
-Use `Schema.TaggedClass` + `Schema.Union` for variants (OR types):
-
-```typescript
-import { Match, Schema } from "effect"
-
-class Success extends Schema.TaggedClass("Success")("Success", {
-  value: Schema.Number,
-}) {}
-class Failure extends Schema.TaggedClass("Failure")("Failure", {
-  error: Schema.String,
-}) {}
-const Result = Schema.Union([Success, Failure])
-type Result = typeof Result.Type
-
-// Exhaustive pattern matching
-const render = (r: Result) => Match.valueTags(r, {
-  Success: ({ value }) => `Got: ${value}`,
-  Failure: ({ error }) => `Error: ${error}`,
-})
-```
+Use `Schema.Class` for domain records. Brand all entity IDs and domain primitives: `Schema.String.pipe(Schema.brand("UserId"))`, construct via `UserId.makeUnsafe("user-123")`. Use `Schema.TaggedClass` + `Schema.Union` for variants (OR types), matched exhaustively with `Match.valueTags`.
 
 See [references/data-modeling.md](references/data-modeling.md) for JSON encoding, Schema.Literals, validation, and full patterns.
 
-## Schema.TaggedErrorClass
+### Schema.TaggedErrorClass
 
-Define domain errors with `Schema.TaggedErrorClass`. They are yieldable (no `Effect.fail` needed):
+Domain errors extend `Schema.TaggedErrorClass`. They are yieldable (no `Effect.fail` needed); recover with `Effect.catchTag` / `Effect.catchTags`:
 
 ```typescript
-import { Schema } from "effect"
-
 class UserNotFoundError extends Schema.TaggedErrorClass("UserNotFoundError")(
   "UserNotFoundError",
   { userId: UserId, message: Schema.String }
 ) {}
 
-// Yieldable: yield directly in generators
 const getUser = Effect.fn("getUser")(function* (id: UserId) {
   const user = yield* findUser(id)
   if (!user) yield* new UserNotFoundError({ userId: id, message: "Not found" })
@@ -183,42 +71,19 @@ const getUser = Effect.fn("getUser")(function* (id: UserId) {
 })
 ```
 
-Recover with `catchTag` / `catchTags`:
-
-```typescript
-// Single tag
-const recovered = program.pipe(
-  Effect.catchTag("UserNotFoundError", (e) =>
-    Effect.succeed(`User ${e.userId} missing`)
-  )
-)
-
-// Multiple tags
-const recovered2 = program.pipe(
-  Effect.catchTags({
-    UserNotFoundError: (e) => Effect.succeed("not found"),
-    ValidationError: (e) => Effect.succeed("invalid"),
-  })
-)
-```
-
 See [references/error-handling.md](references/error-handling.md) for defects, Schema.Defect, and recovery patterns.
 
-## Layer Composition
+### Layer Composition
 
-Compose layers with `Layer.provideMerge` (incremental, flat types) and `Layer.merge` (parallel):
+Compose layers with `Layer.provideMerge` (incremental, flat types) and `Layer.merge` (parallel); provide once at the app entry:
 
 ```typescript
-import { Effect, Layer } from "effect"
-
-// Compose layers for the app
 const appLayer = UserService.layer.pipe(
   Layer.provideMerge(DatabaseLayer),
   Layer.provideMerge(LoggerLayer),
   Layer.provideMerge(ConfigLayer),
 )
 
-// Provide once at the entry point
 const main = program.pipe(Effect.provide(appLayer))
 Effect.runPromise(main)
 ```
@@ -228,12 +93,11 @@ Effect.runPromise(main)
 - Provide once at app entry, not scattered throughout code
 - Use `Layer.sync` for synchronous implementations, `Layer.effect` for effectful ones
 
-## Testing Quick Start
+See [references/composition-patterns.md](references/composition-patterns.md).
+
+### Testing Quick Start
 
 ```typescript
-import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
-
 it.effect("queries database", () =>
   Effect.gen(function* () {
     const db = yield* Database
@@ -243,25 +107,10 @@ it.effect("queries database", () =>
 )
 ```
 
-- Use `it.effect` for Effect-based tests (provides TestContext with TestClock)
-- Use `it.live` for real time / real clock
-- Provide fresh layers per test to prevent state leakage
-- Use `it.layer` only when sharing expensive resources across a suite
+- Use `it.effect` for Effect-based tests (provides TestContext with TestClock); `it.live` for real time / real clock
+- Provide fresh layers per test to prevent state leakage; use `it.layer` only when sharing expensive resources across a suite
 
-See [references/testing.md](references/testing.md) for the full worked example and advanced patterns.
-
-## Pipe for Instrumentation
-
-```typescript
-const program = fetchData.pipe(
-  Effect.timeout("5 seconds"),
-  Effect.retry(Schedule.exponential("100 millis").pipe(
-    Schedule.compose(Schedule.recurs(3))
-  )),
-  Effect.tap((data) => Effect.logInfo(`Fetched: ${data}`)),
-  Effect.withSpan("fetchData"),
-)
-```
+See [references/testing.md](references/testing.md) for the full worked example and advanced patterns. For timeout/retry/tap/span pipe instrumentation, see [references/composition-patterns.md](references/composition-patterns.md).
 
 ## Anti-Patterns
 
@@ -283,6 +132,8 @@ const program = fetchData.pipe(
 
 Load these as needed for deeper patterns:
 
+- **[Source Mirror](references/source-mirror.md)**: source-first rule, `.agent-sources/effect` mirror bootstrap, local source locations
+- **[Composition Patterns](references/composition-patterns.md)**: Effect.gen, Effect.fn with cross-cutting concerns, Layer.provideMerge chains, pipe instrumentation
 - **[Services & Layers](references/services-and-layers.md)**: ServiceMap.Service, service-driven development, test layers, layer memoization, provide vs provideMerge
 - **[Data Modeling](references/data-modeling.md)**: Schema.Class, branded types, variants, Match.valueTags, JSON encoding
 - **[Schema Decisions](references/schema-decisions.md)**: Schema.Class vs Struct vs TaggedClass decision flowchart, migration patterns
