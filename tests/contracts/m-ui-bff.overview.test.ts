@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import { MinimalPolicyDecisionSummarySchema } from '../../packages/contracts/src/index.ts'
 import { createMUiBffApp } from '../../services/m-ui-bff/src/app.ts'
@@ -185,7 +185,9 @@ describe('M-UI BFF contract tests', () => {
     expect(body.decision.result).toBeDefined()
     expect(body.decision.createdAt).toBeDefined()
     expect(
-      Either.isRight(Schema.decodeUnknownEither(MinimalPolicyDecisionSummarySchema)(body.decision))
+      Result.isSuccess(
+        Schema.decodeUnknownResult(MinimalPolicyDecisionSummarySchema)(body.decision)
+      )
     ).toBe(true)
     expect(body.decision).not.toHaveProperty('reasons')
   })

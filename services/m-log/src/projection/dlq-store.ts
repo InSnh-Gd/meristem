@@ -1,7 +1,8 @@
-import { eq, type SQL } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { DLQRecord } from '../../../../packages/contracts/src/index.ts'
 import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
 import { mapFactToDoc } from './document-map.ts'
+import { columnOf } from './dynamic-column.ts'
 import { idempotencyKey } from './retry.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase, ProjectionOpenSearch } from './types.ts'
@@ -23,7 +24,7 @@ export function createDlqStore(db: ProjectionDatabase, os: ProjectionOpenSearch)
     const factRows = await db
       .select()
       .from(table)
-      .where(eq(table['id' as keyof typeof table] as unknown as SQL<unknown>, record.factId))
+      .where(eq(columnOf(table, 'id'), record.factId))
       .limit(1)
     if (factRows.length === 0) return false
 

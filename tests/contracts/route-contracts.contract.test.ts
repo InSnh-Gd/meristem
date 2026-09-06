@@ -39,7 +39,7 @@ import {
   secretApiRoutes
 } from '../../packages/contracts/src/index.ts'
 
-function assertRoundTrip<TSchema extends Schema.Schema.AnyNoContext>(
+function assertRoundTrip<TSchema extends Schema.Codec<unknown>>(
   schema: TSchema,
   fixture: typeof schema.Type
 ) {

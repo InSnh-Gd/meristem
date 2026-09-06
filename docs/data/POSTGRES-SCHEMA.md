@@ -1,6 +1,6 @@
-# PostgreSQL Schema MVP
+# PostgreSQL Schema
 
-> PostgreSQL is the authoritative state source for the MVP. This document records the current table shape implemented in `packages/db/src/schema.ts` and `packages/db/src/migrate.ts`, and the drift contract keeps the document aligned with those files. If implementation changes first, update this document in the same change so the docs set stays explicit and current.
+> PostgreSQL is the authoritative state source. This document records the current table shape implemented in `packages/db/src/schema.ts` and `packages/db/src/migrate.ts`, and the drift contract keeps the document aligned with those files. If implementation changes first, update this document in the same change so the docs set stays explicit and current.
 
 ---
 
@@ -16,7 +16,7 @@
 
 ## 2. Tables
 
-MVP uses one PostgreSQL database. Services own table groups but do not get separate databases:
+The platform uses one PostgreSQL database. Services own table groups but do not get separate databases:
 
 | Owner | Tables |
 |-------|--------|
@@ -178,7 +178,7 @@ M-Task cutover moves canonical task lifecycle state to M-Task-owned tables. `tas
 |--------|------|-------|
 | `id` | text primary key | task ID |
 | `leaf_node_id` | text | references `nodes.id` |
-| `type` | text | MVP supports `noop` |
+| `type` | text | `noop` only |
 | `status` | text | `requested`, `completed`, `failed` |
 | `created_at` | timestamptz | UTC |
 | `completed_at` | timestamptz nullable | UTC |
@@ -188,7 +188,7 @@ M-Task cutover moves canonical task lifecycle state to M-Task-owned tables. `tas
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | text primary key | task definition ID |
-| `type` | text | MVP supports `noop` |
+| `type` | text | `noop` only |
 | `version` | text | definition version, e.g. `v0` |
 | `description` | text | operator-facing summary |
 | `danger_level` | text | `low`, `medium`, `high`, or `critical` |
@@ -870,7 +870,7 @@ Unique constraint: `(approval_id, actor)` — each actor can vote once per appro
 
 ## 3. Seed Data
 
-MVP seed users:
+Seed users:
 
 | User | Role |
 |------|------|
@@ -879,7 +879,7 @@ MVP seed users:
 | `admin` | `admin` |
 | `security-admin` | `security-admin` |
 
-MVP seed permissions:
+Seed permissions:
 
 ```text
 core:read
@@ -919,6 +919,6 @@ service:register
 ## 5. Migration Rules
 
 - Drizzle schema is the source for table shape.
-- `bun run db:migrate` creates or updates the MVP schema.
+- `bun run db:migrate` creates or updates the schema.
 - `bun run db:seed` inserts seed actors, roles, permissions, and role mappings idempotently.
 - Migration order must create M-Policy tables before protected operations can run.

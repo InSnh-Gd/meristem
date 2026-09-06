@@ -10,12 +10,12 @@ import {
   SecretProviderBackendSchema
 } from './secret-provider.ts'
 
-const NonEmptyStringSchema = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyStringSchema = Schema.String.check(Schema.isMinLength(1))
 
 /**
  * v0.2 部署配置只覆盖当前支持的两条部署轨道。
  */
-export const DeploymentTrackSchema = Schema.Literal('nixos', 'oci')
+export const DeploymentTrackSchema = Schema.Literals(['nixos', 'oci'])
 export type DeploymentTrackFromSchema = typeof DeploymentTrackSchema.Type
 
 /**
@@ -70,11 +70,11 @@ export type NodeAgentHostCapabilitiesFromSchema = typeof NodeAgentHostCapabiliti
 /**
  * readiness 声明遵循当前仓库已有的 HTTP / postgres select 1 / preflight command 三类探针模式。
  */
-export const DeploymentReadinessKindSchema = Schema.Literal(
+export const DeploymentReadinessKindSchema = Schema.Literals([
   'http-get',
   'postgres-select-1',
   'command'
-)
+])
 export type DeploymentReadinessKindFromSchema = typeof DeploymentReadinessKindSchema.Type
 
 export const ReadinessProbeSchema = Schema.Struct({
@@ -142,10 +142,10 @@ export const OciDeploymentConfigV02Schema = Schema.Struct({
 })
 export type OciDeploymentConfigV02FromSchema = typeof OciDeploymentConfigV02Schema.Type
 
-export const DeploymentConfigV02Schema = Schema.Union(
+export const DeploymentConfigV02Schema = Schema.Union([
   NixosDeploymentConfigV02Schema,
   OciDeploymentConfigV02Schema
-)
+])
 export type DeploymentConfigV02FromSchema = typeof DeploymentConfigV02Schema.Type
 
 /**

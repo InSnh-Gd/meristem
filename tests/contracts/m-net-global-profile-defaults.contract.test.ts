@@ -12,29 +12,29 @@ import {
 } from './_helpers/mnet-profile-routes.ts'
 
 const MigrationReportResponseSchema = Schema.Struct({
-  status: Schema.Literal('ok', 'migration_required'),
+  status: Schema.Literals(['ok', 'migration_required']),
   generatedAt: Schema.String,
   items: Schema.Array(
     Schema.Struct({
-      resourceKind: Schema.Literal('profile', 'node'),
+      resourceKind: Schema.Literals(['profile', 'node']),
       resourceId: Schema.String,
       migration: Schema.Struct({
         code: Schema.Literal('migration_required'),
         message: Schema.String,
-        targetProfileVersion: Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0'),
-        rebuildGuidanceKey: Schema.Literal(
+        targetProfileVersion: Schema.Literals(['m-net@0.3.0', 'm-net-cn@0.3.0']),
+        rebuildGuidanceKey: Schema.Literals([
           'rebuild_node_with_netbird_sidecar',
           'migrate_profile_to_mnet_v03',
           'migrate_profile_to_mnet_cn_v03'
-        ),
+        ]),
         affectedProfileIds: Schema.Array(Schema.String),
         affectedNodeIds: Schema.Array(Schema.String),
-        reasonCode: Schema.Literal(
+        reasonCode: Schema.Literals([
           'legacy_profile_v0_1',
           'legacy_cn_profile_v0_1',
           'legacy_wstunnel_profile_v0_2',
           'legacy_wstunnel_node'
-        )
+        ])
       })
     })
   )
@@ -45,14 +45,14 @@ const MigrationReportResponseSchema = Schema.Struct({
 /** GET /api/v0/networks/profile-defaults 响应 */
 const ProfileDefaultsResponseSchema = Schema.Struct({
   defaultProfileVersion: Schema.String,
-  globalSwitchState: Schema.Literal(
+  globalSwitchState: Schema.Literals([
     'idle',
     'planned',
     'applying',
     'applied',
     'rolled_back',
     'failed'
-  ),
+  ]),
   updatedAt: Schema.String,
   switchOperationId: Schema.optional(Schema.String)
 })
@@ -71,7 +71,7 @@ const MigrationResultSchema = Schema.Struct({
   networkId: Schema.String,
   previousProfileVersion: Schema.String,
   targetProfileVersion: Schema.String,
-  status: Schema.Literal('applied', 'skipped', 'failed', 'rolled_back', 'pending'),
+  status: Schema.Literals(['applied', 'skipped', 'failed', 'rolled_back', 'pending']),
   reason: Schema.optional(Schema.String),
   auditId: Schema.optional(Schema.String),
   correlationId: Schema.optional(Schema.String)
@@ -96,14 +96,14 @@ const ApplySwitchResponseSchema = Schema.Struct({
   operationId: Schema.String,
   batchId: Schema.Number,
   results: Schema.Array(MigrationResultSchema),
-  globalSwitchState: Schema.Literal('applied', 'applying')
+  globalSwitchState: Schema.Literals(['applied', 'applying'])
 })
 
 /** POST /api/v0/networks/profile-switches/:id/resume 响应 */
 const ResumeSwitchResponseSchema = Schema.Struct({
   operationId: Schema.String,
   nextBatchId: Schema.NullOr(Schema.Number),
-  globalSwitchState: Schema.Literal('applying', 'applied'),
+  globalSwitchState: Schema.Literals(['applying', 'applied']),
   remainingBatches: Schema.Number
 })
 

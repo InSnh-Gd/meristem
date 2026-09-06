@@ -4,13 +4,12 @@ import type {
   LifecycleConfig,
   UpgradeInput
 } from './node-agent-lifecycle-definitions.ts'
-import { assertSafeLifecyclePaths } from './node-agent-lifecycle-paths.ts'
 import {
-  type PersistedEnv,
   buildValidationSummary,
   clearRuntimeTokenMaterial,
   ensureParentDirs,
   ensureWireGuardMaterial,
+  type PersistedEnv,
   readPersistedEnv,
   readRuntimeState,
   removeFileIfExists,
@@ -23,6 +22,7 @@ import {
   writeOptionalSecretFile,
   writeTextFile
 } from './node-agent-lifecycle-helpers.ts'
+import { assertSafeLifecyclePaths } from './node-agent-lifecycle-paths.ts'
 
 /**
  * 本地 install 只写入 NixOS/systemd 已声明的宿主机边界文件，不生成新的生命周期框架。

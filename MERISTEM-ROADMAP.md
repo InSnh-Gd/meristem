@@ -1,16 +1,27 @@
-# MERISTEM-ROADMAP - v0.1 Delivery Scope (v0.2 Direction Declared)
+# MERISTEM-ROADMAP - v0.2 Current State (v0.1 Baseline Delivered)
 
-> This document is the single active roadmap for Meristem. It replaces the old per-phase files with one v0.1 scope, one acceptance matrix, and one post-v0.1 track list.
+> This document is the single active roadmap for Meristem. It states the current product version (v0.2), the acceptance matrix, and the post-v0.2 track list.
+>
+> **版本词汇约定**：`Identity v0.2`、`SecretRef v0.1`、`SecretProvider v0.2`、`Config Lifecycle v0.1`、`SDUI v0.2`、`m-net@0.3.0` 是子契约版本号，不是产品发布版本。产品发布版本只有本文档声明的 v0.2。
 >
 > If this roadmap conflicts with `MERISTEM.md`, `MERISTEM-DEV.md`, or active contract docs, the root intent and engineering documents win. Deferred work lives in `DEFERRED-WORK.md`.
 
 ---
 
-## 1. v0.1 Product Goal
+## 1. Current Version: v0.2
 
-v0.1 proves that Meristem can operate as a lightweight, auditable Meristem network control plane without turning Core into a monolith.
+v0.2 是当前产品版本。v0.1 基线（Core bootstrap、REST/Eden/CLI 契约、节点与 M-Net 控制面、三级日志、RBAC 与审批、服务生命周期、M-Task cutover、读模型与运维、M-UI workbench 契约）已交付并保持为验收底线。
 
-The release is complete only when an operator can:
+在 v0.1 基线之上，v0.2 交付并声明以下当前状态：
+
+1. **M-Net 数据面方向确定为 NetBird-only（ADR-N04）**：profile 契约 `m-net@0.3.0` / `m-net-cn@0.3.0` 承载 NetBird 数据面语义，`m-net-cn@0.2.0`（WireGuard + wstunnel）作为迁移窗口内的 legacy 路径；sidecar viability gate `bun run mnet:v02:sidecar-proof` 守护实施承诺。
+2. **Identity v0.2 本地身份硬化**：本地 actor token 模型、权限继承与身份表组（见 `docs/security/SECURITY-MODEL.md` §2.2.1、`docs/data/POSTGRES-SCHEMA.md`）。
+3. **SecretProvider v0.2 生产后端契约**：Vault KV v2 兼容的 production SecretProvider backend 契约与 SecretRef 规则（见 `docs/security/SECURITY-MODEL.md`）。
+4. **SDUI v0.2 路由注册表与 CommandWell mutation 执行流**：审批 approve/reject 与网络 profile enable/disable 的 preview + execute 全链路（`docs/ui/SDUI-SCHEMA.md`、`docs/services/m-ui-bff.md`）。
+5. **Config Lifecycle v0.1 可执行子集**：draft → validated → published → applied → rolled_back，hash 版本化与 secretRef 合规（`docs/config/CONFIG-LIFECYCLE.md`）。
+6. **M-Net 多节点验证与运维 harness**：three-node validation、multihost harness contract tests 与 preflight 工具（`docs/operations/`）。
+
+v0.2 的发布验收以操作者视角表述。发布完成仅当操作者可以：
 
 1. start Core and inspect health through REST, Eden-backed CLI, and transitional M-UI workbench contracts;
 2. register and observe Stem / Leaf node records with restricted Leaf semantics;
@@ -22,15 +33,15 @@ The release is complete only when an operator can:
 
 ---
 
-## 2. v0.1 Guardrails
+## 2. v0.2 Guardrails
 
-v0.1 is intentionally narrow:
+v0.2 延续 v0.1 基线护栏，仍然有意收窄：
 
 ```text
 Core remains a microkernel.
 M-Policy implements RBAC and bounded approval primitives only.
 LLM remains auxiliary explanation space, not an authorization root.
-M-Net proves control-plane and logical-network behavior; v0.2 data-plane direction is NetBird-only (ADR-N04).
+M-Net data plane is NetBird-only at runtime (ADR-N04); NetBird Management is excluded.
 M-Extension is supplemental, not a primary capability host.
 PostgreSQL is the authoritative write model.
 OpenSearch is a read model / projection target, not authority.
@@ -42,20 +53,20 @@ Any change that expands Core responsibility, creates implicit service coupling, 
 
 ---
 
-## 3. v0.1 Acceptance Matrix
+## 3. Acceptance Matrix
 
 | Area | Required Outcome | Canonical Docs |
 |------|------------------|----------------|
-| Core bootstrap | Core starts, composes Elysia routes, exposes health and OpenAPI | `MERISTEM-DEV.md`, `docs/services/core.md`, `docs/contracts/REST-API-MVP.md` |
-| REST / Eden | REST v0 routes and internal Eden contract stay aligned | `docs/contracts/REST-API-MVP.md`, `docs/contracts/EDEN-MVP.md`, `docs/contracts/CONTRACT-VERSIONING.md` |
+| Core bootstrap | Core starts, composes Elysia routes, exposes health and OpenAPI | `MERISTEM-DEV.md`, `docs/services/core.md`, `docs/contracts/REST-API.md` |
+| REST / Eden | REST v0 routes and internal Eden contract stay aligned | `docs/contracts/REST-API.md`, `docs/contracts/EDEN.md`, `docs/contracts/CONTRACT-VERSIONING.md` |
 | CLI | Official CLI covers health, node, network, task, service, log, and policy flows | `docs/contracts/CLI-COMMANDS.md`, `docs/services/m-cli.md` |
-| Service lifecycle | Service definitions, dependency checks, lifecycle events, reload behavior are declared and tested | `docs/services/SERVICE-DEFINITION-TEMPLATE.md`, `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md` |
+| Service lifecycle | Service definitions, dependency checks, lifecycle events, reload behavior are declared and tested | `docs/services/SERVICE-DEFINITION-TEMPLATE.md`, `docs/contracts/SERVICE-LIFECYCLE.md` |
 | Nodes and M-Net | Stem / Leaf records, logical networks, profile lifecycle boundaries, and node-agent sessions are auditable | `docs/services/m-net.md`, `docs/services/node-agent.md`, `docs/adr/ADR-N01-m-net-default-network.md`, `docs/adr/ADR-N02-m-net-cn-profile.md`, `docs/adr/ADR-N03-m-net-production-data-plane.md` |
 | M-Task | Task submission and lifecycle state are owned by M-Task, not ad hoc Core fields | `docs/services/m-task.md`, `docs/adr/ADR-T01-m-task-canonical-service.md` |
 | Events | Event envelopes, subjects, schema versions, correlation, and causation are stable | `docs/events/EVENT-CATALOG.md`, `packages/events/` tests |
 | Logs | Timeline / Full / Audit facts remain distinct and trace-correlated | `docs/services/m-log.md`, `docs/security/SECURITY-MODEL.md` |
 | Policy | RBAC and bounded high-risk decisions fail closed and write Audit facts | `docs/services/m-policy.md`, `docs/security/SECURITY-MODEL.md`, `docs/adr/ADR-F02-architecture-organization.md` |
-| State | PostgreSQL write model, read model, cache, event state, draft state, and log facts are not conflated | `docs/data/STATE-MODEL.md`, `docs/data/POSTGRES-SCHEMA-MVP.md` |
+| State | PostgreSQL write model, read model, cache, event state, draft state, and log facts are not conflated | `docs/data/STATE-MODEL.md`, `docs/data/POSTGRES-SCHEMA.md` |
 | Config and secrets | Config lifecycle and SecretRef responsibilities are explicit and auditable | `docs/config/CONFIG-LIFECYCLE.md`, `docs/adr/ADR-F02-architecture-organization.md` |
 | UI / BFF | M-UI, BFF, and SDUI organize operational state, command eligibility, and traceable workbench structure through active UI/BFF contracts | `docs/ui/SDUI-SCHEMA.md`, `docs/services/m-ui-bff.md` |
 | Operations | Bun-only local operation, optional deployment pack, ports, and degraded modes are documented | `docs/operations/RUNBOOK.md`, `docs/operations/OPTIONAL-DEPLOYMENT-PACK.md` |
@@ -65,7 +76,7 @@ Any change that expands Core responsibility, creates implicit service coupling, 
 
 ## 4. Implementation Order
 
-The old phase documents are retired. Use this implementation order when planning remaining v0.1 work:
+The old phase documents are retired. Use this implementation order when planning remaining work:
 
 1. **Foundation** - Core bootstrap, Elysia app composition, OpenAPI, Bun-only scripts, strict TypeScript.
 2. **Contracts** - REST, Eden, CLI, service definition, event envelope, state schemas.
@@ -80,9 +91,9 @@ Each slice must update its owning service, contract, security, data, operation, 
 
 ---
 
-## 4.1 v0.2 M-Net Data-Plane Direction
+## 4.1 v0.2 M-Net Data-Plane Direction (Current)
 
-v0.2 数据面方向由 ADR-N04 声明：**NetBird-only at runtime**，排除 NetBird Management。
+v0.2 数据面方向由 ADR-N04 声明并为当前方向：**NetBird-only at runtime**，排除 NetBird Management。
 
 ### 关键 Gate
 
@@ -94,11 +105,11 @@ bun run mnet:v02:sidecar-proof
 
 该 proof 验证 NetBird 客户端可在无 Management 模式下运行，并通过 Signal + Relay/STUN 建立 WireGuard 隧道。
 
-### Profile 迁移
+### Profile 状态
 
-- `m-net@0.3.0` 和 `m-net-cn@0.3.0`：NetBird 数据面语义（v0.2 目标 profile）。
-- `m-net-cn@0.2.0`（WireGuard + wstunnel）：旧版 profile，供已部署节点迁移窗口内使用（ADR-N03 旧版路径）。
-- v0.2 是 breaking change：旧节点获得 typed migration-required / rebuild 指导。
+- `m-net@0.3.0` 和 `m-net-cn@0.3.0`：NetBird 数据面语义，v0.2 目标 profile。
+- `m-net-cn@0.2.0`（WireGuard + wstunnel）：legacy profile，供已部署节点迁移窗口内使用（ADR-N03 legacy 路径）。
+- v0.2 相对 legacy 路径是 breaking change：旧节点获得 typed migration-required / rebuild 指导。
 
 ### 回退
 
@@ -106,15 +117,15 @@ bun run mnet:v02:sidecar-proof
 
 ---
 
-## 5. Post-v0.1 Tracks
+## 5. Post-v0.2 Tracks
 
-These tracks are not default v0.1 scope. Start them only by reopening a specific item in `DEFERRED-WORK.md` or by adding a new root roadmap section with acceptance criteria.
+These tracks are not default v0.2 scope. Start them only by reopening a specific item in `DEFERRED-WORK.md` or by adding a new root roadmap section with acceptance criteria.
 
 | Track | Boundary |
 |-------|----------|
 | LLM-assisted review | Auxiliary explanation only; never final authorization |
 | Formal approval UI | BFF + SDUI + CommandWell contract first |
-| Real M-Net data plane | v0.2 NetBird-only runtime direction per ADR-N04; control-plane profile lifecycle stays separate from endpoint / route / secret data |
+| Real M-Net data plane | NetBird-only runtime per ADR-N04; control-plane profile lifecycle stays separate from endpoint / route / secret data |
 | M-Extension runtime depth | Registry, manifest, policy, lifecycle, and sandbox contracts before execution depth |
 | Deployment hardening | Optional pack first; no default Kubernetes / Service Mesh assumption |
 | Identity hardening | Core-owned local identity lifecycle and revocation before external IdP complexity |
@@ -125,7 +136,7 @@ These tracks are not default v0.1 scope. Start them only by reopening a specific
 
 ## 6. Completion Evidence
 
-A v0.1 completion claim must include:
+A v0.2 completion claim must include:
 
 ```text
 bun run lint

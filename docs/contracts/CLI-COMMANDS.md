@@ -1,16 +1,16 @@
-# CLI Commands MVP Contract
+# CLI Commands Contract
 
 > M-CLI is the primary operator entrypoint for the current contract baseline.
 >
-> 本文档是 supporting contract：它定义命令行入口、参数、stdout/stderr 约束与操作规则；外部权限、HTTP error envelope 与 request / response shape 仍以 `REST-API-MVP.md` 为准。
+> 本文档是 supporting contract：它定义命令行入口、参数、stdout/stderr 约束与操作规则；外部权限、HTTP error envelope 与 request / response shape 仍以 `REST-API.md` 为准。
 
 ---
 
 ## 1. Scope and Authority
 
 - 覆盖 `meristem` CLI 的命令入口、参数、输出与非零退出规则。
-- 为操作发现性保留 permission mirror，但若与 `REST-API-MVP.md` 冲突，以 REST 主契约为准。
-- 涉及 internal loopback 或 runtime lifecycle 语义时，补充规则来自 `SERVICE-LIFECYCLE-PROTOTYPE.md`。
+- 为操作发现性保留 permission mirror，但若与 `REST-API.md` 冲突，以 REST 主契约为准。
+- 涉及 internal loopback 或 runtime lifecycle 语义时，补充规则来自 `SERVICE-LIFECYCLE.md`。
 
 ---
 
@@ -51,7 +51,7 @@ Registers a Stem or Leaf node and prints node ID.
 
 Rules:
 
-- `--kind core` is not supported in MVP.
+- `--kind core` is not supported.
 - default mode is `simulated`.
 - `--mode simulated` keeps the synchronous local-only noop path used for development and tests.
 - `--mode agent` is rejected; use `meristem node ticket create` instead.
@@ -79,7 +79,7 @@ Rules:
 
 - token plaintext is returned once and must not be logged.
 - re-issuing a token revokes the previous active token for that node.
-- only one active token exists per node in MVP.
+- only one active token exists per node.
 - this command is a compatibility rotation path, not the primary public node-join flow.
 - node-agent restart or explicit reconfiguration is required to use the replacement token; this slice does not provide automatic in-agent token refresh.
 
@@ -244,7 +244,7 @@ Submits a noop task through M-Task against a Leaf node.
 
 Rules:
 
-- only `noop` is supported in MVP.
+- only `noop` is supported.
 - target node must be a Leaf.
 - M-Task owns the task state, risk decision, task events, and task log behavior.
 - `agent` noop delivery goes through M-Task -> M-Net -> active join-ingress session `task.execute` -> agent `task.result`.
@@ -279,7 +279,7 @@ Permission: `core:read`.
 
 Lists built-in service summaries and any registered service definitions visible through Core.
 
-See `REST-API-MVP.md` and `SERVICE-LIFECYCLE-PROTOTYPE.md` for the canonical route and lifecycle field semantics.
+See `REST-API.md` and `SERVICE-LIFECYCLE.md` for the canonical route and lifecycle field semantics.
 
 ### `meristem service reload --service <service-id> [--reason <text>]`
 
@@ -293,7 +293,7 @@ Rules:
 - non-reloadable services return `409`.
 - unknown services return `404`.
 - `--reason` is optional and is forwarded to the internal lifecycle endpoint.
-- Route shape remains canonical in `REST-API-MVP.md`; runtime reload semantics remain canonical in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
+- Route shape remains canonical in `REST-API.md`; runtime reload semantics remain canonical in `SERVICE-LIFECYCLE.md`.
 
 ### `meristem extension list`
 
@@ -560,7 +560,7 @@ Permission: `policy:approval-read` (admin + security-admin).
 
 Lists pending approval records.
 
-Canonical approval route semantics live in `REST-API-MVP.md`.
+Canonical approval route semantics live in `REST-API.md`.
 
 Rules:
 
@@ -573,7 +573,7 @@ Permission: `policy:approval-read` (admin + security-admin).
 
 Shows one approval record with its votes.
 
-Canonical approval record shape lives in `REST-API-MVP.md`.
+Canonical approval record shape lives in `REST-API.md`.
 
 ### `meristem policy approvals approve <approval-id> [--reason <text>]`
 
@@ -581,7 +581,7 @@ Permission: `policy:approval-approve` (security-admin only).
 
 Approves a pending approval. Writes Audit Log.
 
-Canonical state-transition rules live in `REST-API-MVP.md`.
+Canonical state-transition rules live in `REST-API.md`.
 
 Rules:
 
@@ -595,7 +595,7 @@ Permission: `policy:approval-reject` (security-admin only).
 
 Rejects a pending approval. Writes Audit Log.
 
-Canonical state-transition rules live in `REST-API-MVP.md`.
+Canonical state-transition rules live in `REST-API.md`.
 
 Rules:
 

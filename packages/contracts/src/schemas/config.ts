@@ -1,26 +1,26 @@
 import { Schema } from 'effect'
 
-export const ConfigDomainSchema = Schema.Literal(
+export const ConfigDomainSchema = Schema.Literals([
   'core',
   'm-net',
   'm-policy',
   'm-log',
   'm-extension',
   'm-ui'
-)
+])
 export type ConfigDomainFromSchema = typeof ConfigDomainSchema.Type
 
-export const ConfigStatusSchema = Schema.Literal(
+export const ConfigStatusSchema = Schema.Literals([
   'draft',
   'validated',
   'published',
   'applied',
   'failed',
   'rolled_back'
-)
+])
 export type ConfigStatusFromSchema = typeof ConfigStatusSchema.Type
 
-export const ConfigAckStatusSchema = Schema.Literal('pending', 'acked', 'failed')
+export const ConfigAckStatusSchema = Schema.Literals(['pending', 'acked', 'failed'])
 export type ConfigAckStatusFromSchema = typeof ConfigAckStatusSchema.Type
 
 export const ConfigRecordV01 = Schema.Struct({
@@ -45,7 +45,7 @@ export const ConfigVersionV01 = Schema.Struct({
   configId: Schema.String,
   version: Schema.String,
   configHash: Schema.String,
-  payload: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  payload: Schema.Record(Schema.String, Schema.Unknown),
   status: ConfigStatusSchema,
   createdBy: Schema.String,
   createdAt: Schema.String
@@ -167,7 +167,7 @@ export const ConfigApplyAckResponseSchema = Schema.Struct({
     configId: Schema.String,
     configVersion: Schema.String,
     ackedBy: Schema.String,
-    status: Schema.Literal('acked', 'failed'),
+    status: Schema.Literals(['acked', 'failed']),
     ackedAt: Schema.String,
     errorCode: Schema.optional(Schema.String),
     errorMessage: Schema.optional(Schema.String)

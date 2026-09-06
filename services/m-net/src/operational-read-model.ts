@@ -13,8 +13,8 @@ import {
   buildTopologyEdges,
   coerceProfileVersion,
   hasObservedV03Runtime,
-  operationalFailure,
   type OperationalSnapshotFailure,
+  operationalFailure,
   type ProjectionState,
   readCorrelationId,
   summarizeCredential

@@ -20,7 +20,7 @@ description: Use when implementing, reviewing, or documenting ElysiaJS services,
 - Internal TypeScript calls may use Eden, but external boundaries remain REST + OpenAPI.
 - Elysia method chains need comments when authentication, policy, audit, or lifecycle behavior is not obvious.
 - Protected routes must call M-Policy and write M-Log/Audit according to the docs.
-- Use OpenAPI metadata to expose permission requirements for protected MVP endpoints.
+- Use OpenAPI metadata to expose permission requirements for protected endpoints.
 
 ## Patterns
 

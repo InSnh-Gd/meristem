@@ -6,7 +6,6 @@ import {
   invalidExecuteBody
 } from './command-well-support.ts'
 import {
-  redactCredentialMutationResponse,
   readBreakGlassBody,
   readCredentialRevokeBody,
   readDefaultsSetBody,
@@ -14,7 +13,8 @@ import {
   readMigrationDryRunBody,
   readMigrationOperationBody,
   readMigrationRollbackBody,
-  readProfileToggleBody
+  readProfileToggleBody,
+  redactCredentialMutationResponse
 } from './mnet-dataplane-support.ts'
 import { requireBearerToken, requireObjectRecord, withStateSourceDetail } from './route-helpers.ts'
 import {

@@ -1,17 +1,17 @@
 import * as Schema from 'effect/Schema'
 
-const NonEmptyStringSchema = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyStringSchema = Schema.String.check(Schema.isMinLength(1))
 
 /**
  * OIDC/JWKS provider 目前只接受明确 allowlist 的非对称签名算法。
  */
-export const OidcSupportedAlgorithmSchema = Schema.Literal(
+export const OidcSupportedAlgorithmSchema = Schema.Literals([
   'RS256',
   'RS384',
   'RS512',
   'ES256',
   'ES384'
-)
+])
 export type OidcSupportedAlgorithmFromSchema = typeof OidcSupportedAlgorithmSchema.Type
 
 /**
@@ -62,8 +62,8 @@ export type OidcAuthProviderConfigFromSchema = typeof OidcAuthProviderConfigSche
 /**
  * Auth runtime config 明确区分 local-dev 与 oidc provider，避免生产环境继续把本地模式当隐式默认值。
  */
-export const AuthProviderRuntimeConfigSchema = Schema.Union(
+export const AuthProviderRuntimeConfigSchema = Schema.Union([
   LocalDevAuthProviderConfigSchema,
   OidcAuthProviderConfigSchema
-)
+])
 export type AuthProviderRuntimeConfigFromSchema = typeof AuthProviderRuntimeConfigSchema.Type

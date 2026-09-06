@@ -25,23 +25,23 @@ import {
 
 // ── Inline schema definitions (contract spec, not implementation) ──────
 
-const ActorIdV02Schema = Schema.Literal(
+const ActorIdV02Schema = Schema.Literals([
   'viewer',
   'operator',
   'admin',
   'security-admin',
   'break-glass-reviewer'
-)
+])
 
 const IdentityActorV02Schema = Schema.Struct({
   id: ActorIdV02Schema,
   displayName: Schema.String,
-  status: Schema.Literal('active', 'disabled'),
+  status: Schema.Literals(['active', 'disabled']),
   createdAt: Schema.String,
   updatedAt: Schema.String
 })
 
-const AudienceSchema = Schema.Literal('meristem-core', 'meristem-service')
+const AudienceSchema = Schema.Literals(['meristem-core', 'meristem-service'])
 
 const ActorTokenV02Schema = Schema.Struct({
   jti: Schema.String,
@@ -52,7 +52,7 @@ const ActorTokenV02Schema = Schema.Struct({
   expiresAt: Schema.String,
   issuedBy: ActorIdV02Schema,
   purpose: Schema.String,
-  status: Schema.Literal('active', 'revoked', 'expired'),
+  status: Schema.Literals(['active', 'revoked', 'expired']),
   revokedAt: Schema.optional(Schema.String),
   revokedBy: Schema.optional(ActorIdV02Schema),
   revokeReason: Schema.optional(Schema.String)

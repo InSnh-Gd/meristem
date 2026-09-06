@@ -1,4 +1,4 @@
-import type { CliClient } from '../../../apps/m-cli/src/commands/types.ts'
+import type { CliClient } from '../../contracts/src/types/cli-client.ts'
 import { createCliStatusMock } from './cli-status-mock.ts'
 
 export type IdentityActor = {

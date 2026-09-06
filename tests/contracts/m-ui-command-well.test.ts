@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import type { MNode, Permission } from '../../packages/contracts/src/index.ts'
 import { CommandWellEligibilitySchema } from '../../packages/contracts/src/index.ts'
@@ -25,7 +25,7 @@ describe('CommandWell eligibility display shaping', () => {
   it('enables noop only from Core-visible session permissions and Leaf reachability', () => {
     const result = derive(['task:submit'], leafNode)
 
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(result))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(result))).toBe(
       true
     )
     expect(result.state).toBe('enabled')

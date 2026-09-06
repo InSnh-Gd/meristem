@@ -2,7 +2,6 @@ import type {
   ApprovalDetailResponseData,
   ApprovalQueueResponseData,
   AuditData,
-  AuditEntry,
   BffNetworkMapSummary,
   CommandState,
   DataPlaneStatusResponseData,

@@ -9,11 +9,6 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import {
-  applySidecarDesiredState,
-  stopSidecarLifecycle,
-  type NodeAgentLifecycleState
-} from './node-agent-sidecar-lifecycle.ts'
-import {
   createInitialEnforcementState,
   type LocalOverlayEnv,
   loadLocalOverlayEnv,
@@ -35,6 +30,11 @@ import {
   fetchLatestNodeRuntimeNetworkMap,
   registerNodeRuntimeKey
 } from './node-agent-session.ts'
+import {
+  applySidecarDesiredState,
+  type NodeAgentLifecycleState,
+  stopSidecarLifecycle
+} from './node-agent-sidecar-lifecycle.ts'
 import { discoverPublicEndpoint } from './node-agent-stun.ts'
 import {
   loadOrCreateWireGuardKeyMaterial,

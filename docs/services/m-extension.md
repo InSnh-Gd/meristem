@@ -107,7 +107,7 @@ M-Extension must not read private tables from M-Policy, M-Log, Core, M-Net, or M
 | `MERISTEM_EXTENSION_PORT` | number | no | no | default `3106` |
 | `MERISTEM_EXTENSION_URL` | string | no | n/a | CLI external target override |
 | `MERISTEM_INTERNAL_TOKEN` | string | yes | no | internal service authentication |
-| `MERISTEM_JWT_SECRET` | string | yes | no | local MVP bearer token validation |
+| `MERISTEM_JWT_SECRET` | string | yes | no | local bearer token validation |
 
 Runtime execution configuration is out of scope.
 

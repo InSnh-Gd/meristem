@@ -1,5 +1,5 @@
 import { edenTreaty } from '@elysiajs/eden'
-import { Effect, Either } from 'effect'
+import { Effect, Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   type PolicyDecision,
@@ -42,16 +42,16 @@ function toMutablePolicyDecision(decision: typeof PolicyDecisionSchema.Type): Po
 }
 
 function decodePolicyDecision(value: unknown) {
-  const decoded = Schema.decodeUnknownEither(PolicyDecisionSchema)(value)
-  return Either.isRight(decoded)
-    ? Effect.succeed(toMutablePolicyDecision(decoded.right))
+  const decoded = Schema.decodeUnknownResult(PolicyDecisionSchema)(value)
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(toMutablePolicyDecision(decoded.success))
     : Effect.fail(invalidPolicyDecisionFailure)
 }
 
 function decodePolicyDecisionResponse(value: unknown) {
-  const decoded = Schema.decodeUnknownEither(PolicyDecisionResponseSchema)(value)
-  return Either.isRight(decoded)
-    ? Effect.succeed(toMutablePolicyDecision(decoded.right.decision))
+  const decoded = Schema.decodeUnknownResult(PolicyDecisionResponseSchema)(value)
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(toMutablePolicyDecision(decoded.success.decision))
     : Effect.fail(invalidPolicyDecisionFailure)
 }
 

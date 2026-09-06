@@ -9,7 +9,7 @@ describe('M-Task service alignment', () => {
 
     expect(roadmapDoc).toContain('M-Task | Task submission and lifecycle state are owned by M-Task')
     expect(roadmapDoc).toContain('Service lifecycle and M-Task')
-    expect(roadmapDoc).toContain('v0.1 completion claim')
+    expect(roadmapDoc).toContain('v0.2 completion claim')
 
     expect(adrT01).toContain('## Status\n\nAccepted')
     expect(adrT01).toContain('M-Task 成为规范的外部 REST / OpenAPI 任务 API')

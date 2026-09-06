@@ -71,10 +71,10 @@ export const appState = new AppState()
 
 ## 5. Meristem Usage
 
-M-UI is not part of the MVP, but future Svelte/SvelteKit work should follow:
+M-UI is not yet the primary operator surface, but future Svelte/SvelteKit work should follow:
 
 - SvelteKit + SDUI for the operational interface.
-- CLI remains the MVP entrypoint; UI should not become a hidden control plane.
+- CLI remains the primary entrypoint; UI should not become a hidden control plane.
 - High-risk UI actions must route through CommandWell and M-Policy.
 - Critical operational state must show traceable source IDs.
 - Use Svelte 5 runes for new components.

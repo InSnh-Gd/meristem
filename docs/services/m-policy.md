@@ -14,7 +14,7 @@
 
 ## 2. Responsibility
 
-M-Policy owns protected-operation authorization decisions, approval queue state, and approval lifecycle callbacks for the current MVP boundary.
+M-Policy owns protected-operation authorization decisions, approval queue state, and approval lifecycle callbacks for the current boundary.
 
 What this service owns:
 

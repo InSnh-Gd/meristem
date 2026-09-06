@@ -1,6 +1,6 @@
 # Operations Runbook
 
-> This runbook defines the minimum operational expectations before and during v0.1 implementation.
+> This runbook defines the minimum operational expectations for the current v0.2 release.
 
 ---
 
@@ -9,8 +9,8 @@
 | Dependency | Required In v0 | Purpose |
 |------------|----------------|---------|
 | Bun | yes | TypeScript runtime, package manager, script runner, and test runner |
-| PostgreSQL | yes for MVP | authoritative state |
-| NATS | yes for MVP | M-EventBus |
+| PostgreSQL | yes | authoritative state |
+| NATS | yes | M-EventBus |
 | OpenSearch | no until OpenSearch read model | read model and log search |
 | Redis / KeyDB | no | optional cache fallback |
 | APISIX | no | optional gateway |
@@ -19,7 +19,7 @@
 
 ## 2. Expected Commands
 
-MVP uses Bun-only for package management, scripts, test execution, and local service processes. PostgreSQL and NATS run through Docker Compose.
+The platform uses Bun-only for package management, scripts, test execution, and local service processes. PostgreSQL and NATS run through Docker Compose.
 
 Node.js is not part of the supported local toolchain for this repository. Local commands, service runners, and remote validation steps must execute with Bun or shell tooling.
 
@@ -54,7 +54,7 @@ Development process groups:
 - `bun run dev:full` - starts infra prep + backend control plane + `m-ui-bff` + `m-ui` in one command.
 - `bun run dev:backend` and `bun run dev:all` are compatibility aliases for the backend-only process group.
 
-MVP demo command sequence:
+Local demo command sequence:
 
 ```bash
 export MERISTEM_TOKEN="$(bun run token:mint --actor operator)"
@@ -114,7 +114,7 @@ Public exposure rule:
 
 ---
 
-## 4. MVP Environment Variables
+## 4. Environment Variables
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -166,7 +166,7 @@ Public exposure rule:
 | `MERISTEM_NODE_RUNTIME_STATE_PATH` | node-agent 运行时状态文件路径（nodeId + runtimeToken 持久化） | `/var/lib/meristem/node-agent/runtime.json` |
 | `MERISTEM_NODE_RUNTIME_SYNC_INTERVAL_MS` | node-agent 运行时同步间隔 | `30000` |
 
-MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
+The local identity mode uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
 ---
 
@@ -304,7 +304,7 @@ Each request or command should carry:
 
 OpenTelemetry is the trace / metric / log collection layer. M-Log is Meristem's timeline, full log, audit, and analysis layer.
 
-MVP internal startup order:
+Internal startup order:
 
 1. `docker compose up -d postgres nats
 # optionally start OpenSearch for log search

@@ -14,7 +14,7 @@
 
 ## 2. Responsibility
 
-M-EventBus owns the current MVP internal publish gateway: envelope validation, internal authentication, runtime subject allowlist, JetStream-backed durable publish handoff, rejected-event capture, and failure-side observability into dedicated EventBus operational subjects. It does not own authoritative business state and must not become log storage.
+M-EventBus owns the current internal publish gateway: envelope validation, internal authentication, runtime subject allowlist, JetStream-backed durable publish handoff, rejected-event capture, and failure-side observability into dedicated EventBus operational subjects. It does not own authoritative business state and must not become log storage.
 
 What this service owns:
 
@@ -30,7 +30,7 @@ What this service owns:
 - validated durable handoff of events into JetStream-captured NATS subjects
 - rejected-event and publish-failure emission on `meventbus.publish.rejected.v0` / `meventbus.publish.failed.v0`
 
-Deferred from the current MVP boundary:
+Deferred from the current boundary:
 
 - centralized subscriber orchestration and fan-out policies
 - node-state-specific event routing logic beyond subject naming discipline

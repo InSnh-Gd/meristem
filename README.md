@@ -90,7 +90,7 @@ meristem/
 AGENTS.md
 ├── MERISTEM.md               # 产品意图与系统边界
 ├── MERISTEM-DEV.md           # 工程规则与模块边界
-├── MERISTEM-ROADMAP.md       # 活动 v0.1 范围与验收矩阵
+├── MERISTEM-ROADMAP.md       # 当前 v0.2 现状与验收矩阵
 └── docs/README.md            # 详细文档索引
 ```
 
@@ -149,7 +149,7 @@ bun run test:e2e
 | [`AGENTS.md`](./AGENTS.md) | 仓库上下文入口与技能路由 |
 | [`MERISTEM.md`](./MERISTEM.md) | 产品意图与领域边界 |
 | [`MERISTEM-DEV.md`](./MERISTEM-DEV.md) | 工程规则与实现边界 |
-| [`MERISTEM-ROADMAP.md`](./MERISTEM-ROADMAP.md) | 活动 v0.1 范围与验收矩阵 |
+| [`MERISTEM-ROADMAP.md`](./MERISTEM-ROADMAP.md) | 当前 v0.2 现状与验收矩阵 |
 | [`docs/README.md`](./docs/README.md) | 详细文档索引 |
 | [`docs/contracts/README.md`](./docs/contracts/README.md) | API、CLI、Eden 与生命周期契约集 |
 | [`docs/services/README.md`](./docs/services/README.md) | 服务定义索引 |

@@ -28,7 +28,6 @@ import {
   readForcedRelayChangeBody
 } from './command-well-support.ts'
 import {
-  redactCredentialMutationResponse,
   readBreakGlassBody,
   readCredentialRevokeBody,
   readCredentialTargetBody,
@@ -38,7 +37,8 @@ import {
   readMigrationOperationBody,
   readMigrationRollbackBody,
   readNodeControlBody,
-  readProfileToggleBody
+  readProfileToggleBody,
+  redactCredentialMutationResponse
 } from './mnet-dataplane-support.ts'
 import { bffError, decodeUpstreamData, passthroughCoreError } from './route-helpers.ts'
 

@@ -2,7 +2,7 @@
 
 > 本文档记录服务 lifecycle reload 的运行时补充约束。
 >
-> 它是 supporting contract：外部 REST surface 仍以 `REST-API-MVP.md` 为准，CLI 命令 surface 仍以 `CLI-COMMANDS.md` 为准；本文档只补充 reload 语义、内部 loopback 行为、日志事件与非目标边界。
+> 它是 supporting contract：外部 REST surface 仍以 `REST-API.md` 为准，CLI 命令 surface 仍以 `CLI-COMMANDS.md` 为准；本文档只补充 reload 语义、内部 loopback 行为、日志事件与非目标边界。
 
 ---
 
@@ -21,7 +21,7 @@ Base path: `/api/v0`
 
 ### `GET /api/v0/services`
 
-Canonical route definition lives in `REST-API-MVP.md`; the type block below supplements the service lifecycle-specific fields.
+Canonical route definition lives in `REST-API.md`; the type block below supplements the service lifecycle-specific fields.
 
 Permission: `core:read`
 
@@ -58,7 +58,7 @@ Rules:
 
 ### `POST /api/v0/services/:id/reload`
 
-Canonical route definition lives in `REST-API-MVP.md`; this section defines the runtime reload semantics.
+Canonical route definition lives in `REST-API.md`; this section defines the runtime reload semantics.
 
 Permission: `service:reload`
 

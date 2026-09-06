@@ -10,18 +10,18 @@ export { Contracts, Schema }
 
 export type EventContract = {
   subject: string
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
   fixture: unknown
 }
 
 export type ResponseContract = {
   route: string
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
   fixture: unknown
 }
 
 export type EventSchemaContract = EventContract & {
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
 }
 
 export const schemaCoverageMapUrl = new URL('../schema-coverage.md', import.meta.url)
@@ -66,7 +66,10 @@ export const contractActivatedDataPlaneSubjects = [
   'mnet.credential.expiry.v0'
 ] as const
 
-export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
+export function assertRoundTrip<TSchema extends Schema.Codec<unknown>>(
+  schema: TSchema,
+  value: unknown
+) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
   const encoded = Schema.encodeSync(schema)(decoded)
   expect(Schema.decodeUnknownSync(schema)(encoded)).toEqual(decoded)
@@ -93,7 +96,7 @@ export function extractCoverageMapActiveSubjects(markdown: string): string[] {
 }
 
 export function extractCoverageMapDeferredSubjects(markdown: string): string[] {
-  const start = markdown.indexOf('## Non-active / deferred to post-v0.1 coverage')
+  const start = markdown.indexOf('## Non-active / deferred coverage')
   const end = markdown.indexOf('## Explicit exclusions from this wave')
   const section = markdown.slice(start, end)
   const subjects: string[] = []
@@ -111,9 +114,9 @@ export function extractDeferredGapMapSubjects(markdown: string): string[] {
 }
 
 export function extractCatalogSubjects(markdown: string): string[] {
+  // 事件目录从 "## 3. Initial Catalog" 开始到文件尾都是目录条目；后续新增章节必须保持在条目表格之外或更新此解析。
   const start = markdown.indexOf('## 3. Initial Catalog')
-  const end = markdown.indexOf('## 6. MVP sync HTTP/Eden boundaries')
-  const section = markdown.slice(start, end === -1 ? undefined : end)
+  const section = markdown.slice(start)
   const subjects: string[] = []
   for (const match of section.matchAll(/\|\s*`([^`]+\.v\d+)`\s*\|/g))
     subjects.push(definedMatchGroup(match))
@@ -159,7 +162,9 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
           subjects.add(definedMatchGroup(match))
         }
 
-        if (relativePath.startsWith('services/m-extension/src/')) {
+        // Windows 上 Bun.Glob 返回反斜杠路径；目录前缀判断必须先归一化分隔符，否则 m-extension 事件通道在 Windows 静默失效。
+        const normalizedPath = relativePath.replaceAll('\\', '/')
+        if (normalizedPath.startsWith('services/m-extension/src/')) {
           for (const match of source.matchAll(extensionSubjectReferencePattern)) {
             const key = match[1] as keyof typeof Contracts.mExtensionEventSubjects
             const subject = Contracts.mExtensionEventSubjects[key]

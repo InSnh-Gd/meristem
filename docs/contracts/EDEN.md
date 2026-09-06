@@ -1,8 +1,8 @@
-# Eden MVP Contract
+# Eden Contract
 
 > Eden 是 Meristem 内部优先的 TypeScript typed client 契约。
 >
-> 本文档是 supporting contract：它说明 CLI→Core 与 Core→内部服务如何通过 Eden 消费 HTTP 契约；外部 request / response shape 仍以 `REST-API-MVP.md` 为准。
+> 本文档是 supporting contract：它说明 CLI→Core 与 Core→内部服务如何通过 Eden 消费 HTTP 契约；外部 request / response shape 仍以 `REST-API.md` 为准。
 
 ---
 
@@ -10,7 +10,7 @@
 
 - 覆盖 CLI → Core 的 typed client。
 - 覆盖 Core → `M-Policy` / `M-Log` / `M-EventBus` / `M-Net` 的 loopback HTTP typed client。
-- 不定义新的外部 REST shape；已存在的外部类型名直接引用 `REST-API-MVP.md`。
+- 不定义新的外部 REST shape；已存在的外部类型名直接引用 `REST-API.md`。
 
 ---
 
@@ -50,9 +50,9 @@ type CoreClient = {
 };
 ```
 
-`HealthResponse`、`ReadyResponse`、`StatusResponse` 以及其他外部 HTTP response type name 由 `REST-API-MVP.md` 定义。
+`HealthResponse`、`ReadyResponse`、`StatusResponse` 以及其他外部 HTTP response type name 由 `REST-API.md` 定义。
 
-Internal service clients in MVP:
+Internal service clients:
 
 ```ts
 type PolicyClient = {

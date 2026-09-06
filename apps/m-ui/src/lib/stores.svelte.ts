@@ -1,4 +1,5 @@
 import {
+  createNetwork,
   executeCommand,
   fetchApprovalDetail as fetchBffApprovalDetail,
   fetchApprovalQueue as fetchBffApprovalQueue,
@@ -17,19 +18,18 @@ import {
   fetchTimeline as fetchBffTimeline,
   fetchCommandState,
   fetchForcedRelayCommandState,
+  fetchOperationalState,
   fetchOverview,
   fetchPolicySummary,
-  formatBffError,
-  fetchOperationalState,
-  createNetwork
+  formatBffError
 } from './bff'
 import type {
   ApprovalDetailResponseData,
   ApprovalQueueResponseData,
   AuditData,
   AuditEntry,
-  CommandState,
   CommandResult,
+  CommandState,
   DataPlaneStatusResponseData,
   GenericCommandParams,
   GlobalDefaultsResponseData,
@@ -39,13 +39,13 @@ import type {
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
   NodeListData,
+  OperationalStateData,
   OverviewData,
   PolicyDecisionData,
   PolicyDecisionSummary,
   RouteRegistry,
   ServiceListData,
-  TimelineData,
-  OperationalStateData
+  TimelineData
 } from './types'
 
 declare const $state: <T>(initial: T) => T
@@ -329,7 +329,7 @@ class AppState {
     if (this.token && nodeId) {
       try {
         this.commandState = await fetchForcedRelayCommandState(this.token, nodeId)
-      } catch (e: unknown) {
+      } catch (_e: unknown) {
         try {
           this.commandState = await fetchCommandState(this.token, nodeId)
         } catch (fallbackError: unknown) {

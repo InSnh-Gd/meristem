@@ -34,7 +34,7 @@ function bearerHeaders(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
 }
 
-function internalHeaders(): Record<string, string> {
+function _internalHeaders(): Record<string, string> {
   return { 'x-meristem-internal-token': internalToken }
 }
 

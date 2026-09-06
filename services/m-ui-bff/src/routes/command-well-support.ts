@@ -18,7 +18,15 @@ import {
   type NetworkProfileGlobalSwitchPlanBody,
   type NetworkProfilePreviewBody
 } from '../types.ts'
-import { bffError } from './route-helpers.ts'
+import {
+  asObject,
+  bffError,
+  booleanField,
+  optionalPositiveNumber,
+  optionalStringField,
+  optionalStringFieldAllowEmpty,
+  stringField
+} from './route-helpers.ts'
 
 export type SessionFacts = {
   actor: ActorId
@@ -61,43 +69,11 @@ export async function forwardCoreExecute(responsePromise: Promise<Response>) {
   }
 }
 
-function asObject(body: unknown): object | null {
-  return typeof body === 'object' && body !== null ? body : null
-}
-
-function getStringField(body: object, key: string): string | undefined {
-  const value = Reflect.get(body, key)
-  return typeof value === 'string' && value.length > 0 ? value : undefined
-}
-
-function getOptionalStringField(body: object, key: string): string | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function getOptionalStringFieldAllowEmpty(body: object, key: string): string | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  return typeof value === 'string' ? value : null
-}
-
-function getPositiveNumberField(body: object, key: string): number | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? value : null
-}
-
-function getBooleanField(body: object, key: string): boolean | null {
-  const value = Reflect.get(body, key)
-  return typeof value === 'boolean' ? value : null
-}
-
 /** Eligibility/execute 共用 body 都先走轻量 shape 检查，避免路由层维护一长串 Record 断言。 */
 export function readLeafNodeIdBody(body: unknown): { leafNodeId: string } | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const leafNodeId = getStringField(objectBody, 'leafNodeId')
+  const leafNodeId = stringField(objectBody, 'leafNodeId')
   return leafNodeId ? { leafNodeId } : null
 }
 
@@ -106,8 +82,8 @@ export function readApprovalBody(
 ): (ApprovalPreviewBody & { reason?: string }) | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const approvalId = getStringField(objectBody, 'approvalId')
-  const reason = getOptionalStringField(objectBody, 'reason')
+  const approvalId = stringField(objectBody, 'approvalId')
+  const reason = optionalStringField(objectBody, 'reason')
   if (!approvalId || reason === null) return null
   return reason === undefined ? { approvalId } : { approvalId, reason }
 }
@@ -115,8 +91,8 @@ export function readApprovalBody(
 export function readNetworkProfilePreviewBody(body: unknown): NetworkProfilePreviewBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const networkId = getStringField(objectBody, 'networkId')
-  const profileVersion = getStringField(objectBody, 'profileVersion')
+  const networkId = stringField(objectBody, 'networkId')
+  const profileVersion = stringField(objectBody, 'profileVersion')
   return networkId && profileVersion ? { networkId, profileVersion } : null
 }
 
@@ -125,7 +101,7 @@ export function readNetworkProfileExecuteBody(body: unknown): NetworkProfileExec
   if (!previewBody) return null
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const reason = getOptionalStringField(objectBody, 'reason')
+  const reason = optionalStringField(objectBody, 'reason')
   if (reason === null) return null
   return reason === undefined ? previewBody : { ...previewBody, reason }
 }
@@ -135,9 +111,9 @@ export function readNetworkProfileDefaultSetBody(
 ): NetworkProfileDefaultSetBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const profileVersion = getStringField(objectBody, 'profileVersion')
-  const reason = getOptionalStringField(objectBody, 'reason')
-  const idempotencyKey = getOptionalStringField(objectBody, 'idempotencyKey')
+  const profileVersion = stringField(objectBody, 'profileVersion')
+  const reason = optionalStringField(objectBody, 'reason')
+  const idempotencyKey = optionalStringField(objectBody, 'idempotencyKey')
   if (!profileVersion || reason === null || idempotencyKey === null) return null
   return {
     profileVersion,
@@ -151,10 +127,10 @@ export function readNetworkProfileGlobalSwitchPlanBody(
 ): NetworkProfileGlobalSwitchPlanBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const targetProfileVersion = getStringField(objectBody, 'targetProfileVersion')
-  const batchSize = getPositiveNumberField(objectBody, 'batchSize')
-  const reason = getOptionalStringField(objectBody, 'reason')
-  const idempotencyKey = getOptionalStringField(objectBody, 'idempotencyKey')
+  const targetProfileVersion = stringField(objectBody, 'targetProfileVersion')
+  const batchSize = optionalPositiveNumber(objectBody, 'batchSize')
+  const reason = optionalStringField(objectBody, 'reason')
+  const idempotencyKey = optionalStringField(objectBody, 'idempotencyKey')
   if (!targetProfileVersion || batchSize === null || reason === null || idempotencyKey === null) {
     return null
   }
@@ -171,7 +147,7 @@ export function readNetworkProfileGlobalSwitchApplyBody(
 ): NetworkProfileGlobalSwitchApplyBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const operationId = getStringField(objectBody, 'operationId')
+  const operationId = stringField(objectBody, 'operationId')
   return operationId ? { operationId } : null
 }
 
@@ -180,10 +156,10 @@ export function readNetworkProfileDisablePolicySetBody(
 ): NetworkProfileDisablePolicySetBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const requireApproval = getBooleanField(objectBody, 'requireApproval')
-  const emergencyBreakGlassEnabled = getBooleanField(objectBody, 'emergencyBreakGlassEnabled')
-  const reason = getOptionalStringField(objectBody, 'reason')
-  const idempotencyKey = getOptionalStringField(objectBody, 'idempotencyKey')
+  const requireApproval = booleanField(objectBody, 'requireApproval')
+  const emergencyBreakGlassEnabled = booleanField(objectBody, 'emergencyBreakGlassEnabled')
+  const reason = optionalStringField(objectBody, 'reason')
+  const idempotencyKey = optionalStringField(objectBody, 'idempotencyKey')
   if (
     requireApproval === null ||
     emergencyBreakGlassEnabled === null ||
@@ -205,8 +181,8 @@ export function readNetworkProfileBreakGlassDisableBody(
 ): NetworkProfileBreakGlassDisableBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const networkId = getStringField(objectBody, 'networkId')
-  const emergencyReason = getOptionalStringFieldAllowEmpty(objectBody, 'emergencyReason')
+  const networkId = stringField(objectBody, 'networkId')
+  const emergencyReason = optionalStringFieldAllowEmpty(objectBody, 'emergencyReason')
   if (!networkId || emergencyReason === null) return null
   return emergencyReason === undefined ? { networkId } : { networkId, emergencyReason }
 }
@@ -214,8 +190,8 @@ export function readNetworkProfileBreakGlassDisableBody(
 export function readForcedRelayChangeBody(body: unknown): MNetForcedRelayChangeBody | null {
   const objectBody = asObject(body)
   if (!objectBody) return null
-  const nodeId = getStringField(objectBody, 'nodeId')
-  const reason = getOptionalStringField(objectBody, 'reason')
+  const nodeId = stringField(objectBody, 'nodeId')
+  const reason = optionalStringField(objectBody, 'reason')
   if (!nodeId || reason === null) return null
   return reason === undefined ? { nodeId } : { nodeId, reason }
 }

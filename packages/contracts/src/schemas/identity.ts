@@ -3,16 +3,16 @@ import { actorIds } from '../literals.ts'
 
 // ActorId is a boundary literal because auth, policy, audit, and BFF session views all share it.
 // Identity 契约 schema 边界见 `docs/security/SECURITY-MODEL.md` 和 `docs/adr/ADR-F02-architecture-organization.md`。
-export const ActorIdSchema = Schema.Literal(...actorIds)
+export const ActorIdSchema = Schema.Literals(actorIds)
 export type ActorIdFromSchema = typeof ActorIdSchema.Type
 
-export const IdentityActorStatusSchema = Schema.Literal('active', 'disabled')
+export const IdentityActorStatusSchema = Schema.Literals(['active', 'disabled'])
 export type IdentityActorStatusFromSchema = typeof IdentityActorStatusSchema.Type
 
-export const IdentityTokenStatusSchema = Schema.Literal('active', 'revoked', 'expired')
+export const IdentityTokenStatusSchema = Schema.Literals(['active', 'revoked', 'expired'])
 export type IdentityTokenStatusFromSchema = typeof IdentityTokenStatusSchema.Type
 
-export const IdentityAudienceSchema = Schema.Literal('meristem-core', 'meristem-service')
+export const IdentityAudienceSchema = Schema.Literals(['meristem-core', 'meristem-service'])
 export type IdentityAudienceFromSchema = typeof IdentityAudienceSchema.Type
 
 export const IdentityActorV02Schema = Schema.Struct({

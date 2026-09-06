@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 import {
   decodeMNetCreateNetworkResponse,
   decodeMNetNoopTaskResponse
@@ -8,7 +8,7 @@ import {
 describe('cross-service decode hardening', () => {
   it('rejects malformed M-Net network payload with typed decode failure', async () => {
     const result = await Effect.runPromise(
-      Effect.either(
+      Effect.result(
         decodeMNetCreateNetworkResponse({
           network: {
             id: 'net-1',
@@ -21,15 +21,17 @@ describe('cross-service decode hardening', () => {
       )
     )
 
-    expect(result._tag).toBe('Left')
-    if (result._tag !== 'Left') {
+    expect(Result.isFailure(result)).toBe(true)
+    if (!Result.isFailure(result)) {
       throw new Error('expected decode failure for malformed M-Net response')
     }
 
-    const failure = result.left
+    const failure = result.failure
     expect(failure.code).toBe('mnet.invalid_response')
     expect(failure.message).toContain('M-Net returned invalid response payload')
-    expect(failure.message).toContain('Expected string, actual 42')
+    // Effect v4 SchemaError 格式：类型错误 + 失败路径（v3 为 "Expected string, actual 42"）。
+    expect(failure.message).toContain('Expected string')
+    expect(failure.message).toContain('["network"]["name"]')
   })
 
   it('decodes valid M-Net payload successfully', async () => {
@@ -51,7 +53,7 @@ describe('cross-service decode hardening', () => {
 
   it('rejects missing fields in M-Task to M-Net noop payload', async () => {
     const result = await Effect.runPromise(
-      Effect.either(
+      Effect.result(
         decodeMNetNoopTaskResponse({
           result: {
             nodeId: 'node-1',
@@ -62,12 +64,12 @@ describe('cross-service decode hardening', () => {
       )
     )
 
-    expect(result._tag).toBe('Left')
-    if (result._tag !== 'Left') {
+    expect(Result.isFailure(result)).toBe(true)
+    if (!Result.isFailure(result)) {
       throw new Error('expected decode failure for incomplete noop response')
     }
 
-    const failure = result.left
+    const failure = result.failure
     expect(failure.code).toBe('nodeagent.invalid_response')
     expect(failure.message).toContain('completedAt')
   })

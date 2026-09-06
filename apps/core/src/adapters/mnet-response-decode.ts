@@ -1,4 +1,4 @@
-import { Effect, Either } from 'effect'
+import { Effect, Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   type NetworkListResponseFromSchema,
@@ -35,14 +35,14 @@ const invalidNodeAgentResponseFailure = (details: string): DecodeFailure => ({
  * 不能依赖 Eden 推断或原始断言把非法 payload 混入控制面。
  */
 function decodeBoundaryPayload<T>(
-  schema: Schema.Schema<T>,
+  schema: Schema.Codec<T>,
   value: unknown,
   createFailure: (details: string) => DecodeFailure
 ): Effect.Effect<T, DecodeFailure> {
-  const decoded = Schema.decodeUnknownEither(schema)(value)
-  return Either.isRight(decoded)
-    ? Effect.succeed(decoded.right)
-    : Effect.fail(createFailure(String(decoded.left)))
+  const decoded = Schema.decodeUnknownResult(schema)(value)
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success)
+    : Effect.fail(createFailure(String(decoded.failure)))
 }
 
 /**

@@ -2,8 +2,9 @@
  * v02-deploy-proof.ts — v0.2 deployment proof command.
  * Supports --target=nixos and --target=oci. Exits 0 with typed JSON output.
  */
-import { existsSync } from 'node:fs'
+
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 
 const target =
   process.argv.find(a => a.startsWith('--target='))?.split('=')[1] ||
@@ -48,7 +49,7 @@ if (target === 'nixos') {
   }
 }
 if (target === 'oci') {
-  for (const [bin, label] of [
+  for (const [bin, _label] of [
     ['podman', 'Podman'],
     ['docker', 'Docker']
   ] as const) {
@@ -79,7 +80,7 @@ try {
 
 const allSuccess = results.every(r => r.status === 'success')
 process.stdout.write(
-  JSON.stringify(
+  `${JSON.stringify(
     {
       proof: `v02-deploy-${target}`,
       target,
@@ -88,6 +89,6 @@ process.stdout.write(
     },
     null,
     2
-  ) + '\n'
+  )}\n`
 )
 process.exit(0)

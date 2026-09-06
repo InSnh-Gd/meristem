@@ -188,15 +188,15 @@ Must cover:
 - Effect Schema decode/encode for internal executable contracts that back policy, event, log, projection, config, service definition, webhook, or BFF command-state shapes
 - drift checks between shared Effect Schema contracts and Elysia TypeBox/OpenAPI adapter schemas when both exist
 
-MVP-specific contract tests:
+Core contract tests:
 
-- REST route schemas match `docs/contracts/REST-API-MVP.md`.
+- REST route schemas match `docs/contracts/REST-API.md`.
 - CLI command outputs match `docs/contracts/CLI-COMMANDS.md`.
 - Eden status client returns the same shape as REST status.
 - internal service Eden clients return the same shapes as their HTTP routes.
-- PostgreSQL logical schema matches `docs/data/POSTGRES-SCHEMA-MVP.md`.
+- PostgreSQL logical schema matches `docs/data/POSTGRES-SCHEMA.md`.
 - logical network create/join/member routes enforce documented `stem` / `leaf` rules.
-- lifecycle prototype routes and CLI match `docs/contracts/SERVICE-LIFECYCLE-PROTOTYPE.md`.
+- lifecycle prototype routes and CLI match `docs/contracts/SERVICE-LIFECYCLE.md`.
 - node registration default mode and node credential issuance match the node registration contract.
 - heartbeat transition and timeout helpers match the documented `joining -> healthy/degraded -> offline` rules.
 - join ingress runtime tests prove ticket redemption is single-use and resumed sessions supersede stale sockets.
@@ -222,7 +222,7 @@ Must cover:
 - Leaf Node abnormal state shrinks or revokes permissions.
 - LLM unavailable does not block normal operation and cannot authorize high-risk operation.
 
-MVP failure-mode tests:
+Core failure-mode tests:
 
 - PostgreSQL unavailable makes readiness fail.
 - NATS unavailable makes event-dependent operations fail or explicitly degrade.
@@ -304,7 +304,7 @@ Must cover:
 - critical state is not color-only
 - Audit / Policy / Log / Node state components display traceable source
 
-UI contract tests are not backend-only MVP blockers, but they are required to keep the current transitional workbench boundary and SDUI contracts coherent.
+UI contract tests are not backend-only acceptance blockers, but they are required to keep the current transitional workbench boundary and SDUI contracts coherent.
 
 M-UI transitional workbench BFF contract additions:
 - M-UI BFF must expose minimal OpenAPI for UI-facing endpoints.
@@ -363,7 +363,7 @@ The exact test file set may evolve; the required behaviors above are the stable 
 
 ---
 
-## 7. MVP Acceptance Test Sequence
+## 7. Acceptance Test Sequence
 
 Run after implementation scripts exist:
 

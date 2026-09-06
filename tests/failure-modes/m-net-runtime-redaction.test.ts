@@ -447,7 +447,7 @@ describe('DFW-013 LLM context boundary redaction', () => {
           Schema.Struct({
             actor: Schema.Literal('security-admin'),
             vote: Schema.Literal('approve'),
-            reason: Schema.optional(Schema.String.pipe(Schema.maxLength(500))),
+            reason: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
             createdAt: Schema.String
           })
         )(voteWithEmbeddedSecrets)

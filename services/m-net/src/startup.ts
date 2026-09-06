@@ -4,6 +4,7 @@ import { createAgentRuntime } from './agent-runtime.ts'
 import { createMNetApp } from './app.ts'
 import { createMNetInfrastructure } from './clients.ts'
 import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
+import { createDbForcedRelayNodeContext } from './forced-relay-node-context.ts'
 import { createWiredMigrationEngine } from './migration-engine-factory.ts'
 import { requireDataPlaneDeps } from './mnet-dataplane-support.ts'
 import { createNetworkService } from './network-service.ts'
@@ -11,7 +12,6 @@ import { createDbNodeControlStore } from './node-control-store.ts'
 import { executeNodeControl } from './node-control-workflow.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
 import { createReadinessProbe } from './readiness.ts'
-import { createDbForcedRelayNodeContext } from './forced-relay-node-context.ts'
 
 /**
  * M-Net 启动装配统一放在这里：入口文件只触发启动，不再直接持有依赖接线与关闭序列。
@@ -65,7 +65,7 @@ export async function startMNetService(): Promise<void> {
     try {
       const fetcher = (globalThis as GlobalWithInternalFetcher).__mnet_internal_fetcher ?? fetch
       const response = await fetcher(
-        `${process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:5101'}/health`
+        `${process.env.MERISTEM_POLICY_URL ?? 'http://127.0.0.1:3101'}/health`
       )
       return { healthy: response.ok }
     } catch {

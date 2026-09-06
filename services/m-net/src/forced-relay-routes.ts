@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
-import { executeForcedRelayChange, deriveForcedRelayEligibility } from './forced-relay-workflow.ts'
+import { deriveForcedRelayEligibility, executeForcedRelayChange } from './forced-relay-workflow.ts'
 import {
   externalMigrationRequiredRouteBody,
   isMigrationRequiredFailure

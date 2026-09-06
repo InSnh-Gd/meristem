@@ -1,12 +1,12 @@
 import * as Schema from 'effect/Schema'
 
-export const SecretScopeSchema = Schema.Literal('system', 'service', 'node')
+export const SecretScopeSchema = Schema.Literals(['system', 'service', 'node'])
 export type SecretScopeFromSchema = typeof SecretScopeSchema.Type
 
-export const SecretStatusSchema = Schema.Literal('active', 'rotated', 'disabled')
+export const SecretStatusSchema = Schema.Literals(['active', 'rotated', 'disabled'])
 export type SecretStatusFromSchema = typeof SecretStatusSchema.Type
 
-export const SecretMetadataSchema = Schema.Record({ key: Schema.String, value: Schema.String })
+export const SecretMetadataSchema = Schema.Record(Schema.String, Schema.String)
 export type SecretMetadataFromSchema = typeof SecretMetadataSchema.Type
 
 export const SecretRefV01 = Schema.Struct({

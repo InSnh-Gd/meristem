@@ -58,7 +58,7 @@ const buildDriftMessage = (missingFromDoc: string[], extraInDoc: string[]): stri
 
 describe('PostgreSQL schema documentation drift contract', () => {
   it('keeps documented table headings aligned with the Drizzle schema', async () => {
-    const documentText = await Bun.file('docs/data/POSTGRES-SCHEMA-MVP.md').text()
+    const documentText = await Bun.file('docs/data/POSTGRES-SCHEMA.md').text()
     const schemaTableNames = extractSchemaTableNames()
     const documentedTableNames = extractDocumentedTableNames(documentText)
 

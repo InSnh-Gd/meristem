@@ -28,7 +28,7 @@ export const ApiErrorSchema = Schema.Struct({
 })
 export type ApiErrorFromSchema = typeof ApiErrorSchema.Type
 
-export const DependencyStateSchema = Schema.Literal('ready', 'unavailable')
+export const DependencyStateSchema = Schema.Literals(['ready', 'unavailable'])
 export type DependencyStateFromSchema = typeof DependencyStateSchema.Type
 
 export const CoreDependenciesSchema = Schema.Struct({
@@ -41,7 +41,7 @@ export const CoreDependenciesSchema = Schema.Struct({
 })
 export type CoreDependenciesFromSchema = typeof CoreDependenciesSchema.Type
 
-export const ServiceDomainSchema = Schema.Literal(
+export const ServiceDomainSchema = Schema.Literals([
   'core',
   'm-net',
   'm-eventbus',
@@ -51,23 +51,23 @@ export const ServiceDomainSchema = Schema.Literal(
   'm-ui',
   'm-cli',
   'm-extension'
-)
+])
 export type ServiceDomainFromSchema = typeof ServiceDomainSchema.Type
 
-export const ServiceKindSchema = Schema.Literal(
+export const ServiceKindSchema = Schema.Literals([
   'core',
   'internal',
   'node',
   'task',
   'extension',
   'bff'
-)
+])
 export type ServiceKindFromSchema = typeof ServiceKindSchema.Type
 
-export const CoreModeSchema = Schema.Literal('normal', 'degraded', 'safe')
+export const CoreModeSchema = Schema.Literals(['normal', 'degraded', 'safe'])
 export type CoreModeFromSchema = typeof CoreModeSchema.Type
 
-export const ServiceRuntimeModeSchema = Schema.Literal('normal', 'degraded')
+export const ServiceRuntimeModeSchema = Schema.Literals(['normal', 'degraded'])
 export type ServiceRuntimeModeFromSchema = typeof ServiceRuntimeModeSchema.Type
 
 export const ServiceLifecycleSchema = Schema.Struct({
@@ -105,8 +105,8 @@ export const HealthResponseSchema = Schema.Struct({
 export type HealthResponseFromSchema = typeof HealthResponseSchema.Type
 
 export const SessionResponseSchema = Schema.Struct({
-  actor: Schema.Literal(...actorIds),
-  permissions: Schema.Array(Schema.Literal(...permissions))
+  actor: Schema.Literals(actorIds),
+  permissions: Schema.Array(Schema.Literals(permissions))
 })
 export type SessionResponseFromSchema = typeof SessionResponseSchema.Type
 
@@ -134,22 +134,22 @@ export const StatusResponseSchema = Schema.Struct({
 })
 export type StatusResponseFromSchema = typeof StatusResponseSchema.Type
 
-export const NodeKindSchema = Schema.Literal('stem', 'leaf')
+export const NodeKindSchema = Schema.Literals(['stem', 'leaf'])
 export type NodeKindFromSchema = typeof NodeKindSchema.Type
 
-export const NodeModeSchema = Schema.Literal('agent', 'managed', 'simulated')
+export const NodeModeSchema = Schema.Literals(['agent', 'managed', 'simulated'])
 export type NodeModeFromSchema = typeof NodeModeSchema.Type
 
-export const NodeReachabilitySchema = Schema.Literal(
+export const NodeReachabilitySchema = Schema.Literals([
   'unknown',
   'public',
   'private',
   'reachable',
   'unreachable'
-)
+])
 export type NodeReachabilityFromSchema = typeof NodeReachabilitySchema.Type
 
-export const NodeStatusSchema = Schema.Literal(
+export const NodeStatusSchema = Schema.Literals([
   'ready',
   'joining',
   'healthy',
@@ -159,15 +159,15 @@ export const NodeStatusSchema = Schema.Literal(
   'isolated',
   'recovering',
   'revoked'
-)
+])
 export type NodeStatusFromSchema = typeof NodeStatusSchema.Type
 
-export const NodeControlActionSchema = Schema.Literal(
+export const NodeControlActionSchema = Schema.Literals([
   'disable',
   'isolate',
   'recover',
   'switch-role'
-)
+])
 export type NodeControlActionFromSchema = typeof NodeControlActionSchema.Type
 
 export const MNodeSchema = Schema.Struct({
@@ -213,7 +213,7 @@ export type NodeDetailResponseFromSchema = typeof NodeDetailResponseSchema.Type
 
 export const NodeControlRequestSchema = Schema.Struct({
   action: NodeControlActionSchema,
-  reason: Schema.String.pipe(Schema.minLength(1)),
+  reason: Schema.String.check(Schema.isMinLength(1)),
   targetKind: Schema.optional(NodeKindSchema)
 })
 export type NodeControlRequestFromSchema = typeof NodeControlRequestSchema.Type
@@ -228,7 +228,7 @@ export type NodeControlResponseFromSchema = typeof NodeControlResponseSchema.Typ
 export const NetworkStatusSchema = Schema.Literal('active')
 export type NetworkStatusFromSchema = typeof NetworkStatusSchema.Type
 
-export const NetworkMembershipModeSchema = Schema.Literal('full', 'restricted')
+export const NetworkMembershipModeSchema = Schema.Literals(['full', 'restricted'])
 export type NetworkMembershipModeFromSchema = typeof NetworkMembershipModeSchema.Type
 
 export const NetworkMembershipStatusSchema = Schema.Literal('joined')
@@ -297,18 +297,18 @@ export const NetworkMembersResponseSchema = Schema.Struct({
 })
 export type NetworkMembersResponseFromSchema = typeof NetworkMembersResponseSchema.Type
 
-export const PolicyResultSchema = Schema.Literal(
+export const PolicyResultSchema = Schema.Literals([
   'allow',
   'deny',
   'require_manual_review',
   'require_multi_approval'
-)
+])
 export type PolicyResultFromSchema = typeof PolicyResultSchema.Type
 
-export const OperationDangerLevelSchema = Schema.Literal('low', 'medium', 'high', 'critical')
+export const OperationDangerLevelSchema = Schema.Literals(['low', 'medium', 'high', 'critical'])
 export type OperationDangerLevelFromSchema = typeof OperationDangerLevelSchema.Type
 
-export const RiskFactorSchema = Schema.Literal(
+export const RiskFactorSchema = Schema.Literals([
   'actor_permission_level',
   'operation_danger_level',
   'target_node_kind',
@@ -317,20 +317,20 @@ export const RiskFactorSchema = Schema.Literal(
   'recent_failure_count',
   'outside_expected_scope',
   'audit_visibility'
-)
+])
 export type RiskFactorFromSchema = typeof RiskFactorSchema.Type
 
 export const PolicyDecisionSchema = Schema.Struct({
   id: Schema.String,
-  actor: Schema.Literal(...actorIds),
-  action: Schema.Literal(...permissions),
+  actor: Schema.Literals(actorIds),
+  action: Schema.Literals(permissions),
   resource: Schema.String,
   result: PolicyResultSchema,
   reasons: Schema.Array(Schema.String),
   operationDangerLevel: Schema.optional(OperationDangerLevelSchema),
   suspicionScore: Schema.optional(Schema.Number),
   riskFactors: Schema.optional(Schema.Array(RiskFactorSchema)),
-  requiredAction: Schema.optional(Schema.Literal('manual_review', 'multi_approval')),
+  requiredAction: Schema.optional(Schema.Literals(['manual_review', 'multi_approval'])),
   createdAt: Schema.String
 })
 export type PolicyDecisionFromSchema = typeof PolicyDecisionSchema.Type
@@ -349,7 +349,7 @@ export const TimelineLogSchema = Schema.Struct({
 })
 export type TimelineLogFromSchema = typeof TimelineLogSchema.Type
 
-export const FullLogLevelSchema = Schema.Literal('debug', 'info', 'warn', 'error')
+export const FullLogLevelSchema = Schema.Literals(['debug', 'info', 'warn', 'error'])
 export type FullLogLevelFromSchema = typeof FullLogLevelSchema.Type
 
 export const FullLogSchema = Schema.Struct({
@@ -368,7 +368,7 @@ export const AuditLogSchema = Schema.Struct({
   id: Schema.String,
   timestamp: Schema.String,
   summary: Schema.optional(Schema.String),
-  actor: Schema.Union(Schema.Literal(...actorIds), Schema.Literal('system')),
+  actor: Schema.Union([Schema.Literals(actorIds), Schema.Literal('system')]),
   action: Schema.String,
   resource: Schema.String,
   decisionId: Schema.optional(Schema.String),

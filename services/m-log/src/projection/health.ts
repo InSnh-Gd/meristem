@@ -1,11 +1,12 @@
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { eq, gte, type SQL, sql } from 'drizzle-orm'
+import { eq, gte, sql } from 'drizzle-orm'
 import type {
   ProjectionCursor,
   ProjectionHealth
 } from '../../../../packages/contracts/src/index.ts'
 import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
 import { createLogger, recordGauge } from '../../../../packages/telemetry/src/index.ts'
+import { columnOf } from './dynamic-column.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase, ProjectionOpenSearch } from './types.ts'
 
@@ -61,12 +62,7 @@ export function createProjectionHealthService(
           const countResult = await db
             .select({ count: sql<number>`count(*)` })
             .from(table)
-            .where(
-              gte(
-                table['timestamp' as keyof typeof table] as unknown as SQL<unknown>,
-                new Date(cursor.timestamp)
-              )
-            )
+            .where(gte(columnOf(table, 'timestamp'), new Date(cursor.timestamp)))
           pendingCount = countResult[0]?.count ?? 0
 
           lagSeconds = differenceInSeconds(new Date(), parseISO(cursor.timestamp), {

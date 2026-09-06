@@ -1,24 +1,23 @@
 import type {
   CommandWellEligibilityFromSchema,
   MNetForcedRelayChangeEventPayloadFromSchema,
-  MNetOperationalEventIngestResponseFromSchema,
-  MNetProfileV03CompatibilityResultFromSchema,
-  MNetNodeV03CompatibilityResultFromSchema,
-  MNetMigrationRequiredFromSchema
-} from '../../../packages/contracts/src/index.ts'
-import {
-  decodeMNetNodeV03Compatibility,
-  decodeMNetProfileV03Compatibility
+  MNetMigrationRequiredFromSchema,
+  MNetOperationalEventIngestResponseFromSchema
 } from '../../../packages/contracts/src/index.ts'
 import type { MNetAppDeps } from './deps.ts'
+import {
+  isReachable,
+  nodeCompatibility,
+  profileCompatibility
+} from './forced-relay-compatibility.ts'
 import type { ForcedRelayNodeContext } from './forced-relay-node-context.ts'
-import { profileWorkflowFailure, type ProfileWorkflowFailure } from './profile-workflow-types.ts'
 import { isMigrationRequiredFailure } from './migration-required-support.ts'
+import { authorizeOr403 } from './policy-guard.ts'
+import { type ProfileWorkflowFailure, profileWorkflowFailure } from './profile-workflow-types.ts'
 
 const FORCED_RELAY_COMMAND_ID = 'network.forced-relay.change.execute'
 const FORCED_RELAY_LABEL = '切换强制 Relay 类'
 const FORCED_RELAY_ACTION = 'network:profile-enable'
-const LEGACY_NODE_AGENT_CAPABILITY = 'node-agent.wstunnel.v0.2'
 
 export type ForcedRelayEligibilityDeps = Pick<
   MNetAppDeps,
@@ -117,132 +116,6 @@ function normalizeReason(reason: string | undefined): string {
 
 function newUuid(): string {
   return globalThis.crypto.randomUUID()
-}
-
-function isReachable(node: ForcedRelayNodeContext): boolean {
-  return node.reachability === 'reachable' || node.reachability === 'public'
-}
-
-function profileCompatibility(
-  profileVersion: string
-): MNetProfileV03CompatibilityResultFromSchema | null {
-  if (profileVersion === 'm-net-cn@0.3.0') {
-    return {
-      kind: 'profile',
-      profile: {
-        profileVersion: 'm-net-cn@0.3.0',
-        schemaVersion: 'mnet-profile@0.3.0',
-        region: 'cn',
-        displayName: 'CN profile',
-        status: 'available',
-        capabilities: {
-          controlPlaneOnly: false,
-          managementPlaneExcluded: true,
-          realNetBirdSidecar: true,
-          signalConfigRef: { configRef: 'signal/cn-primary' },
-          relayConfigRef: { configRef: 'relay/cn-primary' },
-          stunConfigRef: { configRef: 'stun/cn-primary' },
-          sidecarDesiredState: 'start',
-          sidecarCredentialRef: {
-            provider: 'vault-kv-v2',
-            keyPath: 'secret/data/mnet/cn-sidecar',
-            version: 1
-          },
-          sidecarCredentialStatus: 'ready',
-          sidecarHealthStatus: 'healthy'
-        },
-        forcedTcpRelaySelector: {
-          enabled: true,
-          selectorOwnership: 'operator',
-          selector: {
-            selectorType: 'node-ids',
-            nodeIds: ['bootstrap-cn-leaf']
-          },
-          routeClass: 'forced-tcp-relay',
-          operatorOverrideAllowed: true,
-          operatorOverrideActive: false,
-          policyDecision: {
-            decisionId: 'bootstrap-policy-decision',
-            source: 'm-policy',
-            outcome: 'allow',
-            reason: 'bootstrap compatibility fixture'
-          },
-          auditEvidence: {
-            auditId: 'bootstrap-audit-id',
-            eventId: 'bootstrap-event-id',
-            eventSubject: 'mnet.forced_relay.change.v0'
-          }
-        },
-        rules: {
-          transport: 'netbird-sidecar',
-          mode: 'cn-sidecar',
-          relay: {
-            selectorMode: 'operator-override',
-            defaultRouteClass: 'auto',
-            forcedTcpRelay: {
-              enabled: true,
-              eventSubject: 'mnet.forced_relay.change.v0'
-            }
-          }
-        }
-      }
-    }
-  }
-  if (profileVersion === 'm-net@0.3.0') {
-    return {
-      kind: 'profile',
-      profile: {
-        profileVersion: 'm-net@0.3.0',
-        schemaVersion: 'mnet-profile@0.3.0',
-        region: 'default',
-        displayName: 'Default profile',
-        status: 'available',
-        capabilities: {
-          controlPlaneOnly: false,
-          managementPlaneExcluded: true,
-          realNetBirdSidecar: true,
-          signalConfigRef: { configRef: 'signal/default-primary' },
-          relayConfigRef: { configRef: 'relay/default-primary' },
-          stunConfigRef: { configRef: 'stun/default-primary' },
-          sidecarDesiredState: 'start',
-          sidecarCredentialRef: {
-            provider: 'vault-kv-v2',
-            keyPath: 'secret/data/mnet/default-sidecar',
-            version: 1
-          },
-          sidecarCredentialStatus: 'ready',
-          sidecarHealthStatus: 'healthy'
-        },
-        rules: {
-          transport: 'netbird-sidecar',
-          mode: 'standard',
-          relay: {
-            selectorMode: 'automatic',
-            defaultRouteClass: 'auto'
-          }
-        }
-      }
-    }
-  }
-
-  try {
-    return decodeMNetProfileV03Compatibility({ profileId: profileVersion, profileVersion })
-  } catch {
-    return null
-  }
-}
-
-function nodeCompatibility(node: ForcedRelayNodeContext): MNetNodeV03CompatibilityResultFromSchema {
-  return decodeMNetNodeV03Compatibility({
-    nodeId: node.nodeId,
-    profileVersion:
-      node.networkProfileVersion?.startsWith('m-net-cn@') === true
-        ? 'm-net-cn@0.3.0'
-        : 'm-net@0.3.0',
-    transport: node.capabilities.includes(LEGACY_NODE_AGENT_CAPABILITY)
-      ? 'wstunnel'
-      : 'netbird-sidecar'
-  })
 }
 
 async function resolveForcedRelayTarget(
@@ -374,12 +247,14 @@ export async function executeForcedRelayChange(
   }
 
   const resource = `network/${resolved.networkId}/node/${resolved.node.nodeId}`
-  const policyDecision = await deps.policyAuthorize.authorize(
-    input.actor,
-    FORCED_RELAY_ACTION,
-    resource
-  )
-  if (policyDecision.result !== 'allow') {
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: FORCED_RELAY_ACTION,
+    resource,
+    deniedPrefix: 'forced relay',
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
     const denyCorrelationId = (input.correlationIdFactory ?? newUuid)()
     await deps.log.writeAudit(
       input.actor,
@@ -390,15 +265,11 @@ export async function executeForcedRelayChange(
       {
         nodeId: resolved.node.nodeId,
         networkId: resolved.networkId,
-        policyDecisionId: policyDecision.id,
-        reasons: [...policyDecision.reasons]
+        policyDecisionId: policyGuard.policyDecisionId,
+        reasons: [...policyGuard.reasons]
       }
     )
-    return profileWorkflowFailure(
-      403,
-      'policy.denied',
-      `forced relay denied: ${policyDecision.reasons.join(', ')}`
-    )
+    return profileWorkflowFailure(policyGuard.status, policyGuard.code, policyGuard.message)
   }
 
   const correlationId = (input.correlationIdFactory ?? newUuid)().trim()
@@ -431,7 +302,7 @@ export async function executeForcedRelayChange(
       nodeIds: [resolved.node.nodeId]
     },
     operatorOverrideActive: true,
-    policyDecisionId: policyDecision.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     auditId,
     eventId,
     affectedNodeIds: [resolved.node.nodeId],
@@ -449,7 +320,7 @@ export async function executeForcedRelayChange(
       eventId,
       nodeId: resolved.node.nodeId,
       networkId: resolved.networkId,
-      policyDecisionId: policyDecision.id,
+      policyDecisionId: policyGuard.policyDecisionId,
       reason
     }
   )
@@ -494,7 +365,7 @@ export async function executeForcedRelayChange(
       eventId,
       nodeId: resolved.node.nodeId,
       networkId: resolved.networkId,
-      policyDecisionId: policyDecision.id,
+      policyDecisionId: policyGuard.policyDecisionId,
       publishStatus: ingestResult.publishStatus,
       snapshotStatus: ingestResult.snapshotStatus,
       reason
@@ -509,7 +380,7 @@ export async function executeForcedRelayChange(
     routeClass: 'forced-tcp-relay',
     selectorOwnership: 'operator',
     affectedNodeIds: [resolved.node.nodeId],
-    policyDecisionId: policyDecision.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     auditId,
     eventId,
     correlationId,

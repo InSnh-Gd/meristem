@@ -60,7 +60,9 @@ export async function collectBoundaryViolations(root: string): Promise<BoundaryV
 
   for (const pattern of trackedSourcePatterns) {
     for await (const file of new Bun.Glob(pattern).scan({ cwd: root, absolute: false })) {
-      if (shouldScanFile(file)) files.add(file)
+      // Windows 上 Bun.Glob 返回反斜杠路径；后续 owner 正则与前缀判断都假定 '/'，先归一化。
+      const normalizedFile = file.replaceAll('\\', '/')
+      if (shouldScanFile(normalizedFile)) files.add(normalizedFile)
     }
   }
 

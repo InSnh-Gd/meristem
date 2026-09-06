@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { hashNodeToken } from '../../packages/auth/src/index.ts'
 import { err, ok } from '../../packages/common/src/result.ts'
-import { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
+import type { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
 import {
   applyHeartbeat,
   type HeartbeatRuntimeContext,

@@ -1,16 +1,16 @@
 import * as Schema from 'effect/Schema'
 
-export const EventBusRejectedReasonSchema = Schema.Literal(
+export const EventBusRejectedReasonSchema = Schema.Literals([
   'invalid_envelope',
   'subject_not_allowed',
   'subject_mismatch'
-)
+])
 export type EventBusRejectedReasonFromSchema = typeof EventBusRejectedReasonSchema.Type
 
 export const EventBusPublishFailureReasonSchema = Schema.Literal('publish_failed')
 export type EventBusPublishFailureReasonFromSchema = typeof EventBusPublishFailureReasonSchema.Type
 
-export const EventBusPublishOutcomeSchema = Schema.Literal('success', 'rejected', 'failed')
+export const EventBusPublishOutcomeSchema = Schema.Literals(['success', 'rejected', 'failed'])
 export type EventBusPublishOutcomeFromSchema = typeof EventBusPublishOutcomeSchema.Type
 
 export const EventBusRejectedPayloadSchema = Schema.Struct({

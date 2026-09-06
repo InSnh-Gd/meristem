@@ -71,13 +71,18 @@ This does not replace the boundary-specific gates from `docs/testing/TESTING.md`
     - `codegraph impact <symbol>`
     - `codegraph callers <symbol>`
     - `bun run codegraph:status`
+- **ast-grep** (`@ast-grep/cli`)：基于 AST 的结构化代码搜索 CLI，用于获取精确的语法结构证据（模式匹配、可复用规则、有界重写）。不做语义归属分析，语义问题仍以 CodeGraph 为准。
+  - 常用命令：
+    - `ast-grep run -p '<pattern>' -l ts <path>` — 有界结构搜索
+    - `ast-grep scan` — 运行 `sgconfig.yml` 中定义的规则（如已配置）
+    - `ast-grep test` — 运行规则的测试用例
 - **dependency-cruiser**：依赖图可视化与架构规则检查。配置位于 `.dependency-cruiser.cjs`。
   - 常用命令：
     - `bun run depcruise` — 检查依赖规则
     - `bun run depcruise:mermaid` — 生成 Mermaid 依赖图
     - `bun run depcruise:html` — 生成 HTML 交互式依赖图
 
-这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应**优先使用 CodeGraph**，而不是重复发起大量 grep/read 探索。详细的 CodeGraph 优先级规则和触发场景见 `.agents/skills/meristem-codegraph/SKILL.md`。
+这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应**优先使用 CodeGraph**，而不是重复发起大量 grep/read 探索。语义符号、调用方、调用路径与影响分析使用 CodeGraph；精确的语法结构证据使用 ast-grep CLI；在广域修改代码前，先用两者交叉验证证据。详细的 CodeGraph 优先级规则和触发场景见 `.agents/skills/meristem-codegraph/SKILL.md`。
 
 ### Issue tracker
 

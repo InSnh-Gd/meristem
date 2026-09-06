@@ -5,12 +5,12 @@ import {
   type MNetRegionalProfileFromSchema,
   MNetRegionalProfileSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
+import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 import {
   createDataPlaneAdapter,
   DATA_PLANE_FEATURE_GATE_DEFAULT
 } from '../../services/m-net/src/data-plane/noop-adapter.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 
 describe('M-Net data-plane skeleton contract', () => {
   it('legacy m-net-cn@0.1.0 profile is rejected through migration guidance', async () => {

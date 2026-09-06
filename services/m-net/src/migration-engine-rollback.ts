@@ -1,14 +1,11 @@
 import type { NetworkProfileMigrationResult } from './global-defaults-store.ts'
 import { migrationResult } from './migration-engine-helpers.ts'
+import { getStoredMigration, storeMigration } from './migration-engine-locks.ts'
+import type { MigrationEngineDeps } from './migration-engine-pure.ts'
 import {
-  getStoredMigration,
-  type MigrationEngineDeps,
-  storeMigration
-} from './migration-engine-pure.ts'
-import {
-  rollbackMNetProfile,
+  type MigrationNetworkState,
   type MigrationProfileCandidate,
-  type MigrationNetworkState
+  rollbackMNetProfile
 } from './profile-migration.ts'
 
 function toRollbackProfileCandidate(profileVersion: string): MigrationProfileCandidate {

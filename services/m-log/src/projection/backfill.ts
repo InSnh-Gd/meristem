@@ -1,5 +1,4 @@
-import { and, asc, gte, lte, type SQL, sql } from 'drizzle-orm'
-import type { PgColumn } from 'drizzle-orm/pg-core'
+import { and, asc, gte, lte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import type {
   BackfillParams,
@@ -9,6 +8,7 @@ import type {
   ProjectorJobStatus
 } from '../../../../packages/contracts/src/index.ts'
 import { mapFactToDoc } from './document-map.ts'
+import { columnOf, sqlChunkOf } from './dynamic-column.ts'
 import { ProjectionUnknownIndexError, ProjectionWorkflowError } from './errors.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase } from './types.ts'
@@ -100,23 +100,13 @@ export function createBackfillService(
     try {
       while (true) {
         const conditions: ReturnType<typeof sql>[] = [
-          gte(
-            table['timestamp' as keyof typeof table] as unknown as PgColumn,
-            new Date(currentCursor.timestamp)
-          )
+          gte(columnOf(table, 'timestamp'), new Date(currentCursor.timestamp))
         ]
         if (currentCursor.factId !== '00000000-0000-0000-0000-000000000000') {
-          conditions.push(
-            sql`${table['id' as keyof typeof table] as unknown as SQL<unknown>} > ${currentCursor.factId}`
-          )
+          conditions.push(sql`${sqlChunkOf(table, 'id')} > ${currentCursor.factId}`)
         }
         if (params.to) {
-          conditions.push(
-            lte(
-              table['timestamp' as keyof typeof table] as unknown as PgColumn,
-              new Date(params.to.timestamp)
-            )
-          )
+          conditions.push(lte(columnOf(table, 'timestamp'), new Date(params.to.timestamp)))
         }
 
         const batch = yield* tryProjection('read-backfill-batch', () =>
@@ -124,10 +114,7 @@ export function createBackfillService(
             .select()
             .from(table)
             .where(and(...conditions))
-            .orderBy(
-              asc(table['timestamp' as keyof typeof table] as unknown as PgColumn),
-              asc(table['id' as keyof typeof table] as unknown as SQL<unknown>)
-            )
+            .orderBy(asc(columnOf(table, 'timestamp')), asc(sqlChunkOf(table, 'id')))
             .limit(params.batchSize)
         )
 

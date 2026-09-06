@@ -38,7 +38,7 @@ MERISTEM.md（产品意图）
 - 如果代码与 `MERISTEM-DEV.md` 冲突，先指出违反的章节号，再修改代码。
 - 如果 `MERISTEM-DEV.md` 的实现方案与 `MERISTEM.md` 的产品意图冲突，以 `MERISTEM.md` 为准，并建议同步更新开发文档。
 - 如果阶段计划要求实现完整能力但 v0.1 护栏明确禁止，以 v0.1 护栏为准。
-- M-UI 保留的设计探索文档只作历史参考；当前用户要求和活动契约优先。
+- 历史 M-UI 设计探索文档已在 v0.2 文档重组中移除；当前用户要求和活动契约优先。
 
 ## 产品意图边界
 
@@ -63,7 +63,7 @@ Meristem 的实现必须服务于三个上游意图：微内核、微内核多�
 | 新增或修改功能域服务 | `docs/services/SERVICE-DEFINITION-TEMPLATE.md` 和对应服务文档 |
 | 新增或修改事件 | `docs/events/EVENT-CATALOG.md` |
 | 修改 API / Eden / Webhook / SDUI 契约 | `docs/contracts/CONTRACT-VERSIONING.md` |
-| 修改 MVP REST、Eden 或 CLI | `docs/contracts/REST-API-MVP.md`、`docs/contracts/EDEN-MVP.md`、`docs/contracts/CLI-COMMANDS.md` |
+| 修改 REST、Eden 或 CLI | `docs/contracts/REST-API.md`、`docs/contracts/EDEN.md`、`docs/contracts/CLI-COMMANDS.md` |
 | 修改权限、审计、密钥、LLM 或 Webhook 安全 | `docs/security/SECURITY-MODEL.md` |
 | 新增状态或存储 | `docs/data/STATE-MODEL.md` |
 | 修改配置热重载 | `docs/config/CONFIG-LIFECYCLE.md` |

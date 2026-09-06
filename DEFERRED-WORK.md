@@ -1,6 +1,6 @@
 # Deferred Work Register
 
-> This register records work deliberately deferred during v0.1 scope planning. Deferred means "not in the current scope"; it does not mean forgotten, rejected, or safe to implement opportunistically without reopening the owning service definition, ADR, or contract doc.
+> This register records work deliberately deferred from the current release scope (v0.2). Deferred means "not in the current scope"; it does not mean forgotten, rejected, or safe to implement opportunistically without reopening the owning service definition, ADR, or contract doc.
 
 ---
 
@@ -365,7 +365,7 @@ Required before implementation:
 
 ### DFW-011: M-Net CN Data Plane
 
-Status: active target — superseded by ADR-N03, implementation in progress.
+Status: superseded by ADR-N03 and ADR-N04; the v0.2 data-plane direction is NetBird-only (ADR-N04).
 
 Owner: M-Net.
 
@@ -457,7 +457,7 @@ Required before implementation:
 
 ### DFW-013: M-Net CN Runtime Configuration And Secrets
 
-Status: active target — superseded by ADR-N03, implementation in progress.
+Status: superseded by ADR-N03 and ADR-N04; the v0.2 data-plane direction is NetBird-only (ADR-N04).
 
 Owner: M-Net / Core secrets / M-Policy / M-Log.
 
@@ -576,7 +576,7 @@ Required before implementation:
 
 ### DFW-016: M-Net Profile UI
 
-Status: active target — superseded by ADR-N03, implementation in progress.
+Status: superseded by ADR-N03 and ADR-N04; the v0.2 data-plane direction is NetBird-only (ADR-N04).
 
 Owner: M-UI / M-UI BFF.
 

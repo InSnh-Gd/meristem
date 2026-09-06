@@ -28,7 +28,7 @@ type ManagedSessionSocket = {
   close(): void
 }
 
-const { db, client } = createDb()
+const { db } = createDb()
 const joinIngressPort = 18_443
 const joinIngressUrl = `wss://localhost:${joinIngressPort}/join/v0/session`
 const joinIngressSessionTimeoutMs = 15_000

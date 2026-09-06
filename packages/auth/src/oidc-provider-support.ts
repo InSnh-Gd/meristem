@@ -1,12 +1,12 @@
 import { fromUnixTime } from 'date-fns'
 import {
-  createLocalJWKSet,
+  type createLocalJWKSet,
   decodeJwt,
   decodeProtectedHeader,
-  jwtVerify,
   type JSONWebKeySet,
   type JWTPayload,
-  type JWTVerifyResult
+  type JWTVerifyResult,
+  jwtVerify
 } from 'jose'
 import type { OidcAuthProviderConfigFromSchema } from '../../contracts/src/index.ts'
 

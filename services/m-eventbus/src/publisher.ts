@@ -6,11 +6,8 @@ import {
 } from '@nats-io/jetstream'
 import type { NatsConnection } from '@nats-io/nats-core'
 import type {
-  EventBusLastFailedSnapshotFromSchema,
-  EventBusLastRejectedSnapshotFromSchema,
   EventBusPublishFailedPayloadFromSchema,
   EventBusPublishMetricsSummaryFromSchema,
-  EventBusPublishOutcomeFromSchema,
   EventBusRejectedPayloadFromSchema
 } from '../../../packages/contracts/src/index.ts'
 import { createEventEnvelope, type MEventEnvelope } from '../../../packages/events/src/index.ts'
@@ -19,7 +16,19 @@ import {
   documentedEventBusSubjects,
   eventBusOperationalSubjects
 } from '../../../packages/events/src/subject-catalog.ts'
-import { createLogger, recordCounter } from '../../../packages/telemetry/src/index.ts'
+import { createLogger } from '../../../packages/telemetry/src/index.ts'
+import {
+  applySubjectOutcome,
+  createPublishMetricsState,
+  type EventBusPublishOutcome,
+  isoNow,
+  type PublishMetricsState,
+  readEventIdentity,
+  readOptionalStringField,
+  recordPublishOutcome,
+  recordRetryAttempts,
+  snapshotPublishMetrics
+} from './publisher-metrics.ts'
 
 const logger = createLogger('m-eventbus')
 
@@ -30,7 +39,8 @@ const DEFAULT_PUBLISH_TIMEOUT_MS = 1000
 const DEFAULT_RETRY_BASE_MS = 100
 const DEFAULT_RETRY_MAX_MS = 2000
 
-export type EventBusPublishOutcome = { eventId: string }
+export type { EventBusPublishOutcome } from './publisher-metrics.ts'
+export { snapshotPublishMetrics } from './publisher-metrics.ts'
 
 export type EventBusRejectReason = 'invalid_envelope' | 'subject_not_allowed' | 'subject_mismatch'
 
@@ -164,151 +174,6 @@ function createDlqEnvelope(
   })
 }
 
-function readOptionalStringField(value: unknown, key: string): string | undefined {
-  if (typeof value !== 'object' || value === null || !(key in value)) return undefined
-  const field = (value as Record<string, unknown>)[key]
-  return typeof field === 'string' ? field : undefined
-}
-
-type EventIdentity = {
-  eventId?: string
-  source?: string
-  actor?: string
-  eventType?: string
-  correlationId?: string
-  traceId?: string
-  causationId?: string
-}
-
-type MutableSubjectMetrics = {
-  success: number
-  rejected: number
-  failed: number
-  retryAttempts: number
-  lastOutcome?: EventBusPublishOutcomeFromSchema
-  lastOutcomeAt?: string
-}
-
-type PublishMetricsState = {
-  windowStartedAt: string
-  totals: {
-    success: number
-    rejected: number
-    failed: number
-    retryAttempts: number
-  }
-  subjects: Map<string, MutableSubjectMetrics>
-  lastRejected?: EventBusLastRejectedSnapshotFromSchema
-  lastFailed?: EventBusLastFailedSnapshotFromSchema
-}
-
-/**
- * 失败侧信号需要统一归因维度，避免 rejected/failed 两类 operational event 字段漂移。
- */
-function readEventIdentity(event: unknown): EventIdentity {
-  const eventId = readOptionalStringField(event, 'id')
-  const source = readOptionalStringField(event, 'source')
-  const eventType = readOptionalStringField(event, 'type')
-  const correlationId = readOptionalStringField(event, 'correlationId')
-  const traceId = readOptionalStringField(event, 'traceId')
-  const causationId = readOptionalStringField(event, 'causationId')
-  const payload =
-    typeof event === 'object' && event !== null
-      ? (event as { payload?: unknown }).payload
-      : undefined
-  const actor = readOptionalStringField(payload, 'actor')
-  return {
-    ...(eventId ? { eventId } : {}),
-    ...(source ? { source } : {}),
-    ...(actor ? { actor } : {}),
-    ...(eventType ? { eventType } : {}),
-    ...(correlationId ? { correlationId } : {}),
-    ...(traceId ? { traceId } : {}),
-    ...(causationId ? { causationId } : {})
-  }
-}
-
-/**
- * 指标只保留低基数标签：subject/source/outcome/reason，避免把 actor 等高基数字段写进 metrics。
- */
-function recordPublishOutcome(
-  outcome: 'success' | 'rejected' | 'failed',
-  input: { subject: string; source?: string | undefined; reason?: string | undefined }
-): void {
-  recordCounter('eventbus.publish.outcomes_total', 1, {
-    outcome,
-    subject: input.subject,
-    ...(input.source ? { source: input.source } : {}),
-    ...(input.reason ? { reason: input.reason } : {})
-  })
-}
-
-function recordRetryAttempts(subject: string, source: string | undefined, attempts: number): void {
-  if (attempts <= 1) return
-  recordCounter('eventbus.publish.retry_attempts_total', attempts - 1, {
-    subject,
-    ...(source ? { source } : {}),
-    outcome: 'retry'
-  })
-}
-
-function isoNow(): string {
-  return new Date().toISOString()
-}
-
-function ensureSubjectMetrics(
-  metricsState: PublishMetricsState,
-  subject: string
-): MutableSubjectMetrics {
-  let entry = metricsState.subjects.get(subject)
-  if (!entry) {
-    entry = { success: 0, rejected: 0, failed: 0, retryAttempts: 0 }
-    metricsState.subjects.set(subject, entry)
-  }
-  return entry
-}
-
-function applySubjectOutcome(
-  metricsState: PublishMetricsState,
-  subject: string,
-  outcome: EventBusPublishOutcomeFromSchema,
-  retryAttempts = 0
-): void {
-  const at = isoNow()
-  const subjectMetrics = ensureSubjectMetrics(metricsState, subject)
-  subjectMetrics[outcome] += 1
-  subjectMetrics.retryAttempts += retryAttempts
-  subjectMetrics.lastOutcome = outcome
-  subjectMetrics.lastOutcomeAt = at
-
-  metricsState.totals[outcome] += 1
-  metricsState.totals.retryAttempts += retryAttempts
-}
-
-function snapshotPublishMetrics(
-  metricsState: PublishMetricsState
-): EventBusPublishMetricsSummaryFromSchema {
-  return {
-    service: 'm-eventbus',
-    generatedAt: isoNow(),
-    windowStartedAt: metricsState.windowStartedAt,
-    totals: { ...metricsState.totals },
-    subjects: [...metricsState.subjects.entries()]
-      .map(([subject, entry]) => ({
-        subject,
-        success: entry.success,
-        rejected: entry.rejected,
-        failed: entry.failed,
-        retryAttempts: entry.retryAttempts,
-        ...(entry.lastOutcome ? { lastOutcome: entry.lastOutcome } : {}),
-        ...(entry.lastOutcomeAt ? { lastOutcomeAt: entry.lastOutcomeAt } : {})
-      }))
-      .sort((left, right) => left.subject.localeCompare(right.subject)),
-    ...(metricsState.lastRejected ? { lastRejected: metricsState.lastRejected } : {}),
-    ...(metricsState.lastFailed ? { lastFailed: metricsState.lastFailed } : {})
-  }
-}
-
 export async function createEventBusPublisher(
   options: EventBusPublisherOptions
 ): Promise<EventBusPublisher> {
@@ -326,11 +191,7 @@ export async function createEventBusPublisher(
   const jsm = await (options.createJetStreamManager?.(options.nc) ?? jetstreamManager(options.nc))
   const js = options.createJetStreamClient?.(options.nc) ?? jetstream(options.nc)
   const runtimeState: EventBusRuntimeState = { ready: false }
-  const metricsState: PublishMetricsState = {
-    windowStartedAt: isoNow(),
-    totals: { success: 0, rejected: 0, failed: 0, retryAttempts: 0 },
-    subjects: new Map()
-  }
+  const metricsState: PublishMetricsState = createPublishMetricsState()
 
   const markFailure = (message: string) => {
     runtimeState.ready = false

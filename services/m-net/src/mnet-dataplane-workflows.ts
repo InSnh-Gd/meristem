@@ -19,12 +19,12 @@ import {
   releaseOperationLock
 } from './operation-locks.ts'
 import { transitionPartitionState } from './partition-state.ts'
+import { applyProfileTransition } from './profile-transition.ts'
 import {
   CHINA_DATA_PLANE_PROFILE_VERSION,
   DEFAULT_PROFILE_VERSION,
   isProfileWorkflowFailure,
   type ProfileWorkflowFailure,
-  type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
 
@@ -77,21 +77,18 @@ export async function enableDataPlaneProfile(
     )
     if (isProfileWorkflowFailure(materialized)) return materialized
 
-    await deps.profileStore.setNetworkState(input.networkId, {
-      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-      status: 'enabled'
-    })
-    await deps.networkUpdater?.setProfileVersion(input.networkId, CHINA_DATA_PLANE_PROFILE_VERSION)
-    await deps.profileStore.recordTransition({
+    // 目标状态 enabled 由状态机表 enable_success 行决定；迁移记录以 pending enabling
+    // 为逻辑起点（fresh enable 隐式、审批 resume 显式），fromVersion 固定为迁移源默认版本。
+    await applyProfileTransition(deps.profileStore, {
       networkId: input.networkId,
-      fromVersion: DEFAULT_PROFILE_VERSION,
-      toVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
-      fromStatus: 'enabling',
-      toStatus: 'enabled',
+      fromState: { profileVersion: DEFAULT_PROFILE_VERSION, status: 'enabling' },
+      actions: ['enable_success'],
+      stateProfileVersion: CHINA_DATA_PLANE_PROFILE_VERSION,
       actor: input.actor,
       reason: input.reason,
       correlationId
     })
+    await deps.networkUpdater?.setProfileVersion(input.networkId, CHINA_DATA_PLANE_PROFILE_VERSION)
     await deps.dataPlane.profileMigrations.upsert({
       networkId: input.networkId,
       operationId: request.operationId,

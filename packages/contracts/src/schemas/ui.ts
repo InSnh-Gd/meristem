@@ -2,7 +2,6 @@ import * as Schema from 'effect/Schema'
 import { ServiceSummarySchema } from './core.ts'
 import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
 import { ActorIdSchema } from './identity.ts'
-import { MNetMigrationRequiredSchema } from './mnet-profile-v03.ts'
 import {
   MNetOperationalCredentialLifecycleSchema,
   MNetOperationalDeploymentReadinessSchema,
@@ -19,6 +18,7 @@ import {
   MNetProfileVersionSchema,
   NetworkProfileStateSchema
 } from './mnet-profile.ts'
+import { MNetMigrationRequiredSchema } from './mnet-profile-v03.ts'
 import {
   ApprovalOriginServiceSchema,
   ApprovalStatusSchema,
@@ -30,7 +30,7 @@ import {
 import { ProjectionHealthResponseSchema } from './projection.ts'
 
 export const DisabledCommandExplanationSchema = Schema.Struct({
-  code: Schema.Literal(
+  code: Schema.Literals([
     'missing_permission',
     'target_missing',
     'wrong_node_kind',
@@ -40,7 +40,7 @@ export const DisabledCommandExplanationSchema = Schema.Struct({
     'missing_secret_provider',
     'stale_jwks',
     'missing_signal_relay'
-  ),
+  ]),
   message: Schema.String,
   missingPermission: Schema.optional(PermissionSchema),
   migration: Schema.optional(MNetMigrationRequiredSchema)
@@ -51,13 +51,13 @@ export const CommandWellCommandSchema = Schema.Struct({
   label: Schema.String,
   action: PermissionSchema,
   resource: Schema.NonEmptyString,
-  risk: Schema.Literal('low', 'medium', 'high', 'critical'),
+  risk: Schema.Literals(['low', 'medium', 'high', 'critical']),
   requiredPermissions: Schema.Array(PermissionSchema),
   requiresPolicy: Schema.Boolean,
   requiresAudit: Schema.Boolean
 })
 
-export const CommandWellEligibilitySchema = Schema.Union(
+export const CommandWellEligibilitySchema = Schema.Union([
   Schema.Struct({
     state: Schema.Literal('enabled'),
     command: CommandWellCommandSchema
@@ -67,10 +67,10 @@ export const CommandWellEligibilitySchema = Schema.Union(
     disabled: DisabledCommandExplanationSchema,
     disabledReason: Schema.String
   })
-)
+])
 
 /** 状态来源分类，只允许 authoritative/event/cache/read-model/log/audit/policy */
-export const SduiV02StateSourceSchema = Schema.Literal(
+export const SduiV02StateSourceSchema = Schema.Literals([
   'authoritative',
   'event',
   'cache',
@@ -78,7 +78,7 @@ export const SduiV02StateSourceSchema = Schema.Literal(
   'log',
   'audit',
   'policy'
-)
+])
 
 export const StateSourceMetadataSchema = Schema.Struct({
   sourceType: SduiV02StateSourceSchema,
@@ -143,16 +143,16 @@ export const NetworkProfileListItemSchema = Schema.Struct({
   stateSource: SduiV02StateSourceSchema
 })
 
-export const OperationalCommandPreviewCommandIdSchema = Schema.Literal(
+export const OperationalCommandPreviewCommandIdSchema = Schema.Literals([
   'policy.approval.approve.preview',
   'policy.approval.reject.preview',
   'network.profile.enable.preview',
   'network.profile.disable.preview'
-)
+])
 
 export const OperationalCommandPreviewActionSchema = Schema.Literal('display-only')
 
-export const OperationalCommandPreviewStateSchema = Schema.Literal('enabled', 'disabled')
+export const OperationalCommandPreviewStateSchema = Schema.Literals(['enabled', 'disabled'])
 
 export const OperationalCommandPreviewSchema = Schema.Struct({
   commandId: OperationalCommandPreviewCommandIdSchema,
@@ -171,7 +171,7 @@ export const OperationalCommandPreviewSchema = Schema.Struct({
 export const BffOperationalCreateManageStatusSchema = Schema.Struct({
   mode: Schema.Literal('manage'),
   networkId: Schema.String,
-  networkStatus: Schema.Literal('active', 'degraded'),
+  networkStatus: Schema.Literals(['active', 'degraded']),
   profileState: Schema.String,
   memberCount: Schema.Number,
   lastUpdatedAt: Schema.String,
@@ -222,7 +222,7 @@ export const BffOperationalCommandEligibilitySchema = Schema.Struct({
   requiredPermissions: Schema.Array(PermissionSchema),
   requiresPolicy: Schema.Boolean,
   requiresAudit: Schema.Boolean,
-  state: Schema.Literal('enabled', 'disabled'),
+  state: Schema.Literals(['enabled', 'disabled']),
   disabledReason: Schema.optional(DisabledCommandExplanationSchema),
   summary: Schema.String,
   targetNodeId: Schema.optional(Schema.String),
@@ -256,7 +256,7 @@ export const BffOperationalProofPathResponseSchema = Schema.Struct({
 })
 
 /** 组件种类白名单，不在名单内的 kind 解码时被拒绝 */
-export const SduiV02ComponentKindSchema = Schema.Literal(
+export const SduiV02ComponentKindSchema = Schema.Literals([
   'AuditLedger',
   'PolicyDecisionPanel',
   'CommandWellPanel',
@@ -280,7 +280,7 @@ export const SduiV02ComponentKindSchema = Schema.Literal(
   'NetworkDetailPanel',
   'NodeCredentialPanel',
   'DataplaneStatusPanel'
-)
+])
 
 /** 路由内单个组件引用，必须包含 kind 与 id */
 export const SduiV02RouteComponentSchema = Schema.Struct({

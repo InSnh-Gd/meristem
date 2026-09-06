@@ -110,7 +110,7 @@ function normalizeGeneratedModule(profileName: ProfileName, rawText: string): st
       )
       .replace(
         '"--health-cmd=pg_isready -U meristem -d meristem"',
-        '"--health-cmd=sh -c \'pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"\'"'
+        '"--health-cmd=sh -c \'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"\'"'
       )
   }
 

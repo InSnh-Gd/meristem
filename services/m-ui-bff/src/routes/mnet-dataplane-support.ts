@@ -19,6 +19,13 @@ import type {
   MNetNodeControlBody,
   MNetProfileToggleBody
 } from '../types.ts'
+import {
+  asObject,
+  optionalPositiveNumber,
+  optionalStringArrayField,
+  optionalStringField,
+  stringField
+} from './route-helpers.ts'
 
 export const BffJoinTicketRecordSchema = Schema.Struct({
   ticketId: Schema.String,
@@ -37,7 +44,7 @@ export const BffJoinTicketListResponseSchema = Schema.Struct({
 
 export const BffCredentialMutationResponseSchema = Schema.Struct({
   nodeId: Schema.String,
-  action: Schema.Literal('issued', 'rotated', 'revoked'),
+  action: Schema.Literals(['issued', 'rotated', 'revoked']),
   policyDecisionId: Schema.String,
   correlationId: Schema.String,
   issuedAt: Schema.optional(Schema.String),
@@ -338,34 +345,6 @@ export function mapOperationalSnapshotToProofPath(
       stateSource: operationalStateSource(snapshot.networkId, 'progressFeed')
     }
   }
-}
-
-function asObject(body: unknown): object | null {
-  return typeof body === 'object' && body !== null ? body : null
-}
-
-function stringField(body: object, key: string): string | undefined {
-  const value = Reflect.get(body, key)
-  return typeof value === 'string' && value.length > 0 ? value : undefined
-}
-
-function optionalStringField(body: object, key: string): string | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function optionalStringArrayField(body: object, key: string): string[] | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) return null
-  return [...value]
-}
-
-function optionalPositiveNumber(body: object, key: string): number | undefined | null {
-  const value = Reflect.get(body, key)
-  if (value === undefined) return undefined
-  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? value : null
 }
 
 /** 读取 join ticket 创建请求体。 */

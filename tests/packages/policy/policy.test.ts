@@ -61,15 +61,12 @@ describe('decidePermission', () => {
 })
 
 describe('rolePermissions', () => {
-  it.each([
-    'viewer',
-    'operator',
-    'admin',
-    'security-admin',
-    'break-glass-reviewer'
-  ] as const)('has non-empty permissions for %s', actor => {
-    expect(rolePermissions[actor].length).toBeGreaterThan(0)
-  })
+  it.each(['viewer', 'operator', 'admin', 'security-admin', 'break-glass-reviewer'] as const)(
+    'has non-empty permissions for %s',
+    actor => {
+      expect(rolePermissions[actor].length).toBeGreaterThan(0)
+    }
+  )
 
   it('gives admin all viewer permissions plus more', () => {
     for (const permission of rolePermissions.viewer) {

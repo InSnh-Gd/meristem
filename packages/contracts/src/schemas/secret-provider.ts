@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-export const SecretRefMetadataSchema = Schema.Record({ key: Schema.String, value: Schema.String })
+export const SecretRefMetadataSchema = Schema.Record(Schema.String, Schema.String)
 export type SecretRefMetadataFromSchema = typeof SecretRefMetadataSchema.Type
 
 /**
@@ -30,7 +30,7 @@ export const SecretListPrefixSchema = Schema.Struct({
 })
 export type SecretListPrefixFromSchema = typeof SecretListPrefixSchema.Type
 
-export const SecretProviderBackendSchema = Schema.Literal('local-dev-env', 'vault-kv-v2')
+export const SecretProviderBackendSchema = Schema.Literals(['local-dev-env', 'vault-kv-v2'])
 export type SecretProviderBackendFromSchema = typeof SecretProviderBackendSchema.Type
 
 export const SecretCachePolicySchema = Schema.Struct({
@@ -41,7 +41,7 @@ export type SecretCachePolicyFromSchema = typeof SecretCachePolicySchema.Type
 
 export const LocalDevEnvSecretProviderConfigSchema = Schema.Struct({
   backend: Schema.Literal('local-dev-env'),
-  envMappings: Schema.Record({ key: Schema.String, value: Schema.String })
+  envMappings: Schema.Record(Schema.String, Schema.String)
 })
 export type LocalDevEnvSecretProviderConfigFromSchema =
   typeof LocalDevEnvSecretProviderConfigSchema.Type
@@ -55,10 +55,10 @@ export const VaultKvV2SecretProviderConfigSchema = Schema.Struct({
 export type VaultKvV2SecretProviderConfigFromSchema =
   typeof VaultKvV2SecretProviderConfigSchema.Type
 
-export const SecretProviderConfigSchema = Schema.Union(
+export const SecretProviderConfigSchema = Schema.Union([
   LocalDevEnvSecretProviderConfigSchema,
   VaultKvV2SecretProviderConfigSchema
-)
+])
 export type SecretProviderConfigFromSchema = typeof SecretProviderConfigSchema.Type
 
 export const NamedSecretProviderConfigSchema = Schema.Struct({
@@ -142,11 +142,11 @@ export const StaleCachedSecretFailureSchema = Schema.Struct({
 })
 export type StaleCachedSecretFailureFromSchema = typeof StaleCachedSecretFailureSchema.Type
 
-export const SecretFailureSchema = Schema.Union(
+export const SecretFailureSchema = Schema.Union([
   SecretProviderUnavailableFailureSchema,
   SecretMissingFailureSchema,
   SecretPermissionDeniedFailureSchema,
   SecretUnsupportedBackendFailureSchema,
   StaleCachedSecretFailureSchema
-)
+])
 export type SecretFailureFromSchema = typeof SecretFailureSchema.Type

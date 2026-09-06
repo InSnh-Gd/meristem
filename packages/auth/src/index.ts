@@ -17,17 +17,12 @@ export {
   verifyLocalToken
 } from './actor-tokens.ts'
 export { hashNodeToken, mintNodeToken } from './node-tokens.ts'
-export {
-  createOidcAuthProvider,
-  oidcSupportedAlgorithms,
-  redactOidcAuthMaterial
-} from './oidc-provider.ts'
 export type {
+  OidcActorSession,
   OidcAuthConfig,
+  OidcAuthFailure,
   OidcAuthProvider,
   OidcAuthProviderDeps,
-  OidcActorSession,
-  OidcAuthFailure,
   OidcDiscoveryDocument,
   OidcDiscoveryResult,
   OidcProviderDependencies,
@@ -35,5 +30,10 @@ export type {
   OidcSupportedAlgorithm,
   OidcTokenState,
   VerifyOidcAccessTokenInput
+} from './oidc-provider.ts'
+export {
+  createOidcAuthProvider,
+  oidcSupportedAlgorithms,
+  redactOidcAuthMaterial
 } from './oidc-provider.ts'
 export { extractBearerToken, isActorId } from './shared.ts'

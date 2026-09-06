@@ -7,6 +7,40 @@ import {
   type ProfileAction,
   type ProfileState
 } from '../../services/m-net/src/profile-state-machine.ts'
+import type { ProfileTransitionRecord } from '../../services/m-net/src/profile-store.ts'
+import {
+  applyProfileTransition,
+  foldProfileTransition
+} from '../../services/m-net/src/profile-transition.ts'
+import type { ProfileStore } from '../../services/m-net/src/profile-workflow-types.ts'
+
+/** 捕获 store 写入的假实现，用于断言 chokepoint 发出的状态事实。 */
+function createRecordingProfileStore(initial: { profileVersion: string; status: ProfileState }): {
+  store: ProfileStore
+  states: Array<{ profileVersion: string; status: string }>
+  transitions: ProfileTransitionRecord[]
+} {
+  const states: Array<{ profileVersion: string; status: string }> = []
+  const transitions: ProfileTransitionRecord[] = []
+  const store: ProfileStore = {
+    getDefinitions: async () => [],
+    getDefinition: async () => null,
+    getNetworkState: async () => ({
+      networkId: 'net-1',
+      profileVersion: initial.profileVersion,
+      status: initial.status,
+      updatedAt: new Date().toISOString()
+    }),
+    setNetworkState: async (_networkId, state) => {
+      states.push(state)
+    },
+    listNetworkStates: async () => [],
+    recordTransition: async record => {
+      transitions.push(record)
+    }
+  }
+  return { store, states, transitions }
+}
 
 describe('M-Net profile state machine', () => {
   const allStates: ProfileState[] = ['disabled', 'enabling', 'enabled', 'disabling', 'failed']
@@ -184,5 +218,171 @@ describe('M-Net profile state machine', () => {
 
   it('ProfileState is a union of 5 exact strings', () => {
     expect(allStates).toHaveLength(5)
+  })
+})
+
+describe('M-Net profile transition chokepoint (every table row through applyProfileTransition)', () => {
+  const baseState = (status: ProfileState) => ({
+    networkId: 'net-1',
+    profileVersion: 'm-net@0.3.0',
+    status,
+    updatedAt: new Date().toISOString()
+  })
+
+  const tableRows: Array<{
+    name: string
+    from: ProfileState
+    action: ProfileAction
+    to: ProfileState
+  }> = [
+    {
+      name: 'enable_request from disabled',
+      from: 'disabled',
+      action: 'enable_request',
+      to: 'enabling'
+    },
+    {
+      name: 'enable_success from enabling',
+      from: 'enabling',
+      action: 'enable_success',
+      to: 'enabled'
+    },
+    { name: 'enable_fail from enabling', from: 'enabling', action: 'enable_fail', to: 'failed' },
+    {
+      name: 'disable_request from enabled',
+      from: 'enabled',
+      action: 'disable_request',
+      to: 'disabling'
+    },
+    {
+      name: 'disable_success from disabling',
+      from: 'disabling',
+      action: 'disable_success',
+      to: 'disabled'
+    },
+    {
+      name: 'disable_fail from disabling',
+      from: 'disabling',
+      action: 'disable_fail',
+      to: 'failed'
+    },
+    {
+      name: 'enable_request from failed (recovery)',
+      from: 'failed',
+      action: 'enable_request',
+      to: 'enabling'
+    },
+    {
+      name: 'disable_request from failed (recovery)',
+      from: 'failed',
+      action: 'disable_request',
+      to: 'disabling'
+    }
+  ]
+
+  for (const row of tableRows) {
+    it(`applyProfileTransition: ${row.name} → ${row.to}`, async () => {
+      const { store, states, transitions } = createRecordingProfileStore({
+        profileVersion: 'm-net@0.3.0',
+        status: row.from
+      })
+      const applied = await applyProfileTransition(store, {
+        networkId: 'net-1',
+        fromState: baseState(row.from),
+        actions: [row.action],
+        stateProfileVersion: 'm-net-cn@0.3.0',
+        actor: 'operator',
+        reason: 'row coverage',
+        policyDecisionId: 'decision-1',
+        correlationId: 'correlation-1'
+      })
+
+      expect(applied.toStatus).toBe(row.to)
+      expect(states).toEqual([{ profileVersion: 'm-net-cn@0.3.0', status: row.to }])
+      expect(transitions).toHaveLength(1)
+      expect(transitions[0]).toMatchObject({
+        networkId: 'net-1',
+        fromVersion: 'm-net@0.3.0',
+        toVersion: 'm-net-cn@0.3.0',
+        fromStatus: row.from,
+        toStatus: row.to,
+        actor: 'operator',
+        reason: 'row coverage',
+        policyDecisionId: 'decision-1',
+        correlationId: 'correlation-1'
+      })
+    })
+  }
+
+  it('applyProfileTransition: non-legal (no-op) rows keep current state', async () => {
+    const allStates: ProfileState[] = ['disabled', 'enabling', 'enabled', 'disabling', 'failed']
+    for (const from of allStates) {
+      const action: ProfileAction = 'enable_success'
+      if (from === 'enabling') continue
+      const { store, states, transitions } = createRecordingProfileStore({
+        profileVersion: 'm-net@0.3.0',
+        status: from
+      })
+      const applied = await applyProfileTransition(store, {
+        networkId: 'net-1',
+        fromState: baseState(from),
+        actions: [action],
+        actor: 'operator',
+        reason: 'no-op row'
+      })
+      expect(applied.toStatus).toBe(from)
+      expect(states).toEqual([{ profileVersion: 'm-net@0.3.0', status: from }])
+      expect(transitions[0]?.toStatus).toBe(from)
+      // 未提供可选字段时迁移记录不携带 policyDecisionId / correlationId
+      expect(transitions[0]).not.toHaveProperty('policyDecisionId')
+      expect(transitions[0]).not.toHaveProperty('correlationId')
+    }
+  })
+
+  it('applyProfileTransition: immediate disable folds request + success into one record', async () => {
+    const { store, states, transitions } = createRecordingProfileStore({
+      profileVersion: 'm-net-cn@0.3.0',
+      status: 'enabled'
+    })
+    const applied = await applyProfileTransition(store, {
+      networkId: 'net-1',
+      fromState: baseState('enabled'),
+      actions: ['disable_request', 'disable_success'],
+      stateProfileVersion: 'm-net@0.3.0',
+      actor: 'operator',
+      reason: 'immediate disable'
+    })
+    expect(applied.toStatus).toBe('disabled')
+    expect(foldProfileTransition('failed', ['disable_request', 'disable_success'])).toBe('disabled')
+    expect(foldProfileTransition('disabled', ['enable_request', 'enable_success'])).toBe('enabled')
+    expect(states).toEqual([{ profileVersion: 'm-net@0.3.0', status: 'disabled' }])
+    expect(transitions[0]).toMatchObject({
+      fromVersion: 'm-net@0.3.0',
+      toVersion: 'm-net@0.3.0',
+      fromStatus: 'enabled',
+      toStatus: 'disabled'
+    })
+  })
+
+  it('applyProfileTransition: pending request keeps current profileVersion in network state', async () => {
+    const { store, states, transitions } = createRecordingProfileStore({
+      profileVersion: 'm-net@0.3.0',
+      status: 'disabled'
+    })
+    await applyProfileTransition(store, {
+      networkId: 'net-1',
+      fromState: baseState('disabled'),
+      actions: ['enable_request'],
+      transitionToVersion: 'm-net-cn@0.3.0',
+      actor: 'operator',
+      reason: 'pending enable'
+    })
+    expect(states).toEqual([{ profileVersion: 'm-net@0.3.0', status: 'enabling' }])
+    expect(transitions[0]).toMatchObject({
+      fromVersion: 'm-net@0.3.0',
+      toVersion: 'm-net-cn@0.3.0',
+      fromStatus: 'disabled',
+      toStatus: 'enabling'
+    })
   })
 })

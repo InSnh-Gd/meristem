@@ -34,9 +34,9 @@ Rules:
 - High-risk actions still require M-Policy even for admin roles.
 - Audit Log access is not implied by general Full Log access.
 
-### 2.1 MVP RBAC Matrix
+### 2.1 RBAC Matrix
 
-MVP uses a narrower permission set than the long-term baseline:
+The current implementation uses a narrower permission set than the long-term baseline:
 
 | Permission | viewer | operator | admin | security-admin |
 |------------|--------|----------|-------|----------------|
@@ -85,13 +85,13 @@ MVP uses a narrower permission set than the long-term baseline:
 | `node:isolate` | no | no | yes | yes |
 | `node:recover` | no | no | yes | yes |
 
-MVP actor selection still supports locally signed JWT bearer tokens for local development. This remains a local-only provider and is not a production identity provider model.
+Actor selection still supports locally signed JWT bearer tokens for local development. This remains a local-only provider and is not a production identity provider model.
 
 Production identity provider integration now has an OIDC/JWKS access-token verification foundation for service-to-service and API bearer validation. Browser sessions, SSO UX, SAML, MFA, refresh-token handling, and user-management UI remain deferred.
 
-### 2.2 MVP JWT Model
+### 2.2 Local JWT Model
 
-MVP JWTs use HS256 with `MERISTEM_JWT_SECRET`.
+Local JWTs use HS256 with `MERISTEM_JWT_SECRET`.
 
 Required claims:
 
@@ -139,7 +139,7 @@ Issue (security-admin, writes Audit)
 
 **Permission Model**:
 
-- identity permissions inherit from the MVP RBAC matrix in `2.1`.
+- identity permissions inherit from the RBAC matrix in `2.1`.
 - `identity:read` for viewer and operator is restricted to their own actor record.
 - `identity:token-issue` and `identity:token-revoke` are security-admin only.
 
@@ -180,14 +180,14 @@ Rules:
 - verification failures are typed and consumable by route handlers: `stale_jwks`, `bad_issuer`, `bad_audience`, `unsupported_algorithm`, `expired_token`, `missing_claim`, `revoked_token`, and `introspection_required`.
 - logs, Audit payloads, Full Log payloads, events, and UI/BFF responses must redact bearer tokens and raw claims. Only explicitly mapped actor/session fields may appear.
 
-### 2.3 MVP Internal Service Authentication
+### 2.3 Internal Service Authentication
 
 Internal sync calls use loopback-only HTTP + Eden with a shared internal token.
 
 Rules:
 
 - `Core -> M-Policy`, `Core -> M-Log`, and `Core -> M-EventBus` must send `x-meristem-internal-token`.
-- Internal services listen on loopback-only ports in local MVP runs.
+- Internal services listen on loopback-only ports in local runs.
 - `MERISTEM_INTERNAL_TOKEN` is required for Core and all internal services.
 - Missing or invalid internal token is treated as service unavailability from the caller's perspective.
 - Internal service identity is separate from external JWT actor identity.
@@ -210,7 +210,7 @@ Rules:
 | disable Audit Log | must be blocked unless in documented emergency recovery |
 | change contract major version | ADR, migration plan, tests |
 
-MVP protected operations:
+Protected operations:
 
 | Operation | Minimum Role | Audit Requirement |
 |-----------|--------------|-------------------|

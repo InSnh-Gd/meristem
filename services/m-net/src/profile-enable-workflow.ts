@@ -1,15 +1,15 @@
 import type { EnableDataPlaneSuccess } from './mnet-dataplane-support.ts'
 import { enableDataPlaneProfile, requireDataPlaneDeps } from './mnet-dataplane-workflows.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 import { createPendingApprovalFlow } from './profile-approval-workflow.ts'
 import { migrateLegacyCnProfileBeforeEnable } from './profile-enable-migration.ts'
 import { canRequestEnable } from './profile-state-machine.ts'
 import {
-  CHINA_DATA_PLANE_PROFILE_VERSION,
-  type CHINA_PROFILE_VERSION,
-  type ProfileWriteBody,
+  type CHINA_DATA_PLANE_PROFILE_VERSION,
   isProfileWorkflowFailure,
   type KnownNetworkState,
   type ProfileWorkflowFailure,
+  type ProfileWriteBody,
   type ProfileWriteDeps,
   profileWorkflowFailure
 } from './profile-workflow-types.ts'
@@ -37,20 +37,18 @@ export async function requestEnableProfile(
     )
   }
 
-  const policyResult = await deps.policyAuthorize.authorize(
-    input.actor,
-    'network:profile-enable',
-    `network:${input.networkId}`
-  )
-  if (policyResult.result === 'deny') {
-    return profileWorkflowFailure(
-      403,
-      'policy.denied',
-      `profile enable denied: ${policyResult.reasons.join(', ')}`
-    )
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: 'network:profile-enable',
+    resource: `network:${input.networkId}`,
+    deniedPrefix: 'profile enable',
+    denyOn: 'deny-only'
+  })
+  if (policyGuard.kind === 'denied') {
+    return profileWorkflowFailure(policyGuard.status, policyGuard.code, policyGuard.message)
   }
 
-  if (policyResult.result === 'allow') {
+  if (policyGuard.result === 'allow') {
     const migrated = await migrateLegacyCnProfileBeforeEnable(deps, input)
     if (isProfileWorkflowFailure(migrated)) return migrated
     if (!deps.listMembers) {
@@ -86,9 +84,8 @@ export async function requestEnableProfile(
     state: input.state,
     profileVersion: input.profileVersion,
     reason: input.reason,
-    policyDecisionId: policyResult.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     action: 'mnet.profile.enable',
-    pendingStatus: 'enabling',
     requestedEvent: 'mnet.profile.enable.requested',
     requestedSubject: 'mnet.profile.enable.requested.v0',
     auditAction: 'mnet.profile.enable.request',

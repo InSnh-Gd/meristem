@@ -153,7 +153,7 @@ When reviewing or claiming completion for M-UI, SDUI, BFF display contracts, Com
 
 ### M-UI Frontend Review Gates
 
-M-UI visual/style direction is currently reset. When reviewing or claiming completion for frontend work, treat preserved design exploration docs as historical context only and verify active contract behavior:
+M-UI visual/style direction is currently reset. When reviewing or claiming completion for frontend work, verify active contract behavior (historical design exploration docs were removed in the v0.2 documentation restructure):
 
 | # | Gate | Pass Criteria |
 |---|------|---------------|

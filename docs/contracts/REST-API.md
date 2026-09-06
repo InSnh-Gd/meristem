@@ -1,4 +1,4 @@
-# REST API MVP Contract
+# REST API Contract
 
 > REST API v0 is the external HTTP / OpenAPI contract for the current Meristem baseline.
 >
@@ -10,7 +10,7 @@
 
 - 覆盖外部 `/api/v0` route，以及被内部服务显式消费的 `/internal/v0` route。
 - 公开 HTTP shape、permission 与 error envelope 以本文件为准。
-- CLI 命令映射见 `CLI-COMMANDS.md`；typed client 映射见 `EDEN-MVP.md`；service reload runtime supplement 见 `SERVICE-LIFECYCLE-PROTOTYPE.md`。
+- CLI 命令映射见 `CLI-COMMANDS.md`；typed client 映射见 `EDEN.md`；service reload runtime supplement 见 `SERVICE-LIFECYCLE.md`。
 - Event subject 名称可以在规则中被引用，但 subject catalog authority 仍在 `docs/events/EVENT-CATALOG.md`。
 
 ---
@@ -104,11 +104,11 @@ Protected by `core:read`.
 
 Returns service summaries. Built-in services include live runtime data; registered service definitions may appear without runtime details.
 
-The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
+The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE.md`.
 
 ### Follow-on Capability Domain Service REST Ownership
 
-Some post-MVP external routes are owned directly by capability domain services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
+Some external routes are owned directly by capability domain services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
 
 Examples:
 
@@ -540,7 +540,7 @@ type CreateNodeTicketResponse = {
 
 Rules:
 
-- Join Ticket is the public agent join entrypoint for MVP.
+- Join Ticket is the public agent join entrypoint.
 - `joinUrl` points to `wss://<host>:8443/join/v0/session`.
 - ticket plaintext is returned once and must not be logged.
 - successful ticket creation publishes `node.registration.requested.v0` and `node.join-ticket.created.v0`.
@@ -581,7 +581,7 @@ Rules:
 - default mode is `simulated`.
 - `agent` mode is rejected with `409 node.agent_join_ticket_required`; use `POST /api/v0/node-tickets` instead.
 - `simulated` mode preserves the synchronous local-only path used for development and tests.
-- Core node registration is not exposed through this MVP endpoint.
+- Core node registration is not exposed through this endpoint.
 - successful registration publishes `node.registration.requested.v0` and `node.registration.accepted.v0`.
 
 ### `POST /api/v0/nodes/:id/credentials`
@@ -635,7 +635,7 @@ Rules:
 
 Protected by `core:read`.
 
-Returns all MVP node records.
+Returns all node records.
 
 ### `GET /api/v0/nodes/:id`
 
@@ -870,7 +870,7 @@ type SessionContextResponse = {
 Rules:
 
 - This endpoint is for display and command eligibility only.
-- `permissions` returns the actor's full MVP permission string list.
+- `permissions` returns the actor's full permission string list.
 - The response must not expose role inheritance, policy internals, RBAC table structure, or policy evaluation traces.
 - BFF may use it to show disabled command explanations.
 - It must not replace M-Policy checks on mutating routes.

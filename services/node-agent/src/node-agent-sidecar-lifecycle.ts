@@ -7,6 +7,7 @@ import type {
   SecretFailureFromSchema,
   SecretRefFromSchema
 } from '../../../packages/contracts/src/index.ts'
+import { DeploymentConfigV02Schema } from '../../../packages/contracts/src/index.ts'
 import {
   createSecretManagerFromConfigs,
   redactSecretRef,
@@ -14,7 +15,6 @@ import {
   resolveSidecarCredentials,
   type SecretManager
 } from '../../../packages/secrets/src/index.ts'
-import { DeploymentConfigV02Schema } from '../../../packages/contracts/src/index.ts'
 
 export const DEFAULT_DEPLOYMENT_CONFIG_PATH = '/etc/meristem/node-agent/deployment-v02.json'
 export const DEFAULT_SIDECAR_CONFIG_PATH = '/run/meristem/netbird/sidecar.json'

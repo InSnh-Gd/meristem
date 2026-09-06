@@ -23,8 +23,9 @@ describe('HTTP approval/profile writers', () => {
     const result = await port.approve('a1', { reason: 'ship it' }, context)
     expect(result.ok).toBe(true)
     expect(captured?.method).toBe('POST')
-    expect((captured?.headers as Record<string, string>).authorization).toBe('Bearer token-1')
-    expect((captured?.headers as Record<string, string>)['x-correlation-id']).toBe('corr-1')
+    const headers = captured?.headers as Record<string, string> | undefined
+    expect(headers?.authorization).toBe('Bearer token-1')
+    expect(headers?.['x-correlation-id']).toBe('corr-1')
     expect(captured?.body).toBe(JSON.stringify({ reason: 'ship it' }))
   })
 

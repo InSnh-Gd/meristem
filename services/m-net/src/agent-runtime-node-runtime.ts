@@ -1,4 +1,3 @@
-import { and, eq } from 'drizzle-orm'
 import type { NodeAgentRuntimeDesiredSidecar } from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 import { decodeMNetProfileV03Compatibility } from '../../../packages/contracts/src/schemas/mnet-profile-v03.ts'

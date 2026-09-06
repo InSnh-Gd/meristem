@@ -5,7 +5,7 @@ import { ApiErrorSchema, OperationDangerLevelSchema, RiskFactorSchema } from './
 export const TaskTypeSchema = Schema.Literal('noop')
 export type TaskTypeFromSchema = typeof TaskTypeSchema.Type
 
-export const MTaskStatusSchema = Schema.Literal(
+export const MTaskStatusSchema = Schema.Literals([
   'accepted',
   'queued',
   'dispatched',
@@ -15,7 +15,7 @@ export const MTaskStatusSchema = Schema.Literal(
   'cancel_requested',
   'canceled',
   'timed_out'
-)
+])
 export type MTaskStatusFromSchema = typeof MTaskStatusSchema.Type
 
 export const TaskRiskSummarySchema = Schema.Struct({
@@ -25,18 +25,18 @@ export const TaskRiskSummarySchema = Schema.Struct({
 })
 export type TaskRiskSummaryFromSchema = typeof TaskRiskSummarySchema.Type
 
-export const TaskPolicyResultSchema = Schema.Literal(
+export const TaskPolicyResultSchema = Schema.Literals([
   'allow',
   'deny',
   'require_manual_review',
   'require_multi_approval'
-)
+])
 export type TaskPolicyResultFromSchema = typeof TaskPolicyResultSchema.Type
 
 export const MTaskPolicyDecisionSchema = Schema.Struct({
   decisionId: Schema.String,
   result: TaskPolicyResultSchema,
-  requiredAction: Schema.optional(Schema.Literal('manual_review', 'multi_approval')),
+  requiredAction: Schema.optional(Schema.Literals(['manual_review', 'multi_approval'])),
   reasons: Schema.Array(Schema.String)
 })
 export type MTaskPolicyDecisionFromSchema = typeof MTaskPolicyDecisionSchema.Type
@@ -144,7 +144,7 @@ export const TaskOperationSuspendedPayloadSchema = Schema.Struct({
   decisionId: Schema.String,
   action: Schema.String,
   resource: Schema.String,
-  actor: Schema.Literal(...actorIds)
+  actor: Schema.Literals(actorIds)
 })
 export type TaskOperationSuspendedPayloadFromSchema =
   typeof TaskOperationSuspendedPayloadSchema.Type

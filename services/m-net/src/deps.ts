@@ -4,25 +4,23 @@ import type {
   MNetOperationalEventIngestRequestFromSchema,
   MNetOperationalEventIngestResponseFromSchema,
   MNetOperationalSnapshotFromSchema,
+  MNetRegionalProfile,
   MNetwork,
   MNetworkMember,
+  NetworkSummary,
+  NetworkSuspendedOperation,
   NodeAgentRuntimeDesiredSidecar,
   NodeAgentRuntimeStatus,
-  NetworkSummary,
   NodeAgentTaskExecuteResponse,
   NodeControlAction,
   NodeControlResponse
 } from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import type {
-  MNetRegionalProfile,
-  NetworkSuspendedOperation
-} from '../../../packages/contracts/src/index.ts'
+import type { MNetDb } from './clients.ts'
 import type { DataPlaneStores } from './data-plane-store-types.ts'
 import type { ForcedRelayNodeContext } from './forced-relay-node-context.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
 import type { MigrationEngine } from './migration-engine.ts'
-import type { MNetDb } from './clients.ts'
 import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { MNetServiceResult } from './types.ts'

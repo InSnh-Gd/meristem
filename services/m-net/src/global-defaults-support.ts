@@ -1,6 +1,7 @@
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import type { MNetAppDeps } from './deps.ts'
 import { CHINA_DATA_PLANE_PROFILE_VERSION } from './mnet-dataplane-workflows.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 import { verifyBearerAuth } from './route-helpers.ts'
 
 type RouteSet = { status?: unknown }
@@ -130,15 +131,17 @@ export async function requireGlobalDefaultsPolicy(
     set: RouteSet
   }
 ): Promise<{ policyDecisionId: string } | RouteFailure> {
-  const policyResult = await policyAuthorize.authorize(input.actor, input.action, input.resource)
-  if (policyResult.result !== 'allow') {
-    return routeFailure(
-      403,
-      'policy.denied',
-      `${input.deniedPrefix} denied: ${policyResult.reasons.join(', ')}`
-    )
+  const policyGuard = await authorizeOr403(policyAuthorize, {
+    actor: input.actor,
+    action: input.action,
+    resource: input.resource,
+    deniedPrefix: input.deniedPrefix,
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
+    return routeFailure(policyGuard.status, policyGuard.code, policyGuard.message)
   }
-  return { policyDecisionId: policyResult.id }
+  return { policyDecisionId: policyGuard.policyDecisionId }
 }
 
 /**

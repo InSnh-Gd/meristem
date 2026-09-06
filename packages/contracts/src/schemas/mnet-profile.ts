@@ -2,37 +2,37 @@ import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
 import { MNetRegionalProfileV03Schema } from './mnet-profile-v03.ts'
 
-export const MNetActiveProfileVersionSchema = Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0')
+export const MNetActiveProfileVersionSchema = Schema.Literals(['m-net@0.3.0', 'm-net-cn@0.3.0'])
 export type MNetActiveProfileVersionFromSchema = typeof MNetActiveProfileVersionSchema.Type
 
-export const MNetProfileVersionSchema = Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0')
+export const MNetProfileVersionSchema = Schema.Literals(['m-net@0.3.0', 'm-net-cn@0.3.0'])
 export type MNetProfileVersionFromSchema = typeof MNetProfileVersionSchema.Type
 
-export const MNetHistoricalProfileVersionSchema = Schema.Literal(
+export const MNetHistoricalProfileVersionSchema = Schema.Literals([
   'm-net-default@0.1.0',
   'm-net-cn@0.1.0',
   'm-net-cn@0.2.0',
   'm-net@0.3.0',
   'm-net-cn@0.3.0'
-)
+])
 export type MNetHistoricalProfileVersionFromSchema = typeof MNetHistoricalProfileVersionSchema.Type
 
-export const MNetProfileRegionSchema = Schema.Literal('cn', 'default')
+export const MNetProfileRegionSchema = Schema.Literals(['cn', 'default'])
 export type MNetProfileRegionFromSchema = typeof MNetProfileRegionSchema.Type
 
-export const MNetProfileSchemaVersionSchema = Schema.Literal(
+export const MNetProfileSchemaVersionSchema = Schema.Literals([
   'mnet-profile@0.1.0',
   'mnet-profile@0.2.0',
   'mnet-profile@0.3.0'
-)
+])
 export type MNetProfileSchemaVersionFromSchema = typeof MNetProfileSchemaVersionSchema.Type
 
-export const LegacyMNetRegionalProfileSchema = MNetRegionalProfileV03Schema.pipe(
-  Schema.filter(profile => {
+export const LegacyMNetRegionalProfileSchema = MNetRegionalProfileV03Schema.check(
+  Schema.makeFilter(profile => {
     const issues: Array<Schema.FilterIssue> = []
 
     if (profile.schemaVersion !== 'mnet-profile@0.3.0') {
-      issues.push({ path: ['schemaVersion'], message: 'v0.3 profiles require mnet-profile@0.3.0' })
+      issues.push({ path: ['schemaVersion'], issue: 'v0.3 profiles require mnet-profile@0.3.0' })
     }
     return issues
   })
@@ -48,20 +48,20 @@ export const SetNetworkProfileRequestSchema = Schema.Struct({
 })
 export type SetNetworkProfileRequestFromSchema = typeof SetNetworkProfileRequestSchema.Type
 
-export const NetworkProfileStateSchema = Schema.Literal(
+export const NetworkProfileStateSchema = Schema.Literals([
   'disabled',
   'enabling',
   'enabled',
   'disabling',
   'failed'
-)
+])
 export type NetworkProfileStateFromSchema = typeof NetworkProfileStateSchema.Type
 
 export const NetworkProfileSummarySchema = Schema.Struct({
   networkId: Schema.String,
   profileVersion: MNetHistoricalProfileVersionSchema,
   status: NetworkProfileStateSchema,
-  enabledBy: Schema.optional(Schema.Literal(...actorIds)),
+  enabledBy: Schema.optional(Schema.Literals(actorIds)),
   policyDecisionId: Schema.optional(Schema.String),
   correlationId: Schema.optional(Schema.String),
   appliedAt: Schema.optional(Schema.String),
@@ -71,24 +71,24 @@ export const NetworkProfileSummarySchema = Schema.Struct({
 })
 export type NetworkProfileSummaryFromSchema = typeof NetworkProfileSummarySchema.Type
 
-export const NetworkSuspendedOperationStatusSchema = Schema.Literal(
+export const NetworkSuspendedOperationStatusSchema = Schema.Literals([
   'suspended',
   'resumed',
   'rejected',
   'expired',
   'resume_failed'
-)
+])
 export type NetworkSuspendedOperationStatusFromSchema =
   typeof NetworkSuspendedOperationStatusSchema.Type
 
 export const NetworkSuspendedOperationSchema = Schema.Struct({
   id: Schema.String,
   policyDecisionId: Schema.String,
-  action: Schema.Literal('mnet.profile.enable', 'mnet.profile.disable'),
+  action: Schema.Literals(['mnet.profile.enable', 'mnet.profile.disable']),
   networkId: Schema.String,
   fromProfileVersion: MNetHistoricalProfileVersionSchema,
   toProfileVersion: MNetHistoricalProfileVersionSchema,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   reason: Schema.String,
   correlationId: Schema.String,
   idempotencyKey: Schema.String,
@@ -100,7 +100,7 @@ export const NetworkSuspendedOperationSchema = Schema.Struct({
 })
 export type NetworkSuspendedOperationFromSchema = typeof NetworkSuspendedOperationSchema.Type
 
-export const MNetProfileEventSubjectSchema = Schema.Literal(
+export const MNetProfileEventSubjectSchema = Schema.Literals([
   'mnet.profile.enable.requested.v0',
   'mnet.profile.enabled.v0',
   'mnet.profile.disable.requested.v0',
@@ -114,14 +114,14 @@ export const MNetProfileEventSubjectSchema = Schema.Literal(
   'mnet.node_key.rotated.v0',
   'mnet.relay.assigned.v0',
   'mnet.dataplane.tunnel.changed.v0'
-)
+])
 export type MNetProfileEventSubjectFromSchema = typeof MNetProfileEventSubjectSchema.Type
 
 export const MNetProfileEventPayloadSchema = Schema.Struct({
   networkId: Schema.String,
   fromProfileVersion: MNetHistoricalProfileVersionSchema,
   toProfileVersion: MNetHistoricalProfileVersionSchema,
-  actor: Schema.Union(Schema.Literal(...actorIds), Schema.Literal('system')),
+  actor: Schema.Union([Schema.Literals(actorIds), Schema.Literal('system')]),
   policyDecisionId: Schema.String,
   approvalId: Schema.optional(Schema.String),
   operationId: Schema.optional(Schema.String),
@@ -134,7 +134,7 @@ export type MNetProfileEventPayloadFromSchema = typeof MNetProfileEventPayloadSc
 /** 全局默认 Profile 更新事件 payload（DFW-014） */
 export const MNetProfileDefaultsUpdatedEventPayloadSchema = Schema.Struct({
   defaultProfileVersion: MNetActiveProfileVersionSchema,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Literals(actorIds),
   reason: Schema.String,
   correlationId: Schema.String,
   controlPlaneOnly: Schema.Literal(true)
@@ -142,13 +142,13 @@ export const MNetProfileDefaultsUpdatedEventPayloadSchema = Schema.Struct({
 export type MNetProfileDefaultsUpdatedEventPayloadFromSchema =
   typeof MNetProfileDefaultsUpdatedEventPayloadSchema.Type
 
-export const MNetRelayTypeSchema = Schema.Literal('wstunnel', 'direct')
+export const MNetRelayTypeSchema = Schema.Literals(['wstunnel', 'direct'])
 export type MNetRelayTypeFromSchema = typeof MNetRelayTypeSchema.Type
 
-export const MNetTunnelStatusSchema = Schema.Literal('up', 'down', 'degraded')
+export const MNetTunnelStatusSchema = Schema.Literals(['up', 'down', 'degraded'])
 export type MNetTunnelStatusFromSchema = typeof MNetTunnelStatusSchema.Type
 
-export const MNetPathTypeSchema = Schema.Literal('direct', 'relay', 'none')
+export const MNetPathTypeSchema = Schema.Literals(['direct', 'relay', 'none'])
 export type MNetPathTypeFromSchema = typeof MNetPathTypeSchema.Type
 
 export const MNetNetworkMapMemberSchema = Schema.Struct({
@@ -175,10 +175,10 @@ export type MNetRelayAssignmentFromSchema = typeof MNetRelayAssignmentSchema.Typ
 
 export const MNetAclRuleSchema = Schema.Struct({
   ruleId: Schema.String,
-  action: Schema.Literal('allow', 'deny'),
+  action: Schema.Literals(['allow', 'deny']),
   sourceNodeId: Schema.String,
   targetNodeId: Schema.String,
-  protocol: Schema.Literal('any', 'tcp', 'udp', 'icmp')
+  protocol: Schema.Literals(['any', 'tcp', 'udp', 'icmp'])
 })
 export type MNetAclRuleFromSchema = typeof MNetAclRuleSchema.Type
 
@@ -218,20 +218,20 @@ export const NetworkMapSchema = Schema.Struct({
 })
 export type NetworkMapFromSchema = typeof NetworkMapSchema.Type
 
-export const NetworkMapEnforcementReasonSchema = Schema.Literal(
+export const NetworkMapEnforcementReasonSchema = Schema.Literals([
   'network_map.stale',
   'network_map.invalid_signature',
   'network_map.version_regression'
-)
+])
 export type NetworkMapEnforcementReasonFromSchema = typeof NetworkMapEnforcementReasonSchema.Type
 
-export const NetworkMapEnforcementDecisionSchema = Schema.Union(
+export const NetworkMapEnforcementDecisionSchema = Schema.Union([
   Schema.Struct({ decision: Schema.Literal('apply') }),
   Schema.Struct({
     decision: Schema.Literal('fail_closed'),
     reason: NetworkMapEnforcementReasonSchema
   })
-)
+])
 export type NetworkMapEnforcementDecisionFromSchema =
   typeof NetworkMapEnforcementDecisionSchema.Type
 
@@ -290,7 +290,7 @@ export const MNetNodeKeyRotatedEventPayloadSchema = Schema.Struct({
   oldKeyFingerprint: Schema.String,
   newKeyFingerprint: Schema.String,
   rotationReason: Schema.String,
-  actor: Schema.Union(Schema.Literal(...actorIds), Schema.Literal('system')),
+  actor: Schema.Union([Schema.Literals(actorIds), Schema.Literal('system')]),
   correlationId: Schema.String,
   auditId: Schema.String
 })
@@ -340,11 +340,11 @@ export const SetNetworkProfileDisabledResponseSchema = Schema.Struct({
 export type SetNetworkProfileDisabledResponseFromSchema =
   typeof SetNetworkProfileDisabledResponseSchema.Type
 
-export const MNetDataPlaneActivationStatusSchema = Schema.Literal(
+export const MNetDataPlaneActivationStatusSchema = Schema.Literals([
   'activating',
   'active',
   'degraded'
-)
+])
 export type MNetDataPlaneActivationStatusFromSchema =
   typeof MNetDataPlaneActivationStatusSchema.Type
 
@@ -359,11 +359,11 @@ export const SetNetworkProfileDataPlaneActivatedResponseSchema = Schema.Struct({
 export type SetNetworkProfileDataPlaneActivatedResponseFromSchema =
   typeof SetNetworkProfileDataPlaneActivatedResponseSchema.Type
 
-export const SetNetworkProfileResponseSchema = Schema.Union(
+export const SetNetworkProfileResponseSchema = Schema.Union([
   SetNetworkProfilePendingApprovalResponseSchema,
   SetNetworkProfileDisabledResponseSchema,
   SetNetworkProfileDataPlaneActivatedResponseSchema
-)
+])
 export type SetNetworkProfileResponseFromSchema = typeof SetNetworkProfileResponseSchema.Type
 
 export const NetworkMapResponseSchema = Schema.Struct({
@@ -393,7 +393,7 @@ export const NodeKeyRegistrationResponseSchema = Schema.Struct({
 })
 export type NodeKeyRegistrationResponseFromSchema = typeof NodeKeyRegistrationResponseSchema.Type
 
-export const MNetPartitionStateSchema = Schema.Literal('connected', 'partitioned', 'unknown')
+export const MNetPartitionStateSchema = Schema.Literals(['connected', 'partitioned', 'unknown'])
 export type MNetPartitionStateFromSchema = typeof MNetPartitionStateSchema.Type
 
 export const DataPlaneStatusResponseSchema = Schema.Struct({

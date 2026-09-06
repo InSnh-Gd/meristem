@@ -38,7 +38,7 @@
 | PolicyDecision | M-Policy | decision fact; high-risk copies into Audit Log |
 | ExtensionDefinition / ExtensionInstance / ExtensionTransition | M-Extension | M-Extension control-plane registry and `system/default` instance state; no execution runtime state |
 
-The MVP concrete schema is defined in `docs/data/POSTGRES-SCHEMA-MVP.md`.
+The concrete PostgreSQL schema is defined in `docs/data/POSTGRES-SCHEMA.md`.
 
 ---
 
@@ -101,7 +101,7 @@ Ownership rules:
 
 - these tables are authoritative state owned by M-Log
 - they must not be used as cache or event state
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`
 
 ---
 
@@ -119,7 +119,7 @@ Ownership rules:
 
 - these tables must not store executable code, Wasm binaries, raw webhook tokens, secret values, or runtime execution state
 - `scopeType` / `scopeId` remain bounded to `system/default` in the current baseline
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`
 
 ---
 
@@ -138,7 +138,7 @@ Rules:
 - token plaintext is never stored.
 - `jti` is the revocation key.
 - Capability domain services must use Core introspection and must not read these tables directly.
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`.
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`.
 
 ---
 
@@ -158,7 +158,7 @@ Rules:
 - secret plaintext must not be returned after create / rotate.
 - secret values must not appear in logs, projections, UI errors, LLM prompts, or event payloads.
 - production KMS / Vault storage remains deferred.
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`.
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`.
 
 ---
 
@@ -179,7 +179,7 @@ Rules:
 - event subjects notify lifecycle changes but do not replace PostgreSQL as the authoritative state.
 - config payloads must not contain secret plaintext; use `secretRef`.
 - OpenSearch may project lifecycle facts but must not become the canonical authority.
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`.
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`.
 
 ## 11. Approval State Ownership
 
@@ -202,4 +202,4 @@ Ownership rules:
 
 - `policy_approvals.operation_id` references the origin operation by convention, not by cross-service foreign key
 - PostgreSQL may be shared, but service ownership remains explicit
-- the concrete column definitions live in `POSTGRES-SCHEMA-MVP.md`
+- the concrete column definitions live in `POSTGRES-SCHEMA.md`

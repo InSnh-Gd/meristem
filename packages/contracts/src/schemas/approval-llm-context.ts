@@ -17,22 +17,22 @@ import {
 
 // ── Redacted source reference (never contains raw values) ─────────────
 
-export const ApprovalContextSourceSchema = Schema.Literal(
+export const ApprovalContextSourceSchema = Schema.Literals([
   'approval',
   'policy-decision',
   'vote',
   'operation',
   'log-summary',
   'task-reference'
-)
+])
 export type ApprovalContextSourceFromSchema = typeof ApprovalContextSourceSchema.Type
 
 // ── Bounded vote entry (no raw actor token, no unbounded reason) ──────
 
 export const ApprovalContextVoteEntrySchema = Schema.Struct({
-  actor: Schema.Literal(...actorIds),
-  vote: Schema.Literal('approve', 'reject'),
-  reason: Schema.optional(Schema.String.pipe(Schema.maxLength(500))),
+  actor: Schema.Literals(actorIds),
+  vote: Schema.Literals(['approve', 'reject']),
+  reason: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
   createdAt: Schema.String
 })
 export type ApprovalContextVoteEntryFromSchema = typeof ApprovalContextVoteEntrySchema.Type
@@ -44,7 +44,7 @@ export const ApprovalContextApprovalEntrySchema = Schema.Struct({
   status: ApprovalStatusSchema,
   originService: ApprovalOriginServiceSchema,
   operationId: Schema.String,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   requiredAction: RequiredActionSchema,
   quorumRequired: Schema.Number,
   expiresAt: Schema.String,
@@ -57,10 +57,10 @@ export type ApprovalContextApprovalEntryFromSchema = typeof ApprovalContextAppro
 
 export const ApprovalContextDecisionRefSchema = Schema.Struct({
   decisionId: Schema.String,
-  action: Schema.String.pipe(Schema.maxLength(64)),
-  resource: Schema.String.pipe(Schema.maxLength(256)),
-  result: Schema.Literal('allow', 'deny', 'require_manual_review', 'require_multi_approval'),
-  reasons: Schema.Array(Schema.String.pipe(Schema.maxLength(200)))
+  action: Schema.String.check(Schema.isMaxLength(64)),
+  resource: Schema.String.check(Schema.isMaxLength(256)),
+  result: Schema.Literals(['allow', 'deny', 'require_manual_review', 'require_multi_approval']),
+  reasons: Schema.Array(Schema.String.check(Schema.isMaxLength(200)))
 })
 export type ApprovalContextDecisionRefFromSchema = typeof ApprovalContextDecisionRefSchema.Type
 
@@ -68,15 +68,15 @@ export type ApprovalContextDecisionRefFromSchema = typeof ApprovalContextDecisio
 
 export const ApprovalContextOperationRefSchema = Schema.Struct({
   operationId: Schema.String,
-  action: Schema.String.pipe(Schema.maxLength(64)),
-  status: Schema.Literal('suspended', 'resumed', 'rejected', 'expired', 'resume_failed')
+  action: Schema.String.check(Schema.isMaxLength(64)),
+  status: Schema.Literals(['suspended', 'resumed', 'rejected', 'expired', 'resume_failed'])
 })
 export type ApprovalContextOperationRefFromSchema = typeof ApprovalContextOperationRefSchema.Type
 
 // ── Redacted log summary reference ─────────────────────────────────────
 
 export const ApprovalContextLogRefSchema = Schema.Struct({
-  source: Schema.Literal('timeline', 'full-log'),
+  source: Schema.Literals(['timeline', 'full-log']),
   lineCount: Schema.Number,
   truncated: Schema.Boolean
 })
@@ -106,12 +106,12 @@ export type ApprovalContextFromSchema = typeof ApprovalContextSchema.Type
 
 // ── Error types ────────────────────────────────────────────────────────
 
-export const ApprovalContextErrorCodeSchema = Schema.Literal(
+export const ApprovalContextErrorCodeSchema = Schema.Literals([
   'approval_context.not_found',
   'approval_context.source_unavailable',
   'approval_context.redaction_failed',
   'approval_context.forbidden'
-)
+])
 export type ApprovalContextErrorCodeFromSchema = typeof ApprovalContextErrorCodeSchema.Type
 
 export const ApprovalContextErrorSchema = Schema.Struct({

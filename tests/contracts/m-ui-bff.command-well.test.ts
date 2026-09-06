@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import { Elysia } from 'elysia'
 import {
@@ -51,7 +51,7 @@ describe('M-UI BFF contract tests', () => {
     })
     expect(res.status).toBe(200)
     const body = (await res.json()) as { state: string; command: { id: string } }
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
       true
     )
     expect(body.state).toBe('enabled')
@@ -72,7 +72,7 @@ describe('M-UI BFF contract tests', () => {
       disabledReason: string
       disabled: { code: string; missingPermission?: string }
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
       true
     )
     expect(body.state).toBe('disabled')
@@ -107,7 +107,7 @@ describe('M-UI BFF contract tests', () => {
       disabledReason: string
       disabled: { code: string }
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
       true
     )
     expect(body.state).toBe('disabled')
@@ -130,7 +130,7 @@ describe('M-UI BFF contract tests', () => {
       disabledReason: string
       disabled: { code: string }
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
       true
     )
     expect(body.state).toBe('disabled')
@@ -171,7 +171,7 @@ describe('M-UI BFF contract tests', () => {
       disabledReason: string
       disabled: { code: string }
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+    expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
       true
     )
     expect(body.state).toBe('disabled')
@@ -251,9 +251,9 @@ describe('M-UI BFF contract tests', () => {
       displayOnly: boolean
       executePath?: string
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(
-      true
-    )
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
+    ).toBe(true)
     expect(body.commandId).toBe('policy.approval.approve.preview')
     expect(body.state).toBe('enabled')
     expect(body.displayOnly).toBe(true)
@@ -292,9 +292,9 @@ describe('M-UI BFF contract tests', () => {
       disabledReason?: string
       displayOnly: boolean
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(
-      true
-    )
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
+    ).toBe(true)
     expect(body.commandId).toBe('policy.approval.approve.preview')
     expect(body.state).toBe('disabled')
     expect(body.disabledReason).toBe('缺少权限：policy:approval-approve')
@@ -342,9 +342,9 @@ describe('M-UI BFF contract tests', () => {
       disabledReason?: string
       displayOnly: boolean
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(
-      true
-    )
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
+    ).toBe(true)
     expect(body.commandId).toBe('policy.approval.reject.preview')
     expect(body.state).toBe('disabled')
     expect(body.disabledReason).toBe('审批已不是 pending 状态')
@@ -371,9 +371,9 @@ describe('M-UI BFF contract tests', () => {
       disabledReason?: string
       displayOnly: boolean
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(
-      true
-    )
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
+    ).toBe(true)
     expect(body.commandId).toBe('network.profile.enable.preview')
     expect(body.state).toBe('disabled')
     expect(body.disabledReason).toBe('缺少权限：network:profile-enable')
@@ -400,9 +400,9 @@ describe('M-UI BFF contract tests', () => {
       disabledReason?: string
       displayOnly: boolean
     }
-    expect(Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))).toBe(
-      true
-    )
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
+    ).toBe(true)
     expect(body.commandId).toBe('network.profile.disable.preview')
     expect(body.state).toBe('disabled')
     expect(body.disabledReason).toBe('Profile 操作当前仅提供只读预览')

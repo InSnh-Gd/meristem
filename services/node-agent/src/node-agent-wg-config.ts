@@ -131,7 +131,7 @@ function defaultPortForProtocol(protocol: string): string | null {
 }
 
 function buildInterfaceLines(
-  localMember: NetworkMapMember,
+  _localMember: NetworkMapMember,
   privateKey: string,
   listenPort: number
 ) {

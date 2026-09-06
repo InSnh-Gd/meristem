@@ -1,5 +1,49 @@
 import type { ActorId, Permission } from './literals.ts'
+import type {
+  CoreDependenciesFromSchema,
+  CoreModeFromSchema,
+  CreateNetworkResponseFromSchema,
+  CreateNodeTicketResponseFromSchema,
+  DependencyStateFromSchema,
+  HealthResponseFromSchema,
+  JoinNetworkResponseFromSchema,
+  MNetworkFromSchema,
+  MNetworkMemberFromSchema,
+  NetworkMembershipModeFromSchema,
+  NetworkMembershipStatusFromSchema,
+  NetworkStatusFromSchema,
+  NetworkSummaryFromSchema,
+  NodeControlActionFromSchema,
+  NodeKindFromSchema,
+  NodeModeFromSchema,
+  NodeReachabilityFromSchema,
+  NodeStatusFromSchema,
+  OperationDangerLevelFromSchema,
+  PolicyResultFromSchema,
+  ReadyResponseFromSchema,
+  RiskFactorFromSchema,
+  ServiceDomainFromSchema,
+  ServiceKindFromSchema,
+  ServiceLifecycleFromSchema,
+  ServiceReloadResponseFromSchema,
+  ServiceRuntimeModeFromSchema,
+  SessionResponseFromSchema,
+  StatusResponseFromSchema
+} from './schemas/core.ts'
+import type {
+  ActorTokenV02FromSchema,
+  IdentityActorStatusFromSchema,
+  IdentityActorV02FromSchema,
+  IdentityTokenStatusFromSchema,
+  TokenIntrospectionResultFromSchema
+} from './schemas/identity.ts'
 import type { RedactedSecretRefFromSchema, SecretRefFromSchema } from './schemas/secret-provider.ts'
+import type {
+  MTaskStatusFromSchema,
+  NodeAgentTaskExecuteResponseFromSchema,
+  TaskPolicyResultFromSchema,
+  TaskTypeFromSchema
+} from './schemas/task.ts'
 
 export type { ActorId, Permission } from './literals.ts'
 export type {
@@ -12,7 +56,13 @@ export type {
   IssueNodeCredentialResponse,
   RevokeNodeCredentialResponse
 } from './types/core-node-credentials.ts'
-export type DependencyState = 'ready' | 'unavailable'
+
+// 与 schemas/* 存在孪生关系的契约一律以 `type X = XFromSchema` 别名引用 schema
+// 作为结构源，消除手写孪生类型（模式先例：NodeAgentRedactedSecretRef）。
+// 含可选属性的孪生结构（MNode/MTask/PolicyDecision/日志条目等）保留手写：
+// Effect `Schema.optional` 的 Type 是 `prop?: T | undefined`，在
+// exactOptionalPropertyTypes 下与 TypeBox 路由 schema 推导（`prop?: T`）不兼容。
+export type DependencyState = DependencyStateFromSchema
 
 export type NodeAgentRuntimeStatusKind = 'starting' | 'healthy' | 'degraded' | 'stopped' | 'failed'
 
@@ -70,7 +120,7 @@ export type NodeAgentRuntimeStatus = {
 // ReadyResponse 只报告当前 MVP 必需依赖，不把可选后端混进运行门禁。
 export type CoreDependencyName = 'postgres' | 'nats' | 'm-policy' | 'm-log' | 'm-eventbus' | 'm-net'
 
-export type CoreDependencies = Record<CoreDependencyName, DependencyState>
+export type CoreDependencies = CoreDependenciesFromSchema
 
 export type ApiError = {
   error: {
@@ -81,24 +131,11 @@ export type ApiError = {
 }
 
 // 服务摘要用于 service list、reload 和运行态聚合，不等同于完整 service definition。
-export type CoreMode = 'normal' | 'degraded' | 'safe'
-export type ServiceDomain =
-  | 'core'
-  | 'm-net'
-  | 'm-eventbus'
-  | 'm-log'
-  | 'm-policy'
-  | 'm-task'
-  | 'm-ui'
-  | 'm-cli'
-  | 'm-extension'
-export type ServiceKind = 'core' | 'internal' | 'node' | 'task' | 'extension' | 'bff'
-export type ServiceRuntimeMode = 'normal' | 'degraded'
-export type ServiceLifecycle = {
-  reloadable: boolean
-  rollbackable: boolean
-  degradable: boolean
-}
+export type CoreMode = CoreModeFromSchema
+export type ServiceDomain = ServiceDomainFromSchema
+export type ServiceKind = ServiceKindFromSchema
+export type ServiceRuntimeMode = ServiceRuntimeModeFromSchema
+export type ServiceLifecycle = ServiceLifecycleFromSchema
 export type ServiceRuntime = {
   liveness: boolean
   readiness: boolean
@@ -115,72 +152,24 @@ export type ServiceSummary = {
   runtime?: ServiceRuntime
 }
 
-export type HealthResponse = {
-  ok: true
-  service: 'meristem-core'
-  version: string
-  uptimeMs: number
-}
+export type HealthResponse = HealthResponseFromSchema
 
 // SessionResponse 让 UI/BFF 在不调用 M-Policy 的前提下获取当前操作者身份和权限列表。
-export type SessionResponse = {
-  actor: ActorId
-  permissions: Permission[]
-}
+export type SessionResponse = SessionResponseFromSchema
 
-export type IdentityActorStatus = 'active' | 'disabled'
-export type IdentityTokenStatus = 'active' | 'revoked' | 'expired'
+export type IdentityActorStatus = IdentityActorStatusFromSchema
+export type IdentityTokenStatus = IdentityTokenStatusFromSchema
 
-export interface IdentityActorV02 {
-  readonly id: ActorId
-  readonly displayName: string
-  readonly status: IdentityActorStatus
-  readonly createdAt: string
-  readonly updatedAt: string
-}
+export type IdentityActorV02 = IdentityActorV02FromSchema
 
-export interface ActorTokenV02 {
-  readonly jti: string
-  readonly actor: ActorId
-  readonly issuer: 'meristem-local'
-  readonly audience: 'meristem-core' | 'meristem-service'
-  readonly issuedAt: string
-  readonly expiresAt: string
-  readonly issuedBy: ActorId
-  readonly purpose: string
-  readonly status: IdentityTokenStatus
-  readonly revokedAt?: string
-  readonly revokedBy?: ActorId
-  readonly revokeReason?: string
-}
+export type ActorTokenV02 = ActorTokenV02FromSchema
 
-export interface TokenIntrospectionResult {
-  readonly active: boolean
-  readonly actor?: ActorId
-  readonly jti?: string
-  readonly status?: IdentityTokenStatus
-  readonly expiresAt?: string
-}
+export type TokenIntrospectionResult = TokenIntrospectionResultFromSchema
 
 // Ready 与 Health 明确分离：前者表示依赖可用性，后者只表示进程存活。
-export type ReadyResponse = {
-  ready: boolean
-  dependencies: CoreDependencies
-}
+export type ReadyResponse = ReadyResponseFromSchema
 
-export type StatusResponse = {
-  core: {
-    id: string
-    version: string
-    mode: CoreMode
-  }
-  dependencies: ReadyResponse['dependencies']
-  counts: {
-    services: number
-    nodes: number
-    tasks: number
-  }
-}
+export type StatusResponse = StatusResponseFromSchema
 
 export type ServiceListResponse = {
   services: ServiceSummary[]
@@ -190,30 +179,15 @@ export type ServiceReloadRequest = {
   reason?: string
 }
 
-export type ServiceReloadResponse = {
-  serviceId: string
-  accepted: true
-  reloadedAt: string
-  policyDecisionId: string
-  correlationId: string
-}
+export type ServiceReloadResponse = ServiceReloadResponseFromSchema
 
 // 节点运行态同时表达部署模式、可达性和生命周期状态。
-export type NodeKind = 'stem' | 'leaf'
-export type NodeMode = 'agent' | 'managed' | 'simulated'
-export type NodeReachability = 'unknown' | 'public' | 'private' | 'reachable' | 'unreachable'
-export type NodeStatus =
-  | 'ready'
-  | 'joining'
-  | 'healthy'
-  | 'degraded'
-  | 'offline'
-  | 'disabled'
-  | 'isolated'
-  | 'recovering'
-  | 'revoked'
+export type NodeKind = NodeKindFromSchema
+export type NodeMode = NodeModeFromSchema
+export type NodeReachability = NodeReachabilityFromSchema
+export type NodeStatus = NodeStatusFromSchema
 export type NodeJoinTicketStatus = 'active' | 'redeemed' | 'expired' | 'revoked'
-export type NodeControlAction = 'disable' | 'isolate' | 'recover' | 'switch-role'
+export type NodeControlAction = NodeControlActionFromSchema
 
 export type RegisterNodeRequest = {
   kind: NodeKind
@@ -260,36 +234,12 @@ export type CreateNodeTicketRequest = {
   expiresInSeconds?: number
 }
 
-export type CreateNodeTicketResponse = {
-  ticketId: string
-  ticket: string
-  expiresAt: string
-  joinUrl: string
-  policyDecisionId: string
-  correlationId: string
-}
+export type CreateNodeTicketResponse = CreateNodeTicketResponseFromSchema
 
-export type TaskType = 'noop'
-export type MTaskStatus =
-  | 'accepted'
-  | 'queued'
-  | 'dispatched'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancel_requested'
-  | 'canceled'
-  | 'timed_out'
-export type OperationDangerLevel = 'low' | 'medium' | 'high' | 'critical'
-export type RiskFactor =
-  | 'actor_permission_level'
-  | 'operation_danger_level'
-  | 'target_node_kind'
-  | 'target_node_reachability'
-  | 'task_type_risk'
-  | 'recent_failure_count'
-  | 'outside_expected_scope'
-  | 'audit_visibility'
+export type TaskType = TaskTypeFromSchema
+export type MTaskStatus = MTaskStatusFromSchema
+export type OperationDangerLevel = OperationDangerLevelFromSchema
+export type RiskFactor = RiskFactorFromSchema
 
 // M-Task 拥有 canonical task lifecycle。
 export type SubmitTaskRequest = {
@@ -317,7 +267,7 @@ export type TaskRiskSummary = {
   riskFactors: RiskFactor[]
 }
 
-export type TaskPolicyResult = 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+export type TaskPolicyResult = TaskPolicyResultFromSchema
 
 export type MTaskPolicyDecision = {
   decisionId: string
@@ -364,12 +314,7 @@ export type NodeAgentTaskExecuteRequest = {
   correlationId?: string
 }
 
-export type NodeAgentTaskExecuteResponse = {
-  nodeId: string
-  taskId: string
-  result: 'completed'
-  completedAt: string
-}
+export type NodeAgentTaskExecuteResponse = NodeAgentTaskExecuteResponseFromSchema
 
 // Steady-state frames are session-scoped: only the handshake carries runtime secrets.
 export type JoinRedeemMessage = {
@@ -453,53 +398,30 @@ export type MNetSessionServerMessage =
   | SessionErrorMessage
 
 // 逻辑网络阶段只表达成员关系，不宣称真实传输路径或 P2P 能力。
-export type NetworkStatus = 'active'
-export type NetworkMembershipMode = 'full' | 'restricted'
-export type NetworkMembershipStatus = 'joined'
+export type NetworkStatus = NetworkStatusFromSchema
+export type NetworkMembershipMode = NetworkMembershipModeFromSchema
+export type NetworkMembershipStatus = NetworkMembershipStatusFromSchema
 
 export type CreateNetworkRequest = {
   name: string
   profileVersion?: string
 }
 
-export type MNetwork = {
-  id: string
-  name: string
-  profileVersion: string
-  status: NetworkStatus
-  createdAt: string
-}
+export type MNetwork = MNetworkFromSchema
 
-export type NetworkSummary = MNetwork & {
-  memberCount: number
-}
+export type NetworkSummary = NetworkSummaryFromSchema
 
-export type CreateNetworkResponse = {
-  network: MNetwork
-  policyDecisionId: string
-  correlationId: string
-}
+export type CreateNetworkResponse = CreateNetworkResponseFromSchema
 
 export type JoinNetworkRequest = {
   nodeId: string
 }
 
-export type MNetworkMember = {
-  networkId: string
-  nodeId: string
-  nodeKind: NodeKind
-  membershipMode: NetworkMembershipMode
-  status: NetworkMembershipStatus
-  joinedAt: string
-}
+export type MNetworkMember = MNetworkMemberFromSchema
 
-export type JoinNetworkResponse = {
-  member: MNetworkMember
-  policyDecisionId: string
-  correlationId: string
-}
+export type JoinNetworkResponse = JoinNetworkResponseFromSchema
 
-export type PolicyResult = 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+export type PolicyResult = PolicyResultFromSchema
 
 export type PolicyDecision = {
   id: string

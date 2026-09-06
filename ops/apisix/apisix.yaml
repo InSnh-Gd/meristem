@@ -119,6 +119,6 @@ routes:
 # - M-Policy /internal/v0/authorize
 # - M-Log internal write endpoints
 # - NATS, PostgreSQL, OpenSearch, Redis
-# - any route absent from the active external contract docs (`docs/contracts/REST-API-MVP.md`, `docs/services/m-ui-bff.md`)
+# - any route absent from the active external contract docs (`docs/contracts/REST-API.md`, `docs/services/m-ui-bff.md`)
 
 #END

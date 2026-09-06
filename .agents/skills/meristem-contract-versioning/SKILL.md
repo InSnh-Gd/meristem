@@ -12,8 +12,8 @@ Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. Use
 Primary source documents:
 
 - `docs/contracts/CONTRACT-VERSIONING.md`
-- `docs/contracts/REST-API-MVP.md`
-- `docs/contracts/EDEN-MVP.md`
+- `docs/contracts/REST-API.md`
+- `docs/contracts/EDEN.md`
 - `docs/contracts/CLI-COMMANDS.md`
 - `docs/events/EVENT-CATALOG.md`
 - `docs/testing/TESTING.md`

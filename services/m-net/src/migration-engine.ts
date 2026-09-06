@@ -1,8 +1,8 @@
 export type { PlanMigrationResult } from './migration-engine-pure.ts'
 
+import { applyNetwork } from './migration-engine-apply.ts'
 import { isCandidate } from './migration-engine-helpers.ts'
 import {
-  applyNetwork,
   fail,
   type MigrationEngineDeps,
   ok,

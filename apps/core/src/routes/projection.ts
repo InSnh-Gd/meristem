@@ -10,7 +10,7 @@ import {
 
 /**
  * Projection routes separate read and control permissions while keeping Core as the REST adapter.
- * 来源：`docs/contracts/REST-API-MVP.md`、`docs/services/m-log.md` 和投影契约 schema。
+ * 来源：`docs/contracts/REST-API.md`、`docs/services/m-log.md` 和投影契约 schema。
  */
 export function projectionRoutes(deps: CoreDeps) {
   return new Elysia()

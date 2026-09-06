@@ -1,31 +1,30 @@
 import { and, eq } from 'drizzle-orm'
+import * as Schema from 'effect/Schema'
 import type {
   MNetMigrationReportFromSchema,
   MNetMigrationReportItemFromSchema,
   MNetMigrationRequired,
-  MNetMigrationRequiredReasonCodeFromSchema,
-  MNetProfileV03CompatibilityResultFromSchema,
-  MNetNodeV03CompatibilityResultFromSchema
+  MNetNodeV03CompatibilityResultFromSchema,
+  MNetProfileV03CompatibilityResultFromSchema
 } from '../../../packages/contracts/src/index.ts'
 import {
   decodeMNetNodeV03Compatibility,
   decodeMNetProfileV03Compatibility,
   MNetProfileV03VersionSchema
 } from '../../../packages/contracts/src/index.ts'
-import * as Schema from 'effect/Schema'
 import {
   mnetNetworkProfileStates,
   networkMemberships,
   nodes
 } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
+import type { ProfileStore } from './profile-store.ts'
 import {
   type ProfileWorkflowFailure,
-  profileWorkflowFailure,
   type ProfileWriteBody,
+  profileWorkflowFailure,
   type RouteSet
 } from './profile-workflow-types.ts'
-import type { ProfileStore } from './profile-store.ts'
 
 export const migrationFixtureIds = {
   oldProfile: 'fixture-profile-cn-wstunnel',
