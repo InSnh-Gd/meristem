@@ -1,5 +1,6 @@
 import cac from 'cac'
 import { handleBasicCommands } from './commands/basic-commands.ts'
+import { handleDeployCommands } from './commands/deploy-commands.ts'
 import { handleExtensionApprovalCommands } from './commands/extension-approval-commands.ts'
 import { handleIdentityCommands } from './commands/identity-commands.ts'
 import { handleNodeAgentCommands } from './commands/node-agent-commands.ts'
@@ -12,6 +13,7 @@ export type { CliClient, CliRunResult } from './commands/types.ts'
 
 const handlers = [
   handleBasicCommands,
+  handleDeployCommands,
   handleNodeAgentCommands,
   handleNodeNetworkCommands,
   handleTaskProjectionCommands,
@@ -27,6 +29,7 @@ const knownCommands = new Set([
   'ready',
   'node',
   'node-agent',
+  'deploy',
   'network',
   'mnet',
   'extension',
@@ -90,6 +93,7 @@ function generateHelp(): CliRunResult {
   cli.command('ready', 'Show readiness check')
   cli.command('node', 'Node: register, ticket, issue-token, list')
   cli.command('node-agent', 'Node agent: install, upgrade, uninstall')
+  cli.command('deploy', 'Single-host deploy: wizard, tui, init, up, status, logs, down, token')
   cli.command('network', 'Network: create, list, join, members, profile')
   cli.command('mnet', 'M-Net: migration status/report, health, relay, map, break-glass')
   cli.command('extension', 'Extension: list, show, register, enable, disable')

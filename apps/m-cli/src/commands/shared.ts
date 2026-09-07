@@ -29,11 +29,27 @@ function camelKey(flag: string): string {
 }
 
 /**
+ * cac 会把纯数字 flag 值解析成 number（如 --tail 20），
+ * 这里统一还原为字符串，避免数值参数被静默丢弃。
+ * 布尔 flag（--pull 等）不属于取值参数，仍由 hasFlag 处理。
+ */
+function coerceOptionValue(
+  options: Record<string, string | boolean>,
+  flag: string
+): string | undefined {
+  const value = options[camelKey(flag)]
+  // cac 对重复 flag（--tail 20 --tail 40）返回数组：取最后一个值而不是静默丢参
+  if (Array.isArray(value)) return coerceOptionValue({ [camelKey(flag)]: value.at(-1) }, flag)
+  if (typeof value === 'number') return String(value)
+  return typeof value === 'string' ? value : undefined
+}
+
+/**
  * 从解析后的 options 中提取必填字符串参数。
  */
 export function requireOption(options: Record<string, string | boolean>, flag: string): string {
-  const value = options[camelKey(flag)]
-  if (typeof value !== 'string' || !value) throw new Error(`missing ${flag}`)
+  const value = coerceOptionValue(options, flag)
+  if (!value) throw new Error(`missing ${flag}`)
   return value
 }
 
@@ -44,8 +60,7 @@ export function optionalOption(
   options: Record<string, string | boolean>,
   flag: string
 ): string | undefined {
-  const value = options[camelKey(flag)]
-  return typeof value === 'string' ? value : undefined
+  return coerceOptionValue(options, flag)
 }
 
 /**

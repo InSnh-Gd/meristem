@@ -16,7 +16,12 @@
 
 ## 2. Global Rules
 
-- Binary name: `meristem`.
+- Distributed binary name: `meristem-cli` — a single-file executable built
+  with `bun run cli:build` (embeds the Bun runtime; no Bun installation or
+  `bun run` invocation needed on the target host, and no runtime logs beyond
+  command output).
+- From a repo checkout the same command surface runs via
+  `bun run meristem <command>` for development; behavior is identical.
 - Default Core URL: `http://localhost:3000`.
 - Core URL can be overridden by `MERISTEM_CORE_URL`.
 - Follow-on service URLs can be overridden by service-specific environment variables such as `MERISTEM_TASK_URL`, `MERISTEM_POLICY_URL`, `MERISTEM_MNET_URL`, and `MERISTEM_EXTENSION_URL` when a command is owned by an external capability domain service.
@@ -192,6 +197,26 @@ Rules:
 Permission: `network:read`.
 
 Lists network members with node kind, membership mode, and joined time.
+
+### `meristem network delete --network <network-id>`
+
+Permission: `network:delete`.
+
+Deletes an empty, profile-disabled network. Cleanup covers tunnel allocations,
+network map renders, relay assignments, sidecar desired configs and profile state.
+
+### `meristem network remove-member --network <network-id> --node <node-id>`
+
+Permission: `network:delete`.
+
+Removes a single member from a network and re-renders the signed network map;
+the removed node tears its peer routes down on the next map sync.
+
+### `meristem network update --network <network-id> --display-name <name>`
+
+Permission: `network:create`.
+
+Updates network metadata (`displayName`). The network `name` is immutable.
 
 ### `meristem network profile list`
 
@@ -500,6 +525,97 @@ Replays one projection DLQ record. Core writes Audit Log before execution and wr
 Permission: `projection:dlq-manage`.
 
 Skips one projection DLQ record. Core writes Audit Log before execution and writes Timeline Log on success.
+
+### `meristem deploy init [--env-file <path>] [--force]`
+
+Permission: none (local host orchestration; does not call Core).
+
+Generates a production env file at `ops/compose/meristem.prod.env` from
+`meristem.prod.env.example`, replacing the four `change-me` placeholders with
+random 256-bit secrets. The generated file is chmod `0600` and must never be
+committed. Refuses to overwrite an existing file unless `--force` is passed.
+
+### `meristem deploy up [--pull] [--timeout <seconds>] [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Starts the production split-container stack described by
+`ops/compose/meristem.prod.yml`. Default mode builds images from the local
+checkout (`compose up -d --build --remove-orphans --wait`) and waits until every
+service is healthy or the bootstrap container completed; `--pull` pulls registry
+images instead of building (CI-pushed deployments), falling back to a local
+build with a warning when the pull fails. `--timeout` maps to
+compose `--wait-timeout`. Compose output is streamed; non-zero compose exit
+codes map to a non-zero CLI exit.
+
+### `meristem deploy status [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Shows the per-service container table (`compose ps --all`).
+
+### `meristem deploy logs [<service>] [--tail <n>] [--follow] [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Streams service logs through `compose logs`; `--tail` and `--follow` forward to
+compose.
+
+### `meristem deploy down [--volumes] [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Stops and removes the stack (`compose down --remove-orphans`); `--volumes` also
+removes data volumes (PostgreSQL, OpenSearch, certificates, bootstrap tokens).
+
+### `meristem deploy token <actor> [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Reads the bootstrap-minted runtime token for `<actor>` from the bootstrap
+volume via `compose run --rm --entrypoint cat bootstrap
+/bootstrap/tokens/<actor>.token` and prints JSON `{ actor, token }`. `actor`
+must match `[A-Za-z0-9_-]+`. Never log or persist the printed token.
+
+### `meristem deploy wizard [--file <compose>] [--env-file <path>] [--timeout <seconds>]`
+
+Permission: none (local host orchestration).
+
+Interactive CLI deployment wizard (prompt-driven; all questions have
+defaults — in a TTY pressing Enter accepts the default, while piped/EOF
+input always counts as declining so a non-interactive run cannot silently
+deploy):
+
+1. detects the container provider and compose file;
+2. when the env file already exists, asks whether to reconfigure it while
+   keeping the existing secrets (recommended) — regenerating secrets over an
+   existing PostgreSQL data volume breaks bootstrap authentication. The
+   four secret keys must all be present in the existing file; missing keys
+   abort the wizard instead of silently rotating them;
+3. asks quick-vs-custom configuration (Core/BFF/UI/join ports, node-reachable
+   join URL, browser-reachable BFF URL, initial actors; actor names must
+   match `[A-Za-z0-9_-]+`);
+4. writes the env file (0600), runs `compose up -d --build --remove-orphans
+   --wait` and reports the UI/API endpoints;
+5. optionally reads the first configured actor's token.
+
+Progress goes to stderr; stdout carries only the final JSON result. Abort at
+any question is non-destructive.
+
+### `meristem deploy tui [--file <compose>] [--env-file <path>]`
+
+Permission: none (local host orchestration).
+
+Fullscreen TUI deploy console (ANSI alternate screen, no external TUI
+dependency). Renders the per-service state/health table parsed from
+`compose ps --all --format json`, refreshed every 3 seconds. Keys:
+`↑/↓`/`k`/`j` select a service, `l` toggles a live log pane for the selected
+service, `r` refreshes now, `u` starts the stack (`compose up -d`), `D` arms
+stack stop and `y` confirms (`compose down`; two-key confirmation is
+mandatory), `q`/`Esc`/`Ctrl-C` quits and restores the terminal. With a
+non-TTY stdin the command renders a single snapshot frame and exits (used by
+tests and CI). Data-fetch or compose failures are shown in the status line
+instead of exiting.
 
 ---
 

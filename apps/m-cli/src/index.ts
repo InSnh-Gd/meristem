@@ -6,7 +6,9 @@ import {
 import { createCliRunner } from './cli.ts'
 import { configFromEnv, createCoreClient } from './client.ts'
 
-// CLI 入口只负责拼装 Eden client、运行命令并把标准输出与错误输出维持为脚本友好形状。
+// CLI 是操作员工具：默认不导出 span（每条命令后的 span JSON 是噪音），
+// 只有显式设置 MERISTEM_OTEL_EXPORTER 时才启用对应 exporter。
+process.env.MERISTEM_OTEL_EXPORTER ??= 'none'
 initTelemetry('meristem-cli')
 const runner = createCliRunner(createCoreClient(configFromEnv()))
 const result = await withActiveSpan('meristem-cli', 'meristem-cli.run', () =>
