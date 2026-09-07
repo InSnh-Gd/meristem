@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { validateMDeployPromotionV01 } from '../packages/contracts/src/index.ts'
+import { validateWorkspaceManifestCoverage } from './oci-manifest-coverage.ts'
 
 export type OciTarget = {
   readonly name: string
@@ -142,28 +143,39 @@ export function validateDigestPinnedImage(reference: string | undefined): Pipeli
   return { ok: true, value: reference }
 }
 
-const excludedContextSegments = new Set([
+// 排除判定与 .dockerignore 的实际语义对齐：node_modules / build / dist 等生成物目录按
+// 任意深度排除（对根锚定裸名的有意超集豁免，生成物不是密钥来源）；tests / docs / config /
+// ops 是根锚定裸名，packages/config、嵌套 tests 等源码子树必须回到内容扫描范围；ops/oci
+// 显式放行；后缀级密钥文件仅在 dockerignore 真正排除的路径（根级、packages/secrets/**，
+// 大小写敏感、文件名锚定）豁免扫描，大写后缀与 prod.env 之类文件名必须扫描。
+const anyDepthExcludedSegments = new Set([
   'node_modules',
   'dist',
   'build',
   'coverage',
+  'tmp',
   'test-results',
-  'tests',
-  'docs',
-  'config',
-  'ops',
-  'secrets'
+  '.worktrees'
 ])
-const secretFilePattern = /(^|\/)(\.env(?:\..*)?|[^/]+\.(?:pem|key|p12|pfx))$/i
+const rootExcludedSegments = new Set(['tests', 'docs', 'config', 'ops', 'doc-driven-ai'])
+const secretFilePattern = /(?:^|\/)(?:\.env(?:\..+)?|[^/]*\.(?:pem|key|p12|pfx))$/
 const plaintextSecretPattern =
   /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|(?:aws_access_key_id|github_pat_|ghp_)[\s:=]/i
 
+function secretFileExcludedFromContext(path: string): boolean {
+  if (!path.includes('/')) return secretFilePattern.test(path)
+  return path.startsWith('packages/secrets/') && secretFilePattern.test(path)
+}
+
 function excludedFromBuildContext(path: string): boolean {
-  const parts = path.split('/')
-  return (
-    parts.some(part => part.startsWith('.') || excludedContextSegments.has(part)) ||
-    secretFilePattern.test(path)
-  )
+  const segments = path.split('/')
+  if (segments.some(segment => segment.startsWith('.') || anyDepthExcludedSegments.has(segment))) {
+    return true
+  }
+  const [rootSegment, secondSegment] = segments
+  if (rootSegment === 'ops' && secondSegment === 'oci') return false
+  if (rootSegment !== undefined && rootExcludedSegments.has(rootSegment)) return true
+  return secretFileExcludedFromContext(path)
 }
 
 /** 测试签名夹具可随源码进入构建上下文，但不是部署凭据，不能触发生产密钥泄漏告警。 */
@@ -433,6 +445,10 @@ function runPreflight(): void {
   for (const target of ociTargets) {
     const preflight = validateOciStaticPreflight(target)
     if (!preflight.ok) throw new Error(`${preflight.error.code}: ${preflight.error.message}`)
+  }
+  const manifestCoverage = validateWorkspaceManifestCoverage()
+  if (!manifestCoverage.ok) {
+    throw new Error(`${manifestCoverage.error.code}: ${manifestCoverage.error.message}`)
   }
   console.log(
     JSON.stringify(

@@ -373,6 +373,59 @@ describe('Projection engine', () => {
     expect(health.every(row => row.status === 'degraded')).toBe(true)
   })
 
+  it('reports unavailable when the tri-state health probe rejects', async () => {
+    const rejectingProbeEngine = createProjectionEngine(
+      fromPartial<Parameters<typeof createProjectionEngine>[0]>(db),
+      {
+        indexDocument: () => Promise.resolve(true),
+        healthStatus: () => Promise.reject(new Error('probe down'))
+      }
+    )
+
+    const health = await rejectingProbeEngine.getProjectionHealth()
+
+    expect(health.every(row => row.status === 'unavailable')).toBe(true)
+  })
+
+  it('reports unavailable for a boolean-only adapter when health is false', async () => {
+    const booleanOnlyEngine = createProjectionEngine(
+      fromPartial<Parameters<typeof createProjectionEngine>[0]>(db),
+      {
+        indexDocument: () => Promise.resolve(true),
+        health: () => Promise.resolve(false)
+      }
+    )
+
+    const health = await booleanOnlyEngine.getProjectionHealth()
+
+    expect(health.every(row => row.status === 'unavailable')).toBe(true)
+  })
+
+  it('reports healthy for a boolean-only adapter when health is true', async () => {
+    const booleanOnlyEngine = createProjectionEngine(
+      fromPartial<Parameters<typeof createProjectionEngine>[0]>(db),
+      {
+        indexDocument: () => Promise.resolve(true),
+        health: () => Promise.resolve(true)
+      }
+    )
+
+    const health = await booleanOnlyEngine.getProjectionHealth()
+
+    expect(health.every(row => row.status === 'healthy')).toBe(true)
+  })
+
+  it('reports healthy when no OpenSearch probe is provided', async () => {
+    const probelessEngine = createProjectionEngine(
+      fromPartial<Parameters<typeof createProjectionEngine>[0]>(db),
+      { indexDocument: () => Promise.resolve(true) }
+    )
+
+    const health = await probelessEngine.getProjectionHealth()
+
+    expect(health.every(row => row.status === 'healthy')).toBe(true)
+  })
+
   it('exposes typed Effect errors for invalid backfill indices', async () => {
     const exit = await Effect.runPromiseExit(
       engine.executeBackfillEffect({

@@ -71,7 +71,9 @@ const permissions = [
   ['projection:read', 'read projection health and DLQ state'],
   ['projection:backfill', 'execute projection backfills'],
   ['projection:dlq-manage', 'replay or skip projection DLQ records'],
-  ...deploymentPermissions.map(permission => [permission, `M-Deploy permission: ${permission}`] as const)
+  ...deploymentPermissions.map(
+    permission => [permission, `M-Deploy permission: ${permission}`] as const
+  )
 ] as const
 
 const rolePermissions: Record<string, readonly string[]> = {

@@ -14,6 +14,7 @@ COPY services/m-policy/package.json services/m-policy/package.json
 COPY services/m-log/package.json services/m-log/package.json
 COPY services/m-eventbus/package.json services/m-eventbus/package.json
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/events/package.json packages/events/package.json

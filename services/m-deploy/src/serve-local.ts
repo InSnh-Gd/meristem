@@ -1,7 +1,10 @@
 import { createSharedAuthVerifier } from '../../../packages/auth/src/index.ts'
 import { err, ok } from '../../../packages/common/src/result.ts'
 import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
-import { internalServicePorts, requiredInternalToken } from '../../../packages/internal-http/src/index.ts'
+import {
+  internalServicePorts,
+  requiredInternalToken
+} from '../../../packages/internal-http/src/index.ts'
 import { initTelemetry, shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { MDeployAgentEnrollmentV01FromSchema } from '../../../packages/contracts/src/index.ts'
 import { serveMDeployApp } from './app.ts'
@@ -49,7 +52,8 @@ const deps = {
   }
 }
 const enrolled = await deps.store.upsertAgent({ enrollment })
-if (!enrolled.ok) throw new Error(`mdeploy.local_agent_enrollment_failed: ${enrolled.error.message}`)
+if (!enrolled.ok)
+  throw new Error(`mdeploy.local_agent_enrollment_failed: ${enrolled.error.message}`)
 
 requiredInternalToken()
 initTelemetry('m-deploy')
@@ -58,7 +62,10 @@ let stopping = false
 const stop = () => {
   if (stopping) return
   stopping = true
-  void server.stop().then(() => shutdownTelemetry()).then(() => process.exit(0))
+  void server
+    .stop()
+    .then(() => shutdownTelemetry())
+    .then(() => process.exit(0))
 }
 process.on('SIGINT', stop)
 process.on('SIGTERM', stop)

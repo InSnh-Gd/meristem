@@ -28,17 +28,34 @@ export function createProjectionHealthService(
     const indices = ['meristem-timeline-logs-v0', 'meristem-full-logs-v0', 'meristem-audit-logs-v0']
     const results: ProjectionHealth[] = []
 
-    const osAvailable = os.health
-      ? await os.health().catch(error => {
+    // OpenSearch 探测优先消费三态 healthStatus：yellow 集群仍可投影，但必须对操作者显示降级；
+    // 仅暴露布尔 health 的适配器无法区分降级，只能按 available/unavailable 归一。
+    // 生产装配中 healthStatus 来自 readModel.refresh() 的实时探测（每次调用发 /_cluster/health
+    // 请求，恢复期还会补建索引），调用方需评估轮询成本。
+    const osStatus = os.healthStatus
+      ? await os.healthStatus().catch(error => {
           logger.warn(
             {
               error: error instanceof Error ? error.message : String(error)
             },
             'opensearch_health_probe_failed'
           )
-          return false
+          return 'unavailable' as const
         })
-      : true
+      : os.health
+        ? (await os.health().catch(error => {
+            logger.warn(
+              {
+                error: error instanceof Error ? error.message : String(error)
+              },
+              'opensearch_health_probe_failed'
+            )
+            return false
+          }))
+          ? 'ready'
+          : 'unavailable'
+        : 'ready'
+    const osAvailable = osStatus !== 'unavailable'
 
     for (const index of indices) {
       const cursor = await cursors.getCursor(index)
@@ -71,7 +88,12 @@ export function createProjectionHealthService(
         }
       }
 
-      const status = resolveHealthStatus({ osAvailable, dlqCount, lagSeconds })
+      const status = resolveHealthStatus({
+        osAvailable,
+        osDegraded: osStatus === 'degraded',
+        dlqCount,
+        lagSeconds
+      })
 
       recordGauge('projection.lag_seconds', lagSeconds, { index })
       recordGauge('projection.pending_count', pendingCount, { index })
@@ -88,10 +110,11 @@ export function createProjectionHealthService(
 
 function resolveHealthStatus(input: {
   osAvailable: boolean
+  osDegraded: boolean
   dlqCount: number
   lagSeconds: number
 }): ProjectionHealth['status'] {
   if (!input.osAvailable) return 'unavailable'
-  if (input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
+  if (input.osDegraded || input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
   return 'healthy'
 }

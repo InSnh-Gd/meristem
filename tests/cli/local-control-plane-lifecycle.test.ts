@@ -6,10 +6,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { createInMemoryMDeployDeps } from '../../services/m-deploy/src/testing.ts'
 import type { MDeployGitSourceRefV01FromSchema } from '../../packages/contracts/src/index.ts'
 
-const deployCommandsPath = join(
-  import.meta.dir,
-  '../../apps/m-cli/src/commands/deploy-commands.ts'
-)
+const deployCommandsPath = join(import.meta.dir, '../../apps/m-cli/src/commands/deploy-commands.ts')
 
 /** 操作者在本地控制面上真实 pin 的 sourceRef，与 fixture 默认 digest 不同。 */
 function operatorSourceRef(): MDeployGitSourceRefV01FromSchema {

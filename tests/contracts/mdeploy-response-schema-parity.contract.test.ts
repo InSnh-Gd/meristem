@@ -134,7 +134,10 @@ const agentRecord = {
   }
 }
 
-type Corruption = { name: string; mutate: (value: Record<string, unknown>) => Record<string, unknown> }
+type Corruption = {
+  name: string
+  mutate: (value: Record<string, unknown>) => Record<string, unknown>
+}
 
 type AnyEffectSchema = Schema.Codec<unknown>
 
@@ -165,7 +168,10 @@ function checkParity<TSchema extends Schema.Codec<unknown>>(
 
 type PathSegment = string | number
 
-function walkToParent(clone: Record<string, unknown>, path: readonly PathSegment[]): Record<string, unknown> {
+function walkToParent(
+  clone: Record<string, unknown>,
+  path: readonly PathSegment[]
+): Record<string, unknown> {
   let node: Record<string, unknown> = clone
   for (let index = 0; index < path.length - 1; index++) {
     const segment = path[index]
@@ -195,16 +201,31 @@ const deleteAt =
     return clone
   }
 
-checkParity('desired-state', MDeployDesiredStateSummaryV01Schema, deployDesiredStateResponseSchema, desiredState, [
-  { name: 'digest algorithm invalid', mutate: setAt(['latestDigest', 'algorithm'], 'md5') },
-  { name: 'stale wrong type', mutate: setAt(['stale'], 'yes') },
-  { name: 'required controllerAvailable missing', mutate: deleteAt(['controllerAvailable']) }
-])
+checkParity(
+  'desired-state',
+  MDeployDesiredStateSummaryV01Schema,
+  deployDesiredStateResponseSchema,
+  desiredState,
+  [
+    { name: 'digest algorithm invalid', mutate: setAt(['latestDigest', 'algorithm'], 'md5') },
+    { name: 'stale wrong type', mutate: setAt(['stale'], 'yes') },
+    { name: 'required controllerAvailable missing', mutate: deleteAt(['controllerAvailable']) }
+  ]
+)
 
 checkParity('proposal', MDeployProposalResponseSchema, deployProposalResponseSchema, { proposal }, [
-  { name: 'approvalStatus invalid literal', mutate: setAt(['proposal', 'approvalStatus'], 'bogus') },
-  { name: 'schemaVersion invalid', mutate: setAt(['proposal', 'schemaVersion'], 'mdeploy.proposal@9.9.9') },
-  { name: 'sourceRef digest algorithm invalid', mutate: setAt(['proposal', 'sourceRef', 'digest', 'algorithm'], 'md5') },
+  {
+    name: 'approvalStatus invalid literal',
+    mutate: setAt(['proposal', 'approvalStatus'], 'bogus')
+  },
+  {
+    name: 'schemaVersion invalid',
+    mutate: setAt(['proposal', 'schemaVersion'], 'mdeploy.proposal@9.9.9')
+  },
+  {
+    name: 'sourceRef digest algorithm invalid',
+    mutate: setAt(['proposal', 'sourceRef', 'digest', 'algorithm'], 'md5')
+  },
   { name: 'required correlationId missing', mutate: deleteAt(['proposal', 'correlationId']) },
   { name: 'required policyDecisionId missing', mutate: deleteAt(['proposal', 'policyDecisionId']) }
 ])
@@ -215,13 +236,22 @@ checkParity('approval', MDeployApprovalResponseSchema, deployApprovalResponseSch
 ])
 
 const applyResponse = { operation: { ...operation, applyStatus: 'queued' } }
-checkParity('apply', MDeployApplyOperationResponseSchema, deployApplyResponseSchema, applyResponse, [
-  { name: 'kind invalid literal', mutate: setAt(['operation', 'kind'], 'bogus') },
-  { name: 'status invalid literal', mutate: setAt(['operation', 'status'], 'bogus') },
-  { name: 'publicationStatus invalid literal', mutate: setAt(['operation', 'publicationStatus'], 'bogus') },
-  { name: 'applyStatus invalid literal', mutate: setAt(['operation', 'applyStatus'], 'bogus') },
-  { name: 'required auditId missing', mutate: deleteAt(['operation', 'auditId']) }
-])
+checkParity(
+  'apply',
+  MDeployApplyOperationResponseSchema,
+  deployApplyResponseSchema,
+  applyResponse,
+  [
+    { name: 'kind invalid literal', mutate: setAt(['operation', 'kind'], 'bogus') },
+    { name: 'status invalid literal', mutate: setAt(['operation', 'status'], 'bogus') },
+    {
+      name: 'publicationStatus invalid literal',
+      mutate: setAt(['operation', 'publicationStatus'], 'bogus')
+    },
+    { name: 'applyStatus invalid literal', mutate: setAt(['operation', 'applyStatus'], 'bogus') },
+    { name: 'required auditId missing', mutate: deleteAt(['operation', 'auditId']) }
+  ]
+)
 
 const rollbackResponse = { operation: { ...operation, kind: 'rollback' } }
 checkParity(
@@ -232,12 +262,21 @@ checkParity(
   [{ name: 'required agentId missing', mutate: deleteAt(['operation', 'agentId']) }]
 )
 
-checkParity('drift', MDeployDriftResponseSchema, deployDriftResponseSchema, { reports: [driftReport] }, [
-  { name: 'driftType invalid literal', mutate: setAt(['reports', 0, 'driftType'], 'bogus') },
-  { name: 'severity invalid literal', mutate: setAt(['reports', 0, 'severity'], 'bogus') },
-  { name: 'expectedState source invalid', mutate: setAt(['reports', 0, 'expectedState', 'source'], 'bogus') },
-  { name: 'required reportId missing', mutate: deleteAt(['reports', 0, 'reportId']) }
-])
+checkParity(
+  'drift',
+  MDeployDriftResponseSchema,
+  deployDriftResponseSchema,
+  { reports: [driftReport] },
+  [
+    { name: 'driftType invalid literal', mutate: setAt(['reports', 0, 'driftType'], 'bogus') },
+    { name: 'severity invalid literal', mutate: setAt(['reports', 0, 'severity'], 'bogus') },
+    {
+      name: 'expectedState source invalid',
+      mutate: setAt(['reports', 0, 'expectedState', 'source'], 'bogus')
+    },
+    { name: 'required reportId missing', mutate: deleteAt(['reports', 0, 'reportId']) }
+  ]
+)
 
 checkParity(
   'drift-check',
@@ -247,16 +286,46 @@ checkParity(
   [{ name: 'requested not true', mutate: setAt(['requested'], false) }]
 )
 
-checkParity('evidence', MDeployEvidenceResponseSchema, deployEvidenceResponseSchema, { evidence: [evidence] }, [
-  { name: 'evidenceType invalid literal', mutate: setAt(['evidence', 0, 'evidenceType'], 'bogus') },
-  { name: 'redactionStatus invalid literal', mutate: setAt(['evidence', 0, 'storageRef', 'redactionStatus'], 'bogus') },
-  { name: 'required operationId missing', mutate: deleteAt(['evidence', 0, 'operationId']) }
-])
+checkParity(
+  'evidence',
+  MDeployEvidenceResponseSchema,
+  deployEvidenceResponseSchema,
+  { evidence: [evidence] },
+  [
+    {
+      name: 'evidenceType invalid literal',
+      mutate: setAt(['evidence', 0, 'evidenceType'], 'bogus')
+    },
+    {
+      name: 'redactionStatus invalid literal',
+      mutate: setAt(['evidence', 0, 'storageRef', 'redactionStatus'], 'bogus')
+    },
+    { name: 'required operationId missing', mutate: deleteAt(['evidence', 0, 'operationId']) }
+  ]
+)
 
-checkParity('agents', MDeployAgentsResponseSchema, deployAgentsResponseSchema, { agents: [agentRecord] }, [
-  { name: 'runtimeDriver invalid literal', mutate: setAt(['agents', 0, 'enrollment', 'capabilities', 0, 'runtimeDriver'], 'bogus') },
-  { name: 'heartbeat driftStatus invalid', mutate: setAt(['agents', 0, 'heartbeat', 'driftStatus'], 'bogus') },
-  { name: 'heartbeat health invalid', mutate: setAt(['agents', 0, 'heartbeat', 'health'], 'bogus') },
-  { name: 'heartbeat connectionStatus invalid', mutate: setAt(['agents', 0, 'heartbeat', 'connectionStatus'], 'bogus') },
-  { name: 'required hostId missing', mutate: deleteAt(['agents', 0, 'enrollment', 'hostId']) }
-])
+checkParity(
+  'agents',
+  MDeployAgentsResponseSchema,
+  deployAgentsResponseSchema,
+  { agents: [agentRecord] },
+  [
+    {
+      name: 'runtimeDriver invalid literal',
+      mutate: setAt(['agents', 0, 'enrollment', 'capabilities', 0, 'runtimeDriver'], 'bogus')
+    },
+    {
+      name: 'heartbeat driftStatus invalid',
+      mutate: setAt(['agents', 0, 'heartbeat', 'driftStatus'], 'bogus')
+    },
+    {
+      name: 'heartbeat health invalid',
+      mutate: setAt(['agents', 0, 'heartbeat', 'health'], 'bogus')
+    },
+    {
+      name: 'heartbeat connectionStatus invalid',
+      mutate: setAt(['agents', 0, 'heartbeat', 'connectionStatus'], 'bogus')
+    },
+    { name: 'required hostId missing', mutate: deleteAt(['agents', 0, 'enrollment', 'hostId']) }
+  ]
+)

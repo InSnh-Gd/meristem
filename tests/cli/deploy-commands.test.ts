@@ -115,7 +115,12 @@ describe('meristem deploy CLI', () => {
 
   it('proposes from a validated production manifest', async () => {
     await withManifest(productionManifest, async path => {
-      const result = await createCliRunner(deployClient()).run(['deploy', 'propose', '--config', path])
+      const result = await createCliRunner(deployClient()).run([
+        'deploy',
+        'propose',
+        '--config',
+        path
+      ])
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('"proposalId": "prop-1"')
     })
@@ -123,7 +128,12 @@ describe('meristem deploy CLI', () => {
 
   it('rejects propose for a local-compose manifest', async () => {
     await withManifest(localManifest, async path => {
-      const result = await createCliRunner(deployClient()).run(['deploy', 'propose', '--config', path])
+      const result = await createCliRunner(deployClient()).run([
+        'deploy',
+        'propose',
+        '--config',
+        path
+      ])
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('requires a production-podman manifest')
     })
@@ -136,9 +146,20 @@ describe('meristem deploy CLI', () => {
       expect(ok.stdout).toContain('"valid": true')
     })
     await withManifest(
-      { ...productionManifest, proposal: { ...productionManifest.proposal, sourceRef: { ...productionManifest.proposal.sourceRef, commit: 'main' } } },
+      {
+        ...productionManifest,
+        proposal: {
+          ...productionManifest.proposal,
+          sourceRef: { ...productionManifest.proposal.sourceRef, commit: 'main' }
+        }
+      },
       async path => {
-        const result = await createCliRunner(deployClient()).run(['deploy', 'validate', '--config', path])
+        const result = await createCliRunner(deployClient()).run([
+          'deploy',
+          'validate',
+          '--config',
+          path
+        ])
         expect(result.exitCode).toBe(1)
         expect(result.stderr).toContain('immutable Git commit')
       }
@@ -239,7 +260,12 @@ describe('meristem deploy CLI', () => {
 
   it('install refuses production manifests and empty local profiles', async () => {
     await withManifest(productionManifest, async path => {
-      const result = await createCliRunner(deployClient()).run(['deploy', 'install', '--config', path])
+      const result = await createCliRunner(deployClient()).run([
+        'deploy',
+        'install',
+        '--config',
+        path
+      ])
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('local-compose')
     })

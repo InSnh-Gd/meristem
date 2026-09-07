@@ -22,20 +22,22 @@ type GitInvocation = {
 export class GitProvenanceError extends Error {
   override readonly name = 'GitProvenanceError'
 
-  constructor(readonly code: GitProvenanceFailureCode, message: string) {
+  constructor(
+    readonly code: GitProvenanceFailureCode,
+    message: string
+  ) {
     super(message)
   }
 }
 
 /** 从调用 CLI 的 Git checkout 收集不可变生产 sourceRef，不读取工作树文件。 */
-export async function collectGitProvenance(
-  cwd: string
-): Promise<MDeployGitSourceRefV01FromSchema> {
+export async function collectGitProvenance(cwd: string): Promise<MDeployGitSourceRefV01FromSchema> {
   const insideWorkTree = await runGitText({
     args: ['rev-parse', '--is-inside-work-tree'],
     cwd,
     failureCode: 'git_checkout_unavailable',
-    failureMessage: 'production deploy init requires a Git checkout; run it from a checked-out repository'
+    failureMessage:
+      'production deploy init requires a Git checkout; run it from a checked-out repository'
   })
   if (insideWorkTree !== 'true') {
     throw new GitProvenanceError(
@@ -48,7 +50,8 @@ export async function collectGitProvenance(
     args: ['remote', 'get-url', 'origin'],
     cwd,
     failureCode: 'git_origin_unavailable',
-    failureMessage: 'production deploy init requires Git remote "origin"; add origin before retrying'
+    failureMessage:
+      'production deploy init requires Git remote "origin"; add origin before retrying'
   })
   if (hasMDeployGitSourceRefCredentials(repositoryUrl)) {
     throw new GitProvenanceError(
@@ -61,20 +64,23 @@ export async function collectGitProvenance(
     args: ['symbolic-ref', 'HEAD'],
     cwd,
     failureCode: 'git_detached_head',
-    failureMessage: 'production deploy init requires an attached Git branch; check out a branch before retrying'
+    failureMessage:
+      'production deploy init requires an attached Git branch; check out a branch before retrying'
   })
   const commit = await runGitText({
     args: ['rev-parse', '--verify', 'HEAD^{commit}'],
     cwd,
     failureCode: 'git_revision_unavailable',
-    failureMessage: 'production deploy init could not resolve HEAD to an immutable commit; create or select a commit before retrying'
+    failureMessage:
+      'production deploy init could not resolve HEAD to an immutable commit; create or select a commit before retrying'
   })
   // 对 Git 提交树生成的 tar 原始字节直接哈希，禁止解码或重序列化，确保脏工作树不影响 provenance。
   const archiveBytes = await runGitBytes({
     args: ['archive', '--format=tar', commit, '--', '.'],
     cwd,
     failureCode: 'git_archive_failed',
-    failureMessage: 'production deploy init could not archive the committed Git tree; verify the commit is available'
+    failureMessage:
+      'production deploy init could not archive the committed Git tree; verify the commit is available'
   })
   const digest = new Bun.CryptoHasher('sha256').update(archiveBytes).digest('hex').toLowerCase()
   return {
@@ -93,7 +99,11 @@ async function runGitText(input: GitInvocation): Promise<string> {
 
 async function runGitBytes(input: GitInvocation): Promise<Uint8Array> {
   try {
-    const child = Bun.spawn(['git', ...input.args], { cwd: input.cwd, stdout: 'pipe', stderr: 'pipe' })
+    const child = Bun.spawn(['git', ...input.args], {
+      cwd: input.cwd,
+      stdout: 'pipe',
+      stderr: 'pipe'
+    })
     const [exitCode, stdout, stderr] = await Promise.all([
       child.exited,
       new Response(child.stdout).arrayBuffer(),
@@ -109,7 +119,10 @@ async function runGitBytes(input: GitInvocation): Promise<Uint8Array> {
     return new Uint8Array(stdout)
   } catch (error) {
     if (error instanceof GitProvenanceError) throw error
-    throw new GitProvenanceError(input.failureCode, `${input.failureMessage}: ${errorMessage(error)}`)
+    throw new GitProvenanceError(
+      input.failureCode,
+      `${input.failureMessage}: ${errorMessage(error)}`
+    )
   }
 }
 

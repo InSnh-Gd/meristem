@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { validateWorkspaceManifestCoverage } from '../../scripts/oci-manifest-coverage.ts'
 import {
   createOciBuildPlan,
   resolveOciTarget,
@@ -185,5 +186,96 @@ describe('OCI pipeline failure modes', () => {
     expect(dockerignore).toContain('*.pem')
     expect(dockerignore).toContain('*.key')
     expect(`${serviceContainerfile}\n${uiContainerfile}`).not.toContain('COPY . .')
+  })
+
+  it('scans source subtrees that enter the build context but skips dockerignore-covered secret files', () => {
+    // packages/config、嵌套 tests 与 packages/secrets 源码都会进入构建上下文，
+    // preflight 的内容扫描不得因路径 segment 或后缀命中而跳过它们；
+    // 只有 dockerignore 真正排除的路径（根级密钥文件、packages/secrets/**）才豁免。
+    const context = mkdtempSync(join(tmpdir(), 'meristem-oci-secrets-pkg-'))
+    try {
+      writeFileSync(join(context, 'config.ts'), 'export const safe = true\n')
+      writeFileSync(join(context, '.env'), 'TOKEN=excluded-from-build-context\n')
+      for (const leaked of [
+        'packages/secrets/leak.ts',
+        'packages/config/leak.ts',
+        'apps/m-ui/tests/leak.ts',
+        'services/example/prod.key',
+        // dockerignore 后缀规则大小写敏感：大写后缀与 prod.env 之类文件名不被排除，必须扫描
+        'services/example/ID_RSA.PEM',
+        'packages/config/prod.env'
+      ]) {
+        const leakPath = join(context, leaked)
+        mkdirSync(join(leakPath, '..'), { recursive: true })
+        writeFileSync(leakPath, 'export const key = "-----BEGIN RSA PRIVATE KEY-----"\n')
+      }
+      mkdirSync(join(context, 'packages/secrets'), { recursive: true })
+      writeFileSync(
+        join(context, 'packages/secrets/prod.key'),
+        'export const key = "-----BEGIN RSA PRIVATE KEY-----"\n'
+      )
+
+      expect([...scanBuildContextForSecrets(context)].sort()).toEqual([
+        'apps/m-ui/tests/leak.ts',
+        'packages/config/leak.ts',
+        'packages/config/prod.env',
+        'packages/secrets/leak.ts',
+        'services/example/ID_RSA.PEM',
+        'services/example/prod.key'
+      ])
+    } finally {
+      rmSync(context, { recursive: true, force: true })
+    }
+  })
+
+  it('accepts workspace manifest coverage when every bun.lock workspace is COPYed', () => {
+    const result = validateWorkspaceManifestCoverage()
+    expect(result.ok).toBe(true)
+  })
+
+  it('rejects dependency images whose manifest COPY list drifts from bun.lock workspaces', () => {
+    const context = mkdtempSync(join(tmpdir(), 'meristem-oci-manifest-drift-'))
+    try {
+      writeFileSync(
+        join(context, 'bun.lock'),
+        JSON.stringify({
+          workspaces: {
+            '': { name: 'meristem' },
+            'apps/core': { name: '@meristem/app-core' },
+            'packages/ghost': { name: '@meristem/ghost' }
+          }
+        })
+      )
+      for (const dockerfile of [
+        'ops/docker/Dockerfile.service',
+        'ops/docker/Dockerfile.bootstrap',
+        'apps/m-ui/Dockerfile'
+      ]) {
+        const dockerfilePath = join(context, dockerfile)
+        mkdirSync(join(dockerfilePath, '..'), { recursive: true })
+        writeFileSync(
+          dockerfilePath,
+          'FROM oven/bun:1-alpine AS deps\nWORKDIR /app\nCOPY package.json bun.lock ./\nCOPY apps/core/package.json apps/core/package.json\nCOPY packages/unknown/package.json packages/unknown/package.json\n'
+        )
+      }
+
+      const result = validateWorkspaceManifestCoverage(context)
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          code: 'workspace_manifest_drift',
+          message: expect.stringContaining('packages/ghost')
+        }
+      })
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          code: 'workspace_manifest_drift',
+          message: expect.stringContaining('packages/unknown')
+        }
+      })
+    } finally {
+      rmSync(context, { recursive: true, force: true })
+    }
   })
 })

@@ -488,13 +488,13 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
           return err({ code: 'git.unavailable', message: 'git source unavailable' })
         }
         if (source.digest.value === envelope.payload.source.digest.value) {
-          return ok(options.gitEnvelopeOverride === undefined ? envelope : options.gitEnvelopeOverride)
+          return ok(
+            options.gitEnvelopeOverride === undefined ? envelope : options.gitEnvelopeOverride
+          )
         }
         // local-dev 控制面按操作者实际 pin 的 sourceRef 签发 envelope；默认 fixture 仍严格匹配单一 digest。
         if (options.gitEnvelopeFromRequestedSource === true) {
-          return ok(
-            fixtureEnvelope(now, runtimeTestKeyPair().privateKey, controllerTrust, source)
-          )
+          return ok(fixtureEnvelope(now, runtimeTestKeyPair().privateKey, controllerTrust, source))
         }
         return err({
           code: 'git.digest_not_found',

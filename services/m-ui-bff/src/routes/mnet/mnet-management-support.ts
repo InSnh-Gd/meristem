@@ -7,12 +7,15 @@ import {
 } from '../../../../../packages/contracts/src/index.ts'
 
 /** M-Net closed-loop 公共响应在 BFF 重新解码，避免把未知上游数据送入工作台。 */
-export const BffMNetJoinDecisionResponseSchema = Schema.Union([Schema.Struct({
-  kind: Schema.Literal('mutation'),
-  contractVersion: Schema.Literal('mnet-closed-loop-mutation@0.1.0'),
-  value: MNetJoinApprovalResultSchema,
-  publication: MNetClosedLoopPublicationSchema
-}), MNetOperationDeniedSchema])
+export const BffMNetJoinDecisionResponseSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal('mutation'),
+    contractVersion: Schema.Literal('mnet-closed-loop-mutation@0.1.0'),
+    value: MNetJoinApprovalResultSchema,
+    publication: MNetClosedLoopPublicationSchema
+  }),
+  MNetOperationDeniedSchema
+])
 
 export const BffMNetManagementTopologyResponseSchema = Schema.Struct({
   topology: MNetTopologyViewSchema,

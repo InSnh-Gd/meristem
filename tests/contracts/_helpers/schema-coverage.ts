@@ -41,8 +41,7 @@ const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^
 // Extracted workflow helpers may carry literal subjects in named options instead of direct publish args.
 const workflowSubjectOptionPattern = /requestedSubject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 // M-Deploy durable outbox intents carry the literal subject as the second argument of createMDeployEventIntent.
-const mDeployEventIntentPattern =
-  /createMDeployEventIntent\([^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
+const mDeployEventIntentPattern = /createMDeployEventIntent\([^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [

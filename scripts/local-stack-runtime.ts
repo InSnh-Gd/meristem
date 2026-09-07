@@ -247,10 +247,9 @@ export async function runServiceGroup(
     child: spawnService(service)
   }))
   await Promise.all(
-    children
-      .flatMap(({ service }) =>
-        service.readiness === undefined ? [] : [waitForServiceReady(service.readiness)]
-      )
+    children.flatMap(({ service }) =>
+      service.readiness === undefined ? [] : [waitForServiceReady(service.readiness)]
+    )
   )
   let shuttingDown = false
 

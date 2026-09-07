@@ -49,7 +49,10 @@ export type MDeployApprovalV01FromSchema = typeof MDeployApprovalV01Schema.Type
 export const MDeployRuntimeClassSchema = Schema.Literals(['production', 'compatibility'])
 export type MDeployRuntimeClassFromSchema = typeof MDeployRuntimeClassSchema.Type
 
-export const MDeployRuntimeUnitManagerSchema = Schema.Literals(['quadlet-systemd', 'docker-compose'])
+export const MDeployRuntimeUnitManagerSchema = Schema.Literals([
+  'quadlet-systemd',
+  'docker-compose'
+])
 export type MDeployRuntimeUnitManagerFromSchema = typeof MDeployRuntimeUnitManagerSchema.Type
 
 export const MDeployPodmanRuntimeDriverSelectionV01Schema = Schema.Struct({

@@ -35,7 +35,10 @@ export type InitManifestInput = {
 export class DeployManifestError extends Error {
   override readonly name = 'DeployManifestError'
 
-  constructor(readonly code: DeployManifestFailureCode, message: string) {
+  constructor(
+    readonly code: DeployManifestFailureCode,
+    message: string
+  ) {
     super(message)
   }
 }
@@ -47,7 +50,10 @@ export async function readValidManifest(
   const existing = await readDecodedManifest(manifestPath)
   const validated = validateMDeployInstallerManifestV01(existing.manifest)
   if (!validated.ok) {
-    throw new DeployManifestError('manifest_invalid', `deploy manifest invalid: ${validated.error.message}`)
+    throw new DeployManifestError(
+      'manifest_invalid',
+      `deploy manifest invalid: ${validated.error.message}`
+    )
   }
   return validated.value
 }
@@ -93,7 +99,11 @@ export async function initManifest(input: InitManifestInput): Promise<CliRunResu
 export async function validateManifest(manifestPath: string): Promise<CliRunResult> {
   const manifest = await readValidManifest(manifestPath)
   if (manifest.profile === 'local-compose') {
-    return success({ valid: true, profile: manifest.profile, local: { profiles: manifest.local.profiles } })
+    return success({
+      valid: true,
+      profile: manifest.profile,
+      local: { profiles: manifest.local.profiles }
+    })
   }
   return success({
     valid: true,
@@ -107,7 +117,12 @@ export function mergeProfiles(existing: readonly string[], override: string | un
   const unique = [
     ...new Set([
       ...existing,
-      ...(override ? override.split(',').map(profile => profile.trim()).filter(Boolean) : [])
+      ...(override
+        ? override
+            .split(',')
+            .map(profile => profile.trim())
+            .filter(Boolean)
+        : [])
     ])
   ]
   if (unique.length === 0) {
@@ -127,7 +142,9 @@ export function mergeProfiles(existing: readonly string[], override: string | un
   return unique
 }
 
-async function productionManifest(cwd: string): Promise<MDeployProductionInstallerManifestV01FromSchema> {
+async function productionManifest(
+  cwd: string
+): Promise<MDeployProductionInstallerManifestV01FromSchema> {
   return {
     schemaVersion: 'mdeploy.install-manifest@0.1.0',
     profile: 'production-podman',
@@ -165,7 +182,10 @@ async function readDecodedManifest(manifestPath: string): Promise<ExistingManife
   }
   const decoded = decodeMDeployInstallerManifestV01(raw)
   if (!decoded.ok) {
-    throw new DeployManifestError('manifest_invalid', `deploy manifest invalid: ${decoded.error.message}`)
+    throw new DeployManifestError(
+      'manifest_invalid',
+      `deploy manifest invalid: ${decoded.error.message}`
+    )
   }
   return { manifest: decoded.value }
 }
@@ -200,7 +220,10 @@ async function writeManifestAtomically(
 function installerProfile(value: string | undefined): InstallerProfile {
   const profile = value ?? 'local-compose'
   if (profile === 'local-compose' || profile === 'production-podman') return profile
-  throw new DeployManifestError('manifest_invalid', '--profile must be local-compose or production-podman')
+  throw new DeployManifestError(
+    'manifest_invalid',
+    '--profile must be local-compose or production-podman'
+  )
 }
 
 function nextStep(profile: InstallerProfile): string {

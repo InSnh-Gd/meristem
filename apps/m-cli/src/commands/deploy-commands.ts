@@ -125,7 +125,10 @@ async function install(input: {
       'install only supports local-compose manifests; use deploy validate + deploy propose for production'
     )
   }
-  const profiles = mergeProfiles(manifest.local.profiles, optionalOption(input.options, '--profiles'))
+  const profiles = mergeProfiles(
+    manifest.local.profiles,
+    optionalOption(input.options, '--profiles')
+  )
   const prepareOnly = hasFlag(input.options, '--prepare-only')
   const profileFlags = profiles.flatMap(profile => [`--${profile}`])
 
@@ -159,9 +162,7 @@ async function startLocalStack(profileFlags: readonly string[]): Promise<LocalSt
   await mkdir(LOCAL_STACK_STATE_DIR, { recursive: true })
   const logFile = join(LOCAL_STACK_STATE_DIR, 'dev-full.log')
   const pidFile = join(LOCAL_STACK_STATE_DIR, 'dev-full.pid')
-  const command = ['bun', 'run', 'dev:full', ...profileFlags]
-    .map(shellQuote)
-    .join(' ')
+  const command = ['bun', 'run', 'dev:full', ...profileFlags].map(shellQuote).join(' ')
   await rm(pidFile, { force: true })
   // PID 经文件回传而不是 stdout 管道：dev:full 的孙进程会继承该管道，
   // 读到 EOF 需要等整个服务组退出，会让 install 永久挂起。
@@ -184,10 +185,9 @@ async function startLocalStack(profileFlags: readonly string[]): Promise<LocalSt
     await waitForReady('http://127.0.0.1:3107/ready')
     // Core 的就绪端点在公开 API 前缀下（/api/v0/ready），不是裸 /ready，
     // 并且依赖降级时仍返回 200，因此必须读取 ready 字段而不是只看状态码。
-    await waitForReady(
-      `${process.env.MERISTEM_CORE_URL ?? 'http://127.0.0.1:3000'}/api/v0/ready`,
-      { requireReadyField: true }
-    )
+    await waitForReady(`${process.env.MERISTEM_CORE_URL ?? 'http://127.0.0.1:3000'}/api/v0/ready`, {
+      requireReadyField: true
+    })
   } catch (error) {
     terminateProcessGroup(pid)
     throw error
@@ -259,10 +259,7 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 
-async function propose(
-  client: Parameters<CliCommandHandler>[0],
-  manifestPath: string
-) {
+async function propose(client: Parameters<CliCommandHandler>[0], manifestPath: string) {
   const manifest = await readValidManifest(manifestPath)
   if (manifest.profile !== 'production-podman') {
     throw new Error('deploy propose requires a production-podman manifest')

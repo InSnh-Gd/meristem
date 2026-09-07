@@ -238,9 +238,7 @@ export const MNetOperationalSnapshotSchema = Schema.Struct({
   forcedRelay: MNetOperationalForcedRelayStateSchema,
   deploymentReadiness: MNetOperationalDeploymentReadinessSchema,
   authMode: Schema.optional(MNetOperationalLiveProofAuthModeSchema),
-  netbirdProcessHealth: Schema.optional(
-    Schema.Array(MNetOperationalNetBirdProcessHealthSchema)
-  ),
+  netbirdProcessHealth: Schema.optional(Schema.Array(MNetOperationalNetBirdProcessHealthSchema)),
   packetReachability: Schema.optional(MNetOperationalPacketReachabilitySchema),
   stateSources: MNetOperationalStateSourcesSchema
 })

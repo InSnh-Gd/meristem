@@ -86,7 +86,10 @@ async function fetchRaw(
   }
 }
 
-const unavailableError = { code: 'm-deploy.unavailable', message: 'M-Deploy public API unavailable' }
+const unavailableError = {
+  code: 'm-deploy.unavailable',
+  message: 'M-Deploy public API unavailable'
+}
 const notFoundError = { code: 'deploy.not_found', message: 'deployment resource not found' }
 
 function mapFailure(
@@ -95,7 +98,9 @@ function mapFailure(
 ): FacadeServiceResult<never> | 'http404-as-null' | 'not-found' {
   if (outcome.kind === 'http404') return notFoundAsNull ? 'http404-as-null' : 'not-found'
   if (outcome.kind === 'error') {
-    return err(serviceErrorFromHttpResponse(outcome.parsed, 'm-deploy.unavailable', unavailableError.message))
+    return err(
+      serviceErrorFromHttpResponse(outcome.parsed, 'm-deploy.unavailable', unavailableError.message)
+    )
   }
   return err(unavailableError)
 }
@@ -159,13 +164,8 @@ export function createHttpMDeployFacadePort(
       )
     },
     async propose(body, context) {
-      return sendJson(
-        fetcher,
-        `${baseUrl}/api/v0/deploy/proposals`,
-        'POST',
-        context,
-        body,
-        value => decodeOrFailure(MDeployProposalResponseSchema, value, context)
+      return sendJson(fetcher, `${baseUrl}/api/v0/deploy/proposals`, 'POST', context, body, value =>
+        decodeOrFailure(MDeployProposalResponseSchema, value, context)
       )
     },
     async proposal(proposalId, context) {
@@ -189,43 +189,23 @@ export function createHttpMDeployFacadePort(
       )
     },
     async apply(body, context) {
-      return sendJson(
-        fetcher,
-        `${baseUrl}/api/v0/deploy/apply`,
-        'POST',
-        context,
-        body,
-        value => decodeOrFailure(MDeployApplyOperationResponseSchema, value, context)
+      return sendJson(fetcher, `${baseUrl}/api/v0/deploy/apply`, 'POST', context, body, value =>
+        decodeOrFailure(MDeployApplyOperationResponseSchema, value, context)
       )
     },
     async rollback(body, context) {
-      return sendJson(
-        fetcher,
-        `${baseUrl}/api/v0/deploy/rollback`,
-        'POST',
-        context,
-        body,
-        value => decodeOrFailure(MDeployRollbackOperationResponseSchema, value, context)
+      return sendJson(fetcher, `${baseUrl}/api/v0/deploy/rollback`, 'POST', context, body, value =>
+        decodeOrFailure(MDeployRollbackOperationResponseSchema, value, context)
       )
     },
     async drift(context) {
-      return sendJson(
-        fetcher,
-        `${baseUrl}/api/v0/deploy/drift`,
-        'GET',
-        context,
-        undefined,
-        value => decodeOrFailure(MDeployDriftResponseSchema, value, context)
+      return sendJson(fetcher, `${baseUrl}/api/v0/deploy/drift`, 'GET', context, undefined, value =>
+        decodeOrFailure(MDeployDriftResponseSchema, value, context)
       )
     },
     async driftCheck(context) {
-      return sendJson(
-        fetcher,
-        `${baseUrl}/api/v0/deploy/drift/check`,
-        'POST',
-        context,
-        {},
-        value => decodeOrFailure(MDeployDriftCheckResponseSchema, value, context)
+      return sendJson(fetcher, `${baseUrl}/api/v0/deploy/drift/check`, 'POST', context, {}, value =>
+        decodeOrFailure(MDeployDriftCheckResponseSchema, value, context)
       )
     },
     async evidence(context) {

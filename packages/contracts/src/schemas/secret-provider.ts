@@ -96,9 +96,13 @@ export const VaultWorkloadAuthV02Schema = Schema.Struct({
 })
 export type VaultWorkloadAuthV02FromSchema = typeof VaultWorkloadAuthV02Schema.Type
 
-export const VaultPolicyCapabilityV02Schema = Schema.Literals(['read', 'list', 'create',
-'update',
-'delete'])
+export const VaultPolicyCapabilityV02Schema = Schema.Literals([
+  'read',
+  'list',
+  'create',
+  'update',
+  'delete'
+])
 export type VaultPolicyCapabilityV02FromSchema = typeof VaultPolicyCapabilityV02Schema.Type
 
 export const VaultPolicyRuleV02Schema = Schema.Struct({
@@ -244,13 +248,17 @@ export const VaultHealthStatusV02Schema = Schema.Struct({
 })
 export type VaultHealthStatusV02FromSchema = typeof VaultHealthStatusV02Schema.Type
 
-export const SecretRefResolutionFailureReasonV02Schema = Schema.Literals(['vault_sealed', 'vault_unreachable', 'vault_quorum_lost',
-'secret_not_found',
-'missing_policy_capability',
-'version_expired',
-'cache_expired',
-'credential_expired',
-'credential_revoked'])
+export const SecretRefResolutionFailureReasonV02Schema = Schema.Literals([
+  'vault_sealed',
+  'vault_unreachable',
+  'vault_quorum_lost',
+  'secret_not_found',
+  'missing_policy_capability',
+  'version_expired',
+  'cache_expired',
+  'credential_expired',
+  'credential_revoked'
+])
 export type SecretRefResolutionFailureReasonV02FromSchema =
   typeof SecretRefResolutionFailureReasonV02Schema.Type
 
@@ -327,8 +335,12 @@ export const SecretRefResolutionResultV02Schema = Schema.Union([
 ])
 export type SecretRefResolutionResultV02FromSchema = typeof SecretRefResolutionResultV02Schema.Type
 
-export const VaultWorkloadAuthFailureStatusV02Schema = Schema.Literals(['provider_unavailable', 'permission_denied', 'credential_expired',
-'credential_revoked'])
+export const VaultWorkloadAuthFailureStatusV02Schema = Schema.Literals([
+  'provider_unavailable',
+  'permission_denied',
+  'credential_expired',
+  'credential_revoked'
+])
 export type VaultWorkloadAuthFailureStatusV02FromSchema =
   typeof VaultWorkloadAuthFailureStatusV02Schema.Type
 

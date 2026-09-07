@@ -192,15 +192,19 @@ describe('Core deploy facade contract', () => {
       'feature.unavailable'
     )
     await expectError(
-      await app.handle(post('/api/v0/deploy/apply', 'admin-token', { proposalId: 'p', agentId: 'a' })),
+      await app.handle(
+        post('/api/v0/deploy/apply', 'admin-token', { proposalId: 'p', agentId: 'a' })
+      ),
       503,
       'feature.unavailable'
     )
     await expectError(
-      await app.handle(post('/api/v0/deploy/rollback', 'admin-token', {
-        agentId: 'a',
-        targetDigest: { algorithm: 'sha256', value: 'ab'.repeat(32) }
-      })),
+      await app.handle(
+        post('/api/v0/deploy/rollback', 'admin-token', {
+          agentId: 'a',
+          targetDigest: { algorithm: 'sha256', value: 'ab'.repeat(32) }
+        })
+      ),
       503,
       'feature.unavailable'
     )
@@ -290,10 +294,12 @@ describe('Core deploy facade contract', () => {
       'policy.denied'
     )
     await expectError(
-      await adminApp.handle(post('/api/v0/deploy/rollback', 'admin-token', {
-        agentId: 'agent-1',
-        targetDigest: { algorithm: 'sha256', value: 'ab'.repeat(32) }
-      })),
+      await adminApp.handle(
+        post('/api/v0/deploy/rollback', 'admin-token', {
+          agentId: 'agent-1',
+          targetDigest: { algorithm: 'sha256', value: 'ab'.repeat(32) }
+        })
+      ),
       403,
       'policy.denied'
     )

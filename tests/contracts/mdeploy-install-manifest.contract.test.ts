@@ -80,7 +80,12 @@ describe('M-Deploy installer manifest contract', () => {
       })
     }
     // 生产清单 URL 禁止任何查询串：大小写/别名/编码变体也一律拒绝。
-    for (const query of ['TOKEN=plaintext', 'api_key=plaintext', 'x-access-token=plaintext', 'Access_Token=plaintext']) {
+    for (const query of [
+      'TOKEN=plaintext',
+      'api_key=plaintext',
+      'x-access-token=plaintext',
+      'Access_Token=plaintext'
+    ]) {
       const queryVariant = structuredClone(productionManifest)
       queryVariant.proposal.sourceRef.repositoryUrl = `https://git.example.com/meristem.git?${query}`
       expect(validateMDeployInstallerManifestV01(queryVariant)).toEqual({

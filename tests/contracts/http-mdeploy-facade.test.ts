@@ -82,7 +82,8 @@ describe('HTTP M-Deploy facade adapter', () => {
   it('maps downstream 404 to null for proposal detail lookup', async () => {
     const port = createHttpMDeployFacadePort({
       baseUrl: 'http://m-deploy.internal',
-      fetcher: async () => jsonResponse({ error: { code: 'deploy.proposal_not_found', message: 'nope' } }, 404)
+      fetcher: async () =>
+        jsonResponse({ error: { code: 'deploy.proposal_not_found', message: 'nope' } }, 404)
     })
     const result = await unwrap(port.proposal('missing', context))
     expect(result.ok).toBe(true)
@@ -94,7 +95,10 @@ describe('HTTP M-Deploy facade adapter', () => {
     const port = createHttpMDeployFacadePort({
       baseUrl: 'http://m-deploy.internal',
       fetcher: async () =>
-        jsonResponse({ error: { code: 'deploy.not_approved', message: 'proposal needs two approvals' } }, 409)
+        jsonResponse(
+          { error: { code: 'deploy.not_approved', message: 'proposal needs two approvals' } },
+          409
+        )
     })
     const result = await unwrap(port.apply({ proposalId: 'p', agentId: 'a' }, context))
     expect(result.ok).toBe(false)

@@ -11,6 +11,9 @@ coverage/
 dist/
 build/
 tmp/
+test-results/
+playwright-report/
+.agent-sources/
 .worktrees/
 doc-driven-ai/
 *.bak
@@ -33,6 +36,16 @@ ops/**
 *.pfx
 secrets
 **/secrets
+# packages/secrets 是密钥管理的源码包，镜像构建依赖它；只排除运行时密钥材料目录。
+!packages/secrets
+!packages/secrets/**
+# 源码包重新纳入后，其中的密钥材料后缀仍按最后匹配规则保持排除。
+packages/secrets/**/*.pem
+packages/secrets/**/*.key
+packages/secrets/**/*.p12
+packages/secrets/**/*.pfx
+packages/secrets/**/.env
+packages/secrets/**/.env.*
 dependency-graph.html
 ops/compose/meristem.prod.env
 ops/compose/*.env

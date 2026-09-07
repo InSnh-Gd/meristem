@@ -278,7 +278,18 @@ async function blockAndAuditAgentRejection(
     correlationId: operation.correlationId,
     result: 'blocked'
   })
-  if (!audit.ok) return audit
+  if (!audit.ok) {
+    // fail-closed 契约（见 mdeploy-security-repair failure-mode）：audit 写失败时上抛 audit 错误，
+    // 不把可归因拒绝降级为静默成功；同时用 warn 全量日志保留原始拒绝 reason，
+    // 避免安全信号只存在于调用方收到的单个错误码里。
+    await deps.log.writeFull({
+      level: 'warn',
+      message: `agent ${reason} rejection durably blocked but audit write failed`,
+      correlationId: operation.correlationId,
+      errorCode: audit.error.code
+    })
+    return audit
+  }
   return ok(undefined)
 }
 

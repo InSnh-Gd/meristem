@@ -119,9 +119,12 @@ export function createOpenSearchAdapter(
 
   /**
    * yellow 表示读模型仍可用但副本不足，必须与完全不可达的状态区分开。
+   * 探测必须有界：OpenSearch 挂起（而非拒绝）时，无超时会拖死 readiness 与投影健康端点。
    */
   async function clusterHealth(): Promise<OpenSearchClusterHealth> {
-    const result = await fetchJson<HealthResponse>('/_cluster/health')
+    const result = await fetchJson<HealthResponse>('/_cluster/health', {
+      signal: AbortSignal.timeout(2000)
+    })
     if (!result) return 'unavailable'
     if (result.status === 'green') return 'ready'
     if (result.status === 'yellow') return 'degraded'

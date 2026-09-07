@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { createHash, generateKeyPairSync } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { ok } from '../../packages/common/src/result.ts'
@@ -31,6 +31,19 @@ const pgAvailable = await (async () => {
 })()
 
 describe('integration: M-Deploy blocked rejection recovery', () => {
+  // 内部 audit 写入统一经过 requiredInternalToken；不设置时 reconcile 会把
+  // 签名验证失败掩盖成 audit.unavailable，偏离被测的 blocked 恢复路径。
+  const priorToken = process.env.MERISTEM_INTERNAL_TOKEN
+
+  beforeAll(() => {
+    process.env.MERISTEM_INTERNAL_TOKEN = 'mdeploy-blocked-integration-token'
+  })
+
+  afterAll(() => {
+    if (priorToken === undefined) delete process.env.MERISTEM_INTERNAL_TOKEN
+    else process.env.MERISTEM_INTERNAL_TOKEN = priorToken
+  })
+
   test.skipIf(!pgAvailable)(
     'persists blocked state and attributable Audit across composition recreation',
     async () => {

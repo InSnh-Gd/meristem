@@ -7,12 +7,19 @@
 import { mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createSqlClient } from '../packages/db/src/client.ts'
-import { loadRuntimeDeploymentConfig, RUNTIME_DEPLOYMENT_CONFIG_ENV, type RuntimeDeploymentConfig } from '../packages/config/src/index.ts'
+import {
+  loadRuntimeDeploymentConfig,
+  RUNTIME_DEPLOYMENT_CONFIG_ENV,
+  type RuntimeDeploymentConfig
+} from '../packages/config/src/index.ts'
 import { resolveDeploymentSecretBindings } from '../packages/secrets/src/index.ts'
 import { connectToNats } from '../packages/nats-rpc/src/index.ts'
 import { mintLocalToken } from '../packages/auth/src/index.ts'
 import type { DeploymentConfigV02FromSchema } from '../packages/contracts/src/index.ts'
-import { createRuntimeSecretManager, resolveCoreOidcStartupSecrets } from '../apps/core/src/adapters.ts'
+import {
+  createRuntimeSecretManager,
+  resolveCoreOidcStartupSecrets
+} from '../apps/core/src/adapters.ts'
 import {
   buildKeycloakDeploymentConfig,
   ensureKeycloakDevRealm,
@@ -144,9 +151,17 @@ export type DeployProofDeps = {
   prepareWorkspace: () => Promise<void>
   probeReadyEndpoint: (url: string, internalToken?: string) => Promise<boolean>
   readTextFile: (path: string) => Promise<string>
-  runVersionCommand: (command: readonly string[]) => { readonly exitCode: number; readonly stderr: string; readonly stdout: string }
+  runVersionCommand: (command: readonly string[]) => {
+    readonly exitCode: number
+    readonly stderr: string
+    readonly stdout: string
+  }
   sleep: (ms: number) => Promise<void>
-  startDetached: (command: readonly string[], logFile: string, env: Record<string, string>) => number
+  startDetached: (
+    command: readonly string[],
+    logFile: string,
+    env: Record<string, string>
+  ) => number
   writeTextFile: (path: string, contents: string) => Promise<void>
   natsReady: (natsUrl: string) => Promise<boolean>
 }
@@ -158,7 +173,11 @@ const managedServices: readonly ManagedServiceDefinition[] = [
     command: ['bun', 'run', 'services/m-eventbus/src/index.ts'],
     readinessKey: 'eventbus'
   },
-  { name: 'm-policy', command: ['bun', 'run', 'services/m-policy/src/index.ts'], readinessKey: 'policy' },
+  {
+    name: 'm-policy',
+    command: ['bun', 'run', 'services/m-policy/src/index.ts'],
+    readinessKey: 'policy'
+  },
   { name: 'm-log', command: ['bun', 'run', 'services/m-log/src/index.ts'], readinessKey: 'log' },
   { name: 'm-net', command: ['bun', 'run', 'services/m-net/src/index.ts'], readinessKey: 'mnet' },
   { name: 'm-task', command: ['bun', 'run', 'services/m-task/src/index.ts'], readinessKey: 'task' },
@@ -168,7 +187,11 @@ const managedServices: readonly ManagedServiceDefinition[] = [
     readinessKey: 'extension'
   },
   { name: 'core', command: ['bun', 'run', 'apps/core/src/index.ts'], readinessKey: 'core' },
-  { name: 'm-ui-bff', command: ['bun', 'run', 'services/m-ui-bff/src/index.ts'], readinessKey: 'uiBff' }
+  {
+    name: 'm-ui-bff',
+    command: ['bun', 'run', 'services/m-ui-bff/src/index.ts'],
+    readinessKey: 'uiBff'
+  }
 ] as const
 
 function success(step: string, detail: string): SuccessResult {
@@ -189,14 +212,16 @@ function failure(step: string, code: string, message: string, detail?: string): 
 }
 
 function targetFromArgv(argv: readonly string[]): DeployTarget | null {
-  const raw = argv.find(argument => argument.startsWith('--target='))?.split('=')[1] ??
+  const raw =
+    argv.find(argument => argument.startsWith('--target='))?.split('=')[1] ??
     process.env.DEPLOY_TARGET ??
     'nixos'
   return raw === 'nixos' || raw === 'oci' ? raw : null
 }
 
 function authModeFromArgv(argv: readonly string[]): DeployAuthMode | null {
-  const raw = argv.find(argument => argument.startsWith('--auth='))?.split('=')[1] ??
+  const raw =
+    argv.find(argument => argument.startsWith('--auth='))?.split('=')[1] ??
     process.env.MERISTEM_DEPLOY_PROOF_AUTH_MODE ??
     'oidc'
   return raw === 'oidc' || raw === 'local-dev' ? raw : null
@@ -215,7 +240,9 @@ function proofPaths(target: DeployTarget, authMode: DeployAuthMode): ProofPaths 
 
 function normalizeEnv(source: NodeJS.ProcessEnv): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(source).flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : []))
+    Object.entries(source).flatMap(([key, value]) =>
+      typeof value === 'string' ? [[key, value]] : []
+    )
   )
 }
 
@@ -336,7 +363,11 @@ function runVersionCommand(command: readonly string[]) {
   }
 }
 
-function startDetached(command: readonly string[], logFile: string, env: Record<string, string>): number {
+function startDetached(
+  command: readonly string[],
+  logFile: string,
+  env: Record<string, string>
+): number {
   const envParts = Object.entries(env).map(([key, value]) => `${key}=${shellEscape(value)}`)
   const commandParts = command.map(shellEscape)
   const script = `cd ${shellEscape(rootDir)} && nohup env ${envParts.join(' ')} ${commandParts.join(' ')} > ${shellEscape(logFile)} 2>&1 < /dev/null & printf '%s' $!`
@@ -381,7 +412,10 @@ async function probeReadyEndpoint(url: string, internalToken?: string): Promise<
   try {
     const headers = internalToken ? { 'x-meristem-internal-token': internalToken } : undefined
     const response = await fetch(url, { headers })
-    const body = (await response.json().catch(() => null)) as { ready?: boolean; ok?: boolean } | null
+    const body = (await response.json().catch(() => null)) as {
+      ready?: boolean
+      ok?: boolean
+    } | null
     return response.ok && (body?.ready === true || body?.ok === true)
   } catch {
     return false
@@ -475,7 +509,9 @@ async function prepareContext(
   results.push(success('keycloak.discovery', keycloak.realm.discoveryUrl))
 
   const jwksResponse = await fetch(keycloak.realm.jwksUrl)
-  const jwksPayload = (await jwksResponse.json().catch(() => null)) as { keys?: readonly unknown[] } | null
+  const jwksPayload = (await jwksResponse.json().catch(() => null)) as {
+    keys?: readonly unknown[]
+  } | null
   if (!jwksResponse.ok || !Array.isArray(jwksPayload?.keys) || jwksPayload.keys.length === 0) {
     results.push(
       failure(
@@ -489,29 +525,34 @@ async function prepareContext(
   }
   results.push(success('keycloak.jwks', `${jwksPayload.keys.length} signing key(s)`))
 
-  const deploymentConfig = buildDeploymentConfig(keycloak.realm, target, authMode, paths.runtimeStatePath)
-  await deps.writeTextFile(paths.deploymentConfigPath, `${JSON.stringify(deploymentConfig, null, 2)}\n`)
+  const deploymentConfig = buildDeploymentConfig(
+    keycloak.realm,
+    target,
+    authMode,
+    paths.runtimeStatePath
+  )
+  await deps.writeTextFile(
+    paths.deploymentConfigPath,
+    `${JSON.stringify(deploymentConfig, null, 2)}\n`
+  )
 
   const sharedEnv = {
     ...normalizeEnv(process.env),
     [RUNTIME_DEPLOYMENT_CONFIG_ENV]: paths.deploymentConfigPath,
     [keycloakClientSecretEnvVar]: keycloak.realm.clientSecret,
-    DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem',
-    MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS:
-      process.env.MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS ?? '500',
-    MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS:
-      process.env.MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS ?? '2000',
+    DATABASE_URL:
+      process.env.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem',
+    MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS: process.env.MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS ?? '500',
+    MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS: process.env.MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS ?? '2000',
     MERISTEM_AGENT_TASK_TIMEOUT_MS: process.env.MERISTEM_AGENT_TASK_TIMEOUT_MS ?? '2000',
     MERISTEM_CORE_HOST: '127.0.0.1',
     MERISTEM_CORE_URL: 'http://127.0.0.1:3000',
     MERISTEM_EVENTBUS_URL: 'http://127.0.0.1:3103',
     MERISTEM_EXTENSION_URL: 'http://127.0.0.1:3106',
-    MERISTEM_INTERNAL_TOKEN:
-      process.env.MERISTEM_INTERNAL_TOKEN ?? 'deploy-proof-internal-token',
+    MERISTEM_INTERNAL_TOKEN: process.env.MERISTEM_INTERNAL_TOKEN ?? 'deploy-proof-internal-token',
     MERISTEM_JOIN_PUBLIC_URL: 'https://127.0.0.1:8443',
     MERISTEM_JOIN_URL: 'wss://127.0.0.1:8443/join/v0/session',
-    MERISTEM_JWT_SECRET:
-      process.env.MERISTEM_JWT_SECRET ?? 'deploy-proof-jwt-secret-32-characters',
+    MERISTEM_JWT_SECRET: process.env.MERISTEM_JWT_SECRET ?? 'deploy-proof-jwt-secret-32-characters',
     MERISTEM_MNET_CONTROL_URL: 'http://127.0.0.1:3104',
     MERISTEM_MNET_URL: 'http://127.0.0.1:3104',
     MERISTEM_NODE_RUNTIME_STATE_PATH: paths.runtimeStatePath,
@@ -549,7 +590,14 @@ async function prepareContext(
         'Deployment config does not declare CAP_NET_ADMIN for node-agent runtime'
       )
     )
-    return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      paths.deploymentConfigPath,
+      runtimeConfigResult.value,
+      services,
+      results
+    )
   }
 
   if (!deps.hasCapNetAdmin()) {
@@ -560,10 +608,20 @@ async function prepareContext(
         'Current shell does not carry CAP_NET_ADMIN required by node-agent host capability checks'
       )
     )
-    return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      paths.deploymentConfigPath,
+      runtimeConfigResult.value,
+      services,
+      results
+    )
   }
 
-  const wgVersion = deps.runVersionCommand([runtimeConfigResult.value.raw.nodeAgentCapabilities.wgBinaryPath, '--version'])
+  const wgVersion = deps.runVersionCommand([
+    runtimeConfigResult.value.raw.nodeAgentCapabilities.wgBinaryPath,
+    '--version'
+  ])
   if (wgVersion.exitCode !== 0) {
     results.push(
       prerequisiteMissing(
@@ -573,7 +631,14 @@ async function prepareContext(
         runtimeConfigResult.value.raw.nodeAgentCapabilities.wgBinaryPath
       )
     )
-    return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      paths.deploymentConfigPath,
+      runtimeConfigResult.value,
+      services,
+      results
+    )
   }
   results.push(success('node-agent.wg', wgVersion.stdout || wgVersion.stderr))
 
@@ -586,7 +651,14 @@ async function prepareContext(
         runtimeConfigResult.value.raw.nodeAgentCapabilities.wireguardModulePath
       )
     )
-    return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      paths.deploymentConfigPath,
+      runtimeConfigResult.value,
+      services,
+      results
+    )
   }
   results.push(
     success(
@@ -609,7 +681,14 @@ async function prepareContext(
         deploymentBindings.error.message
       )
     )
-    return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      paths.deploymentConfigPath,
+      runtimeConfigResult.value,
+      services,
+      results
+    )
   }
   results.push(
     success(
@@ -631,7 +710,14 @@ async function prepareContext(
           error instanceof Error ? error.message : String(error)
         )
       )
-      return finalizeReport(target, authMode, paths.deploymentConfigPath, runtimeConfigResult.value, services, results)
+      return finalizeReport(
+        target,
+        authMode,
+        paths.deploymentConfigPath,
+        runtimeConfigResult.value,
+        services,
+        results
+      )
     }
   } else {
     results.push(success('auth.mode', 'local-dev'))
@@ -653,7 +739,8 @@ async function ensureInfraAndWorkspace(
   services: Partial<Record<ManagedServiceName, ServiceEvidence>>,
   deps: DeployProofDeps
 ): Promise<boolean> {
-  const databaseUrl = context.sharedEnv.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem'
+  const databaseUrl =
+    context.sharedEnv.DATABASE_URL ?? 'postgres://meristem:meristem@localhost:55432/meristem'
   const natsUrl = context.sharedEnv.NATS_URL ?? 'ws://localhost:4223'
   const postgresWasReady = await deps.postgresReady(databaseUrl)
   const natsWasReady = await deps.natsReady(natsUrl)
@@ -711,7 +798,12 @@ async function ensureInfraAndWorkspace(
     status: natsWasReady ? 'reused' : 'ready',
     detail: natsUrl
   }
-  results.push(success('infra.postgres', postgresWasReady ? 'reused existing PostgreSQL' : 'started PostgreSQL'))
+  results.push(
+    success(
+      'infra.postgres',
+      postgresWasReady ? 'reused existing PostgreSQL' : 'started PostgreSQL'
+    )
+  )
   results.push(success('infra.nats', natsWasReady ? 'reused existing NATS' : 'started NATS'))
 
   try {
@@ -759,7 +851,10 @@ async function ensureManagedServices(
 ): Promise<boolean> {
   for (const definition of managedServices) {
     const endpoint = context.runtimeConfig.raw.readiness[definition.readinessKey]?.endpoint
-    if (endpoint && (await deps.probeReadyEndpoint(endpoint, context.sharedEnv.MERISTEM_INTERNAL_TOKEN))) {
+    if (
+      endpoint &&
+      (await deps.probeReadyEndpoint(endpoint, context.sharedEnv.MERISTEM_INTERNAL_TOKEN))
+    ) {
       services[definition.name] = {
         status: 'reused',
         detail: 'service already responded to readiness probe',
@@ -848,14 +943,18 @@ async function ensureManagedServices(
   return true
 }
 
-function readRuntimeState(path: string): { readonly nodeId: string; readonly runtimeToken: string; readonly savedAt: string } | null {
+function readRuntimeState(
+  path: string
+): { readonly nodeId: string; readonly runtimeToken: string; readonly savedAt: string } | null {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
       nodeId?: unknown
       runtimeToken?: unknown
       savedAt?: unknown
     }
-    return typeof parsed.nodeId === 'string' && typeof parsed.runtimeToken === 'string' && typeof parsed.savedAt === 'string'
+    return typeof parsed.nodeId === 'string' &&
+      typeof parsed.runtimeToken === 'string' &&
+      typeof parsed.savedAt === 'string'
       ? {
           nodeId: parsed.nodeId,
           runtimeToken: parsed.runtimeToken,
@@ -880,24 +979,29 @@ async function mintOperatorToken(context: PreparedContext): Promise<string> {
 
 async function createJoinTicket(context: PreparedContext): Promise<JoinTicketResult> {
   const token = await mintOperatorToken(context)
-  const response = await fetch(`${context.runtimeConfig.raw.serviceUrls.core}/api/v0/node-tickets`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      kind: 'stem',
-      name: `deploy-proof-${context.target}-${Date.now()}`
-    })
-  })
+  const response = await fetch(
+    `${context.runtimeConfig.raw.serviceUrls.core}/api/v0/node-tickets`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        kind: 'stem',
+        name: `deploy-proof-${context.target}-${Date.now()}`
+      })
+    }
+  )
 
   if (!response.ok) {
     return {
       ok: false,
       result: failure(
         'auth.operator-ticket',
-        response.status === 401 || response.status === 403 ? 'auth.operator_token_rejected' : 'core.join_ticket_failed',
+        response.status === 401 || response.status === 403
+          ? 'auth.operator_token_rejected'
+          : 'core.join_ticket_failed',
         'Failed to verify configured auth mode through Core join-ticket creation',
         `HTTP ${response.status}`
       )
@@ -941,19 +1045,31 @@ async function startNodeAgentWithJoinTicket(
   joinTicket: string,
   previousSavedAt: string | null,
   deps: DeployProofDeps
-): Promise<{ readonly ok: true; readonly pid: number; readonly runtime: NonNullable<ReturnType<typeof readRuntimeState>> } | { readonly ok: false; readonly result: DeployProofResult; readonly pid?: number; readonly logFile: string }> {
+): Promise<
+  | {
+      readonly ok: true
+      readonly pid: number
+      readonly runtime: NonNullable<ReturnType<typeof readRuntimeState>>
+    }
+  | {
+      readonly ok: false
+      readonly result: DeployProofResult
+      readonly pid?: number
+      readonly logFile: string
+    }
+> {
   rmSync(context.paths.runtimeStatePath, { force: true })
   const logFile = join(context.paths.logDir, 'node-agent.log')
-  const pid = deps.startDetached(
-    ['bun', 'run', 'services/node-agent/src/index.ts'],
-    logFile,
-    {
-      ...context.sharedEnv,
-      MERISTEM_JOIN_TICKET: joinTicket,
-      MERISTEM_HOST_PRIVATE_KEY_PATH: join(context.paths.workspaceDir, 'wg', 'private.key')
-    }
+  const pid = deps.startDetached(['bun', 'run', 'services/node-agent/src/index.ts'], logFile, {
+    ...context.sharedEnv,
+    MERISTEM_JOIN_TICKET: joinTicket,
+    MERISTEM_HOST_PRIVATE_KEY_PATH: join(context.paths.workspaceDir, 'wg', 'private.key')
+  })
+  const runtime = await waitForRuntimeStateUpdate(
+    context.paths.runtimeStatePath,
+    previousSavedAt,
+    deps
   )
-  const runtime = await waitForRuntimeStateUpdate(context.paths.runtimeStatePath, previousSavedAt, deps)
   if (!runtime) {
     return {
       ok: false,
@@ -993,7 +1109,9 @@ async function ensureNodeAgent(
     }
     return false
   }
-  results.push(success('auth.operator-ticket', 'Core accepted operator token and minted a join ticket'))
+  results.push(
+    success('auth.operator-ticket', 'Core accepted operator token and minted a join ticket')
+  )
 
   const started = await startNodeAgentWithJoinTicket(
     context,
@@ -1049,8 +1167,8 @@ function finalizeReport(
       keycloakDiscoveryUrl: services.keycloak?.endpoint ?? 'unavailable',
       keycloakJwksUrl:
         runtimeConfig?.auth.provider === 'oidc'
-          ? runtimeConfig.auth.discoveryUrl ?? runtimeConfig.auth.issuer
-          : services.keycloak?.detail ?? 'unavailable'
+          ? (runtimeConfig.auth.discoveryUrl ?? runtimeConfig.auth.issuer)
+          : (services.keycloak?.detail ?? 'unavailable')
     },
     deploymentConfigPath,
     proof: `v02-deploy-${target}`,
@@ -1075,14 +1193,13 @@ export async function runV02DeployProof(
   const authMode = authModeFromArgv(argv)
   const invalidTargetPath = proofPaths('nixos', 'oidc').deploymentConfigPath
   if (!target) {
-    return finalizeReport(
-      'nixos',
-      'oidc',
-      invalidTargetPath,
-      null,
-      {},
-      [failure('target', 'target.invalid', 'Deploy proof only supports --target=nixos or --target=oci')]
-    )
+    return finalizeReport('nixos', 'oidc', invalidTargetPath, null, {}, [
+      failure(
+        'target',
+        'target.invalid',
+        'Deploy proof only supports --target=nixos or --target=oci'
+      )
+    ])
   }
   if (!authMode) {
     return finalizeReport(
@@ -1091,7 +1208,13 @@ export async function runV02DeployProof(
       proofPaths(target, 'oidc').deploymentConfigPath,
       null,
       {},
-      [failure('auth.mode', 'auth.mode_invalid', 'Deploy proof only supports --auth=oidc or --auth=local-dev')]
+      [
+        failure(
+          'auth.mode',
+          'auth.mode_invalid',
+          'Deploy proof only supports --auth=oidc or --auth=local-dev'
+        )
+      ]
     )
   }
 
@@ -1101,16 +1224,44 @@ export async function runV02DeployProof(
   if ('verdict' in prepared) return prepared
 
   if (!(await ensureInfraAndWorkspace(prepared, results, services, deps))) {
-    return finalizeReport(target, authMode, prepared.paths.deploymentConfigPath, prepared.runtimeConfig, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      prepared.paths.deploymentConfigPath,
+      prepared.runtimeConfig,
+      services,
+      results
+    )
   }
   if (!(await ensureManagedServices(prepared, results, services, deps))) {
-    return finalizeReport(target, authMode, prepared.paths.deploymentConfigPath, prepared.runtimeConfig, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      prepared.paths.deploymentConfigPath,
+      prepared.runtimeConfig,
+      services,
+      results
+    )
   }
   if (!(await ensureNodeAgent(prepared, results, services, deps))) {
-    return finalizeReport(target, authMode, prepared.paths.deploymentConfigPath, prepared.runtimeConfig, services, results)
+    return finalizeReport(
+      target,
+      authMode,
+      prepared.paths.deploymentConfigPath,
+      prepared.runtimeConfig,
+      services,
+      results
+    )
   }
 
-  return finalizeReport(target, authMode, prepared.paths.deploymentConfigPath, prepared.runtimeConfig, services, results)
+  return finalizeReport(
+    target,
+    authMode,
+    prepared.paths.deploymentConfigPath,
+    prepared.runtimeConfig,
+    services,
+    results
+  )
 }
 
 if (import.meta.main) {

@@ -8,8 +8,9 @@ FROM oven/bun:${BUN_VERSION}-alpine AS deps
 WORKDIR /app
 
 # 先只拷贝 workspace 声明文件，利用镜像层缓存。
-# 清单必须与 bun.lock 登记的全部 16 个 workspace 一一对应（apps/core、apps/m-cli 也在内），
-# 否则 frozen lockfile 校验会把缺失 workspace 视为变更而拒绝安装。
+# 清单必须与 bun.lock 登记的全部 17 个 workspace 一一对应（apps/core、apps/m-cli 也在内），
+# 否则 frozen lockfile 校验会把缺失 workspace 视为变更而拒绝安装（bun ≤1.3.x 直接失败）。
+# scripts/oci-pipeline.ts 的 workspace 清单一致性检查会拦截两者漂移。
 COPY package.json bun.lock ./
 COPY apps/core/package.json apps/core/package.json
 COPY apps/m-cli/package.json apps/m-cli/package.json
@@ -19,6 +20,7 @@ COPY services/m-policy/package.json services/m-policy/package.json
 COPY services/m-log/package.json services/m-log/package.json
 COPY services/m-eventbus/package.json services/m-eventbus/package.json
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/events/package.json packages/events/package.json

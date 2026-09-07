@@ -1,8 +1,6 @@
 import * as Schema from 'effect/Schema'
 import { err, ok, type Result } from '../../../common/src/result.ts'
-import {
-  MDeployDiffSummaryV01Schema
-} from './mdeploy-operations.ts'
+import { MDeployDiffSummaryV01Schema } from './mdeploy-operations.ts'
 import { MDeployGitSourceRefV01Schema } from './mdeploy-common.ts'
 
 /** M-CLI 安装清单只描述可验证的部署意图，永不承载 token、密钥或 SecretProvider 明文。 */
@@ -126,10 +124,7 @@ export function validateMDeployInstallerManifestV01(
       message: 'production sourceRef.repositoryUrl must not include credentials'
     })
   }
-  if (
-    sourceRef.digest.algorithm !== 'sha256' ||
-    !/^[0-9a-f]{64}$/iu.test(sourceRef.digest.value)
-  ) {
+  if (sourceRef.digest.algorithm !== 'sha256' || !/^[0-9a-f]{64}$/iu.test(sourceRef.digest.value)) {
     return err({
       code: 'installer_manifest_invalid',
       message: 'production sourceRef.digest must be a canonical sha256 digest'

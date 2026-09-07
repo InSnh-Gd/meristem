@@ -230,11 +230,7 @@ export const deployAgentsResponseSchema = t.Object({
           agentId: t.String(),
           timestamp: t.String(),
           lastAppliedDigest: t.Optional(deployDigestSchema),
-          driftStatus: t.Union([
-            t.Literal('none'),
-            t.Literal('suspected'),
-            t.Literal('confirmed')
-          ]),
+          driftStatus: t.Union([t.Literal('none'), t.Literal('suspected'), t.Literal('confirmed')]),
           health: t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('unhealthy')]),
           connectionStatus: t.Union([t.Literal('connected'), t.Literal('disconnected')]),
           runtimeDrivers: t.Array(t.Union([t.Literal('podman'), t.Literal('docker')])),

@@ -44,7 +44,8 @@ type OversizeAllowlistEntry = {
 const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
   {
     filePath: 'packages/contracts/src/schemas/core.ts',
-    reason: '已排期拆分：上游合并后网络 lifecycle schema 增长 7 行，将按 node / network / control 拆分'
+    reason:
+      '已排期拆分：上游合并后网络 lifecycle schema 增长 7 行，将按 node / network / control 拆分'
   },
   {
     filePath: 'services/m-net/src/node-runtime-routes.ts',
@@ -52,7 +53,8 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
   },
   {
     filePath: 'services/node-agent/src/index.ts',
-    reason: '已排期拆分：上游合并新增 sidecar supervisor 装配，入口组装逻辑将下沉到 lifecycle 组合层'
+    reason:
+      '已排期拆分：上游合并新增 sidecar supervisor 装配，入口组装逻辑将下沉到 lifecycle 组合层'
   },
   {
     filePath: 'scripts/v02-deploy-proof.ts',

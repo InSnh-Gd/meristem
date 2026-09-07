@@ -7,12 +7,7 @@ import type {
   ApprovalDetailResponse,
   ApprovalListResponse
 } from './approval.ts'
-import type {
-  BackfillParams,
-  BackfillResult,
-  DLQRecord,
-  ProjectionHealth
-} from './projection.ts'
+import type { BackfillParams, BackfillResult, DLQRecord, ProjectionHealth } from './projection.ts'
 import type {
   CreateNetworkResponse,
   CreateNodeTicketResponse,

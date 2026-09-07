@@ -38,8 +38,12 @@ const NodeRuntimeNetworkMapResponseSchema = Schema.Struct({
   })
 })
 
-const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownResult(NodeRuntimeKeyRegistrationResponseSchema)
-const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownResult(NodeRuntimeNetworkMapResponseSchema)
+const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownResult(
+  NodeRuntimeKeyRegistrationResponseSchema
+)
+const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownResult(
+  NodeRuntimeNetworkMapResponseSchema
+)
 
 function normalizeDesiredSidecar(payload: {
   signalConfigRef: { configRef: string }

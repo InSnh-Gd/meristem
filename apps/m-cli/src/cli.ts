@@ -107,7 +107,10 @@ function generateHelp(): CliRunResult {
   cli.command('identity', 'Identity: actor, token')
   cli.command('secret', 'Secret: list, show, create, rotate, disable')
   cli.command('config', 'Config: list, show, set, reload')
-  cli.command('deploy', 'Deploy: install, stop, init, validate, status, agents, drift, evidence, propose, approve, apply, rollback')
+  cli.command(
+    'deploy',
+    'Deploy: install, stop, init, validate, status, agents, drift, evidence, propose, approve, apply, rollback'
+  )
   cli.help()
 
   // 捕获 cac 的 console.info 输出

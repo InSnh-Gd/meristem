@@ -2,13 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  isLegacyGeneratedMDeployInstallerPlaceholderV01
-} from '../../packages/contracts/src/index.ts'
-import {
-  initManifest,
-  readValidManifest
-} from '../../apps/m-cli/src/commands/deploy-manifest.ts'
+import { isLegacyGeneratedMDeployInstallerPlaceholderV01 } from '../../packages/contracts/src/index.ts'
+import { initManifest, readValidManifest } from '../../apps/m-cli/src/commands/deploy-manifest.ts'
 
 type GitFixture = {
   readonly checkout: string
@@ -54,7 +49,10 @@ async function archiveDigest(commit: string, cwd: string): Promise<string> {
     stdout: 'pipe',
     stderr: 'pipe'
   })
-  const [exitCode, archive] = await Promise.all([child.exited, new Response(child.stdout).arrayBuffer()])
+  const [exitCode, archive] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).arrayBuffer()
+  ])
   expect(exitCode).toBe(0)
   return new Bun.CryptoHasher('sha256').update(new Uint8Array(archive)).digest('hex').toLowerCase()
 }
@@ -114,7 +112,9 @@ describe('deploy manifest provenance boundary', () => {
         path: '.',
         digest: { algorithm: 'sha256', value: await archiveDigest(commit, fixture.checkout) }
       })
-      expect(Date.parse(manifest.proposal.sourceRef.syncedAt)).toBeGreaterThanOrEqual(initializedAfter)
+      expect(Date.parse(manifest.proposal.sourceRef.syncedAt)).toBeGreaterThanOrEqual(
+        initializedAfter
+      )
     })
   })
 
