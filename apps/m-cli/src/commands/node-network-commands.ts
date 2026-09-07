@@ -83,6 +83,26 @@ export const handleNodeNetworkCommands: CliCommandHandler = async (client, args)
     return success(await joinNetwork({ networkId, nodeId }))
   }
 
+  if (command === 'network' && subcommand === 'delete') {
+    const networkId = requireArg(args, '--network')
+    const deleteNetwork = requireMethod(client.deleteNetwork, 'deleteNetwork')
+    return success(await deleteNetwork(networkId))
+  }
+
+  if (command === 'network' && subcommand === 'remove-member') {
+    const networkId = requireArg(args, '--network')
+    const nodeId = requireArg(args, '--node')
+    const removeNetworkMember = requireMethod(client.removeNetworkMember, 'removeNetworkMember')
+    return success(await removeNetworkMember({ networkId, nodeId }))
+  }
+
+  if (command === 'network' && subcommand === 'update') {
+    const networkId = requireArg(args, '--network')
+    const displayName = requireArg(args, '--display-name')
+    const updateNetwork = requireMethod(client.updateNetwork, 'updateNetwork')
+    return success(await updateNetwork({ networkId, displayName }))
+  }
+
   if (command === 'network' && subcommand === 'members') {
     const networkId = requireArg(args, '--network')
     const listNetworkMembers = requireMethod(client.listNetworkMembers, 'listNetworkMembers')

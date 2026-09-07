@@ -11,13 +11,21 @@ import {
 } from './shared.ts'
 
 type NetworkRoute = {
+  delete(params: { $headers: Record<string, string> }): Promise<EdenResponse<unknown>>
+  patch(params: {
+    displayName?: string
+    $headers: Record<string, string>
+  }): Promise<EdenResponse<unknown>>
   members: {
     post(params: {
       nodeId: string
       $headers: Record<string, string>
     }): Promise<EdenResponse<unknown>>
     get(params: { $headers: Record<string, string> }): Promise<EdenResponse<unknown>>
-  }
+  } & Record<
+    string,
+    { delete(params: { $headers: Record<string, string> }): Promise<EdenResponse<unknown>> }
+  >
 }
 
 type ServiceRoute = {
