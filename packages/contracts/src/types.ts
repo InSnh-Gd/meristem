@@ -72,6 +72,7 @@ export type NodeAgentDegradedReasonCode =
   | 'missing_relay'
   | 'missing_stun'
   | 'sidecar_crash'
+  | 'sidecar_start_failed'
   | 'config_drift'
   | 'secret_resolution_failed'
   | 'break_glass_stop'
@@ -407,9 +408,28 @@ export type CreateNetworkRequest = {
   profileVersion?: string
 }
 
-export type MNetwork = MNetworkFromSchema
+// 含可选 displayName 的孪生结构保留手写：Effect Schema.optional 的 Type 携带 `| undefined`，
+// 在 exactOptionalPropertyTypes 下与 TypeBox 路由 schema 推导不兼容（见文件头注释）。
+export type MNetwork = {
+  id: string
+  name: string
+  displayName?: string
+  profileVersion: string
+  status: MNetworkFromSchema['status']
+  createdAt: string
+}
 
-export type NetworkSummary = NetworkSummaryFromSchema
+// 同 MNetwork：可选 displayName 的孪生结构保留手写，避免 Effect optional 的 `| undefined`
+// 与 TypeBox schema 推导在 exactOptionalPropertyTypes 下冲突。
+export type NetworkSummary = {
+  id: string
+  name: string
+  displayName?: string
+  profileVersion: string
+  status: NetworkSummaryFromSchema['status']
+  createdAt: string
+  memberCount: number
+}
 
 export type CreateNetworkResponse = CreateNetworkResponseFromSchema
 

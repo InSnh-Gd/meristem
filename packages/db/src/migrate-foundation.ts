@@ -249,6 +249,8 @@ export async function migrateFoundation(tx: postgres.TransactionSql) {
       updated_at timestamptz not null
     )
   `
+  // display_name 是可选网络元数据，历史部署通过幂等 ALTER 补齐
+  await tx`alter table networks add column if not exists display_name text`
   await tx`
     create table if not exists network_memberships (
       network_id text not null references networks(id),

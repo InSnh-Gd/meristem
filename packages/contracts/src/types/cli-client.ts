@@ -57,6 +57,12 @@ export type CliClient = {
   listNetworks?(): Promise<unknown>
   joinNetwork?(input: { networkId: string; nodeId: string }): Promise<JoinNetworkResponse>
   listNetworkMembers?(networkId: string): Promise<unknown>
+  /** 删除无成员且 profile 已禁用的网络 */
+  deleteNetwork?(networkId: string): Promise<unknown>
+  /** 从网络移除单个成员 */
+  removeNetworkMember?(input: { networkId: string; nodeId: string }): Promise<unknown>
+  /** 更新网络展示名等元数据 */
+  updateNetwork?(input: { networkId: string; displayName: string }): Promise<unknown>
   listNetworkProfiles?(): Promise<unknown>
   getNetworkProfile?(profileVersion: string): Promise<unknown>
   enableNetworkProfile?(networkId: string, profileVersion: string, reason: string): Promise<unknown>

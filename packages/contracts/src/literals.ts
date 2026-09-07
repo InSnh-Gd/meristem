@@ -29,7 +29,8 @@ export const basePermissions = [
   'service:reload',
   'network:read',
   'network:create',
-  'network:join'
+  'network:join',
+  'network:delete'
 ] as const
 
 export const projectionPermissions = [

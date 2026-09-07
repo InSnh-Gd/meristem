@@ -237,6 +237,7 @@ export type NetworkMembershipStatusFromSchema = typeof NetworkMembershipStatusSc
 export const MNetworkSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
+  displayName: Schema.optional(Schema.String),
   profileVersion: Schema.String,
   status: NetworkStatusSchema,
   createdAt: Schema.String
@@ -246,6 +247,7 @@ export type MNetworkFromSchema = typeof MNetworkSchema.Type
 export const NetworkSummarySchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
+  displayName: Schema.optional(Schema.String),
   profileVersion: Schema.String,
   status: NetworkStatusSchema,
   createdAt: Schema.String,
@@ -484,6 +486,17 @@ export const MNetNetworkCreatedPayloadSchema = Schema.Struct({
   profileVersion: Schema.String
 })
 export type MNetNetworkCreatedPayloadFromSchema = typeof MNetNetworkCreatedPayloadSchema.Type
+
+export const MNetNetworkDeletedPayloadSchema = Schema.Struct({
+  networkId: Schema.String
+})
+export type MNetNetworkDeletedPayloadFromSchema = typeof MNetNetworkDeletedPayloadSchema.Type
+
+export const MNetMembershipRemovedPayloadSchema = Schema.Struct({
+  networkId: Schema.String,
+  nodeId: Schema.String
+})
+export type MNetMembershipRemovedPayloadFromSchema = typeof MNetMembershipRemovedPayloadSchema.Type
 
 export const MNetMembershipJoinedPayloadSchema = Schema.Struct({
   networkId: Schema.String,
