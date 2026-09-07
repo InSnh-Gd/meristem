@@ -12,7 +12,7 @@
   let capabilities = $state('tunnel')
   let expiresInSeconds = $state(3600)
 
-  let commandId = 'mnet.join-ticket.create.execute'
+  let commandId = 'network.join-ticket.create.execute'
 
   async function checkEligibility() {
     if (!networkId || !name) return

@@ -245,6 +245,30 @@ export function fetchOperationalState(token: string, networkId: string) {
   )
 }
 
+export function deleteNetwork(token: string, networkId: string) {
+  return bffFetch<{ networkId: string }>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}`,
+    token,
+    { method: 'DELETE' }
+  )
+}
+
+export function removeNetworkMember(token: string, networkId: string, nodeId: string) {
+  return bffFetch<{ networkId: string; nodeId: string }>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}/members/${encodeURIComponent(nodeId)}`,
+    token,
+    { method: 'DELETE' }
+  )
+}
+
+export function updateNetworkMetadata(token: string, networkId: string, displayName: string) {
+  return bffFetch<{ network: { id: string; displayName?: string } }>(
+    `/api/v0/networks/${encodeURIComponent(networkId)}`,
+    token,
+    { method: 'PATCH', body: JSON.stringify({ displayName }) }
+  )
+}
+
 export function createNetwork(token: string, name: string, profileVersion?: string) {
   type Res = {
     network: {

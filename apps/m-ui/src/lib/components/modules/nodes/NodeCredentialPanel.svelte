@@ -7,18 +7,18 @@
   let networkId = $state('')
   let nodeId = $state(initialNodeId)
   let reason = $state('')
-  let commandId = $state('mnet.node.credential.issue.execute')
+  let commandId = $state('network.node-credential.issue.execute')
 
   const commands = [
-    { id: 'mnet.node.credential.issue.execute', label: '颁发凭证 (Issue)' },
-    { id: 'mnet.node.credential.rotate.execute', label: '轮换凭证 (Rotate)' },
-    { id: 'mnet.node.credential.revoke.execute', label: '吊销凭证 (Revoke)' }
+    { id: 'network.node-credential.issue.execute', label: '颁发凭证 (Issue)' },
+    { id: 'network.node-credential.rotate.execute', label: '轮换凭证 (Rotate)' },
+    { id: 'network.node-credential.revoke.execute', label: '吊销凭证 (Revoke)' }
   ]
 
   async function checkEligibility() {
     if (!networkId || !nodeId) return
     const params: Record<string, string> = { networkId, nodeId }
-    if (commandId === 'mnet.node.credential.revoke.execute') {
+    if (commandId === 'network.node-credential.revoke.execute') {
       params.reason = reason
     }
     
@@ -65,7 +65,7 @@
     </select>
   </div>
 
-  {#if commandId === 'mnet.node.credential.revoke.execute'}
+  {#if commandId === 'network.node-credential.revoke.execute'}
     <div class="form-group">
       <label for="revoke-reason">吊销原因</label>
       <input id="revoke-reason" type="text" bind:value={reason} placeholder="输入吊销原因..." />

@@ -1,5 +1,7 @@
 import {
   createNetwork,
+  deleteNetwork,
+  removeNetworkMember,
   executeCommand,
   fetchApprovalDetail as fetchBffApprovalDetail,
   fetchApprovalQueue as fetchBffApprovalQueue,
@@ -310,6 +312,36 @@ class AppState {
       return res
     } catch (e: unknown) {
       this.error = formatBffError(e, '创建网络失败')
+      throw e
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async deleteNetworkById(networkId: string) {
+    if (!this.token) return
+    this.loading = true
+    this.error = null
+    try {
+      await deleteNetwork(this.token, networkId)
+      await this.fetchNetworks()
+    } catch (e: unknown) {
+      this.error = formatBffError(e, '删除网络失败')
+      throw e
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async removeNetworkMemberById(networkId: string, nodeId: string) {
+    if (!this.token) return
+    this.loading = true
+    this.error = null
+    try {
+      await removeNetworkMember(this.token, networkId, nodeId)
+      await this.fetchNetworks()
+    } catch (e: unknown) {
+      this.error = formatBffError(e, '移除成员失败')
       throw e
     } finally {
       this.loading = false
