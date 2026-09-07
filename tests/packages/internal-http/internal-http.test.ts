@@ -11,12 +11,18 @@ import {
 } from '../../../packages/internal-http/src/index.ts'
 
 const originalToken = process.env.MERISTEM_INTERNAL_TOKEN
+const originalPolicyUrl = process.env.MERISTEM_POLICY_URL
 
 afterEach(() => {
   if (originalToken === undefined) {
     delete process.env.MERISTEM_INTERNAL_TOKEN
   } else {
     process.env.MERISTEM_INTERNAL_TOKEN = originalToken
+  }
+  if (originalPolicyUrl === undefined) {
+    delete process.env.MERISTEM_POLICY_URL
+  } else {
+    process.env.MERISTEM_POLICY_URL = originalPolicyUrl
   }
 })
 
@@ -55,8 +61,14 @@ describe('internal-http helpers', () => {
   })
 
   it('derives loopback URLs from the fixed internal service table', () => {
+    delete process.env.MERISTEM_POLICY_URL
     expect(serviceUrl('m-policy')).toBe('http://127.0.0.1:3101')
     expect(serviceUrl('m-eventbus')).toBe('http://127.0.0.1:3103')
+  })
+
+  it('prefers the split-container URL override over the loopback default', () => {
+    process.env.MERISTEM_POLICY_URL = 'http://m-policy:3101'
+    expect(serviceUrl('m-policy')).toBe('http://m-policy:3101')
   })
 
   it('extracts code and message from the shared error envelope', () => {
