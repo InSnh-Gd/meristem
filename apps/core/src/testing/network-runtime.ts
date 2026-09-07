@@ -101,6 +101,52 @@ export function createMNetPort(
       if (!network) return err({ code: 'network.not_found', message: 'network not found' })
       return ok(state.memberships.filter(membership => membership.networkId === networkId))
     },
+    async deleteNetwork(input) {
+      if (helpers.options.mNetAvailable === false) {
+        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
+      }
+      const network = state.networks.find(candidate => candidate.id === input.networkId)
+      if (!network) return err({ code: 'network.not_found', message: 'network not found' })
+      const remaining = state.memberships.filter(
+        membership => membership.networkId === input.networkId
+      )
+      if (remaining.length > 0) {
+        return err({
+          code: 'network.members_present',
+          message: 'network still has members; remove them first'
+        })
+      }
+      state.networks = state.networks.filter(candidate => candidate.id !== input.networkId)
+      return ok({ networkId: input.networkId })
+    },
+    async removeMember(input) {
+      if (helpers.options.mNetAvailable === false) {
+        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
+      }
+      const network = state.networks.find(candidate => candidate.id === input.networkId)
+      if (!network) return err({ code: 'network.not_found', message: 'network not found' })
+      const membership = state.memberships.find(
+        candidate => candidate.networkId === input.networkId && candidate.nodeId === input.nodeId
+      )
+      if (!membership) {
+        return err({ code: 'network.member_not_found', message: 'node is not a network member' })
+      }
+      state.memberships = state.memberships.filter(
+        candidate => !(candidate.networkId === input.networkId && candidate.nodeId === input.nodeId)
+      )
+      return ok({ networkId: input.networkId, nodeId: input.nodeId })
+    },
+    async updateNetworkMetadata(input) {
+      if (helpers.options.mNetAvailable === false) {
+        return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })
+      }
+      const network = state.networks.find(candidate => candidate.id === input.networkId)
+      if (!network) return err({ code: 'network.not_found', message: 'network not found' })
+      if (input.displayName !== undefined) {
+        network.displayName = input.displayName
+      }
+      return ok({ ...network })
+    },
     async controlNode(input) {
       if (helpers.options.mNetAvailable === false) {
         return err({ code: 'mnet.unavailable', message: 'M-Net unavailable' })

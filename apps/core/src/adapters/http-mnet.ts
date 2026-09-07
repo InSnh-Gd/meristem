@@ -2,8 +2,10 @@ import { edenTreaty } from '@elysiajs/eden'
 import { Effect } from 'effect'
 import type {
   CreateNetworkRequest,
+  MNetwork,
   MNetworkMember,
   MNode,
+  NetworkSummary,
   NodeControlAction,
   NodeControlResponse,
   NodeControlResponseFromSchema
@@ -56,23 +58,71 @@ function normalizeNodeControlResponse(
 export function createHttpMNetPort() {
   const baseUrl = serviceUrl('m-net')
   const client = edenTreaty<MNetApp>(serviceUrl('m-net'), { fetcher: createInternalFetcher() })
-  const networkRoutes = client.internal.v0.networks as Record<
+  type EdenEnvelope<T> = {
+    data: T | null
+    error: { value: unknown; status: number } | null
+    status: number
+  }
+  const networkRoutes = client.internal.v0.networks as unknown as Record<
     string,
     {
       members: {
-        post(params: { nodeId: string }): Promise<{
-          data: { member: MNetworkMember } | null
-          error: { value: unknown; status: number } | null
-          status: number
-        }>
-        get(params: Record<string, never>): Promise<{
-          data: { members: MNetworkMember[] } | null
-          error: { value: unknown; status: number } | null
-          status: number
-        }>
+        post(params: { nodeId: string }): Promise<EdenEnvelope<{ member: MNetworkMember }>>
+        get(params: Record<string, never>): Promise<EdenEnvelope<{ members: MNetworkMember[] }>>
       }
+      delete(): Promise<EdenEnvelope<{ deleted: boolean; networkId: string }>>
+      patch(params: { displayName?: string }): Promise<EdenEnvelope<{ network: MNetwork }>>
     }
   >
+  const memberDeleteRoutes = client.internal.v0.networks as unknown as Record<
+    string,
+    {
+      members: Record<
+        string,
+        { delete(): Promise<EdenEnvelope<{ networkId: string; nodeId: string }>> }
+      >
+    }
+  >
+
+  // M-Net 响应经契约 schema 解码后，仍需显式映射为 Core 端口类型；
+  // 可选 displayName 用条件展开，避免 Effect optional 的 `| undefined` 泄漏到端口契约。
+  function toMNetwork(network: {
+    id: string
+    name: string
+    displayName?: string | undefined
+    profileVersion: string
+    status: string
+    createdAt: string
+  }): MNetwork {
+    return {
+      id: network.id,
+      name: network.name,
+      ...(network.displayName !== undefined ? { displayName: network.displayName } : {}),
+      profileVersion: network.profileVersion,
+      status: 'active' as const,
+      createdAt: network.createdAt
+    }
+  }
+
+  function toNetworkSummary(summary: {
+    id: string
+    name: string
+    displayName?: string | undefined
+    profileVersion: string
+    status: string
+    createdAt: string
+    memberCount: number
+  }): NetworkSummary {
+    return {
+      id: summary.id,
+      name: summary.name,
+      ...(summary.displayName !== undefined ? { displayName: summary.displayName } : {}),
+      profileVersion: summary.profileVersion,
+      status: 'active' as const,
+      createdAt: summary.createdAt,
+      memberCount: summary.memberCount
+    }
+  }
 
   return {
     async createNetwork(input: CreateNetworkRequest) {
@@ -92,7 +142,7 @@ export function createHttpMNetPort() {
                 )
               : decodeCreateNetworkResponse(response.data)
           ),
-          Effect.map(response => ({ ...response.network }))
+          Effect.map(response => toMNetwork(response.network))
         )
       )
     },
@@ -113,7 +163,7 @@ export function createHttpMNetPort() {
                 )
               : decodeNetworkListResponse(response.data)
           ),
-          Effect.map(response => response.networks.map(network => ({ ...network })))
+          Effect.map(response => response.networks.map(toNetworkSummary))
         )
       )
     },
@@ -168,6 +218,100 @@ export function createHttpMNetPort() {
               : decodeNetworkMembersResponse(response.data)
           ),
           Effect.map(response => response.members.map(member => ({ ...member })))
+        )
+      )
+    },
+    async deleteNetwork(input: { networkId: string }) {
+      return runServiceEffect(
+        requireServiceRoute(networkRoutes[input.networkId], {
+          code: 'mnet.unavailable',
+          message: 'M-Net unavailable'
+        }).pipe(
+          Effect.flatMap(route =>
+            tryServiceCall(() => route.delete(), {
+              code: 'mnet.unavailable',
+              message: 'M-Net unavailable'
+            })
+          ),
+          Effect.flatMap(response =>
+            response.error || !response.data
+              ? Effect.fail(
+                  serviceErrorFromHttpResponse(
+                    response.error?.value,
+                    'mnet.unavailable',
+                    'M-Net unavailable'
+                  )
+                )
+              : Effect.succeed({ networkId: response.data.networkId })
+          )
+        )
+      )
+    },
+    async removeMember(input: { networkId: string; nodeId: string }) {
+      return runServiceEffect(
+        requireServiceRoute(memberDeleteRoutes[input.networkId], {
+          code: 'mnet.unavailable',
+          message: 'M-Net unavailable'
+        }).pipe(
+          Effect.flatMap(route => {
+            const memberRoute = route.members[input.nodeId]
+            if (!memberRoute) {
+              return Effect.fail({
+                code: 'mnet.unavailable',
+                message: 'M-Net member route unavailable'
+              } as const)
+            }
+            return tryServiceCall(() => memberRoute.delete(), {
+              code: 'mnet.unavailable',
+              message: 'M-Net unavailable'
+            })
+          }),
+          Effect.flatMap(response =>
+            response.error || !response.data
+              ? Effect.fail(
+                  serviceErrorFromHttpResponse(
+                    response.error?.value,
+                    'mnet.unavailable',
+                    'M-Net unavailable'
+                  )
+                )
+              : Effect.succeed({
+                  networkId: response.data.networkId,
+                  nodeId: response.data.nodeId
+                })
+          )
+        )
+      )
+    },
+    async updateNetworkMetadata(input: { networkId: string; displayName?: string }) {
+      return runServiceEffect(
+        requireServiceRoute(networkRoutes[input.networkId], {
+          code: 'mnet.unavailable',
+          message: 'M-Net unavailable'
+        }).pipe(
+          Effect.flatMap(route =>
+            tryServiceCall(
+              () =>
+                route.patch(
+                  input.displayName !== undefined ? { displayName: input.displayName } : {}
+                ),
+              {
+                code: 'mnet.unavailable',
+                message: 'M-Net unavailable'
+              }
+            )
+          ),
+          Effect.flatMap(response =>
+            response.error || !response.data
+              ? Effect.fail(
+                  serviceErrorFromHttpResponse(
+                    response.error?.value,
+                    'mnet.unavailable',
+                    'M-Net unavailable'
+                  )
+                )
+              : Effect.succeed(toMNetwork(response.data.network))
+          )
         )
       )
     },

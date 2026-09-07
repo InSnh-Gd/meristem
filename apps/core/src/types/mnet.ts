@@ -20,6 +20,15 @@ export type MNetPort = {
     nodeId: string
   }): Promise<Result<MNetworkMember, ServiceError>>
   listNetworkMembers(networkId: string): Promise<Result<MNetworkMember[], ServiceError>>
+  deleteNetwork(input: { networkId: string }): Promise<Result<{ networkId: string }, ServiceError>>
+  removeMember(input: {
+    networkId: string
+    nodeId: string
+  }): Promise<Result<{ networkId: string; nodeId: string }, ServiceError>>
+  updateNetworkMetadata(input: {
+    networkId: string
+    displayName?: string
+  }): Promise<Result<MNetwork, ServiceError>>
   controlNode(input: {
     nodeId: string
     action: NodeControlAction

@@ -11,7 +11,9 @@ import {
 import type { CoreDeps } from '../types.ts'
 import {
   publishNetworkCreatedArtifacts,
+  publishNetworkDeletedArtifacts,
   publishNetworkJoinedArtifacts,
+  publishNetworkMemberRemovedArtifacts,
   requireNetworkMutationAccess,
   requireNetworkReadAccess,
   unwrapNetworkResult,
@@ -150,6 +152,125 @@ export function networksRoutes(deps: CoreDeps) {
           503: apiErrorSchema
         }),
         detail: protectedRouteDetail('List network members')
+      }
+    )
+    .delete(
+      '/api/v0/networks/:id',
+      async ({ params, headers }) => {
+        return withExtractedSpan('meristem-core', 'core.network.delete', headers, async () => {
+          const resource = `network:${params.id}`
+          const auth = await requireNetworkMutationAccess(deps, {
+            headers,
+            action: 'network:delete',
+            resource
+          })
+
+          await writeNetworkAuditOrThrow(deps, {
+            actor: auth.actor,
+            action: 'network:delete',
+            resource,
+            permission: auth.permission,
+            correlationId: auth.correlationId
+          })
+
+          const deleted = await unwrapNetworkResult(
+            await deps.mNet.deleteNetwork({ networkId: params.id }),
+            auth.correlationId
+          )
+
+          await publishNetworkDeletedArtifacts(deps, deleted, auth.correlationId)
+
+          return deleted
+        })
+      },
+      {
+        params: t.Object({ id: t.String({ minLength: 1 }) }),
+        response: protectedResponse(t.Object({ networkId: t.String() }), {
+          404: apiErrorSchema,
+          409: apiErrorSchema,
+          503: apiErrorSchema
+        }),
+        detail: protectedRouteDetail('Delete an empty, profile-disabled logical network')
+      }
+    )
+    .delete(
+      '/api/v0/networks/:id/members/:nodeId',
+      async ({ params, headers }) => {
+        return withExtractedSpan(
+          'meristem-core',
+          'core.network.member.remove',
+          headers,
+          async () => {
+            const resource = `network:${params.id}:node:${params.nodeId}`
+            const auth = await requireNetworkMutationAccess(deps, {
+              headers,
+              action: 'network:delete',
+              resource
+            })
+
+            await writeNetworkAuditOrThrow(deps, {
+              actor: auth.actor,
+              action: 'network:delete',
+              resource,
+              permission: auth.permission,
+              correlationId: auth.correlationId
+            })
+
+            const removed = await unwrapNetworkResult(
+              await deps.mNet.removeMember({ networkId: params.id, nodeId: params.nodeId }),
+              auth.correlationId
+            )
+
+            await publishNetworkMemberRemovedArtifacts(deps, removed, auth.correlationId)
+
+            return removed
+          }
+        )
+      },
+      {
+        params: t.Object({ id: t.String({ minLength: 1 }), nodeId: t.String({ minLength: 1 }) }),
+        response: protectedResponse(t.Object({ networkId: t.String(), nodeId: t.String() }), {
+          404: apiErrorSchema,
+          503: apiErrorSchema
+        }),
+        detail: protectedRouteDetail('Remove a node from a logical network')
+      }
+    )
+    .patch(
+      '/api/v0/networks/:id',
+      async ({ params, body, headers }) => {
+        return withExtractedSpan(
+          'meristem-core',
+          'core.network.metadata.update',
+          headers,
+          async () => {
+            const resource = `network:${params.id}`
+            const auth = await requireNetworkMutationAccess(deps, {
+              headers,
+              action: 'network:create',
+              resource
+            })
+
+            const updated = await unwrapNetworkResult(
+              await deps.mNet.updateNetworkMetadata({
+                networkId: params.id,
+                ...(body.displayName !== undefined ? { displayName: body.displayName } : {})
+              }),
+              auth.correlationId
+            )
+
+            return { network: updated }
+          }
+        )
+      },
+      {
+        params: t.Object({ id: t.String({ minLength: 1 }) }),
+        body: t.Object({ displayName: t.Optional(t.String({ minLength: 1 })) }),
+        response: protectedResponse(t.Object({ network: networkSchema }), {
+          404: apiErrorSchema,
+          503: apiErrorSchema
+        }),
+        detail: protectedRouteDetail('Update logical network metadata')
       }
     )
 }
