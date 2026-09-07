@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox'
+import { type Static, Type } from '@sinclair/typebox'
 import { Value } from '@sinclair/typebox/value'
 import type { Result } from '../../common/src/result.ts'
 import { err, ok } from '../../common/src/result.ts'

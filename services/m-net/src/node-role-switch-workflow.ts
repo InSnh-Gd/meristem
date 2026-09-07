@@ -4,12 +4,13 @@ import type {
   NodeControlResponse,
   NodeKind
 } from '../../../packages/contracts/src/index.ts'
-import { deriveNodeRoleSwitch } from './node-control-state-machine.ts'
 import {
   type NodeControlDeps,
   type NodeControlFailure,
   nodeControlFailure
 } from './node-control-shared.ts'
+import { deriveNodeRoleSwitch } from './node-control-state-machine.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 
 /**
  * 角色切换工作流与 disable/isolate/recover 语义不同（操作 kind 而非 status），
@@ -47,12 +48,14 @@ export async function executeNodeRoleSwitch(
     return nodeControlFailure(409, roleSwitch.code, roleSwitch.message)
   }
 
-  const policyResult = await deps.policyAuthorize.authorize(
-    input.actor,
-    'node:switch-role',
-    `node:${input.nodeId}`
-  )
-  if (policyResult.result !== 'allow') {
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: 'node:switch-role',
+    resource: `node:${input.nodeId}`,
+    deniedPrefix: 'node switch-role',
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
     const deniedCorrelationId = crypto.randomUUID()
     try {
       await deps.log.writeAudit(
@@ -65,8 +68,8 @@ export async function executeNodeRoleSwitch(
           previousKind: node.kind,
           requestedKind: input.targetKind,
           reason: input.reason,
-          policyDecisionId: policyResult.id,
-          policyReasons: policyResult.reasons
+          policyDecisionId: policyGuard.policyDecisionId,
+          policyReasons: policyGuard.reasons
         }
       )
     } catch (error) {
@@ -76,11 +79,7 @@ export async function executeNodeRoleSwitch(
         error instanceof Error ? error.message : String(error)
       )
     }
-    return nodeControlFailure(
-      403,
-      'policy.denied',
-      `node switch-role denied: ${policyResult.reasons.join(', ')}`
-    )
+    return nodeControlFailure(403, policyGuard.code, policyGuard.message)
   }
 
   const controlCorrelationId = crypto.randomUUID()
@@ -95,7 +94,7 @@ export async function executeNodeRoleSwitch(
         previousKind: node.kind,
         nextKind: roleSwitch.nextKind,
         reason: input.reason,
-        policyDecisionId: policyResult.id
+        policyDecisionId: policyGuard.policyDecisionId
       }
     )
   } catch (error) {
@@ -135,7 +134,7 @@ export async function executeNodeRoleSwitch(
       {
         previousKind: node.kind,
         nextKind: roleSwitch.nextKind,
-        policyDecisionId: policyResult.id,
+        policyDecisionId: policyGuard.policyDecisionId,
         reason: input.reason
       }
     )
@@ -149,7 +148,7 @@ export async function executeNodeRoleSwitch(
         previousKind: node.kind,
         nextKind: roleSwitch.nextKind,
         reason: input.reason,
-        policyDecisionId: policyResult.id
+        policyDecisionId: policyGuard.policyDecisionId
       }
     )
   } catch (error) {
@@ -163,7 +162,7 @@ export async function executeNodeRoleSwitch(
 
   return {
     node: updatedNode,
-    policyDecisionId: policyResult.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     correlationId: controlCorrelationId
   }
 }

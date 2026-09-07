@@ -1,5 +1,10 @@
 import { Elysia, t } from 'elysia'
 import type { MNetAppDeps } from './deps.ts'
+import {
+  externalMigrationRequiredApiError,
+  isMigrationRequiredFailure
+} from './migration-required-support.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 import { executeBreakGlassDisable, requireBreakGlassDeps } from './profile-break-glass-workflow.ts'
 import {
   isProfileWorkflowFailure as isEnableDisableFailure,
@@ -7,10 +12,6 @@ import {
   requireProfileReadDeps,
   requireProfileWriteDeps
 } from './profile-enable-disable-workflows.ts'
-import {
-  externalMigrationRequiredApiError,
-  isMigrationRequiredFailure
-} from './migration-required-support.ts'
 import { isProfileWorkflowFailure, type ProfileReadDeps } from './profile-workflow-types.ts'
 import { externalApiError, verifyBearerAuth } from './route-helpers.ts'
 import {
@@ -62,16 +63,18 @@ async function requireAuthorizedProfileReadContext(
       message: profileDeps.error.message
     }
   }
-  const policyResult = await profileDeps.policyAuthorize.authorize(
+  const policyGuard = await authorizeOr403(profileDeps.policyAuthorize, {
     actor,
-    'network:profile-read',
-    input.resource
-  )
-  if (policyResult.result !== 'allow') {
+    action: 'network:profile-read',
+    resource: input.resource,
+    deniedPrefix: 'read',
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
     return {
-      status: 403,
-      code: 'policy.denied',
-      message: `read denied: ${policyResult.reasons.join(', ')}`
+      status: policyGuard.status,
+      code: policyGuard.code,
+      message: policyGuard.message
     }
   }
 

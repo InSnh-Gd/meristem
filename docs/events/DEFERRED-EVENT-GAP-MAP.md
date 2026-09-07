@@ -47,7 +47,7 @@
 
 `tests/contracts/schema-coverage.deferred-map.contract.test.ts` enforces:
 
-- Every subject listed in `tests/contracts/schema-coverage.md` under `## Non-active / deferred to post-v0.1 coverage` appears in the table above.
+- Every subject listed in `tests/contracts/schema-coverage.md` under `## Non-active / deferred coverage` appears in the table above.
 - No active subject (from `tests/contracts/schema-coverage.md` active table or from the source scanner) appears in the table above.
 
 The test validates this audit map against the catalog and implementation scan; it does not replace `EVENT-CATALOG.md` as the contract authority.

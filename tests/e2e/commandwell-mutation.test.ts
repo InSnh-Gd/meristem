@@ -1,5 +1,5 @@
 /**
- * E2E-style CommandWell Mutation Contract Tests (TDD RED: not yet implemented)
+ * E2E-style CommandWell Mutation Contract Tests (TDD Red Phase)
  *
  * Tests the UX contract for CommandWell mutation execution from the BFF boundary.
  * Uses app.handle() pattern (no external infra required).
@@ -16,7 +16,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { Result } from 'effect'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import { OperationalCommandPreviewSchema } from '../../packages/contracts/src/index.ts'
 import {

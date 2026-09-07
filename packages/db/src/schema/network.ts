@@ -10,6 +10,7 @@ export const networks = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    displayName: text('display_name'),
     profileVersion: text('profile_version').notNull(),
     status: text('status').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),

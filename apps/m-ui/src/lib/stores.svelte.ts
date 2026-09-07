@@ -1,4 +1,7 @@
 import {
+  createNetwork,
+  deleteNetwork,
+  removeNetworkMember,
   executeCommand,
   fetchApprovalDetail as fetchBffApprovalDetail,
   fetchApprovalQueue as fetchBffApprovalQueue,
@@ -18,11 +21,10 @@ import {
   fetchTimeline as fetchBffTimeline,
   fetchCommandState,
   fetchForcedRelayCommandState,
+  fetchOperationalState,
   fetchOverview,
   fetchPolicySummary,
-  formatBffError,
-  fetchOperationalState,
-  createNetwork
+  formatBffError
 } from './bff'
 import { isDevelopmentBearerMode } from './bff'
 import type {
@@ -30,8 +32,8 @@ import type {
   ApprovalQueueResponseData,
   AuditData,
   AuditEntry,
-  CommandState,
   CommandResult,
+  CommandState,
   DataPlaneStatusResponseData,
   GenericCommandParams,
   GlobalDefaultsResponseData,
@@ -42,13 +44,13 @@ import type {
   NetworkProfileListResponseData,
   NetworkRuntimeStateData,
   NodeListData,
+  OperationalStateData,
   OverviewData,
   PolicyDecisionData,
   PolicyDecisionSummary,
   RouteRegistry,
   ServiceListData,
-  TimelineData,
-  OperationalStateData
+  TimelineData
 } from './types'
 
 declare const $state: <T>(initial: T) => T
@@ -355,6 +357,36 @@ class AppState {
       return res
     } catch (e: unknown) {
       this.error = formatBffError(e, '创建网络失败')
+      throw e
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async deleteNetworkById(networkId: string) {
+    if (!this.token) return
+    this.loading = true
+    this.error = null
+    try {
+      await deleteNetwork(this.token, networkId)
+      await this.fetchNetworks()
+    } catch (e: unknown) {
+      this.error = formatBffError(e, '删除网络失败')
+      throw e
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async removeNetworkMemberById(networkId: string, nodeId: string) {
+    if (!this.token) return
+    this.loading = true
+    this.error = null
+    try {
+      await removeNetworkMember(this.token, networkId, nodeId)
+      await this.fetchNetworks()
+    } catch (e: unknown) {
+      this.error = formatBffError(e, '移除成员失败')
       throw e
     } finally {
       this.loading = false

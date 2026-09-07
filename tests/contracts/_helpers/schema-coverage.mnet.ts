@@ -100,6 +100,16 @@ export const mnetEventContracts: EventContract[] = [
     fixture: { networkId: 'net-1', nodeId: 'node-1', nodeKind: 'stem', membershipMode: 'full' }
   },
   {
+    subject: 'mnet.network.deleted.v0',
+    schema: Contracts.MNetNetworkDeletedPayloadSchema,
+    fixture: { networkId: 'net-1' }
+  },
+  {
+    subject: 'mnet.membership.removed.v0',
+    schema: Contracts.MNetMembershipRemovedPayloadSchema,
+    fixture: { networkId: 'net-1', nodeId: 'node-1' }
+  },
+  {
     subject: 'mnet.profile.enable.requested.v0',
     schema: Contracts.MNetProfileEventPayloadSchema,
     fixture: {

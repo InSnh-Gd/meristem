@@ -1,4 +1,4 @@
-import { Exit } from 'effect'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type {
@@ -68,10 +68,10 @@ async function fetchPublicJson(
 }
 
 function asApprovalList(value: unknown): ApprovalListResponse | null {
-  const decoded = Schema.decodeUnknownExit(ApprovalListResponseSchema)(value)
-  return Exit.isSuccess(decoded)
+  const decoded = Schema.decodeUnknownResult(ApprovalListResponseSchema)(value)
+  return Result.isSuccess(decoded)
     ? {
-        approvals: decoded.value.approvals.map(approval => ({
+        approvals: decoded.success.approvals.map(approval => ({
           id: approval.id,
           policyDecisionId: approval.policyDecisionId,
           originService: approval.originService,
@@ -90,24 +90,24 @@ function asApprovalList(value: unknown): ApprovalListResponse | null {
 }
 
 function asApprovalDetail(value: unknown): ApprovalDetailResponse | null {
-  const decoded = Schema.decodeUnknownExit(ApprovalDetailResponseSchema)(value)
-  return Exit.isSuccess(decoded)
+  const decoded = Schema.decodeUnknownResult(ApprovalDetailResponseSchema)(value)
+  return Result.isSuccess(decoded)
     ? {
-        id: decoded.value.id,
-        policyDecisionId: decoded.value.policyDecisionId,
-        originService: decoded.value.originService,
-        operationId: decoded.value.operationId,
-        requestedBy: decoded.value.requestedBy,
-        requiredAction: decoded.value.requiredAction,
-        status: decoded.value.status,
-        quorumRequired: decoded.value.quorumRequired,
-        expiresAt: decoded.value.expiresAt,
-        createdAt: decoded.value.createdAt,
-        updatedAt: decoded.value.updatedAt,
-        ...(decoded.value.completedAt !== undefined
-          ? { completedAt: decoded.value.completedAt }
+        id: decoded.success.id,
+        policyDecisionId: decoded.success.policyDecisionId,
+        originService: decoded.success.originService,
+        operationId: decoded.success.operationId,
+        requestedBy: decoded.success.requestedBy,
+        requiredAction: decoded.success.requiredAction,
+        status: decoded.success.status,
+        quorumRequired: decoded.success.quorumRequired,
+        expiresAt: decoded.success.expiresAt,
+        createdAt: decoded.success.createdAt,
+        updatedAt: decoded.success.updatedAt,
+        ...(decoded.success.completedAt !== undefined
+          ? { completedAt: decoded.success.completedAt }
           : {}),
-        votes: decoded.value.votes.map(vote => ({
+        votes: decoded.success.votes.map(vote => ({
           id: vote.id,
           approvalId: vote.approvalId,
           actor: vote.actor,
@@ -120,13 +120,17 @@ function asApprovalDetail(value: unknown): ApprovalDetailResponse | null {
 }
 
 function asProfileList(value: unknown): { profiles: NetworkProfileDto[] } | null {
-  const decoded = Schema.decodeUnknownExit(MNetProfileListResponseSchema)(value)
-  return Exit.isSuccess(decoded) ? { profiles: decoded.value.profiles.map(cloneProfile) } : null
+  const decoded = Schema.decodeUnknownResult(MNetProfileListResponseSchema)(value)
+  return Result.isSuccess(decoded)
+    ? {
+        profiles: decoded.success.profiles.map(cloneProfile)
+      }
+    : null
 }
 
 function asProfileDetail(value: unknown): NetworkProfileDto | null {
-  const decoded = Schema.decodeUnknownExit(MNetProfileDetailResponseSchema)(value)
-  return Exit.isSuccess(decoded) ? cloneProfile(decoded.value) : null
+  const decoded = Schema.decodeUnknownResult(MNetProfileDetailResponseSchema)(value)
+  return Result.isSuccess(decoded) ? cloneProfile(decoded.success) : null
 }
 
 function cloneProfile(profile: DecodedProfile): NetworkProfileDto {

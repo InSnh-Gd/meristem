@@ -1,15 +1,23 @@
 import { Schema } from 'effect'
 
-export const ConfigDomainSchema = Schema.Literals(['core', 'm-net', 'm-policy',
-'m-log',
-'m-extension',
-'m-ui'])
+export const ConfigDomainSchema = Schema.Literals([
+  'core',
+  'm-net',
+  'm-policy',
+  'm-log',
+  'm-extension',
+  'm-ui'
+])
 export type ConfigDomainFromSchema = typeof ConfigDomainSchema.Type
 
-export const ConfigStatusSchema = Schema.Literals(['draft', 'validated', 'published',
-'applied',
-'failed',
-'rolled_back'])
+export const ConfigStatusSchema = Schema.Literals([
+  'draft',
+  'validated',
+  'published',
+  'applied',
+  'failed',
+  'rolled_back'
+])
 export type ConfigStatusFromSchema = typeof ConfigStatusSchema.Type
 
 export const ConfigAckStatusSchema = Schema.Literals(['pending', 'acked', 'failed'])

@@ -8,9 +8,13 @@ export type PermissionFromSchema = typeof PermissionSchema.Type
 
 // 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
 
-export const ApprovalStatusSchema = Schema.Literals(['pending', 'approved', 'rejected',
-'expired',
-'canceled'])
+export const ApprovalStatusSchema = Schema.Literals([
+  'pending',
+  'approved',
+  'rejected',
+  'expired',
+  'canceled'
+])
 export type ApprovalStatusFromSchema = typeof ApprovalStatusSchema.Type
 
 export const ApprovalVoteTypeSchema = Schema.Literals(['approve', 'reject'])
@@ -19,15 +23,23 @@ export type ApprovalVoteTypeFromSchema = typeof ApprovalVoteTypeSchema.Type
 export const ApprovalOriginServiceSchema = Schema.Literals(['m-task', 'm-net', 'm-deploy'])
 export type ApprovalOriginServiceFromSchema = typeof ApprovalOriginServiceSchema.Type
 
-export const ApprovalOriginActionSchema = Schema.Literals(['task.submit', 'task.cancel', 'task.retry',
-'mnet.profile.enable'])
+export const ApprovalOriginActionSchema = Schema.Literals([
+  'task.submit',
+  'task.cancel',
+  'task.retry',
+  'mnet.profile.enable'
+])
 export type ApprovalOriginActionFromSchema = typeof ApprovalOriginActionSchema.Type
 
 export const RequiredActionSchema = Schema.Literals(['manual_review', 'multi_approval'])
 export type RequiredActionFromSchema = typeof RequiredActionSchema.Type
 
-export const PolicyDecisionResultSchema = Schema.Literals(['allow', 'deny', 'require_manual_review',
-'require_multi_approval'])
+export const PolicyDecisionResultSchema = Schema.Literals([
+  'allow',
+  'deny',
+  'require_manual_review',
+  'require_multi_approval'
+])
 export type PolicyDecisionResultFromSchema = typeof PolicyDecisionResultSchema.Type
 
 export const PolicyApprovalSchema = Schema.Struct({
@@ -94,9 +106,13 @@ export const ApprovalActionResponseSchema = Schema.Struct({
 })
 export type ApprovalActionResponseFromSchema = typeof ApprovalActionResponseSchema.Type
 
-export const SuspendedOperationStatusSchema = Schema.Literals(['suspended', 'resumed', 'rejected',
-'expired',
-'resume_failed'])
+export const SuspendedOperationStatusSchema = Schema.Literals([
+  'suspended',
+  'resumed',
+  'rejected',
+  'expired',
+  'resume_failed'
+])
 export type SuspendedOperationStatusFromSchema = typeof SuspendedOperationStatusSchema.Type
 
 export const TaskSuspendedOperationSchema = Schema.Struct({

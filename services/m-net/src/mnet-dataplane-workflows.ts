@@ -21,6 +21,7 @@ import {
 import { transitionPartitionState } from './partition-state.ts'
 import { createDataPlaneAdapter } from './data-plane/noop-adapter.ts'
 import type { DisabledDataPlaneAdapterResult } from './data-plane/noop-adapter.ts'
+import { applyProfileTransition } from './profile-transition.ts'
 import {
   createNetBirdAdapter,
   type NetBirdAdapterEnabledResult,
@@ -230,21 +231,18 @@ export async function enableDataPlaneProfile(
     })
     if (adapterPersisted !== true) return adapterPersisted
 
-    await deps.profileStore.setNetworkState(input.networkId, {
-      profileVersion,
-      status: 'enabled'
-    })
-    await deps.networkUpdater?.setProfileVersion(input.networkId, profileVersion)
-    await deps.profileStore.recordTransition({
+    // 目标状态 enabled 由状态机表 enable_success 行决定；状态事实与迁移记录统一走 applyProfileTransition。
+    await applyProfileTransition(deps.profileStore, {
       networkId: input.networkId,
-      fromVersion: DEFAULT_PROFILE_VERSION,
-      toVersion: profileVersion,
-      fromStatus: 'enabling',
-      toStatus: 'enabled',
+      fromState: { profileVersion: DEFAULT_PROFILE_VERSION, status: 'enabling' },
+      actions: ['enable_success'],
+      stateProfileVersion: profileVersion,
+      transitionToVersion: profileVersion,
       actor: input.actor,
       reason: input.reason,
       correlationId
     })
+    await deps.networkUpdater?.setProfileVersion(input.networkId, profileVersion)
     await deps.dataPlane.profileMigrations.upsert({
       networkId: input.networkId,
       operationId: request.operationId,

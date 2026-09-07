@@ -6,8 +6,8 @@ import type {
   NetworkProfileDetailResponseData,
   NetworkProfileListResponseData,
   OverviewData,
-  TaskResult,
-  StateSourceMetadata
+  StateSourceMetadata,
+  TaskResult
 } from '../../../src/lib/types.ts'
 
 const stateSource: StateSourceMetadata = {

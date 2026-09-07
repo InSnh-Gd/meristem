@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Result } from 'effect'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import type { MNode, Permission } from '../../packages/contracts/src/index.ts'
 import { CommandWellEligibilitySchema } from '../../packages/contracts/src/index.ts'

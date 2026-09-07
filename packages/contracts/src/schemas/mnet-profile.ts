@@ -27,14 +27,15 @@ export const MNetProfileSchemaVersionSchema = Schema.Literals([
 ])
 export type MNetProfileSchemaVersionFromSchema = typeof MNetProfileSchemaVersionSchema.Type
 
-export const LegacyMNetRegionalProfileSchema = MNetRegionalProfileV03Schema.pipe(
-  Schema.check(
-    Schema.makeFilter(profile =>
-      profile.schemaVersion === 'mnet-profile@0.3.0'
-        ? undefined
-        : { path: ['schemaVersion'], issue: 'v0.3 profiles require mnet-profile@0.3.0' }
-    )
-  )
+export const LegacyMNetRegionalProfileSchema = MNetRegionalProfileV03Schema.check(
+  Schema.makeFilter(profile => {
+    const issues: Array<Schema.FilterIssue> = []
+
+    if (profile.schemaVersion !== 'mnet-profile@0.3.0') {
+      issues.push({ path: ['schemaVersion'], issue: 'v0.3 profiles require mnet-profile@0.3.0' })
+    }
+    return issues
+  })
 )
 export type LegacyMNetRegionalProfileFromSchema = typeof LegacyMNetRegionalProfileSchema.Type
 

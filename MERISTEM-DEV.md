@@ -17,7 +17,7 @@
 | 主题 | 文档 |
 |------|------|
 | 文档总索引 | `docs/README.md` |
-| v0.1 范围与验收 | `MERISTEM-ROADMAP.md` |
+| 交付现状与验收 | `MERISTEM-ROADMAP.md` |
 | 架构决策 | `docs/adr/README.md` |
 | 服务定义 | `docs/services/SERVICE-DEFINITION-TEMPLATE.md` |
 | Core 服务边界 | `docs/services/core.md` |
@@ -27,12 +27,12 @@
 | M-Policy 功能域边界 | `docs/services/m-policy.md` |
 | 事件目录 | `docs/events/EVENT-CATALOG.md` |
 | 契约版本 | `docs/contracts/CONTRACT-VERSIONING.md` |
-| MVP REST API | `docs/contracts/REST-API-MVP.md` |
-| MVP Eden 契约 | `docs/contracts/EDEN-MVP.md` |
-| MVP CLI 命令 | `docs/contracts/CLI-COMMANDS.md` |
+| REST API 契约 | `docs/contracts/REST-API.md` |
+| Eden 契约 | `docs/contracts/EDEN.md` |
+| CLI 命令契约 | `docs/contracts/CLI-COMMANDS.md` |
 | 安全模型 | `docs/security/SECURITY-MODEL.md` |
 | 状态模型 | `docs/data/STATE-MODEL.md` |
-| MVP PostgreSQL schema | `docs/data/POSTGRES-SCHEMA-MVP.md` |
+| PostgreSQL schema | `docs/data/POSTGRES-SCHEMA.md` |
 | 配置生命周期 | `docs/config/CONFIG-LIFECYCLE.md` |
 | 运行手册 | `docs/operations/RUNBOOK.md` |
 | 测试策略 | `docs/testing/TESTING.md` |
@@ -57,7 +57,7 @@
 | 日期处理 | date-fns | 高价值日期操作（token 过期、审批截止、迁移时间戳） |
 | CLI 解析 | cac | M-CLI 命令解析，替代手写 arg loop |
 | 测试 mock | @total-typescript/shoehorn | 替代 `as unknown as` 双重断言 |
-| Effect/Bun 平台试点 | @effect/platform-bun | 试点/共存，不替代 packages/internal-http |
+| Effect 运行时 | effect 4.0.0-rc | Effect v4rc；@effect/platform-bun 试点保留，platform 并入 effect/unstable/* |
 | 副作用与内部契约建模 | Effect | 复杂副作用、生命周期、事件消费者、策略流程、日志 pipeline、投影、重试/超时/取消、多服务编排和跨服务内部契约默认优先使用；不强制 Effect-everywhere |
 | 扩展 | M-Extension | 原 M-Plugin 已废弃；扩展是补充机制，不是主功能承载层 |
 | 可选网关 | APISIX | 可选部署组件，不进入 Core 默认依赖 |
@@ -811,8 +811,8 @@ Meristem Core 计划使用 BSD-3 协议。
 | `cac` | 7.0.0 | M-CLI 命令解析 | 保持 `createCliRunner` 契约不变 |
 | `pino` | 10.3.1 | 结构化操作日志 | 不替代 M-Log 权威事实发射 |
 | `@total-typescript/shoehorn` | 0.1.2 | 测试 mock 构造 | 仅用于 `as unknown as` 双重断言迁移 |
-| `@effect/platform-bun` | 0.90.0 | Effect/Bun 平台兼容性试点 | 不替代 `packages/internal-http` |
-| `@effect/platform` | 0.96.1 | `@effect/platform-bun` peer dep | 同上 |
+| `typescript` + `typescript7` | 6.0.3 / 7.0.2 | 类型检查双轨：typecheck 门禁走 TS7 二进制；svelte-check 等 v6 API 工具走主入口 | 仅允许经 package.json scripts 使用 |
+| `@effect/platform-bun` | 4.0.0-rc.112 | Effect/Bun 平台兼容性试点 | 不替代 `packages/internal-http` |
 
 ---
 

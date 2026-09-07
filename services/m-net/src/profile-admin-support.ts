@@ -6,6 +6,7 @@ import {
   requireDataPlaneDeps
 } from './mnet-dataplane-workflows.ts'
 import type { ProfileState } from './profile-state-machine.ts'
+import { applyProfileTransition } from './profile-transition.ts'
 import { isProfileWorkflowFailure, profileStateFrom } from './profile-workflow-types.ts'
 
 type FeatureDeps = Pick<
@@ -228,22 +229,18 @@ async function applyApprovedDirectResume(
     expectedState: ProfileState
   }
 ) {
-  await deps.profileStore.setNetworkState(suspendedOp.networkId, {
-    profileVersion: suspendedOp.toProfileVersion,
-    status: input.isDisable ? 'disabled' : 'enabled'
-  })
-  await deps.networkUpdater?.setProfileVersion(suspendedOp.networkId, suspendedOp.toProfileVersion)
-  await deps.profileStore.recordTransition({
+  // resume 提交 = enable_success / disable_success 表行；目标状态由状态机表决定。
+  await applyProfileTransition(deps.profileStore, {
     networkId: suspendedOp.networkId,
-    fromVersion: suspendedOp.fromProfileVersion,
-    toVersion: suspendedOp.toProfileVersion,
-    fromStatus: input.expectedState,
-    toStatus: input.isDisable ? 'disabled' : 'enabled',
+    fromState: { profileVersion: suspendedOp.fromProfileVersion, status: input.expectedState },
+    actions: input.isDisable ? ['disable_success'] : ['enable_success'],
+    stateProfileVersion: suspendedOp.toProfileVersion,
     actor: 'system',
     reason: 'approved resume',
     policyDecisionId: suspendedOp.policyDecisionId,
     correlationId: suspendedOp.correlationId
   })
+  await deps.networkUpdater?.setProfileVersion(suspendedOp.networkId, suspendedOp.toProfileVersion)
 }
 
 async function applyApprovedEnableResume(

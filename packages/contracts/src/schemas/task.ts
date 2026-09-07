@@ -5,13 +5,17 @@ import { ApiErrorSchema, OperationDangerLevelSchema, RiskFactorSchema } from './
 export const TaskTypeSchema = Schema.Literal('noop')
 export type TaskTypeFromSchema = typeof TaskTypeSchema.Type
 
-export const MTaskStatusSchema = Schema.Literals(['accepted', 'queued', 'dispatched',
-'running',
-'completed',
-'failed',
-'cancel_requested',
-'canceled',
-'timed_out'])
+export const MTaskStatusSchema = Schema.Literals([
+  'accepted',
+  'queued',
+  'dispatched',
+  'running',
+  'completed',
+  'failed',
+  'cancel_requested',
+  'canceled',
+  'timed_out'
+])
 export type MTaskStatusFromSchema = typeof MTaskStatusSchema.Type
 
 export const TaskRiskSummarySchema = Schema.Struct({
@@ -21,8 +25,12 @@ export const TaskRiskSummarySchema = Schema.Struct({
 })
 export type TaskRiskSummaryFromSchema = typeof TaskRiskSummarySchema.Type
 
-export const TaskPolicyResultSchema = Schema.Literals(['allow', 'deny', 'require_manual_review',
-'require_multi_approval'])
+export const TaskPolicyResultSchema = Schema.Literals([
+  'allow',
+  'deny',
+  'require_manual_review',
+  'require_multi_approval'
+])
 export type TaskPolicyResultFromSchema = typeof TaskPolicyResultSchema.Type
 
 export const MTaskPolicyDecisionSchema = Schema.Struct({

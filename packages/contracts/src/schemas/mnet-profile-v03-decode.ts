@@ -1,13 +1,16 @@
 import * as Schema from 'effect/Schema'
 import {
+  type MNetMigrationRequiredFromSchema,
   MNetNodeRuntimeProfileSchema,
-  MNetRegionalProfileV03Schema
-} from './mnet-profile-v03-contract.ts'
-import type {
-  MNetMigrationRequiredFromSchema,
-  MNetNodeV03CompatibilityResultFromSchema,
-  MNetProfileV03CompatibilityResultFromSchema
-} from './mnet-profile-v03-contract.ts'
+  type MNetNodeV03CompatibilityResultFromSchema,
+  type MNetProfileV03CompatibilityResultFromSchema
+} from './mnet-profile-v03-migration.ts'
+import { MNetRegionalProfileV03Schema } from './mnet-profile-v03-profile.ts'
+
+/**
+ * M-Net v0.3 profile 的兼容性解码：v0.3 profile 直接归一化，
+ * legacy profile / 节点 transport 返回 typed migration_required，供日志/UI/CLI 复用。
+ */
 
 const legacyProfileMigrations = {
   'm-net-default@0.1.0': {

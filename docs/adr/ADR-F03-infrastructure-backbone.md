@@ -16,7 +16,7 @@ M-EventBus 使用 NATS 作为事件、命令、同步与互联信息流动的主
 
 ### PostgreSQL 作为权威写模型
 
-PostgreSQL 是 Meristem 的暂定权威写模型，承载用户、角色、权限、节点、服务定义、配置版本、secretRefs 和关键资源状态。该决策在 v0/MVP 阶段接受，生产冻结前需重新评估。
+PostgreSQL 是 Meristem 的暂定权威写模型，承载用户、角色、权限、节点、服务定义、配置版本、secretRefs 和关键资源状态。该决策自初始架构基线起接受，生产冻结前需重新评估。
 
 ### OpenSearch 作为读模型与搜索
 

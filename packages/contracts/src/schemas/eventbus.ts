@@ -1,6 +1,10 @@
 import * as Schema from 'effect/Schema'
 
-export const EventBusRejectedReasonSchema = Schema.Literals(['invalid_envelope', 'subject_not_allowed', 'subject_mismatch'])
+export const EventBusRejectedReasonSchema = Schema.Literals([
+  'invalid_envelope',
+  'subject_not_allowed',
+  'subject_mismatch'
+])
 export type EventBusRejectedReasonFromSchema = typeof EventBusRejectedReasonSchema.Type
 
 export const EventBusPublishFailureReasonSchema = Schema.Literal('publish_failed')

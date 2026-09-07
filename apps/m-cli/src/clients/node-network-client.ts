@@ -26,6 +26,9 @@ export function createNodeNetworkClient(
   | 'listNetworks'
   | 'joinNetwork'
   | 'listNetworkMembers'
+  | 'deleteNetwork'
+  | 'removeNetworkMember'
+  | 'updateNetwork'
 > {
   const { client, headers, networkRoutes, nodeRoutes } = runtime
 
@@ -64,6 +67,31 @@ export function createNodeNetworkClient(
       const route = networkRoutes[networkId]
       if (!route) throw new Error('network route unavailable')
       return unwrap(route.members.get({ $headers: headers }))
+    },
+    deleteNetwork: async networkId => {
+      const route = networkRoutes[networkId]
+      if (!route) throw new Error('network route unavailable')
+      return unwrap<{ networkId: string }>(route.delete({ $headers: headers }))
+    },
+    removeNetworkMember: async input => {
+      const route = networkRoutes[input.networkId]
+      if (!route) throw new Error('network route unavailable')
+      const memberRoute = route.members[input.nodeId]
+      if (!memberRoute) throw new Error('network member route unavailable')
+      return unwrap<{ networkId: string; nodeId: string }>(
+        memberRoute.delete({ $headers: headers })
+      )
+    },
+    updateNetwork: async input => {
+      const route = networkRoutes[input.networkId]
+      if (!route) throw new Error('network route unavailable')
+      return unwrap<{ network: { id: string } }>(
+        route.patch(
+          input.displayName !== undefined
+            ? { displayName: input.displayName, $headers: headers }
+            : { $headers: headers }
+        )
+      )
     }
   }
 }

@@ -1,5 +1,6 @@
 import type { MNetAppDeps } from './deps.ts'
 import { breakGlassFailClosed, getDataPlaneStores } from './mnet-dataplane-workflows.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 import { canDisable } from './profile-state-machine.ts'
 import {
   type BreakGlassBody,
@@ -122,19 +123,17 @@ export async function executeBreakGlassDisable(
 
   let policyDecisionId: string | undefined
   try {
-    const disablePolicyResult = await deps.policyAuthorize.authorize(
-      input.actor,
-      'network:profile-disable',
-      `network:${input.networkId}`
-    )
-    if (disablePolicyResult.result === 'deny') {
-      return profileWorkflowFailure(
-        403,
-        'policy.denied',
-        `profile disable denied: ${disablePolicyResult.reasons.join(', ')}`
-      )
+    const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+      actor: input.actor,
+      action: 'network:profile-disable',
+      resource: `network:${input.networkId}`,
+      deniedPrefix: 'profile disable',
+      denyOn: 'deny-only'
+    })
+    if (policyGuard.kind === 'denied') {
+      return profileWorkflowFailure(policyGuard.status, policyGuard.code, policyGuard.message)
     }
-    policyDecisionId = disablePolicyResult.id
+    policyDecisionId = policyGuard.policyDecisionId
   } catch {
     if (!approvalDegraded) {
       return profileWorkflowFailure(
@@ -172,6 +171,7 @@ export async function executeBreakGlassDisable(
       actor: input.actor
     }
   )
+  // break-glass 是表外紧急补偿：任意状态直接落到 disabled，不经状态机表迁移行。
   await deps.profileStore.setNetworkState(input.networkId, {
     profileVersion: DEFAULT_PROFILE_VERSION,
     status: 'disabled'

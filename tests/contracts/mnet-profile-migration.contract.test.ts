@@ -4,8 +4,8 @@ import {
   MNetRegionalProfileSchema,
   type NetworkProfileStateFromSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import type { MNetRegionalProfile } from '../../packages/contracts/src/types/mnet-profile.ts'
 import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
+import type { MNetRegionalProfile } from '../../packages/contracts/src/types/mnet-profile.ts'
 
 type MigrationProfileCandidate = Omit<
   MNetRegionalProfile,

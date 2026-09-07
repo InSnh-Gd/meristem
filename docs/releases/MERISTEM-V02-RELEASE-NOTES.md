@@ -1,176 +1,78 @@
 # Meristem v0.2 Release Notes
 
-> Real runtime behavior for the v0.2 NetBird data-plane track (ADR-N04).
+> 产品当前版本：**v0.2**（基线：`v0.1.0`）。本文档记录 v0.2 相对 v0.1 基线的交付内容、破坏性变更与迁移指引。
 >
-> This document replaces the scaffold v0.2 release notes. Every documented
-> behavior is backed by automated failure-mode tests or explicit gaps.
+> 版本词汇约定：`Identity v0.2`、`SecretProvider v0.2`、`SDUI v0.2`、`m-net@0.3.0` 是子契约版本号；产品发布版本以根目录 `MERISTEM-ROADMAP.md` 的声明为准（v0.2）。
 
 ---
 
-## 1. Release Scope
+## 1. 交付亮点
 
-v0.2 introduces the NetBird-based data-plane orchestration track:
+### M-Net 数据面（NetBird-only 方向，ADR-N04）
 
-- **M-Net control-plane:** profile lifecycle, network-map generation, relay
-  assignment, ACL rendering, and node administrative state control
-  (disable/isolate/recover/switch-role).
+- 数据面运行时方向确定为 **NetBird-only**，排除 NetBird Management（`docs/adr/ADR-N04-netbird-runtime-integration.md`）。
+- Profile 契约升级：`m-net@0.3.0` / `m-net-cn@0.3.0` 承载 NetBird 数据面语义；`m-net-cn@0.2.0`（WireGuard + wstunnel）保留为迁移窗口内的 legacy 路径（ADR-N03）。
+- M-Net 新增 NetBird adapter、operational read model、forced-relay workflow 与 v0.3 profile lifecycle。
+- node-agent 新增 sidecar lifecycle 管理：凭证轮换（credential rotation）与降级状态（degraded states）。
+- 数据面基础硬化：signing key、P2P WireGuard + STUN、force-relay、运行时持久化。
 
-- **Node-agent host-local runtime:** NetBird sidecar lifecycle management,
-  SecretProvider credential resolution, signed network-map enforcement with
-  stale-map fail-closed, WireGuard interface configuration, and heartbeat/
-  log-forward/task-execution session frames.
+### 身份与密钥
 
-- **SecretProvider integration:** OIDC client secret, NetBird setup key,
-  NetBird infra credentials, and sidecar credentials are resolved through
-  the typed SecretProvider boundary at service startup and sidecar launch.
+- **Identity v0.2** 本地身份硬化：本地 actor token 模型、权限继承与身份表组（`docs/security/SECURITY-MODEL.md` §2.2.1）。
+- 新增 **OIDC / JWKS provider** 契约与实现边界。
+- **SecretProvider v0.2**：Vault KV v2 兼容的生产 SecretProvider backend 契约；SecretRef 规则与 redaction 测试保持不变。
+- Core 新增节点凭证 issue / revoke facade 路由。
 
-- **Shared auth verifier:** One package-level verifier selects exactly one
-  auth mode from runtime deployment config. OIDC mode rejects local JWT.
-  Local-dev mode requires explicit secret and is not a fallback for OIDC.
+### M-UI / BFF
 
-- **Three-host live proof:** `bun run mnet:v02:live-proof` composes deploy
-  proof, requires Keycloak OIDC, enables `m-net@0.3.0`, joins two nodes,
-  and requires packet reachability over the NetBird overlay before reporting
-  release success.
+- **SDUI v0.2** 路由注册表扩展：operational state、dataplane 与 CommandWell BFF 路由（`docs/ui/SDUI-SCHEMA.md`）。
+- CommandWell mutation 执行流全链路：审批 approve / reject、网络 profile enable / disable 的 preview + execute（BFF → Core public facade → M-Policy / M-Net）。
+- M-UI 新增 operational progress feed、credential lifecycle panel、节点控制状态展示；transitional workbench 结构保持（`CONTEXT.md` 词汇）。
 
----
+### 契约与策略
 
-## 2. Runtime Failure Behavior
+- `packages/contracts` 新增 v0.3 profile、operational、deployment、auth、secret schema 组。
+- M-Policy approval readers 与 seed 数据对齐 v0.3 profiles。
+- 事件目录保持权威：profile lifecycle 与 vote-level 事件均为 active publisher（`docs/events/EVENT-CATALOG.md`）。
 
-### Authentication & Authorization
+### 部署与验证工具
 
-| Failure | Behavior | Recovery |
-|---------|----------|----------|
-| OIDC discovery unavailable | Core readiness fails; routes return 503 | Restore Keycloak; no restart needed |
-| Invalid token (issuer/audience/signature/expired/revoked) | 401 with typed code | Obtain fresh token from Keycloak |
-| Missing SecretProvider credential | Core startup fail-closed; node-agent degraded | Populate secret; restart service |
-| Denied SecretProvider credential | Core startup fail-closed; redacted error | Grant access; restart service |
-
-### NetBird Sidecar
-
-| Failure | Behavior | Recovery |
-|---------|----------|----------|
-| NetBird binary missing | Node-agent degraded (netbird.binary.invalid) | Install binary; restart agent |
-| NetBird process start failure | Node-agent degraded (netbird.start_failed) | Fix binary/config; restart |
-| NetBird probe failure | Node-agent degraded (netbird.<reason>) | Restore infra connectivity |
-| SecretProvider missing for sidecar | Sidecar not spawned (secret.missing) | Populate secret; cycle desired state |
-
-### Data-Plane
-
-| Failure | Behavior | Recovery |
-|---------|----------|----------|
-| Packet reachability failure | Direct fallback or fail_closed (relay.unavailable) | Restore relay/STUN/Signal |
-| Expired network map | Stale → fail_closed; tunnels torn down | Restore M-Net connectivity |
-| Stale map (TTL exceeded) | Existing tunnels preserved; new paths blocked | Pull fresh map |
-| Invalid map signature | fail_closed; prior peers preserved | Restore M-Net signing key |
-
-### M-UI Command Layer
-
-| Failure | Behavior | Recovery |
-|---------|----------|----------|
-| Viewer eligibility check | Disabled state with typed reason | Obtain permissions |
-| Missing confirmation | 400 (command.invalid_body) | Include confirmation field |
-| Upstream service unavailable | 503 typed error envelope | Restore upstream service |
+- **Dual-track 部署配置**：NixOS / OCI 双轨（`ops/nixos/`、`ops/compose/`）。
+- 新增 proof 与 harness 脚本：
+  - `bun run mnet:v02:sidecar-proof` — NetBird 无 Management 模式 viability gate。
+  - `bun run mnet:v02:deploy-proof` — 部署形态验证。
+  - `bun run mnet:harness:preflight|start|status|stop|reset` — M-Net multihost harness。
+- 测试面新增 v0.2 contract、failure-mode、integration、Playwright、UI-contract、service 测试组。
 
 ---
 
-## 3. Known Gaps and Limitations
+## 2. 破坏性变更与迁移
 
-| Gap | Reason | Mitigation |
-|-----|--------|------------|
-| Real NetBird binary not in CI | NetBird client not available in containerized CI | `bun run mnet:v02:sidecar-proof` validates pre-deployment |
-| Real NetBird process spawn not tested | OS-level subprocess requires live binary | Typed failure paths tested via mock injection |
-| Automatic token refresh after rotation | Not in v0.2 scope | Operators restart node-agent after rotation |
-| NetBird Management integration | Excluded per ADR-N04 | Meristem renders config; NetBird infra is external |
-| wstunnel fallback mode | Not in v0.2 (NetBird-only runtime) | Legacy path retained for migration window only |
+| 变更 | 影响 | 迁移指引 |
+|------|------|----------|
+| M-Net profile cutover 到 `m-net@0.3.0` / `m-net-cn@0.3.0` | legacy `m-net-cn@0.2.0` 节点不再是目标 profile | 旧节点获得 typed `migration-required` 指导；迁移窗口内仍可运行 legacy 路径（ADR-N03）；按 rebuild 指导重建 |
+| 数据面运行时排除 NetBird Management | 依赖 NetBird Management 的部署不被支持 | 使用 Signal + Relay/STUN 无 Management 模式；sidecar-proof 未通过时按 ADR-N04 §4 回退 |
+| 文档集重组 | `REST-API-MVP.md` → `REST-API.md`、`EDEN-MVP.md` → `EDEN.md`、`POSTGRES-SCHEMA-MVP.md` → `POSTGRES-SCHEMA.md`、`SERVICE-LIFECYCLE-PROTOTYPE.md` → `SERVICE-LIFECYCLE.md`；historical M-UI 设计探索文档移除 | 按新路径引用契约文档；当前 UI 边界以 `docs/ui/SDUI-SCHEMA.md` 与 `docs/services/m-ui-bff.md` 为准 |
 
 ---
 
-## 4. Configuration
+## 3. 完成证据门禁
 
-Key environment variables for production deployment:
+发布声明必须附以下门禁结果（见 `MERISTEM-ROADMAP.md` §6 与操作者清单 `MERISTEM-V02-OPERATOR-CHECKLIST.md`）：
 
-```bash
-# Core OIDC
-MERISTEM_OIDC_ISSUER=https://keycloak.example.com/realms/meristem
-MERISTEM_OIDC_AUDIENCES=meristem-core
-
-# SecretProvider
-MERISTEM_SECRET_PROVIDER_BACKEND=vault-kv-v2
-MERISTEM_OIDC_CLIENT_SECRET=secret:runtime:keycloak/client-secret
-
-# NetBird infrastructure (external, managed by NixOS/systemd)
-MERISTEM_MNET_SIGNAL_URL=https://signal.example.com
-MERISTEM_MNET_RELAY_URL=https://relay.example.com
-MERISTEM_MNET_STUN_URL=stun:stun.example.com:3478
-
-# Node-agent
-MERISTEM_JOIN_URL=wss://control.example.com:8443/join/v0/session
-MERISTEM_NETBIRD_BINARY_PATH=/run/current-system/sw/bin/netbird
-MERISTEM_MNET_NETWORK_MAP_STALE_TTL_MS=900000
-```
-
----
-
-## 5. Verification Gates
-
-### 5.1 Deterministic CI and local gate split
-
-Regular CI remains deterministic and fast. It must not depend on host-specific
-capabilities such as Docker, NetBird, or elevated network permissions.
-
-For the full local deterministic gate set, run:
-
-```bash
-bun run test:v02-gates
-```
-
-This gate covers install, formatting, linting, dependency graph checks,
-typecheck, contract coverage, failure-mode coverage, integration coverage, CLI
-coverage, UI contract coverage, and the agent-submit drift guard.
-
-### 5.2 Release acceptance gate
-
-The release acceptance command is:
-
-```bash
-bun run test:v02-release
-```
-
-`test:v02-release` runs the deterministic gate set and then executes the live
-proof command:
-
-```bash
-bun run mnet:v02:live-proof --topology=three-host --oidc=keycloak
-```
-
-The release is not accepted unless live proof completes with success evidence.
-Typed `prerequisite-missing` is not release success; it documents missing host
-capabilities and must be treated as a blocked release path, not a deployable
-result.
-
-```bash
-# Pre-submit drift guard
-bun run test:agent-submit
-
-# Full failure-mode suite
+```text
+bun run lint
+bun run typecheck
+bun run test
+bun run test:contracts
+bun run test:cli
 bun run test:failure-modes
-
-# Runtime failure matrix generation
-bun test tests/failure-modes/runtime-failure-matrix.test.ts
-
-# Sidecar viability proof (pre-deployment)
-bun run mnet:v02:sidecar-proof
-
-# Live three-host proof (requires real infrastructure)
-bun run mnet:v02:live-proof
+bun run test:integration
+bun run test:e2e
 ```
 
 ---
 
-## 6. Evidence
+## 4. 延后工作
 
-- Runtime failure matrix: `tests/evidence/runtime-failure-matrix.json` (generated by `bun test tests/failure-modes/runtime-failure-matrix.test.ts`)
-- Three-host overlay proof: `tests/evidence/mnet-overlay-client-proof.json`
-- Sidecar viability proof: `bun run mnet:v02:sidecar-proof`
-- Full runbook: `docs/operations/MNET-V02-RUNBOOK.md`
+延后工作记录于根目录 `DEFERRED-WORK.md`（DFW-001 ~ DFW-030）。v0.2 明确不在本版本的：真实 NetBird 数据面 rollout 的全域迁移、LLM-assisted approval review、M-Extension runtime、production secret backend 实施。

@@ -25,7 +25,7 @@ export async function requireNetworkMutationAccess(
   deps: CoreDeps,
   input: {
     headers: Record<string, string | undefined>
-    action: 'network:create' | 'network:join'
+    action: 'network:create' | 'network:join' | 'network:delete'
     resource: string
   }
 ): Promise<NetworkMutationAuth> {
@@ -43,7 +43,7 @@ export async function writeNetworkAuditOrThrow(
   deps: CoreDeps,
   input: {
     actor: ActorId
-    action: 'network:create' | 'network:join'
+    action: 'network:create' | 'network:join' | 'network:delete'
     resource: string
     permission: PolicyDecision
     correlationId: string
@@ -129,6 +129,51 @@ export async function publishNetworkJoinedArtifacts(
   await deps.log.writeTimeline({
     summary: `joined node ${member.nodeId} to network ${member.networkId}`,
     subject: member.networkId,
+    correlationId
+  })
+}
+
+/**
+ * 网络删除/成员移除后发布对应事件并写 Timeline，保持与创建路径对称的审计链路。
+ */
+export async function publishNetworkDeletedArtifacts(
+  deps: CoreDeps,
+  deleted: { networkId: string },
+  correlationId: string
+) {
+  await deps.events.publish(
+    'mnet.network.deleted.v0',
+    tracedEvent({
+      type: 'mnet.network.deleted',
+      source: 'meristem-core',
+      payload: { networkId: deleted.networkId },
+      correlationId
+    })
+  )
+  await deps.log.writeTimeline({
+    summary: `deleted network ${deleted.networkId}`,
+    subject: deleted.networkId,
+    correlationId
+  })
+}
+
+export async function publishNetworkMemberRemovedArtifacts(
+  deps: CoreDeps,
+  removed: { networkId: string; nodeId: string },
+  correlationId: string
+) {
+  await deps.events.publish(
+    'mnet.membership.removed.v0',
+    tracedEvent({
+      type: 'mnet.membership.removed',
+      source: 'meristem-core',
+      payload: { networkId: removed.networkId, nodeId: removed.nodeId },
+      correlationId
+    })
+  )
+  await deps.log.writeTimeline({
+    summary: `removed node ${removed.nodeId} from network ${removed.networkId}`,
+    subject: removed.networkId,
     correlationId
   })
 }

@@ -8,11 +8,11 @@ import {
   MNetClosedLoopEventSubjectSchema,
   MNetClosedLoopPublicationSchema
 } from '../../packages/contracts/src/schemas/mnet-closed-loop-policy.ts'
-import { decodeMNetNodeV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03-compatibility.ts'
+import { decodeMNetNodeV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03-decode.ts'
 import {
   MNetProfileV03Schema,
   MNetRouteClassSchema
-} from '../../packages/contracts/src/schemas/mnet-profile-v03-contract.ts'
+} from '../../packages/contracts/src/schemas/mnet-profile-v03-profile.ts'
 import type { CoreDependencies } from '../../packages/contracts/src/types/core.ts'
 import type { MNetwork } from '../../packages/contracts/src/types/network.ts'
 import type { MNode } from '../../packages/contracts/src/types/node.ts'

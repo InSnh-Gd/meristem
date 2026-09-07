@@ -76,7 +76,7 @@ POST /internal/v0/task-operations/:id/reject
 | `task:retry` | request retry contract path | high |
 | `task:manage` | manage task definitions and administrative task behavior | critical |
 
-The MVP-era `task:assign` permission is replaced during M-Task cutover. It is not a compatibility permission after the cutover.
+The legacy `task:assign` permission is replaced during M-Task cutover. It is not a compatibility permission after the cutover.
 
 ---
 

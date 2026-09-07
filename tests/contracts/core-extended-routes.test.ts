@@ -22,7 +22,7 @@ const ErrorResponseSchema = Schema.Struct({
   })
 })
 
-async function decodeJson<TSchema extends Schema.Codec<unknown>>(
+async function decodeJson<TSchema extends Schema.ConstraintDecoder<unknown>>(
   response: Response,
   schema: TSchema
 ): Promise<TSchema['Type']> {

@@ -1,3 +1,5 @@
+import { authorizeOr403 } from './policy-guard.ts'
+import { applyProfileTransition } from './profile-transition.ts'
 import {
   correlationId,
   type DEFAULT_PROFILE_VERSION,
@@ -21,17 +23,15 @@ export async function disableImmediately(
   | { status: 'disabled'; profileVersion: typeof DEFAULT_PROFILE_VERSION; correlationId: string }
   | ProfileWorkflowFailure
 > {
-  const disableResult = await deps.policyAuthorize.authorize(
-    input.actor,
-    'network:profile-disable',
-    `network:${input.networkId}`
-  )
-  if (disableResult.result !== 'allow') {
-    return profileWorkflowFailure(
-      403,
-      'policy.denied',
-      `profile disable denied: ${disableResult.reasons.join(', ')}`
-    )
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: 'network:profile-disable',
+    resource: `network:${input.networkId}`,
+    deniedPrefix: 'profile disable',
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
+    return profileWorkflowFailure(policyGuard.status, policyGuard.code, policyGuard.message)
   }
 
   const disableCorrelationId = correlationId()
@@ -44,19 +44,15 @@ export async function disableImmediately(
     {
       fromVersion: input.state.profileVersion,
       toVersion: input.profileVersion,
-      policyDecisionId: disableResult.id
+      policyDecisionId: policyGuard.policyDecisionId
     }
   )
-  await deps.profileStore.setNetworkState(input.networkId, {
-    profileVersion: input.profileVersion,
-    status: 'disabled'
-  })
-  await deps.profileStore.recordTransition({
+  // 立即禁用 = disable_request + disable_success 两跳；目标状态由状态机表折叠得出。
+  await applyProfileTransition(deps.profileStore, {
     networkId: input.networkId,
-    fromVersion: input.state.profileVersion,
-    toVersion: input.profileVersion,
-    fromStatus: input.state.status,
-    toStatus: 'disabled',
+    fromState: input.state,
+    actions: ['disable_request', 'disable_success'],
+    stateProfileVersion: input.profileVersion,
     actor: input.actor,
     reason: input.reason
   })
@@ -69,7 +65,7 @@ export async function disableImmediately(
       fromProfileVersion: input.state.profileVersion,
       toProfileVersion: input.profileVersion,
       actor: input.actor,
-      policyDecisionId: disableResult.id,
+      policyDecisionId: policyGuard.policyDecisionId,
       correlationId: disableCorrelationId,
       reason: input.reason,
       controlPlaneOnly: true
@@ -84,7 +80,7 @@ export async function disableImmediately(
       fromProfileVersion: input.state.profileVersion,
       toProfileVersion: input.profileVersion,
       actor: input.actor,
-      policyDecisionId: disableResult.id,
+      policyDecisionId: policyGuard.policyDecisionId,
       correlationId: disableCorrelationId,
       reason: input.reason,
       controlPlaneOnly: true

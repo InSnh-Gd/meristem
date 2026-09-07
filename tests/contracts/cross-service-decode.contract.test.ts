@@ -29,7 +29,9 @@ describe('cross-service decode hardening', () => {
     const failure = result.failure
     expect(failure.code).toBe('mnet.invalid_response')
     expect(failure.message).toContain('M-Net returned invalid response payload')
-    expect(failure.message).toContain('Expected string, actual 42')
+    // Effect v4 SchemaError 格式：类型错误 + 失败路径（v3 为 "Expected string, actual 42"）。
+    expect(failure.message).toContain('Expected string')
+    expect(failure.message).toContain('["network"]["name"]')
   })
 
   it('decodes valid M-Net payload successfully', async () => {

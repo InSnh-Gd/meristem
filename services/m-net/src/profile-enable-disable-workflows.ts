@@ -1,8 +1,8 @@
 import type { MNetAppDeps } from './deps.ts'
+import { requireSupportedProfileVersion } from './migration-required-support.ts'
 import { requestDisableWithApproval } from './profile-approval-workflow.ts'
 import { disableImmediately } from './profile-disable-workflow.ts'
 import { requestEnableProfile } from './profile-enable-workflow.ts'
-import { requireSupportedProfileVersion } from './migration-required-support.ts'
 import { canDisable } from './profile-state-machine.ts'
 import {
   CHINA_PROFILE_VERSION,

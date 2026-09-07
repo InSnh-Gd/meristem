@@ -6,7 +6,7 @@ import {
   networkIdParamsSchema
 } from './route-schemas.ts'
 
-export { internalResponse, networkIdParamsSchema, externalErrorSchema, internalErrorSchema }
+export { externalErrorSchema, internalErrorSchema, internalResponse, networkIdParamsSchema }
 
 export const operationalDegradedReasonSchema = t.Object({
   code: t.Union([

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Result } from 'effect'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
@@ -31,7 +31,6 @@ describe('Effect projection hardening contracts', () => {
       'operator',
       'admin',
       'security-admin',
-      'security-admin-2',
       'break-glass-reviewer'
     ])
     expect(projectionPermissions).toEqual([

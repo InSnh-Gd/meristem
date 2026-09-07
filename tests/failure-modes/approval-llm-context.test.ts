@@ -145,7 +145,10 @@ describe('DFW-001 redaction — no raw secrets in schema surface', () => {
     // Schema.Struct uses exact object encoding — extra fields means decode
     // failure unless the schema has a rest field. Verify none exists.
     const ast = ApprovalContextSchema.ast
-    expect(ast.indexSignatures).toHaveLength(0)
+    expect(ast._tag).toBe('Objects')
+    if (ast._tag === 'Objects') {
+      expect(ast.indexSignatures).toHaveLength(0)
+    }
   })
 })
 

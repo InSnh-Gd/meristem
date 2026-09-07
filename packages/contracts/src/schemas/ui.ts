@@ -2,7 +2,6 @@ import * as Schema from 'effect/Schema'
 import { ServiceSummarySchema } from './core.ts'
 import { EventBusPublishMetricsSummarySchema } from './eventbus.ts'
 import { ActorIdSchema } from './identity.ts'
-import { MNetMigrationRequiredSchema } from './mnet-profile-v03.ts'
 import {
   MNetOperationalCredentialLifecycleSchema,
   MNetOperationalDeploymentReadinessSchema,
@@ -19,6 +18,7 @@ import {
   MNetProfileVersionSchema,
   NetworkProfileStateSchema
 } from './mnet-profile.ts'
+import { MNetMigrationRequiredSchema } from './mnet-profile-v03.ts'
 import {
   ApprovalOriginServiceSchema,
   ApprovalStatusSchema,

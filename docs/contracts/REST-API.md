@@ -1,4 +1,4 @@
-# REST API MVP Contract
+# REST API Contract
 
 > REST API v0 is the external HTTP / OpenAPI contract for the current Meristem baseline.
 >
@@ -10,7 +10,7 @@
 
 - 覆盖外部 `/api/v0` route，以及被内部服务显式消费的 `/internal/v0` route。
 - 公开 HTTP shape、permission 与 error envelope 以本文件为准。
-- CLI 命令映射见 `CLI-COMMANDS.md`；typed client 映射见 `EDEN-MVP.md`；service reload runtime supplement 见 `SERVICE-LIFECYCLE-PROTOTYPE.md`。
+- CLI 命令映射见 `CLI-COMMANDS.md`；typed client 映射见 `EDEN.md`；service reload runtime supplement 见 `SERVICE-LIFECYCLE.md`。
 - Event subject 名称可以在规则中被引用，但 subject catalog authority 仍在 `docs/events/EVENT-CATALOG.md`。
 
 ---
@@ -104,11 +104,11 @@ Protected by `core:read`.
 
 Returns service summaries. Built-in services include live runtime data; registered service definitions may appear without runtime details.
 
-The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE-PROTOTYPE.md`.
+The canonical route remains here; additional runtime reload semantics are documented in `SERVICE-LIFECYCLE.md`.
 
 ### Follow-on Capability Domain Service REST Ownership
 
-Some post-MVP external routes are owned directly by capability domain services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
+Some external routes are owned directly by capability domain services instead of Core. Those services must still use `/api/v0`, external bearer authentication, M-Policy, M-Log, OpenAPI, and the same error envelope shape unless their feature document states otherwise.
 
 Examples:
 
@@ -611,7 +611,7 @@ type CreateNodeTicketResponse = {
 
 Rules:
 
-- Join Ticket is the public agent join entrypoint for MVP.
+- Join Ticket is the public agent join entrypoint.
 - `joinUrl` points to `wss://<host>:8443/join/v0/session`.
 - ticket plaintext is returned once and must not be logged.
 - successful ticket creation publishes `node.registration.requested.v0` and `node.join-ticket.created.v0`.
@@ -652,7 +652,7 @@ Rules:
 - default mode is `simulated`.
 - `agent` mode is rejected with `409 node.agent_join_ticket_required`; use `POST /api/v0/node-tickets` instead.
 - `simulated` mode preserves the synchronous local-only path used for development and tests.
-- Core node registration is not exposed through this MVP endpoint.
+- Core node registration is not exposed through this endpoint.
 - successful registration publishes `node.registration.requested.v0` and `node.registration.accepted.v0`.
 
 ### `POST /api/v0/nodes/:id/credentials`
@@ -706,7 +706,7 @@ Rules:
 
 Protected by `core:read`.
 
-Returns all MVP node records.
+Returns all node records.
 
 ### `GET /api/v0/nodes/:id`
 
@@ -864,6 +864,66 @@ Tunnel health is not writable through `/api/v0/mnet/closed-loop`. Node runtime a
 
 Malformed TypeBox input returns `422`. Missing/invalid bearer or node runtime credentials return `401`; policy denial returns `403`; unavailable policy, Audit, storage, or required side effects return typed `503` errors.
 
+### `DELETE /api/v0/networks/:id`
+
+Protected by `network:delete`.
+
+Deletes a logical network.
+
+Rules:
+
+- the network must have no members (`409 network.members_present`).
+- the network profile state must be `disabled` (`409 network.profile_not_disabled`).
+- deletion cleans tunnel allocations, network map renders, relay assignments,
+  sidecar desired configs, partition states and profile state.
+- successful deletion publishes `mnet.network.deleted.v0` and writes Timeline + Audit.
+
+### `DELETE /api/v0/networks/:id/members/:nodeId`
+
+Protected by `network:delete`.
+
+Removes a single member from a logical network.
+
+Rules:
+
+- the network and membership must exist (`404 network.not_found` / `404 network.member_not_found`).
+- the member's tunnel allocation and sidecar desired config are removed;
+  node public keys are reclaimed once the node has no remaining memberships.
+- the signed network map is re-rendered so the removed peer disappears on the
+  node's next map sync (TTL enforcement tears the peer route down locally).
+- successful removal publishes `mnet.membership.removed.v0`.
+
+### `PATCH /api/v0/networks/:id`
+
+Protected by `network:create`.
+
+Updates network metadata.
+
+```ts
+type UpdateNetworkMetadataRequest = {
+  displayName?: string;
+};
+
+type UpdateNetworkMetadataResponse = {
+  network: MNetwork;
+};
+```
+
+Rules:
+
+- `name` is the identity key and cannot be changed.
+- `displayName` is optional network metadata.
+
+### Node runtime: tunnel status and leave
+
+Node-facing runtime routes authenticate with the node runtime token:
+
+- `POST /api/v0/node-runtime/nodes/:nodeId/tunnel-status` — periodic tunnel/sidecar
+  health report; M-Net ingests it into the operational read model as
+  `mnet.sidecar.health.v0`.
+- `POST /api/v0/node-runtime/nodes/:nodeId/leave` — node-initiated leave;
+  M-Net removes the membership and re-renders the network map.
+
 ---
 
 ## 7. Tasks
@@ -980,7 +1040,7 @@ type SessionContextResponse = {
 Rules:
 
 - This endpoint is for display and command eligibility only.
-- `permissions` returns the actor's full MVP permission string list.
+- `permissions` returns the actor's full permission string list.
 - The response must not expose role inheritance, policy internals, RBAC table structure, or policy evaluation traces.
 - BFF may use it to show disabled command explanations.
 - It must not replace M-Policy checks on mutating routes.

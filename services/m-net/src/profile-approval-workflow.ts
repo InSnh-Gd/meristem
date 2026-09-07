@@ -1,3 +1,6 @@
+import { authorizeOr403 } from './policy-guard.ts'
+import type { ProfileAction } from './profile-state-machine.ts'
+import { applyProfileTransition } from './profile-transition.ts'
 import {
   correlationId,
   type DEFAULT_PROFILE_VERSION,
@@ -10,6 +13,7 @@ import {
 
 /**
  * enable/disable 共用的审批流创建：创建 suspendedOp + approval + 事件 + 审计。
+ * pending 状态（enabling/disabling）由状态机表通过 request 动作计算，不再手写字面量。
  */
 export async function createPendingApprovalFlow(
   deps: ProfileWriteDeps,
@@ -21,13 +25,14 @@ export async function createPendingApprovalFlow(
     reason: string
     policyDecisionId: string
     action: 'mnet.profile.enable' | 'mnet.profile.disable'
-    pendingStatus: 'enabling' | 'disabling'
     requestedEvent: 'mnet.profile.enable.requested' | 'mnet.profile.disable.requested'
     requestedSubject: 'mnet.profile.enable.requested.v0' | 'mnet.profile.disable.requested.v0'
     auditAction: 'mnet.profile.enable.request' | 'mnet.profile.disable.request'
     failureLogMessage: string
   }
 ) {
+  const transitionAction: ProfileAction =
+    input.action === 'mnet.profile.enable' ? 'enable_request' : 'disable_request'
   const flowCorrelationId = correlationId()
   const expiresAt = expiresAtFromNow()
   const suspendedOp = await deps.suspendedOps.create({
@@ -61,16 +66,12 @@ export async function createPendingApprovalFlow(
     return { ok: false as const, error: approval.error }
   }
 
-  await deps.profileStore.setNetworkState(input.networkId, {
-    profileVersion: input.state.profileVersion,
-    status: input.pendingStatus
-  })
-  await deps.profileStore.recordTransition({
+  // pending 请求阶段网络保持当前 profileVersion，target 版本只写入迁移记录。
+  await applyProfileTransition(deps.profileStore, {
     networkId: input.networkId,
-    fromVersion: input.state.profileVersion,
-    toVersion: input.profileVersion,
-    fromStatus: input.state.status,
-    toStatus: input.pendingStatus,
+    fromState: input.state,
+    actions: [transitionAction],
+    transitionToVersion: input.profileVersion,
     actor: input.actor,
     reason: input.reason,
     policyDecisionId: input.policyDecisionId,
@@ -139,17 +140,15 @@ export async function requestDisableWithApproval(
   | { status: 'pending_approval'; operationId: string; approvalId: string; correlationId: string }
   | ProfileWorkflowFailure
 > {
-  const policyResult = await deps.policyAuthorize.authorize(
-    input.actor,
-    'network:profile-disable',
-    `network:${input.networkId}`
-  )
-  if (policyResult.result === 'deny') {
-    return profileWorkflowFailure(
-      403,
-      'policy.denied',
-      `profile disable denied: ${policyResult.reasons.join(', ')}`
-    )
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: 'network:profile-disable',
+    resource: `network:${input.networkId}`,
+    deniedPrefix: 'profile disable',
+    denyOn: 'deny-only'
+  })
+  if (policyGuard.kind === 'denied') {
+    return profileWorkflowFailure(policyGuard.status, policyGuard.code, policyGuard.message)
   }
 
   const pending = await createPendingApprovalFlow(deps, {
@@ -158,9 +157,8 @@ export async function requestDisableWithApproval(
     state: input.state,
     profileVersion: input.profileVersion,
     reason: input.reason,
-    policyDecisionId: policyResult.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     action: 'mnet.profile.disable',
-    pendingStatus: 'disabling',
     requestedEvent: 'mnet.profile.disable.requested',
     requestedSubject: 'mnet.profile.disable.requested.v0',
     auditAction: 'mnet.profile.disable.request',

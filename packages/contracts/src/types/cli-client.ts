@@ -1,34 +1,27 @@
+// CLI 客户端契约：CliClient 是 m-cli 与测试包共用的 client-side contract 形状。
+// payload 类型仍以各域 response 契约为源（types.ts / types/*），此处只收敛方法签名，
+// 供 apps/m-cli re-export，避免 packages 反向依赖 apps。
+
 import type {
   ApprovalActionResponse,
   ApprovalDetailResponse,
   ApprovalListResponse
 } from './approval.ts'
 import type {
-  IssueNodeCredentialResponse,
-  RevokeNodeCredentialResponse
-} from './core-node-credentials.ts'
-import type {
-  DisableExtensionRequest,
-  EnableExtensionRequest,
-  ExtensionDetailResponse,
-  ExtensionInstanceControlResponse,
-  ExtensionListResponse,
-  RegisterExtensionResponse
-} from './extension.ts'
-import type {
   BackfillParams,
   BackfillResult,
   DLQRecord,
   ProjectionHealth
 } from './projection.ts'
-import type { MExtensionManifestV01 } from './extension.ts'
 import type {
   CreateNetworkResponse,
   CreateNodeTicketResponse,
   HealthResponse,
+  IssueNodeCredentialResponse,
   JoinNetworkResponse,
   ReadyResponse,
   RegisterNodeResponse,
+  RevokeNodeCredentialResponse,
   ServiceListResponse,
   ServiceReloadResponse,
   StatusResponse,
@@ -38,6 +31,16 @@ import type {
   TaskRetryNotImplementedResponse,
   TaskStatusResponse
 } from '../types.ts'
+
+import type {
+  DisableExtensionRequest,
+  EnableExtensionRequest,
+  ExtensionDetailResponse,
+  ExtensionInstanceControlResponse,
+  ExtensionListResponse,
+  MExtensionManifestV01,
+  RegisterExtensionResponse
+} from './extension.ts'
 
 /**
  * Meristem CLI 客户端接口。
@@ -65,6 +68,12 @@ export type CliClient = {
   listNetworks?(): Promise<unknown>
   joinNetwork?(input: { networkId: string; nodeId: string }): Promise<JoinNetworkResponse>
   listNetworkMembers?(networkId: string): Promise<unknown>
+  /** 删除无成员且 profile 已禁用的网络 */
+  deleteNetwork?(networkId: string): Promise<unknown>
+  /** 从网络移除单个成员 */
+  removeNetworkMember?(input: { networkId: string; nodeId: string }): Promise<unknown>
+  /** 更新网络展示名等元数据 */
+  updateNetwork?(input: { networkId: string; displayName: string }): Promise<unknown>
   listNetworkProfiles?(): Promise<unknown>
   getNetworkProfile?(profileVersion: string): Promise<unknown>
   enableNetworkProfile?(networkId: string, profileVersion: string, reason: string): Promise<unknown>
@@ -248,4 +257,11 @@ export type CliClient = {
     evidence?(): Promise<unknown>
     agents?(): Promise<unknown>
   }
+}
+
+// CLI 结果统一收敛成 stdout/stderr/exitCode，方便测试和 shell 脚本直接断言。
+export type CliRunResult = {
+  exitCode: 0 | 1
+  stdout: string
+  stderr: string
 }

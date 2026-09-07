@@ -66,10 +66,13 @@ export function externalApiError(
 export function statusCodeForMNetError(code: string): 404 | 409 | 503 {
   switch (code) {
     case 'network.not_found':
+    case 'network.member_not_found':
     case 'node.not_found':
     case 'task.not_found':
       return 404
     case 'network.conflict':
+    case 'network.members_present':
+    case 'network.profile_not_disabled':
     case 'network_map.stale':
     case 'network_map.expired':
     case 'network.stem_required':

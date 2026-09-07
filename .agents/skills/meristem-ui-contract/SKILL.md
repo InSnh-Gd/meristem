@@ -16,7 +16,7 @@ Primary source documents:
 - `docs/testing/TESTING.md`
 - `CONTEXT.md`
 
-Preserved M-UI design exploration docs under `docs/ui/` are historical context only. They should not override explicit current user requirements or the active SDUI/BFF contracts.
+Historical M-UI design exploration docs were removed in the v0.2 documentation restructure. The active UI boundary is `docs/ui/SDUI-SCHEMA.md` plus the M-UI BFF service contract; current user requirements take precedence over any residual design references.
 
 ## Product Frame
 

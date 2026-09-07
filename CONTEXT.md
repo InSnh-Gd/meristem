@@ -65,7 +65,7 @@ A projection operation that changes projection operating state or the visible re
 _Avoid_: Search query, ordinary log read, OpenSearch write model action
 
 **M-Task**:
-The Meristem domain for task lifecycle, task definitions, execution coordination, and task observability once task behavior outgrows the Core-owned MVP noop workflow.
+The Meristem domain for task lifecycle, task definitions, execution coordination, and task observability once task behavior outgrows the Core-owned noop workflow.
 _Avoid_: Generic workflow engine, Core-private task helper, transport owner
 
 **Pending Policy Escalation**:

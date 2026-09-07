@@ -40,8 +40,12 @@ export async function runServiceEffect<T>(program: Effect.Effect<T, ServiceFailu
   )
 }
 
+/**
+ * 包装内部服务 Promise 调用；Effect v4 的 tryPromise 会向 thunk 转发 AbortSignal，
+ * 调用方可以选择忽略或透传该信号以支持取消。
+ */
 export function tryServiceCall<T>(
-  thunk: () => Promise<T>,
+  thunk: (signal: AbortSignal) => PromiseLike<T>,
   failure: ServiceFailure
 ): Effect.Effect<T, ServiceFailure> {
   return Effect.tryPromise({

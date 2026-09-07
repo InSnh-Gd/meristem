@@ -7,6 +7,10 @@ import { createCliRunner } from './cli.ts'
 import type { CliRunResult } from './cli.ts'
 import { configFromEnv, createCoreClient } from './client.ts'
 
+// CLI 是操作员工具：默认不导出 span（每条命令后的 span JSON 是噪音），
+// 只有显式设置 MERISTEM_OTEL_EXPORTER 时才启用对应 exporter。
+process.env.MERISTEM_OTEL_EXPORTER ??= 'none'
+
 class CliCommandFailure extends Error {
   constructor(readonly result: CliRunResult) {
     super(result.stderr.trim() || `CLI command failed with exit code ${result.exitCode}`)

@@ -1,11 +1,12 @@
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { eq, gte, type SQL, sql } from 'drizzle-orm'
+import { eq, gte, sql } from 'drizzle-orm'
 import type {
   ProjectionCursor,
   ProjectionHealth
 } from '../../../../packages/contracts/src/index.ts'
 import { projectionDLQ } from '../../../../packages/db/src/schema.ts'
 import { createLogger, recordGauge } from '../../../../packages/telemetry/src/index.ts'
+import { columnOf } from './dynamic-column.ts'
 import { factTableFromIndex, factTables } from './tables.ts'
 import type { ProjectionDatabase, ProjectionOpenSearch } from './types.ts'
 
@@ -27,30 +28,17 @@ export function createProjectionHealthService(
     const indices = ['meristem-timeline-logs-v0', 'meristem-full-logs-v0', 'meristem-audit-logs-v0']
     const results: ProjectionHealth[] = []
 
-    const osStatus = os.healthStatus
-      ? await os.healthStatus().catch(error => {
+    const osAvailable = os.health
+      ? await os.health().catch(error => {
           logger.warn(
             {
               error: error instanceof Error ? error.message : String(error)
             },
             'opensearch_health_probe_failed'
           )
-          return 'unavailable' as const
+          return false
         })
-      : os.health
-        ? (await os.health().catch(error => {
-            logger.warn(
-              {
-                error: error instanceof Error ? error.message : String(error)
-              },
-              'opensearch_health_probe_failed'
-            )
-            return false
-          }))
-          ? 'ready'
-          : 'unavailable'
-        : 'ready'
-    const osAvailable = osStatus !== 'unavailable'
+      : true
 
     for (const index of indices) {
       const cursor = await cursors.getCursor(index)
@@ -74,13 +62,7 @@ export function createProjectionHealthService(
           const countResult = await db
             .select({ count: sql<number>`count(*)` })
             .from(table)
-            .where(
-              gte(
-                // ORM 限制：Drizzle 动态列访问通过字面量索引时丢失列类型，需通过双重断言绕过类型推断限制
-                table['timestamp' as keyof typeof table] as unknown as SQL<unknown>,
-                new Date(cursor.timestamp)
-              )
-            )
+            .where(gte(columnOf(table, 'timestamp'), new Date(cursor.timestamp)))
           pendingCount = countResult[0]?.count ?? 0
 
           lagSeconds = differenceInSeconds(new Date(), parseISO(cursor.timestamp), {
@@ -89,12 +71,7 @@ export function createProjectionHealthService(
         }
       }
 
-      const status = resolveHealthStatus({
-        osAvailable,
-        osDegraded: osStatus === 'degraded',
-        dlqCount,
-        lagSeconds
-      })
+      const status = resolveHealthStatus({ osAvailable, dlqCount, lagSeconds })
 
       recordGauge('projection.lag_seconds', lagSeconds, { index })
       recordGauge('projection.pending_count', pendingCount, { index })
@@ -111,11 +88,10 @@ export function createProjectionHealthService(
 
 function resolveHealthStatus(input: {
   osAvailable: boolean
-  osDegraded: boolean
   dlqCount: number
   lagSeconds: number
 }): ProjectionHealth['status'] {
   if (!input.osAvailable) return 'unavailable'
-  if (input.osDegraded || input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
+  if (input.dlqCount > 0 || input.lagSeconds > 300) return 'degraded'
   return 'healthy'
 }

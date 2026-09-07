@@ -287,6 +287,50 @@ describe('Core facade profile disable', () => {
   })
 })
 
+// ─── Break-Glass Disable Happy Path ─────────────────────────────────
+
+describe('Core facade profile break-glass disable', () => {
+  it('admin disables profile via break-glass → 200 with disabled status and forwarded call', async () => {
+    const { app, calls } = createApp('admin')
+    const res = await app.handle(
+      post(
+        '/api/v0/networks/net-test-1/profile/disable-break-glass',
+        'admin-token',
+        { emergencyReason: 'control plane outage recovery' },
+        'correlation-break-glass-1'
+      )
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toHaveProperty('status', 'disabled')
+    expect(body).toHaveProperty('operationId')
+    expect(body).toHaveProperty('auditId')
+    expect(body).toHaveProperty('correlationId')
+    // Core 必须通过公开 M-Net 契约转发，而不是直接访问 internal 路由
+    expect(
+      calls.find(call => call.path === '/api/v0/networks/net-test-1/profile/disable-break-glass')
+    ).toMatchObject({ method: 'POST', body: { emergencyReason: 'control plane outage recovery' } })
+  })
+
+  it('break-glass disable without emergencyReason returns 400 validation error', async () => {
+    const { app } = createApp('admin')
+    const res = await app.handle(
+      post('/api/v0/networks/net-test-1/profile/disable-break-glass', 'admin-token', {})
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('break-glass disable returns 401 without token', async () => {
+    const { app } = createApp()
+    const res = await app.handle(
+      post('/api/v0/networks/net-test-1/profile/disable-break-glass', undefined, {
+        emergencyReason: 'no token'
+      })
+    )
+    await expectErrorEnvelope(res, 401, 'auth.missing_token')
+  })
+})
+
 // ─── Error Passthrough ──────────────────────────────────────────────
 
 describe('Core facade write error passthrough', () => {

@@ -2,7 +2,7 @@
 
 > 本文档定义 Meristem 契约的版本化总规则。凡是跨 service、node、runtime 或 time 边界的对象，都必须显式版本化。
 >
-> `REST-API-MVP.md` 是外部 HTTP / OpenAPI 主契约；`CLI-COMMANDS.md`、`EDEN-MVP.md`、`SERVICE-LIFECYCLE-PROTOTYPE.md` 只在各自消费面补充映射与运行时约束，不覆盖主契约。
+> `REST-API.md` 是外部 HTTP / OpenAPI 主契约；`CLI-COMMANDS.md`、`EDEN.md`、`SERVICE-LIFECYCLE.md` 只在各自消费面补充映射与运行时约束，不覆盖主契约。
 
 ---
 
@@ -11,10 +11,10 @@
 | 文档 | 角色 | 状态 |
 |------|------|------|
 | `README.md` | 目录索引与权威边界说明 | Index |
-| `REST-API-MVP.md` | 外部 REST / OpenAPI 契约 | Canonical |
+| `REST-API.md` | 外部 REST / OpenAPI 契约 | Canonical |
 | `CLI-COMMANDS.md` | CLI 命令映射与操作约束 | Supporting |
-| `EDEN-MVP.md` | Eden typed client 契约 | Supporting |
-| `SERVICE-LIFECYCLE-PROTOTYPE.md` | 服务 lifecycle 运行时补充约束 | Supporting |
+| `EDEN.md` | Eden typed client 契约 | Supporting |
+| `SERVICE-LIFECYCLE.md` | 服务 lifecycle 运行时补充约束 | Supporting |
 
 Canonical 文档定义契约 shape 与权威规则；Supporting 文档只解释某一消费面如何使用这些契约。
 
@@ -44,10 +44,10 @@ Internal executable contracts should be modeled with Effect Schema when they are
 
 当前最小契约集：
 
-- REST / OpenAPI: `REST-API-MVP.md`
+- REST / OpenAPI: `REST-API.md`
 - CLI: `CLI-COMMANDS.md`
-- Eden: `EDEN-MVP.md`
-- Service lifecycle runtime supplement: `SERVICE-LIFECYCLE-PROTOTYPE.md`
+- Eden: `EDEN.md`
+- Service lifecycle runtime supplement: `SERVICE-LIFECYCLE.md`
 
 ---
 
@@ -110,7 +110,7 @@ When an Effect Schema backs an internal contract, the migration must also includ
 
 ## 6. Authority Rules
 
-- 外部 HTTP request / response shape 以 `REST-API-MVP.md` 为准。
+- 外部 HTTP request / response shape 以 `REST-API.md` 为准。
 - CLI 文档可以复述命令侧行为，但若权限、错误语义或返回 shape 与 REST 文档冲突，以 REST 文档为准。
 - Eden 文档不单独发明外部 schema 名称；若 REST 文档已命名类型，Eden 文档应直接引用。
 - 运行时补充文档可以说明 lifecycle、logging、retry、non-goal 与 fail-closed 语义，但不得覆盖主 REST 路由契约。

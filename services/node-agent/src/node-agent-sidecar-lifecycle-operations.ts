@@ -314,6 +314,24 @@ export async function applySidecarDesiredState(
       })
     : { process: nextProcess, reasons: [] }
   degradedReasons.push(...processResult.reasons)
+
+  // 进程启停跟随期望态：start 族拉起监督器，stop/drain 优雅回收；失败降级不伪装成功。
+  const supervisor = deps.supervisor
+  if (supervisor) {
+    if (input.desired.desiredState === 'stop' || input.desired.desiredState === 'drain') {
+      await supervisor.stop()
+    } else {
+      const started = await supervisor.start()
+      if (!started.ok) {
+        degradedReasons.push({
+          code: 'netbird.start_failed',
+          message: 'netbird sidecar process failed to start',
+          detail: started.error.code
+        })
+      }
+    }
+  }
+
   const kind: NodeAgentRuntimeStatusKind =
     input.desired.desiredState === 'stop' || input.desired.desiredState === 'drain'
       ? 'stopped'

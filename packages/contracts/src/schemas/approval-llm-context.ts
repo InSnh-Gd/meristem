@@ -32,7 +32,7 @@ export type ApprovalContextSourceFromSchema = typeof ApprovalContextSourceSchema
 export const ApprovalContextVoteEntrySchema = Schema.Struct({
   actor: Schema.Literals(actorIds),
   vote: Schema.Literals(['approve', 'reject']),
-  reason: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMaxLength(500)))),
+  reason: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
   createdAt: Schema.String
 })
 export type ApprovalContextVoteEntryFromSchema = typeof ApprovalContextVoteEntrySchema.Type
@@ -57,10 +57,10 @@ export type ApprovalContextApprovalEntryFromSchema = typeof ApprovalContextAppro
 
 export const ApprovalContextDecisionRefSchema = Schema.Struct({
   decisionId: Schema.String,
-  action: Schema.String.pipe(Schema.check(Schema.isMaxLength(64))),
-  resource: Schema.String.pipe(Schema.check(Schema.isMaxLength(256))),
+  action: Schema.String.check(Schema.isMaxLength(64)),
+  resource: Schema.String.check(Schema.isMaxLength(256)),
   result: Schema.Literals(['allow', 'deny', 'require_manual_review', 'require_multi_approval']),
-  reasons: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMaxLength(200))))
+  reasons: Schema.Array(Schema.String.check(Schema.isMaxLength(200)))
 })
 export type ApprovalContextDecisionRefFromSchema = typeof ApprovalContextDecisionRefSchema.Type
 
@@ -68,7 +68,7 @@ export type ApprovalContextDecisionRefFromSchema = typeof ApprovalContextDecisio
 
 export const ApprovalContextOperationRefSchema = Schema.Struct({
   operationId: Schema.String,
-  action: Schema.String.pipe(Schema.check(Schema.isMaxLength(64))),
+  action: Schema.String.check(Schema.isMaxLength(64)),
   status: Schema.Literals(['suspended', 'resumed', 'rejected', 'expired', 'resume_failed'])
 })
 export type ApprovalContextOperationRefFromSchema = typeof ApprovalContextOperationRefSchema.Type

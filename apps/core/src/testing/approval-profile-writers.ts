@@ -108,6 +108,21 @@ export function createNetworkProfileWriterPort(
         approvalId: 'approval-write-test-1',
         correlationId: 'correlation-write-test-1'
       })
+    },
+    async disableBreakGlass(networkId, body) {
+      if (opts.forceError) return err(opts.forceError)
+      if (opts.profileSetSucceeds === false) {
+        return err({ code: 'feature.unavailable', message: 'profile features not available' })
+      }
+      return ok({
+        operationId: 'operation-break-glass-test-1',
+        profileVersion: 'm-net@0.3.0',
+        status: 'disabled',
+        approvalDegraded: false,
+        auditId: 'audit-break-glass-test-1',
+        fullLogId: 'fulllog-break-glass-test-1',
+        correlationId: `correlation-break-glass-test-${networkId}-${body.emergencyReason.length}`
+      })
     }
   }
 }

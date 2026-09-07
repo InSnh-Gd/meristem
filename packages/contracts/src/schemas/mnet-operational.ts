@@ -1,7 +1,11 @@
 import * as Schema from 'effect/Schema'
+import { MNetProfileVersionSchema } from './mnet-profile.ts'
 import {
-  MNetNodeSelectorSchema,
+  MNetCredentialExpiryEventPayloadSchema,
+  MNetForcedRelayChangeEventPayloadSchema,
+  MNetMigrationRequiredEventPayloadSchema,
   MNetMigrationRequiredSchema,
+  MNetNodeSelectorSchema,
   MNetProfileV03EventSubjectSchema,
   MNetProfileV03VersionSchema,
   MNetRouteClassSchema,
@@ -11,12 +15,8 @@ import {
   MNetSidecarHealthEventPayloadSchema,
   MNetSidecarHealthStatusSchema,
   MNetSidecarLifecycleEventPayloadSchema,
-  MNetTopologyUpdateEventPayloadSchema,
-  MNetMigrationRequiredEventPayloadSchema,
-  MNetForcedRelayChangeEventPayloadSchema,
-  MNetCredentialExpiryEventPayloadSchema
+  MNetTopologyUpdateEventPayloadSchema
 } from './mnet-profile-v03.ts'
-import { MNetProfileVersionSchema } from './mnet-profile.ts'
 import { RedactedSecretRefSchema } from './secret-provider.ts'
 
 export const MNetOperationalProfileVersionSchema = Schema.Union([
@@ -26,19 +26,27 @@ export const MNetOperationalProfileVersionSchema = Schema.Union([
 export type MNetOperationalProfileVersionFromSchema =
   typeof MNetOperationalProfileVersionSchema.Type
 
-export const MNetOperationalStateSourceSchema = Schema.Literals(['authoritative', 'read-model', 'composed'])
+export const MNetOperationalStateSourceSchema = Schema.Literals([
+  'authoritative',
+  'read-model',
+  'composed'
+])
 export type MNetOperationalStateSourceFromSchema = typeof MNetOperationalStateSourceSchema.Type
 
 export const MNetOperationalStatusSchema = Schema.Literals(['healthy', 'degraded', 'blocked'])
 export type MNetOperationalStatusFromSchema = typeof MNetOperationalStatusSchema.Type
 
-export const MNetOperationalDegradedReasonCodeSchema = Schema.Literals(['eventbus_unavailable', 'sidecar_report_stale', 'migration_required',
-'credential_missing',
-'credential_expired',
-'credential_rotation_required',
-'sidecar_unhealthy',
-'topology_missing',
-'network_not_ready'])
+export const MNetOperationalDegradedReasonCodeSchema = Schema.Literals([
+  'eventbus_unavailable',
+  'sidecar_report_stale',
+  'migration_required',
+  'credential_missing',
+  'credential_expired',
+  'credential_rotation_required',
+  'sidecar_unhealthy',
+  'topology_missing',
+  'network_not_ready'
+])
 export type MNetOperationalDegradedReasonCodeFromSchema =
   typeof MNetOperationalDegradedReasonCodeSchema.Type
 
@@ -99,9 +107,6 @@ export const MNetOperationalSidecarNodeSchema = Schema.Struct({
   signalReachable: Schema.optional(Schema.Boolean),
   relayReachable: Schema.optional(Schema.Boolean),
   stunReachable: Schema.optional(Schema.Boolean),
-  adapterStatus: Schema.optional(Schema.Literals(['netbird', 'noop', 'degraded'])),
-  desiredConfigHash: Schema.optional(Schema.String),
-  observedConfigHash: Schema.optional(Schema.String),
   stale: Schema.Boolean,
   staleForMs: Schema.optional(Schema.Number),
   summary: Schema.String
@@ -194,30 +199,6 @@ export const MNetOperationalStateSourcesSchema = Schema.Struct({
 })
 export type MNetOperationalStateSourcesFromSchema = typeof MNetOperationalStateSourcesSchema.Type
 
-export const MNetOperationalLiveProofAuthModeSchema = Schema.Literals(['oidc', 'local-dev'])
-export type MNetOperationalLiveProofAuthModeFromSchema =
-  typeof MNetOperationalLiveProofAuthModeSchema.Type
-
-export const MNetOperationalNetBirdProcessHealthSchema = Schema.Struct({
-  host: Schema.optional(Schema.String),
-  nodeId: Schema.optional(Schema.String),
-  status: Schema.Literals(['healthy', 'degraded', 'not-run']),
-  detail: Schema.String
-})
-export type MNetOperationalNetBirdProcessHealthFromSchema =
-  typeof MNetOperationalNetBirdProcessHealthSchema.Type
-
-export const MNetOperationalPacketReachabilitySchema = Schema.Struct({
-  status: Schema.Literals(['success', 'failure', 'not-run']),
-  probe: Schema.optional(Schema.Literals(['tcp', 'icmp'])),
-  source: Schema.optional(Schema.String),
-  target: Schema.optional(Schema.String),
-  targetOverlayIp: Schema.optional(Schema.String),
-  detail: Schema.String
-})
-export type MNetOperationalPacketReachabilityFromSchema =
-  typeof MNetOperationalPacketReachabilitySchema.Type
-
 export const MNetOperationalSnapshotSchema = Schema.Struct({
   networkId: Schema.String,
   network: MNetOperationalNetworkStatusSchema,
@@ -229,9 +210,6 @@ export const MNetOperationalSnapshotSchema = Schema.Struct({
   migrationRequired: MNetOperationalMigrationStateSchema,
   forcedRelay: MNetOperationalForcedRelayStateSchema,
   deploymentReadiness: MNetOperationalDeploymentReadinessSchema,
-  authMode: Schema.optional(MNetOperationalLiveProofAuthModeSchema),
-  netbirdProcessHealth: Schema.optional(Schema.Array(MNetOperationalNetBirdProcessHealthSchema)),
-  packetReachability: Schema.optional(MNetOperationalPacketReachabilitySchema),
   stateSources: MNetOperationalStateSourcesSchema
 })
 export type MNetOperationalSnapshotFromSchema = typeof MNetOperationalSnapshotSchema.Type

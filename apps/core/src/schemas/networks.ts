@@ -3,6 +3,7 @@ import { t } from 'elysia'
 export const networkSchema = t.Object({
   id: t.String(),
   name: t.String(),
+  displayName: t.Optional(t.String()),
   profileVersion: t.String(),
   status: t.Literal('active'),
   createdAt: t.String()
@@ -11,6 +12,7 @@ export const networkSchema = t.Object({
 export const networkSummarySchema = t.Object({
   id: t.String(),
   name: t.String(),
+  displayName: t.Optional(t.String()),
   profileVersion: t.String(),
   status: t.Literal('active'),
   createdAt: t.String(),

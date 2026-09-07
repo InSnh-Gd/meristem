@@ -22,11 +22,19 @@ const MigrationReportResponseSchema = Schema.Struct({
         code: Schema.Literal('migration_required'),
         message: Schema.String,
         targetProfileVersion: Schema.Literals(['m-net@0.3.0', 'm-net-cn@0.3.0']),
-        rebuildGuidanceKey: Schema.Literals(['rebuild_node_with_netbird_sidecar', 'migrate_profile_to_mnet_v03', 'migrate_profile_to_mnet_cn_v03']),
+        rebuildGuidanceKey: Schema.Literals([
+          'rebuild_node_with_netbird_sidecar',
+          'migrate_profile_to_mnet_v03',
+          'migrate_profile_to_mnet_cn_v03'
+        ]),
         affectedProfileIds: Schema.Array(Schema.String),
         affectedNodeIds: Schema.Array(Schema.String),
-        reasonCode: Schema.Literals(['legacy_profile_v0_1', 'legacy_cn_profile_v0_1', 'legacy_wstunnel_profile_v0_2',
-        'legacy_wstunnel_node'])
+        reasonCode: Schema.Literals([
+          'legacy_profile_v0_1',
+          'legacy_cn_profile_v0_1',
+          'legacy_wstunnel_profile_v0_2',
+          'legacy_wstunnel_node'
+        ])
       })
     })
   )
@@ -37,10 +45,14 @@ const MigrationReportResponseSchema = Schema.Struct({
 /** GET /api/v0/networks/profile-defaults 响应 */
 const ProfileDefaultsResponseSchema = Schema.Struct({
   defaultProfileVersion: Schema.String,
-  globalSwitchState: Schema.Literals(['idle', 'planned', 'applying',
-  'applied',
-  'rolled_back',
-  'failed']),
+  globalSwitchState: Schema.Literals([
+    'idle',
+    'planned',
+    'applying',
+    'applied',
+    'rolled_back',
+    'failed'
+  ]),
   updatedAt: Schema.String,
   switchOperationId: Schema.optional(Schema.String)
 })

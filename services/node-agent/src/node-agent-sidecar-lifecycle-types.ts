@@ -52,6 +52,8 @@ export type SidecarLifecycleInput = {
 export type SidecarLifecycleDependencies = {
   env?: NodeJS.ProcessEnv
   secretManager?: SecretManager
+  /** NetBird 客户端进程监督器；未配置客户端二进制时为空，生命周期退化为仅配置写入。 */
+  supervisor?: SidecarSupervisor
   deploymentConfig?: DeploymentConfigV02FromSchema
   readTextFile?: (path: string) => Promise<string>
   writeTextFile?: (path: string, contents: string) => Promise<void>

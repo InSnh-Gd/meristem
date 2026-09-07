@@ -50,3 +50,18 @@ export function parseServerMessage(raw: string): MNetSessionServerMessage | null
     return null
   }
 }
+
+/**
+ * 心跳自报状态：agent 进程在线且可服务即 healthy。
+ * 尚未加入任何网络的节点（enforcement 为 network-pending 哨兵）必须报 healthy——
+ * M-Net join 要求节点 healthy，而运行时密钥注册在拿到成员身份前必然 404，
+ * 若此时报 degraded 会形成「无法入网 → 无法转健康」死锁。
+ * degraded 保留给已入网但同步/隧道运行态异常的情况。
+ */
+export function resolveAgentReportedStatus(
+  enforcementNetworkId: string,
+  runtimeStatusKind: string
+): 'healthy' | 'degraded' {
+  if (enforcementNetworkId === 'network-pending') return 'healthy'
+  return runtimeStatusKind === 'healthy' ? 'healthy' : 'degraded'
+}

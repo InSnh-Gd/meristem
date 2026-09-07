@@ -4,7 +4,7 @@
 
 - **Active event contract coverage** = there is a real `publish()` call or literal durable outbox event intent in `apps/core/src/` or `services/*/src/`.
 - **Active REST responses** = the route is mounted now and returns a concrete response shape in code.
-- **Future deferred to post-v0.1 coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
+- **Future deferred coverage** = documented/planned contract exists, but no current publisher or no active mounted response requires it yet.
 - **Not active** = no real publisher and no active mounted path in the current codebase.
 
 ## Active / implemented now
@@ -26,6 +26,8 @@ M-Net closed-loop subjects are active through durable event intents committed wi
 | `node.status.changed.v0` | `apps/core/src/routes/nodes.ts` | `NodeStatusChangedPayloadSchema` |
 | `mnet.network.created.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
 | `mnet.membership.joined.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
+| `mnet.network.deleted.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkDeletedPayloadSchema` |
+| `mnet.membership.removed.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipRemovedPayloadSchema` |
 | `mnet.reachability.changed.v0` | `services/m-net/src/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
 | `mnet.path.changed.v0` | contract-activated data-plane subject | `MNetPathChangedEventPayloadSchema` |
 | `mnet.wstunnel.fallback.changed.v0` | contract-activated data-plane subject | `MNetWstunnelFallbackChangedEventPayloadSchema` |
@@ -118,9 +120,9 @@ M-Net closed-loop subjects are active through durable event intents committed wi
 - `tests/contracts/schema-coverage.active-publishers.contract.test.ts` and the schema-coverage domain suites round-trip every active emitted event subject above.
 - The same schema-coverage contract suite round-trips every active response schema listed above, including `SetNetworkProfileResponseSchema`.
 
-## Non-active / deferred to post-v0.1 coverage
+## Non-active / deferred coverage
 
-These documented event catalog entries currently have **no real publisher** in the active codebase, so their payload contracts stay explicitly deferred to post-v0.1 coverage rather than being treated as implemented now.
+These documented event catalog entries currently have **no real publisher** in the active codebase, so their payload contracts stay explicitly deferred rather than being treated as implemented now.
 
 - `service.lifecycle.reload.failed.v0`
 - `task.cancel.requested.v0`
@@ -149,4 +151,4 @@ These documented event catalog entries currently have **no real publisher** in t
 
 - No fake source publishers were added; contract-activated data-plane subjects are tracked in the contract drift guard.
 - No inactive event catalog entries were implemented just to reach parity with docs.
-- No active emitted event or active mounted response was deferred to post-v0.1 coverage.
+- No active emitted event or active mounted response was deferred.

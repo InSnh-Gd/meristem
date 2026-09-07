@@ -75,9 +75,11 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
     absolute: false,
     dot: true
   })) {
-    seen.add(path)
+    // Windows 上 Bun.Glob 返回反斜杠路径；目录配对检查使用 '/' 拼接，先归一化。
+    const normalizedPath = path.replaceAll('\\', '/')
+    seen.add(normalizedPath)
     const text = await Bun.file(`${root}/${path}`).text()
-    findings.push(...validateSkillMarkdown(path, text))
+    findings.push(...validateSkillMarkdown(normalizedPath, text))
   }
 
   for await (const skillDir of new Bun.Glob('.agents/skills/*').scan({
@@ -86,8 +88,9 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
     onlyFiles: false,
     dot: true
   })) {
-    if (seen.has(`${skillDir}/SKILL.md`)) continue
-    findings.push({ path: skillDir, reason: 'skill directory is missing SKILL.md' })
+    const normalizedDir = skillDir.replaceAll('\\', '/')
+    if (seen.has(`${normalizedDir}/SKILL.md`)) continue
+    findings.push({ path: normalizedDir, reason: 'skill directory is missing SKILL.md' })
   }
 
   return findings

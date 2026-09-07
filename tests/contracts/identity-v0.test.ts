@@ -25,9 +25,13 @@ import {
 
 // ── Inline schema definitions (contract spec, not implementation) ──────
 
-const ActorIdV02Schema = Schema.Literals(['viewer', 'operator', 'admin',
-'security-admin',
-'break-glass-reviewer'])
+const ActorIdV02Schema = Schema.Literals([
+  'viewer',
+  'operator',
+  'admin',
+  'security-admin',
+  'break-glass-reviewer'
+])
 
 const IdentityActorV02Schema = Schema.Struct({
   id: ActorIdV02Schema,

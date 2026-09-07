@@ -6,19 +6,20 @@ import type {
   Permission
 } from '../../../packages/contracts/src/index.ts'
 import {
+  isNodeControlFailure,
+  type NodeControlDeps,
+  type NodeControlFailure,
+  nodeControlFailure
+} from './node-control-shared.ts'
+import {
   deriveNodeControlTransition,
   type NodeControlTransition
 } from './node-control-state-machine.ts'
-import {
-  type NodeControlDeps,
-  type NodeControlFailure,
-  isNodeControlFailure,
-  nodeControlFailure
-} from './node-control-shared.ts'
 import { executeNodeRoleSwitch } from './node-role-switch-workflow.ts'
+import { authorizeOr403 } from './policy-guard.ts'
 
 // 公共 API 重新导出，保持路由层和测试文件不需要修改 import 路径。
-export { isNodeControlFailure, type NodeControlFailure, type NodeControlDeps }
+export { isNodeControlFailure, type NodeControlDeps, type NodeControlFailure }
 
 function permissionForAction(action: NodeControlAction): Permission {
   switch (action) {
@@ -78,12 +79,14 @@ export async function executeNodeControl(
   }
 
   const permission = permissionForAction(input.action)
-  const policyResult = await deps.policyAuthorize.authorize(
-    input.actor,
-    permission,
-    `node:${input.nodeId}`
-  )
-  if (policyResult.result !== 'allow') {
+  const policyGuard = await authorizeOr403(deps.policyAuthorize, {
+    actor: input.actor,
+    action: permission,
+    resource: `node:${input.nodeId}`,
+    deniedPrefix: `node ${input.action}`,
+    denyOn: 'non-allow'
+  })
+  if (policyGuard.kind === 'denied') {
     const deniedCorrelationId = crypto.randomUUID()
     try {
       await deps.log.writeAudit(
@@ -96,8 +99,8 @@ export async function executeNodeControl(
           previousStatus: node.status,
           requestedStatus: transition.nextStatus,
           reason: input.reason,
-          policyDecisionId: policyResult.id,
-          policyReasons: policyResult.reasons
+          policyDecisionId: policyGuard.policyDecisionId,
+          policyReasons: policyGuard.reasons
         }
       )
     } catch (error) {
@@ -107,11 +110,7 @@ export async function executeNodeControl(
         error instanceof Error ? error.message : String(error)
       )
     }
-    return nodeControlFailure(
-      403,
-      'policy.denied',
-      `node ${input.action} denied: ${policyResult.reasons.join(', ')}`
-    )
+    return nodeControlFailure(403, policyGuard.code, policyGuard.message)
   }
 
   const controlCorrelationId = crypto.randomUUID()
@@ -127,7 +126,7 @@ export async function executeNodeControl(
         previousStatus: node.status,
         nextStatus: transition.nextStatus,
         reason: input.reason,
-        policyDecisionId: policyResult.id
+        policyDecisionId: policyGuard.policyDecisionId
       }
     )
   } catch (error) {
@@ -167,7 +166,7 @@ export async function executeNodeControl(
       {
         previousStatus: node.status,
         nextStatus: transition.nextStatus,
-        policyDecisionId: policyResult.id,
+        policyDecisionId: policyGuard.policyDecisionId,
         reason: input.reason
       }
     )
@@ -181,7 +180,7 @@ export async function executeNodeControl(
         previousStatus: node.status,
         nextStatus: transition.nextStatus,
         reason: input.reason,
-        policyDecisionId: policyResult.id
+        policyDecisionId: policyGuard.policyDecisionId
       }
     )
   } catch (error) {
@@ -195,7 +194,7 @@ export async function executeNodeControl(
 
   return {
     node: updatedNode,
-    policyDecisionId: policyResult.id,
+    policyDecisionId: policyGuard.policyDecisionId,
     correlationId: controlCorrelationId
   }
 }

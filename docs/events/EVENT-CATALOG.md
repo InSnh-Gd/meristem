@@ -72,6 +72,8 @@ Rules:
 | `node.status.changed.v0` | event | Core / M-Net | M-Log, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
 | `mnet.network.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
 | `mnet.membership.joined.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
+| `mnet.network.deleted.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkDeletedPayload` | at-least-once |
+| `mnet.membership.removed.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipRemovedPayload` | at-least-once |
 | `task.requested.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRequestedPayload` | at-least-once |
 | `task.queued.v0` | event | M-Task | M-Log, M-UI BFF | `TaskQueuedPayload` | at-least-once |
 | `task.dispatched.v0` | event | M-Task | M-Log, M-UI BFF | `TaskDispatchedPayload` | at-least-once |
@@ -257,6 +259,15 @@ type MNetNetworkCreatedPayload = {
   networkId: string;
   name: string;
   profileVersion: string;
+};
+
+type MNetNetworkDeletedPayload = {
+  networkId: string;
+};
+
+type MNetMembershipRemovedPayload = {
+  networkId: string;
+  nodeId: string;
 };
 
 type MNetMembershipJoinedPayload = {

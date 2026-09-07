@@ -19,13 +19,15 @@ import {
   createInitialEnforcementState,
   type LocalOverlayEnv,
   loadLocalOverlayEnv,
-  reconcileLocalOverlay
+  reconcileLocalOverlay,
+  teardownLocalOverlay
 } from './node-agent-local-apply.ts'
 import {
   decodeMessage,
   heartbeatIntervalMs,
   parseServerMessage,
-  requiredOneOf
+  requiredOneOf,
+  resolveAgentReportedStatus
 } from './node-agent-runtime.ts'
 import {
   DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH,
@@ -35,15 +37,25 @@ import {
 import {
   deriveControlUrl,
   fetchLatestNodeRuntimeNetworkMap,
+  leaveNetwork,
   registerNodeRuntimeKey
 } from './node-agent-session.ts'
+import {
+  applySidecarDesiredState,
+  type NodeAgentLifecycleState,
+  stopSidecarLifecycle
+} from './node-agent-sidecar-lifecycle.ts'
+import { createSidecarSupervisor, type SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 import { discoverPublicEndpoint } from './node-agent-stun.ts'
+import { createTunnelStatusReporter } from './node-agent-tunnel-status.ts'
 import {
   loadOrCreateWireGuardKeyMaterial,
   type WireGuardKeyMaterial
 } from './node-agent-wireguard-keys.ts'
 
-const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.1.0'
+// 版本自报参与 M-Net v0.3 legacy 判定（0.1.* 会被视为 legacy 运行时拒绝数据面）；
+// 默认值必须随仓库当前版本演进，不能停留在 0.1.0。
+const agentVersion = process.env.MERISTEM_AGENT_VERSION ?? '0.2.0'
 const joinUrl = process.env.MERISTEM_JOIN_URL ?? 'wss://localhost:8443/join/v0/session'
 const configuredControlUrl = process.env.MERISTEM_MNET_CONTROL_URL
 const runtimeStatePath =
@@ -73,10 +85,48 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let runtimeSyncTimer: ReturnType<typeof setInterval> | null = null
 let runtimeSyncInFlight = false
 let stopping = false
+// 运行时同步应用的最新网络地图事实，供隧道状态上报读取
+let currentNetworkId: string | null = null
+let currentMapProfileVersion: string | null = null
+
+// NetBird 客户端进程监督器仅在配置了客户端二进制时启用；未配置时生命周期退化为配置写入
+const netbirdClientBinary = process.env.MERISTEM_NETBIRD_CLIENT_BINARY
+const sidecarSupervisor: SidecarSupervisor | null = netbirdClientBinary
+  ? createSidecarSupervisor({
+      binaryPath: netbirdClientBinary,
+      configPath:
+        process.env.MERISTEM_NODE_AGENT_SIDECAR_CONFIG_PATH ?? '/run/meristem/netbird/sidecar.json'
+    })
+  : null
+
+const tunnelStatusReporter = createTunnelStatusReporter({
+  nodeId: () => nodeId ?? null,
+  controlUrl: () => currentControlUrl,
+  nodeToken: () => runtimeToken ?? null,
+  networkId: () => currentNetworkId,
+  profileVersion: () => currentMapProfileVersion,
+  observation: () => ({
+    enforcementStatus: currentEnforcementState.status,
+    sidecarRuntimeStatusKind: currentLifecycleState.runtimeStatus.kind,
+    ...(sidecarSupervisor ? { supervisorStateKind: sidecarSupervisor.state().kind } : {})
+  }),
+  ...(sidecarSupervisor ? { supervisor: sidecarSupervisor } : {}),
+  onReport: result => {
+    if (result.kind === 'runtime.request_failed') {
+      process.stderr.write(`tunnel status report failed: ${result.reason}\n`)
+    }
+  }
+})
 
 function isIdempotentRuntimeKeyRegistrationFailure(reason: string): boolean {
   const normalized = reason.toLowerCase()
   return normalized.includes('duplicate') || normalized.includes('key.duplicate')
+}
+
+/** 入网前没有成员身份，运行时密钥注册必然 404：良性状态，静默等待 join 后重试。 */
+function isPreMembershipRegistrationFailure(reason: string): boolean {
+  const normalized = reason.toLowerCase()
+  return normalized.includes('network.not_found') || normalized.includes('network not found')
 }
 
 initTelemetry('node-agent')
@@ -120,8 +170,10 @@ function startHeartbeat(): void {
       type: 'heartbeat',
       sessionId: currentSessionId,
       agentVersion,
-      reportedStatus:
-        currentLifecycleState.runtimeStatus.kind === 'healthy' ? 'healthy' : 'degraded',
+      reportedStatus: resolveAgentReportedStatus(
+        currentEnforcementState.partition.networkId,
+        currentLifecycleState.runtimeStatus.kind
+      ),
       timestamp: new Date().toISOString(),
       runtimeStatus: currentLifecycleState.runtimeStatus
     })
@@ -190,8 +242,12 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
   const keyMaterial = currentWireGuardKey ?? (await loadOrCreateWireGuardKeyMaterial())
   currentWireGuardKey = keyMaterial
 
-  // STUN 发现公网 endpoint（仅尝试一次，缓存后续复用）
-  if (!stunDiscoveryAttempted && !currentPublicEndpoint) {
+  // 广播 endpoint：显式覆盖优先（1:1 NAT 云主机 / 同宿主容器桥等 STUN 不可达场景），
+  // 否则 STUN 发现公网映射（仅尝试一次，缓存后续复用）。
+  const advertisedEndpoint = process.env.MERISTEM_NODE_AGENT_ADVERTISED_ENDPOINT
+  if (advertisedEndpoint) {
+    currentPublicEndpoint = advertisedEndpoint
+  } else if (!stunDiscoveryAttempted && !currentPublicEndpoint) {
     stunDiscoveryAttempted = true
     const stunResult = await discoverPublicEndpoint()
     if (stunResult.ok) {
@@ -212,7 +268,8 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     registration.kind === 'runtime.key.registered' ? registration.correlationId : undefined
   if (
     registration.kind !== 'runtime.key.registered' &&
-    !isIdempotentRuntimeKeyRegistrationFailure(registration.reason)
+    !isIdempotentRuntimeKeyRegistrationFailure(registration.reason) &&
+    !isPreMembershipRegistrationFailure(registration.reason)
   ) {
     process.stderr.write(`node runtime key registration failed: ${registration.reason}\n`)
     forwardLog('error', 'failed to register node runtime key', undefined, {
@@ -253,15 +310,44 @@ async function reconcileNodeRuntimeState(mode: 'join' | 'resume' | 'poll'): Prom
     },
     {
       deploymentConfig: runtimeDeploymentConfig.raw,
-      secretManager: nodeAgentSecretManager
+      secretManager: nodeAgentSecretManager,
+      ...(sidecarSupervisor ? { supervisor: sidecarSupervisor } : {})
     }
   )
+  currentNetworkId = latestMap.map.networkId
+  currentMapProfileVersion = latestMap.map.profileVersion
 
   if (currentLifecycleState.runtimeStatus.kind !== 'healthy') {
     forwardLog('warn', 'node sidecar lifecycle is degraded', lifecycleCorrelationId, {
       nodeId,
       runtimeStatus: currentLifecycleState.runtimeStatus
     })
+  }
+
+  // 退出语义：M-Net 期望态为 stop/drain 时，agent 主动拆除本地隧道并通知 M-Net 移除成员关系
+  if (latestMap.sidecar.desiredState === 'stop' || latestMap.sidecar.desiredState === 'drain') {
+    await teardownLocalOverlay(localOverlayEnv)
+    currentEnforcementState = createInitialEnforcementState(latestMap.map.networkId)
+    if (currentControlUrl && runtimeToken) {
+      const leave = await leaveNetwork(
+        currentControlUrl,
+        nodeId,
+        runtimeToken,
+        latestMap.map.networkId
+      )
+      if (leave.kind === 'runtime.request_failed') {
+        forwardLog('warn', 'node leave notification failed', lifecycleCorrelationId, {
+          nodeId,
+          reason: leave.reason
+        })
+      } else {
+        forwardLog('info', 'node left network', lifecycleCorrelationId, {
+          nodeId,
+          networkId: leave.networkId
+        })
+      }
+    }
+    return
   }
 
   const localOverlay = await reconcileLocalOverlay({
@@ -335,6 +421,7 @@ function handleAccepted(message: JoinAcceptedMessage | SessionResumedMessage): v
   )
   triggerRuntimeSync(message.type === 'join.accepted' ? 'join' : 'resume')
   startRuntimeSyncLoop()
+  tunnelStatusReporter.start()
 }
 
 function stopLifecycle(reason: 'break_glass_stop' | 'profile_disabled'): void {
@@ -465,6 +552,7 @@ function connect(): void {
   ws.onclose = () => {
     stopHeartbeat()
     stopRuntimeSyncLoop()
+    tunnelStatusReporter.stop()
     stopLifecycle('break_glass_stop')
     currentSessionId = null
     if (!stopping) scheduleReconnect()
@@ -481,7 +569,10 @@ process.on('SIGINT', () => {
   stopping = true
   stopHeartbeat()
   stopRuntimeSyncLoop()
+  tunnelStatusReporter.stop()
   forwardLog('warn', 'node agent stopping')
   socket?.close()
-  void shutdownTelemetry().then(() => process.exit(0))
+  // sidecar 进程必须优雅回收，避免 NetBird 客户端残留持有隧道接口
+  const sidecarStop = sidecarSupervisor ? sidecarSupervisor.stop() : Promise.resolve()
+  void Promise.all([sidecarStop, shutdownTelemetry()]).then(() => process.exit(0))
 })

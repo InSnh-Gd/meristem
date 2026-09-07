@@ -15,8 +15,8 @@ vi.mock('$app/state', () => ({
 }))
 
 import { appState } from '../../src/lib/stores.svelte.ts'
-import ControlRoomVisualShellFixture from './_specs/control-room-visual-shell-fixture.svelte'
 import { installAppStateReset } from './_specs/app-state'
+import ControlRoomVisualShellFixture from './_specs/control-room-visual-shell-fixture.svelte'
 import { createControlRoomCommandState, createOverviewFixture } from './_specs/fixtures'
 
 installAppStateReset()

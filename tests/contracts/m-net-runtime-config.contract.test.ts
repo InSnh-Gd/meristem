@@ -245,7 +245,10 @@ describe('MNetRuntimeConfigSchema surface verification', () => {
 
   it('MNetRuntimeConfigSchema has no index signature (no catch-all)', () => {
     const ast = MNetRuntimeConfigSchema.ast
-    expect(ast.indexSignatures).toHaveLength(0)
+    expect(ast._tag).toBe('Objects')
+    if (ast._tag === 'Objects') {
+      expect(ast.indexSignatures).toHaveLength(0)
+    }
   })
 
   it('MNetRuntimeConfigSchema does not accept null / non-object payloads', () => {

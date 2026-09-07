@@ -28,6 +28,19 @@ export const internalServicePorts: Record<InternalServiceName, number> = {
 }
 
 export const internalTokenHeaderName = 'x-meristem-internal-token'
+
+/**
+ * split-container 部署时每个内部服务的 URL 覆盖环境变量名。
+ * 命名与 BFF/CLI 已有的 MERISTEM_*_URL 约定保持一致，避免同一服务出现两套覆盖变量。
+ */
+export const internalServiceUrlEnvNames: Record<InternalServiceName, string> = {
+  'm-policy': 'MERISTEM_POLICY_URL',
+  'm-log': 'MERISTEM_LOG_URL',
+  'm-eventbus': 'MERISTEM_EVENTBUS_URL',
+  'm-net': 'MERISTEM_MNET_URL',
+  'm-task': 'MERISTEM_TASK_URL',
+  'm-extension': 'MERISTEM_EXTENSION_URL'
+}
 export const internalApiPaths = {
   authorize: '/internal/v0/authorize',
   timelineLog: '/internal/v0/timeline',
@@ -64,6 +77,10 @@ export function requiredInternalToken(token = process.env.MERISTEM_INTERNAL_TOKE
 }
 
 export function serviceUrl(name: InternalServiceName): string {
+  // split-container 部署通过环境变量把内部服务指到容器网络 DNS；
+  // 未设置时保持 loopback 默认，单进程本地开发行为不变。
+  const override = process.env[internalServiceUrlEnvNames[name]]
+  if (override) return override
   return `http://127.0.0.1:${internalServicePorts[name]}`
 }
 
@@ -209,8 +226,10 @@ export function serveHttpApp(
   fetchHandler: (request: Request) => Response | Promise<Response>
 ): ServedInternalApp {
   const port = internalServicePorts[name]
+  // split-container 部署需要监听容器网络接口；本地开发保持 loopback 默认。
+  const hostname = process.env.MERISTEM_INTERNAL_HOST ?? '127.0.0.1'
   const server = Bun.serve({
-    hostname: '127.0.0.1',
+    hostname,
     port,
     fetch: fetchHandler,
     error() {
@@ -221,7 +240,7 @@ export function serveHttpApp(
   return {
     name,
     port,
-    url: `http://127.0.0.1:${port}`,
+    url: `http://${hostname === '0.0.0.0' ? '127.0.0.1' : hostname}:${port}`,
     async stop() {
       server.stop(true)
     }

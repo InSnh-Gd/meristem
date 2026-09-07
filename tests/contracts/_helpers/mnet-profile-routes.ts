@@ -3,10 +3,10 @@ import { mintLocalToken } from '../../../packages/auth/src/index.ts'
 import type { ActorId } from '../../../packages/contracts/src/literals.ts'
 import { internalTokenHeaderName } from '../../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../../services/m-net/src/app.ts'
+import type { MNetDb } from '../../../services/m-net/src/clients.ts'
 import { createInMemoryDataPlaneStores } from '../../../services/m-net/src/data-plane-store-memory.ts'
 import { createInMemoryGlobalDefaultsStore } from '../../../services/m-net/src/global-defaults-store.ts'
 import { createMigrationEngine } from '../../../services/m-net/src/migration-engine.ts'
-import type { MNetDb } from '../../../services/m-net/src/clients.ts'
 import type { ProfileStore } from '../../../services/m-net/src/profile-store.ts'
 import type { MNetApp } from '../../../services/m-net/src/public-types.ts'
 import type { SuspendedOperationStore } from '../../../services/m-net/src/suspended-operations.ts'
@@ -33,7 +33,7 @@ export const ErrorResponseSchema = Schema.Struct({
   })
 })
 
-export async function decodeJson<TSchema extends Schema.Codec<unknown>>(
+export async function decodeJson<TSchema extends Schema.ConstraintDecoder<unknown>>(
   response: Response,
   schema: TSchema
 ): Promise<TSchema['Type']> {
@@ -194,11 +194,6 @@ export function createTestApp(
     events: {
       async publish() {
         /* noop for tests */
-      }
-    },
-    auth: {
-      async verify(_token: string) {
-        return { ok: true as const, actor: 'operator' as ActorId }
       }
     }
   })

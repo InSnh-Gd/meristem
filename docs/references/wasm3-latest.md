@@ -11,7 +11,7 @@
 - Official docs live in the repository `docs/` directory.
 - The repository README currently states that Wasm3 is in minimal maintenance mode.
 
-Use Wasm3 only as an optional future runtime boundary for Meristem. It is not part of the MVP.
+Use Wasm3 only as an optional future runtime boundary for Meristem. It is not part of the current release.
 
 ---
 
@@ -41,7 +41,7 @@ Use Wasm3 only when a future M-Extension or node capability needs:
 
 Do not use Wasm3 for:
 
-- MVP Core.
+- Core runtime replacement.
 - default service runtime.
 - high-throughput server-side hot paths without benchmarking.
 - replacing TypeScript-first service implementation.

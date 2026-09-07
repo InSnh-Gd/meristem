@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1
+# Meristem 参数化服务镜像：所有 Bun 控制面/节点服务共用一套多阶段构建。
+# 构建方通过 --build-arg SERVICE_ENTRY 指定 Bun 入口（如 services/m-net/src/index.ts），
+# 依赖安装与源码拷贝分层缓存，源码变更不触发依赖重装。
+ARG BUN_VERSION=1
+
+FROM oven/bun:${BUN_VERSION}-alpine AS deps
+WORKDIR /app
+
+# 先只拷贝 workspace 声明文件，利用镜像层缓存。
+# 清单必须与 bun.lock 登记的全部 16 个 workspace 一一对应（apps/core、apps/m-cli 也在内），
+# 否则 frozen lockfile 校验会把缺失 workspace 视为变更而拒绝安装。
+COPY package.json bun.lock ./
+COPY apps/core/package.json apps/core/package.json
+COPY apps/m-cli/package.json apps/m-cli/package.json
+COPY apps/m-ui/package.json apps/m-ui/package.json
+COPY services/m-net/package.json services/m-net/package.json
+COPY services/m-policy/package.json services/m-policy/package.json
+COPY services/m-log/package.json services/m-log/package.json
+COPY services/m-eventbus/package.json services/m-eventbus/package.json
+COPY packages/auth/package.json packages/auth/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/events/package.json packages/events/package.json
+COPY packages/internal-http/package.json packages/internal-http/package.json
+COPY packages/policy/package.json packages/policy/package.json
+COPY packages/secrets/package.json packages/secrets/package.json
+COPY packages/telemetry/package.json packages/telemetry/package.json
+COPY packages/testing/package.json packages/testing/package.json
+
+# --ignore-scripts 跳过根 prepare（git hooks 安装在容器内无意义且缺脚本文件）；
+# 依赖自身的生命周期脚本 bun 默认就不执行（未声明 trustedDependencies）
+RUN bun install --frozen-lockfile --ignore-scripts
+
+FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+ARG SERVICE_ENTRY
+ARG EXTRA_PACKAGES=""
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY package.json bun.lock tsconfig.json tsconfig.base.json ./
+COPY apps ./apps
+COPY services ./services
+COPY packages ./packages
+
+# SERVICE_ENTRY 禁止用 ENV 提升：classic builder 的 ENV 层缓存键不含 ARG 实参，
+# 会让全部服务镜像复用第一次构建缓存的入口。RUN 引用了 ARG，缓存键包含实参，
+# 各服务入口层互不复用；CMD 启动时再从文件读回入口。
+RUN printf '%s' "$SERVICE_ENTRY" > /app/.service-entry
+
+# 服务级附加包（如 node-agent 的 iproute2/wireguard-tools）；
+# RUN 引用 ARG 使缓存键随实参变化，未传参的服务构建完全走缓存。
+RUN if [ -n "$EXTRA_PACKAGES" ]; then apk add --no-cache $EXTRA_PACKAGES; fi
+
+# 以非 root 运行；node-agent 需要内核能力时由 compose 显式授权
+USER bun
+
+EXPOSE 3000 3101 3102 3103 3104 3105 3106 3200 3307 8443
+CMD bun run "$(cat /app/.service-entry)"

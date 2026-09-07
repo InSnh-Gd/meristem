@@ -29,7 +29,7 @@ Meristem 后端服务使用 ElysiaJS 作为默认组织模型。Elysia 的方法
 
 ### Eden-first，但非 Eden-only
 
-内部 TypeScript 服务优先使用 Eden over HTTP 获得类型安全的客户端/服务端契约。Eden 不是唯一的契约系统，也不是独立的传输协议。MVP 中 `Core -> M-Policy`、`Core -> M-Log`、`Core -> M-EventBus` 使用 loopback-only HTTP 加共享内部 token；外部 API 使用 REST + OpenAPI；事件使用 Event Schema；跨语言或 Wasm 边界使用 REST/OpenAPI、Event Schema 或后续 WIT。
+内部 TypeScript 服务优先使用 Eden over HTTP 获得类型安全的客户端/服务端契约。Eden 不是唯一的契约系统，也不是独立的传输协议。当前基线中 `Core -> M-Policy`、`Core -> M-Log`、`Core -> M-EventBus` 使用 loopback-only HTTP 加共享内部 token；外部 API 使用 REST + OpenAPI；事件使用 Event Schema；跨语言或 Wasm 边界使用 REST/OpenAPI、Event Schema 或后续 WIT。
 
 ### Effect-first 内部工作流，非 Effect Everywhere
 

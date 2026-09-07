@@ -1,7 +1,7 @@
 import type {
   KnownNetworkState,
-  ProfileWriteBody,
   ProfileWorkflowFailure,
+  ProfileWriteBody,
   ProfileWriteDeps
 } from './profile-workflow-types.ts'
 import { CHINA_PROFILE_VERSION, profileWorkflowFailure } from './profile-workflow-types.ts'
