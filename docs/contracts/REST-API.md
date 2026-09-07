@@ -754,6 +754,66 @@ Protected by `network:read`.
 
 Returns logical network members or `404` if the network does not exist.
 
+### `DELETE /api/v0/networks/:id`
+
+Protected by `network:delete`.
+
+Deletes a logical network.
+
+Rules:
+
+- the network must have no members (`409 network.members_present`).
+- the network profile state must be `disabled` (`409 network.profile_not_disabled`).
+- deletion cleans tunnel allocations, network map renders, relay assignments,
+  sidecar desired configs, partition states and profile state.
+- successful deletion publishes `mnet.network.deleted.v0` and writes Timeline + Audit.
+
+### `DELETE /api/v0/networks/:id/members/:nodeId`
+
+Protected by `network:delete`.
+
+Removes a single member from a logical network.
+
+Rules:
+
+- the network and membership must exist (`404 network.not_found` / `404 network.member_not_found`).
+- the member's tunnel allocation and sidecar desired config are removed;
+  node public keys are reclaimed once the node has no remaining memberships.
+- the signed network map is re-rendered so the removed peer disappears on the
+  node's next map sync (TTL enforcement tears the peer route down locally).
+- successful removal publishes `mnet.membership.removed.v0`.
+
+### `PATCH /api/v0/networks/:id`
+
+Protected by `network:create`.
+
+Updates network metadata.
+
+```ts
+type UpdateNetworkMetadataRequest = {
+  displayName?: string;
+};
+
+type UpdateNetworkMetadataResponse = {
+  network: MNetwork;
+};
+```
+
+Rules:
+
+- `name` is the identity key and cannot be changed.
+- `displayName` is optional network metadata.
+
+### Node runtime: tunnel status and leave
+
+Node-facing runtime routes authenticate with the node runtime token:
+
+- `POST /api/v0/node-runtime/nodes/:nodeId/tunnel-status` — periodic tunnel/sidecar
+  health report; M-Net ingests it into the operational read model as
+  `mnet.sidecar.health.v0`.
+- `POST /api/v0/node-runtime/nodes/:nodeId/leave` — node-initiated leave;
+  M-Net removes the membership and re-renders the network map.
+
 ---
 
 ## 7. Tasks

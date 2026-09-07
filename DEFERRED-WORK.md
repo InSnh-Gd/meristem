@@ -1152,3 +1152,84 @@ Resolved in this tranche:
 - DFW-002: SDUI / BFF display contract, CommandWell behavior for approve / reject, UI contract tests.
 - DFW-016: BFF display contract, SDUI schema update, UI contract tests for high-risk command placement and non-misleading data-plane wording.
 - DFW-030: Foundation now includes mutation execution flows. Display-only previews coexist with live execute commands.
+
+### DFW-031: Real NetBird Infrastructure Viability Proof And Cross-Host Dataplane Verification
+
+Owner: M-Net / node-agent with ADR-N04.
+
+Source: ADR-N04 viability gate (`bun run mnet:v02:sidecar-proof`), production
+networking plan.
+
+Resolved now:
+
+- M-Net NetBird adapter `probeRuntime()` performs a real `netbird status`
+  probe with typed outcomes (running / unreachable / management dependency).
+- node-agent sidecar supervisor spawns the NetBird client with config-path
+  argv, supervises crashes with backoff restarts, escalates SIGTERM → SIGKILL
+  on stop, and probes process health.
+- node-agent periodically reports tunnel/sidecar health to M-Net
+  (`mnet.sidecar.health.v0` operational events) via the node-runtime
+  tunnel-status route; the operational snapshot and M-UI dataplane panel
+  surface the reported state.
+- Contract tests cover the adapter probe matrix, supervisor lifecycle
+  transitions, the tunnel-status ingest route and the reporter derivation.
+
+Still deferred:
+
+- Running `mnet:v02:sidecar-proof` against real NetBird Signal / Relay / STUN
+  infrastructure (requires operator-provisioned infrastructure; the proof is
+  the viability gate, and the ADR-N04 fallback is the existing local WireGuard
+  rendering plus NetBird Signal/Relay infrastructure).
+- Cross-host ICMP verification and NAT traversal (relay fallback) evidence
+  through the real sidecar in the multi-host harness.
+
+Reason deferred:
+
+- The proof gate and cross-host dataplane evidence depend on physical hosts
+  and NetBird artifacts outside this repository; per ADR-N04 they are an
+  operator-executed acceptance step, not automatable in CI.
+
+
+### DFW-032: Same-Host Fleet Operator Tooling And Member Lifecycle Hygiene
+
+Owner: M-Net / node-agent.
+
+Source: WSL2 five-container fleet smoke (`meristem-cli` deployed control
+plane + five agent-mode node containers on one podman bridge).
+
+Resolved now:
+
+- agent-mode onboarding deadlock removed: a connected node with no membership
+  yet reports healthy (heartbeat), and the runtime-key registration 404
+  (`network.not_found`) is tolerated as pre-membership state instead of
+  degrading the agent.
+- default reported agent version bumped to `0.2.0` — `0.1.*` agents are
+  rejected by the v0.3 data-plane legacy guard.
+- `Dockerfile.service` gained `EXTRA_PACKAGES` (node-agent ships
+  iproute2 + wireguard-tools so it can actually apply WireGuard).
+- bootstrap generates the network-map signing keypair (Ed25519) into the
+  certs volume; m-net loads it via
+  `MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_FILE`.
+- node-agent accepts `MERISTEM_NODE_AGENT_ADVERTISED_ENDPOINT` to override
+  STUN discovery (same-host fleets / 1:1-NAT hosts).
+- WSL2 five-container smoke passed end to end: join ingress ticket redemption,
+  runtime key registration, signed map distribution and verification,
+  `wg` interface + peers with real keys, and HTTP traffic across all tunnel
+  pairs (stem↔stem, stem↔leaf, leaf↔leaf).
+
+Still deferred:
+
+- Deleting/rotating memberships for nodes that died before leaving: stale
+  member rows keep old bootstrap placeholder keys in every re-rendered map
+  until an operator runs `network remove-member` per ghost; long-lived
+  deployments need automated re-render/purge when a node's heartbeat expires.
+- map render for members without a registered runtime key still bootstraps a
+  deterministic placeholder key (control-plane test affordance); production
+  should either reject or quarantine such members instead of emitting keys
+  that `wg setconf` rejects.
+
+Reason deferred:
+
+- Both are operator-policy/lifecycle-hygiene work beyond the smoke scope; the
+  smoke achieved its goal (control plane + data plane verified for five real
+  agent containers), and the fixes above unblock real agent-mode fleets.

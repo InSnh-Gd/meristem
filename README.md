@@ -119,6 +119,45 @@ bun run dev:all
 
 有关运行时、端口、依赖模式和降级路径行为的详细信息，请参阅 [`docs/operations/RUNBOOK.md`](./docs/operations/RUNBOOK.md)。
 
+### CLI 工具
+
+`meristem-cli` 是单文件可执行 CLI（内嵌 Bun 运行时，目标机无需安装 Bun，无 bun run 回显与多余日志）：
+
+```bash
+bun run cli:build                          # 产出 bin/meristem-cli（约 100MB）
+cp bin/meristem-cli ~/.local/bin/          # 可选：加入 PATH 后直接 `meristem-cli <command>`
+```
+
+开发期间也可从源码等价执行：`bun run meristem <command>`。
+
+### 生产部署
+
+单机部署用 `meristem-cli deploy` 命令组（kubectl 式入口，Docker / Podman + compose）。推荐交互式向导：
+
+```bash
+meristem-cli deploy wizard        # 问答式部署：配置端口/actor → 生成 env → 构建并启动全栈
+meristem-cli deploy token admin   # 取出初始 admin token
+```
+
+向导交互约定：TTY 下回车接受默认值；管道/EOF（非交互）一律视为拒绝，不会无确认自动部署。
+
+非交互等价流程：
+
+```bash
+meristem-cli deploy init          # 生成 ops/compose/meristem.prod.env（随机密钥，0600；按需编辑端口/外部地址）
+meristem-cli deploy up            # 构建镜像并启动全栈，等待全部 healthy
+```
+
+部署中可随时 `meristem-cli deploy tui` 打开全屏控制台：实时服务健康表、选中服务日志、启动/停栈（`D`+`y` 二次确认）。
+
+编排自动完成：PostgreSQL / NATS 健康检查 → bootstrap 容器（迁移、种子、Join 证书、铸造初始 admin token）→ 全部服务按依赖启动。
+
+- `meristem deploy status`：查看各服务健康状态；`meristem deploy logs <service>`：查看服务日志；`meristem deploy down --volumes`：停栈并清理数据卷。
+- 浏览器打开 `http://<host>:8080` 登录 M-UI（API 3000 / BFF 3200 / Join Ingress 8443）。
+- 已有部署重新运行 wizard 会保留现有密钥、仅更新端口等配置（Postgres 数据卷初始化后密码不可变更；轮换密钥需先 `down --volumes`）。
+
+多主机部署：CI 推送镜像到 registry 后，把 `bin/meristem-cli` 拷到目标主机（或 `ops/scripts/deploy.sh <user@host> ops/compose/meristem.prod.env`），执行 `meristem-cli deploy up --pull`。生产 OIDC 登录、Vault 与 NetBird 穿透基础设施的接入方式见 [`docs/operations/RUNBOOK.md`](./docs/operations/RUNBOOK.md)。
+
 ## 可用命令
 
 | 命令 | 描述 |
