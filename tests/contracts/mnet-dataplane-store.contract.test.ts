@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { fromAny, fromPartial } from '@total-typescript/shoehorn'
 import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
 import { migrateFoundation } from '../../packages/db/src/migrate-foundation.ts'
 import { migrateMNetDataPlane } from '../../packages/db/src/migrate-mnet-dataplane.ts'
@@ -230,7 +231,30 @@ async function exerciseDataPlaneStores(stores: DataPlaneStores): Promise<void> {
     expiresAt: '2026-01-01T00:02:00.000Z',
     publishedAt: '2026-01-01T00:01:30.000Z'
   })
-  expect((await stores.networkMaps.getLatest('net-a'))?.mapVersion).toBe(1)
+  await stores.networkMaps.save({
+    networkId: 'net-a',
+    mapVersion: 2,
+    profileVersion: 'm-net-cn@0.3.0',
+    map: {
+      networkId: 'net-a',
+      profileVersion: 'm-net-cn@0.3.0',
+      mapVersion: 2,
+      expiresAt: Date.now() + 60_000,
+      members: [],
+      aclRules: [],
+      signatureMetadata: {
+        algorithm: 'ed25519',
+        keyId: 'key-2',
+        publicKey: 'public-key-2',
+        value: 'sig-2'
+      }
+    },
+    signatureMetadata: { keyId: 'key-2', signer: 'ops' },
+    expiresAt: '2026-01-01T00:03:00.000Z',
+    publishedAt: '2026-01-01T00:02:30.000Z'
+  })
+  expect((await stores.networkMaps.getLatest('net-a'))?.mapVersion).toBe(2)
+  expect((await stores.networkMaps.get('net-a', 1))?.mapVersion).toBe(1)
 
   await stores.nodePublicKeys.upsert({
     nodeId: 'node-a',
@@ -349,5 +373,55 @@ describe('M-Net persistent store contract (postgres)', () => {
     await exerciseDisablePolicyStore(disablePolicyStore)
     await exerciseDataPlaneStores(dataPlaneStores)
     await client.end()
+  })
+
+  it('pushes point lookups and latest ordering into the database query', async () => {
+    const queryCalls: Array<{ where: boolean; orderBy: boolean; limit: boolean; rows: number }> = []
+    const createQuery = (rows: readonly unknown[]) => {
+      const query = {
+        from: () => query,
+        where: (condition: unknown) => {
+          queryCalls.push({ where: condition !== undefined, orderBy: false, limit: false, rows: 0 })
+          return query
+        },
+        orderBy: () => {
+          const call = queryCalls.at(-1)
+          if (call) call.orderBy = true
+          return query
+        },
+        limit: () => {
+          const call = queryCalls.at(-1)
+          if (call) {
+            call.limit = true
+            call.rows = rows.length
+          }
+          return Promise.resolve(rows)
+        },
+        find: () => undefined,
+        sort: () => []
+      }
+      return query
+    }
+    const db = fromPartial<Parameters<typeof createPgDataPlaneStores>[0]>({
+      select: fromAny<
+        Parameters<typeof createPgDataPlaneStores>[0]['select'],
+        () => ReturnType<typeof createQuery>
+      >(() => createQuery([undefined]))
+    })
+    const stores = createPgDataPlaneStores(db)
+
+    await stores.profileMigrations.get('net-a', 'migration-1')
+    await stores.networkMaps.get('net-a', 1)
+    await stores.networkMaps.getLatest('net-a')
+    await stores.nodePublicKeys.get('node-a', 'key-1')
+    await stores.tunnelAllocations.get('net-a', 'node-a')
+
+    expect(queryCalls).toEqual([
+      { where: true, orderBy: false, limit: true, rows: 1 },
+      { where: true, orderBy: false, limit: true, rows: 1 },
+      { where: true, orderBy: true, limit: true, rows: 1 },
+      { where: true, orderBy: false, limit: true, rows: 1 },
+      { where: true, orderBy: false, limit: true, rows: 1 }
+    ])
   })
 })

@@ -2,20 +2,20 @@ import * as Schema from 'effect/Schema'
 import { err, ok, type Result } from '../../../common/src/result.ts'
 import { SecretRefSchema } from './secret-provider.ts'
 
-export const MDeployDesiredStateSchemaVersionV01Schema = Schema.Literal(
+export const MDeployDesiredStateSchemaVersionV01Schema = Schema.Literals([
   'mdeploy.desired-state@0.1.0'
-)
+])
 export type MDeployDesiredStateSchemaVersionV01FromSchema =
   typeof MDeployDesiredStateSchemaVersionV01Schema.Type
 
-export const MDeployRuntimeDriverSchema = Schema.Literal('podman', 'docker')
+export const MDeployRuntimeDriverSchema = Schema.Literals(['podman', 'docker'])
 export type MDeployRuntimeDriverFromSchema = typeof MDeployRuntimeDriverSchema.Type
 
-export const MDeployIacDriverSchema = Schema.Literal('opentofu', 'terraform', 'disabled')
+export const MDeployIacDriverSchema = Schema.Literals(['opentofu', 'terraform', 'disabled'])
 export type MDeployIacDriverFromSchema = typeof MDeployIacDriverSchema.Type
 
 export const MDeployDigestSchema = Schema.Struct({
-  algorithm: Schema.Literal('sha256', 'sha512'),
+  algorithm: Schema.Literals(['sha256', 'sha512']),
   value: Schema.String
 })
 export type MDeployDigestFromSchema = typeof MDeployDigestSchema.Type
@@ -47,7 +47,7 @@ export type MDeployRuntimeSelectionV01FromSchema = typeof MDeployRuntimeSelectio
 export const MDeployTopologyNodeV01Schema = Schema.Struct({
   nodeId: Schema.String,
   hostId: Schema.String,
-  role: Schema.Literal('controller', 'worker'),
+  role: Schema.Literals(['controller', 'worker']),
   runtimeDriver: MDeployRuntimeDriverSchema
 })
 export type MDeployTopologyNodeV01FromSchema = typeof MDeployTopologyNodeV01Schema.Type
@@ -61,7 +61,7 @@ export type MDeployTopologyV01FromSchema = typeof MDeployTopologyV01Schema.Type
 
 export const MDeployPlainConfigValueV01Schema = Schema.Struct({
   kind: Schema.Literal('plain'),
-  value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+  value: Schema.Union([Schema.String, Schema.Number, Schema.Boolean])
 })
 export type MDeployPlainConfigValueV01FromSchema = typeof MDeployPlainConfigValueV01Schema.Type
 
@@ -71,16 +71,16 @@ export const MDeploySecretConfigValueV01Schema = Schema.Struct({
 })
 export type MDeploySecretConfigValueV01FromSchema = typeof MDeploySecretConfigValueV01Schema.Type
 
-export const MDeployServiceConfigValueV01Schema = Schema.Union(
+export const MDeployServiceConfigValueV01Schema = Schema.Union([
   MDeployPlainConfigValueV01Schema,
   MDeploySecretConfigValueV01Schema
-)
+])
 export type MDeployServiceConfigValueV01FromSchema = typeof MDeployServiceConfigValueV01Schema.Type
 
 export const MDeployServiceConfigV01Schema = Schema.Struct({
   serviceId: Schema.String,
   image: MDeployImageRefV01Schema,
-  config: Schema.Record({ key: Schema.String, value: MDeployServiceConfigValueV01Schema }),
+  config: Schema.Record(Schema.String, MDeployServiceConfigValueV01Schema),
   secretRefs: Schema.Array(SecretRefSchema)
 })
 export type MDeployServiceConfigV01FromSchema = typeof MDeployServiceConfigV01Schema.Type
@@ -112,7 +112,7 @@ function collectSecretValueIssues(
       if (!isApprovedSecretRepresentation(key, child)) {
         issues.push({
           path: childPath,
-          message: 'secret-bearing desired-state fields must use secretRef'
+          issue: 'secret-bearing desired-state fields must use secretRef'
         })
       }
     }
@@ -154,17 +154,17 @@ export const MDeployDesiredStateDocumentV01Schema = Schema.Struct({
   topology: MDeployTopologyV01Schema,
   services: Schema.Array(MDeployServiceConfigV01Schema),
   generatedAt: Schema.String
-}).pipe(Schema.filter(document => collectSecretValueIssues(document, [])))
+}).pipe(Schema.check(Schema.makeFilter(document => collectSecretValueIssues(document, []))))
 export type MDeployDesiredStateDocumentV01FromSchema =
   typeof MDeployDesiredStateDocumentV01Schema.Type
 
-export const MDeploySignedEnvelopeSchemaVersionV01Schema = Schema.Literal(
+export const MDeploySignedEnvelopeSchemaVersionV01Schema = Schema.Literals([
   'mdeploy.signed-envelope@0.1.0'
-)
+])
 export type MDeploySignedEnvelopeSchemaVersionV01FromSchema =
   typeof MDeploySignedEnvelopeSchemaVersionV01Schema.Type
 
-export const MDeploySignatureAlgorithmSchema = Schema.Literal('ed25519', 'cosign-keyless')
+export const MDeploySignatureAlgorithmSchema = Schema.Literals(['ed25519', 'cosign-keyless'])
 export type MDeploySignatureAlgorithmFromSchema = typeof MDeploySignatureAlgorithmSchema.Type
 
 export const MDeploySignatureV01Schema = Schema.Struct({
@@ -175,7 +175,7 @@ export const MDeploySignatureV01Schema = Schema.Struct({
 export type MDeploySignatureV01FromSchema = typeof MDeploySignatureV01Schema.Type
 
 export const MDeploySignerIdentityV01Schema = Schema.Struct({
-  kind: Schema.Literal('mdeploy-controller', 'git-commit-signer', 'operator'),
+  kind: Schema.Literals(['mdeploy-controller', 'git-commit-signer', 'operator']),
   identity: Schema.String,
   keyRef: Schema.optional(SecretRefSchema)
 })
@@ -186,7 +186,7 @@ export const MDeployEnvelopeVerificationV01Schema = Schema.Struct({
   verifiedAt: Schema.String,
   verifier: Schema.String,
   failureReason: Schema.optional(
-    Schema.Literal('unsigned', 'signature_mismatch', 'digest_mismatch', 'signer_not_trusted')
+    Schema.Literals(['unsigned', 'signature_mismatch', 'digest_mismatch', 'signer_not_trusted'])
   )
 })
 export type MDeployEnvelopeVerificationV01FromSchema =
@@ -213,13 +213,13 @@ export const MDeployContractDecodeFailureSchema = Schema.Struct({
 export type MDeployContractDecodeFailureFromSchema = typeof MDeployContractDecodeFailureSchema.Type
 
 export const MDeployDesiredStateValidationFailureSchema = Schema.Struct({
-  code: Schema.Literal(
+  code: Schema.Literals([
     'schema_decode_failed',
     'unsigned_desired_state',
     'signature_verification_failed',
     'stale_desired_state',
     'runtime_driver_mismatch'
-  ),
+  ]),
   message: Schema.String,
   detail: Schema.optional(Schema.String)
 })

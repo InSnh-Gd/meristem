@@ -13,8 +13,8 @@ import {
   buildTopologyEdges,
   coerceProfileVersion,
   hasObservedV03Runtime,
-  operationalFailure,
   type OperationalSnapshotFailure,
+  operationalFailure,
   type ProjectionState,
   readCorrelationId,
   summarizeCredential
@@ -169,6 +169,11 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
       latestRelay?.relayId,
       projection.forcedRelay?.affectedNodeIds
     )
+    // 先建立节点索引，再按成员顺序组装拓扑节点，避免每个成员重复扫描 sidecars。
+    const sidecarsByNodeId = new Map<string, (typeof sidecars)[number]>()
+    for (const sidecar of sidecars) {
+      if (!sidecarsByNodeId.has(sidecar.nodeId)) sidecarsByNodeId.set(sidecar.nodeId, sidecar)
+    }
     const hasObservedCompatibleRuntime = hasObservedV03Runtime(projection)
     const compatibilityMigration: MNetMigrationRequiredFromSchema | null =
       compatibility?.kind === 'migration_required' && !hasObservedCompatibleRuntime
@@ -231,7 +236,7 @@ export function createOperationalReadModel(deps: ReadModelDeps) {
         ...(projection.topology ? { topologyRevision: projection.topology.topologyRevision } : {}),
         ...(projection.topology ? { routeClass: projection.topology.routeClass } : {}),
         nodes: members.map(member => {
-          const sidecar = sidecars.find(item => item.nodeId === member.nodeId)
+          const sidecar = sidecarsByNodeId.get(member.nodeId)
           return {
             nodeId: member.nodeId,
             label: `${member.nodeKind}:${member.nodeId}`,

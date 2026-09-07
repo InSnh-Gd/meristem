@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
@@ -31,6 +31,7 @@ describe('Effect projection hardening contracts', () => {
       'operator',
       'admin',
       'security-admin',
+      'security-admin-2',
       'break-glass-reviewer'
     ])
     expect(projectionPermissions).toEqual([
@@ -39,13 +40,13 @@ describe('Effect projection hardening contracts', () => {
       'projection:dlq-manage'
     ])
 
-    const actor = Schema.decodeUnknownEither(ActorIdSchema)('operator')
-    const permission = Schema.decodeUnknownEither(PermissionSchema)('projection:backfill')
-    const invalid = Schema.decodeUnknownEither(PermissionSchema)('core:projection')
+    const actor = Schema.decodeUnknownResult(ActorIdSchema)('operator')
+    const permission = Schema.decodeUnknownResult(PermissionSchema)('projection:backfill')
+    const invalid = Schema.decodeUnknownResult(PermissionSchema)('core:projection')
 
-    expect(Either.isRight(actor)).toBe(true)
-    expect(Either.isRight(permission)).toBe(true)
-    expect(Either.isLeft(invalid)).toBe(true)
+    expect(Result.isSuccess(actor)).toBe(true)
+    expect(Result.isSuccess(permission)).toBe(true)
+    expect(Result.isFailure(invalid)).toBe(true)
   })
 
   it('keeps policy role defaults aligned with projection permission literals', () => {

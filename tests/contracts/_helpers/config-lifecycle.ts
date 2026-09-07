@@ -1,22 +1,14 @@
 import * as Schema from 'effect/Schema'
 
-export const ConfigDomainV01 = Schema.Literal(
-  'core',
-  'm-net',
-  'm-policy',
-  'm-log',
-  'm-extension',
-  'm-ui'
-)
+export const ConfigDomainV01 = Schema.Literals(['core', 'm-net', 'm-policy',
+'m-log',
+'m-extension',
+'m-ui'])
 
-export const ConfigStatusV01 = Schema.Literal(
-  'draft',
-  'validated',
-  'published',
-  'applied',
-  'failed',
-  'rolled_back'
-)
+export const ConfigStatusV01 = Schema.Literals(['draft', 'validated', 'published',
+'applied',
+'failed',
+'rolled_back'])
 
 export const ConfigRecordV01Schema = Schema.Struct({
   id: Schema.String,
@@ -39,7 +31,7 @@ export const ConfigApplyAckV01Schema = Schema.Struct({
   configVersion: Schema.String,
   ackedBy: Schema.String,
   ackedAt: Schema.String,
-  status: Schema.Literal('acked', 'failed'),
+  status: Schema.Literals(['acked', 'failed']),
   errorCode: Schema.optional(Schema.String),
   errorMessage: Schema.optional(Schema.String)
 })

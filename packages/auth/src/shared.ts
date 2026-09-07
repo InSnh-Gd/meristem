@@ -1,18 +1,12 @@
 import { fromUnixTime } from 'date-fns'
-import type { ActorId, ActorTokenV02 } from '../../contracts/src/index.ts'
+import { type ActorId, type ActorTokenV02, actorIds } from '../../contracts/src/index.ts'
 
 export const issuer = 'meristem-local'
 export const defaultAudience = 'meristem-core'
 export const serviceAudience = 'meristem-service'
 export const alg = 'HS256'
 
-const actors: readonly ActorId[] = [
-  'viewer',
-  'operator',
-  'admin',
-  'security-admin',
-  'break-glass-reviewer'
-]
+const actors: readonly ActorId[] = actorIds
 
 export function isActorId(value: unknown): value is ActorId {
   return typeof value === 'string' && actors.includes(value as ActorId)

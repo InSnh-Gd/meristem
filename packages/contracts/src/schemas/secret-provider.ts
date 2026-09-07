@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-export const SecretRefMetadataSchema = Schema.Record({ key: Schema.String, value: Schema.String })
+export const SecretRefMetadataSchema = Schema.Record(Schema.String, Schema.String)
 export type SecretRefMetadataFromSchema = typeof SecretRefMetadataSchema.Type
 
 /**
@@ -30,7 +30,7 @@ export const SecretListPrefixSchema = Schema.Struct({
 })
 export type SecretListPrefixFromSchema = typeof SecretListPrefixSchema.Type
 
-export const SecretProviderBackendSchema = Schema.Literal('local-dev-env', 'vault-kv-v2')
+export const SecretProviderBackendSchema = Schema.Literals(['local-dev-env', 'vault-kv-v2'])
 export type SecretProviderBackendFromSchema = typeof SecretProviderBackendSchema.Type
 
 export const SecretCachePolicySchema = Schema.Struct({
@@ -41,7 +41,7 @@ export type SecretCachePolicyFromSchema = typeof SecretCachePolicySchema.Type
 
 export const LocalDevEnvSecretProviderConfigSchema = Schema.Struct({
   backend: Schema.Literal('local-dev-env'),
-  envMappings: Schema.Record({ key: Schema.String, value: Schema.String })
+  envMappings: Schema.Record(Schema.String, Schema.String)
 })
 export type LocalDevEnvSecretProviderConfigFromSchema =
   typeof LocalDevEnvSecretProviderConfigSchema.Type
@@ -62,7 +62,7 @@ export const VaultRaftStorageV02Schema = Schema.Struct({
 })
 export type VaultRaftStorageV02FromSchema = typeof VaultRaftStorageV02Schema.Type
 
-export const VaultUnsealModeV02Schema = Schema.Literal('shamir', 'self-hosted-auto-unseal')
+export const VaultUnsealModeV02Schema = Schema.Literals(['shamir', 'self-hosted-auto-unseal'])
 export type VaultUnsealModeV02FromSchema = typeof VaultUnsealModeV02Schema.Type
 
 export const VaultHaConfigV02Schema = Schema.Struct({
@@ -80,7 +80,7 @@ export const VaultHaConfigV02Schema = Schema.Struct({
 })
 export type VaultHaConfigV02FromSchema = typeof VaultHaConfigV02Schema.Type
 
-export const VaultWorkloadAuthMethodV02Schema = Schema.Literal('approle', 'workload-identity')
+export const VaultWorkloadAuthMethodV02Schema = Schema.Literals(['approle', 'workload-identity'])
 export type VaultWorkloadAuthMethodV02FromSchema = typeof VaultWorkloadAuthMethodV02Schema.Type
 
 export const VaultWorkloadAuthV02Schema = Schema.Struct({
@@ -96,13 +96,9 @@ export const VaultWorkloadAuthV02Schema = Schema.Struct({
 })
 export type VaultWorkloadAuthV02FromSchema = typeof VaultWorkloadAuthV02Schema.Type
 
-export const VaultPolicyCapabilityV02Schema = Schema.Literal(
-  'read',
-  'list',
-  'create',
-  'update',
-  'delete'
-)
+export const VaultPolicyCapabilityV02Schema = Schema.Literals(['read', 'list', 'create',
+'update',
+'delete'])
 export type VaultPolicyCapabilityV02FromSchema = typeof VaultPolicyCapabilityV02Schema.Type
 
 export const VaultPolicyRuleV02Schema = Schema.Struct({
@@ -140,10 +136,10 @@ export const VaultCompatibleSecretProviderConfigV02Schema = Schema.Struct({
 export type VaultCompatibleSecretProviderConfigV02FromSchema =
   typeof VaultCompatibleSecretProviderConfigV02Schema.Type
 
-export const SecretProviderConfigSchema = Schema.Union(
+export const SecretProviderConfigSchema = Schema.Union([
   LocalDevEnvSecretProviderConfigSchema,
   VaultCompatibleSecretProviderConfigV02Schema
-)
+])
 export type SecretProviderConfigFromSchema = typeof SecretProviderConfigSchema.Type
 
 export const NamedSecretProviderConfigSchema = Schema.Struct({
@@ -227,19 +223,19 @@ export const StaleCachedSecretFailureSchema = Schema.Struct({
 })
 export type StaleCachedSecretFailureFromSchema = typeof StaleCachedSecretFailureSchema.Type
 
-export const SecretFailureSchema = Schema.Union(
+export const SecretFailureSchema = Schema.Union([
   SecretProviderUnavailableFailureSchema,
   SecretMissingFailureSchema,
   SecretPermissionDeniedFailureSchema,
   SecretUnsupportedBackendFailureSchema,
   StaleCachedSecretFailureSchema
-)
+])
 export type SecretFailureFromSchema = typeof SecretFailureSchema.Type
 
 export const VaultHealthStatusV02Schema = Schema.Struct({
   version: Schema.Literal('vault-health@0.2.0'),
   provider: Schema.String,
-  status: Schema.Literal('healthy', 'sealed', 'unavailable', 'quorum_lost'),
+  status: Schema.Literals(['healthy', 'sealed', 'unavailable', 'quorum_lost']),
   sealed: Schema.Boolean,
   leader: Schema.Boolean,
   quorum: Schema.Boolean,
@@ -248,17 +244,13 @@ export const VaultHealthStatusV02Schema = Schema.Struct({
 })
 export type VaultHealthStatusV02FromSchema = typeof VaultHealthStatusV02Schema.Type
 
-export const SecretRefResolutionFailureReasonV02Schema = Schema.Literal(
-  'vault_sealed',
-  'vault_unreachable',
-  'vault_quorum_lost',
-  'secret_not_found',
-  'missing_policy_capability',
-  'version_expired',
-  'cache_expired',
-  'credential_expired',
-  'credential_revoked'
-)
+export const SecretRefResolutionFailureReasonV02Schema = Schema.Literals(['vault_sealed', 'vault_unreachable', 'vault_quorum_lost',
+'secret_not_found',
+'missing_policy_capability',
+'version_expired',
+'cache_expired',
+'credential_expired',
+'credential_revoked'])
 export type SecretRefResolutionFailureReasonV02FromSchema =
   typeof SecretRefResolutionFailureReasonV02Schema.Type
 
@@ -276,12 +268,12 @@ export type SecretRefResolutionSuccessV02FromSchema =
 /**
  * Vault 失败结果只保留 closed vocabulary 与审计引用，避免自由文本携带秘密内容。
  */
-export const SecretRefResolutionFailureV02Schema = Schema.Union(
+export const SecretRefResolutionFailureV02Schema = Schema.Union([
   Schema.Struct({
     status: Schema.Literal('provider_unavailable'),
     provider: Schema.String,
     ref: RedactedSecretRefSchema,
-    reason: Schema.Literal('vault_sealed', 'vault_unreachable', 'vault_quorum_lost'),
+    reason: Schema.Literals(['vault_sealed', 'vault_unreachable', 'vault_quorum_lost']),
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   }),
@@ -289,7 +281,7 @@ export const SecretRefResolutionFailureV02Schema = Schema.Union(
     status: Schema.Literal('secret_missing'),
     provider: Schema.String,
     ref: RedactedSecretRefSchema,
-    reason: Schema.Literal('secret_not_found', 'version_expired'),
+    reason: Schema.Literals(['secret_not_found', 'version_expired']),
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   }),
@@ -325,22 +317,18 @@ export const SecretRefResolutionFailureV02Schema = Schema.Union(
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   })
-)
+])
 export type SecretRefResolutionFailureV02FromSchema =
   typeof SecretRefResolutionFailureV02Schema.Type
 
-export const SecretRefResolutionResultV02Schema = Schema.Union(
+export const SecretRefResolutionResultV02Schema = Schema.Union([
   SecretRefResolutionSuccessV02Schema,
   SecretRefResolutionFailureV02Schema
-)
+])
 export type SecretRefResolutionResultV02FromSchema = typeof SecretRefResolutionResultV02Schema.Type
 
-export const VaultWorkloadAuthFailureStatusV02Schema = Schema.Literal(
-  'provider_unavailable',
-  'permission_denied',
-  'credential_expired',
-  'credential_revoked'
-)
+export const VaultWorkloadAuthFailureStatusV02Schema = Schema.Literals(['provider_unavailable', 'permission_denied', 'credential_expired',
+'credential_revoked'])
 export type VaultWorkloadAuthFailureStatusV02FromSchema =
   typeof VaultWorkloadAuthFailureStatusV02Schema.Type
 
@@ -365,10 +353,10 @@ export const VaultWorkloadAuthFailureV02Schema = Schema.Struct({
 })
 export type VaultWorkloadAuthFailureV02FromSchema = typeof VaultWorkloadAuthFailureV02Schema.Type
 
-export const VaultWorkloadAuthResultV02Schema = Schema.Union(
+export const VaultWorkloadAuthResultV02Schema = Schema.Union([
   VaultWorkloadAuthSuccessV02Schema,
   VaultWorkloadAuthFailureV02Schema
-)
+])
 export type VaultWorkloadAuthResultV02FromSchema = typeof VaultWorkloadAuthResultV02Schema.Type
 
 export const SecretRotationRequestV02Schema = Schema.Struct({
@@ -383,7 +371,7 @@ export type SecretRotationRequestV02FromSchema = typeof SecretRotationRequestV02
 
 export const SecretVersionStateV02Schema = Schema.Struct({
   version: Schema.Number,
-  state: Schema.Literal('active', 'deactivated')
+  state: Schema.Literals(['active', 'deactivated'])
 })
 export type SecretVersionStateV02FromSchema = typeof SecretVersionStateV02Schema.Type
 
@@ -410,12 +398,12 @@ export const SecretRotationSuccessV02Schema = Schema.Struct({
 })
 export type SecretRotationSuccessV02FromSchema = typeof SecretRotationSuccessV02Schema.Type
 
-export const SecretMutationFailureV02Schema = Schema.Union(
+export const SecretMutationFailureV02Schema = Schema.Union([
   Schema.Struct({
     status: Schema.Literal('provider_unavailable'),
     secretId: Schema.String,
     provider: Schema.String,
-    reason: Schema.Literal('vault_sealed', 'vault_unreachable', 'vault_quorum_lost'),
+    reason: Schema.Literals(['vault_sealed', 'vault_unreachable', 'vault_quorum_lost']),
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   }),
@@ -423,7 +411,7 @@ export const SecretMutationFailureV02Schema = Schema.Union(
     status: Schema.Literal('secret_missing'),
     secretId: Schema.String,
     provider: Schema.String,
-    reason: Schema.Literal('secret_not_found', 'version_expired'),
+    reason: Schema.Literals(['secret_not_found', 'version_expired']),
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   }),
@@ -459,13 +447,13 @@ export const SecretMutationFailureV02Schema = Schema.Union(
     failClosed: Schema.Literal(true),
     auditId: Schema.String
   })
-)
+])
 export type SecretMutationFailureV02FromSchema = typeof SecretMutationFailureV02Schema.Type
 
-export const SecretRotationResultV02Schema = Schema.Union(
+export const SecretRotationResultV02Schema = Schema.Union([
   SecretRotationSuccessV02Schema,
   SecretMutationFailureV02Schema
-)
+])
 export type SecretRotationResultV02FromSchema = typeof SecretRotationResultV02Schema.Type
 
 export const SecretRevokeRequestV02Schema = Schema.Struct({
@@ -487,8 +475,8 @@ export const SecretRevokeSuccessV02Schema = Schema.Struct({
 })
 export type SecretRevokeSuccessV02FromSchema = typeof SecretRevokeSuccessV02Schema.Type
 
-export const SecretRevokeResultV02Schema = Schema.Union(
+export const SecretRevokeResultV02Schema = Schema.Union([
   SecretRevokeSuccessV02Schema,
   SecretMutationFailureV02Schema
-)
+])
 export type SecretRevokeResultV02FromSchema = typeof SecretRevokeResultV02Schema.Type

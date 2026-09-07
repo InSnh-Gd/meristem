@@ -2,13 +2,13 @@ import * as Schema from 'effect/Schema'
 import { MDeployDigestSchema, MDeployRuntimeDriverSchema } from './mdeploy-common.ts'
 import { MDeployRuntimeDriverSelectionV01Schema } from './mdeploy-operations.ts'
 
-export const MDeployAgentConnectionStatusSchema = Schema.Literal('connected', 'disconnected')
+export const MDeployAgentConnectionStatusSchema = Schema.Literals(['connected', 'disconnected'])
 export type MDeployAgentConnectionStatusFromSchema = typeof MDeployAgentConnectionStatusSchema.Type
 
-export const MDeployAgentHealthSchema = Schema.Literal('healthy', 'degraded', 'unhealthy')
+export const MDeployAgentHealthSchema = Schema.Literals(['healthy', 'degraded', 'unhealthy'])
 export type MDeployAgentHealthFromSchema = typeof MDeployAgentHealthSchema.Type
 
-export const MDeployDriftStatusSchema = Schema.Literal('none', 'suspected', 'confirmed')
+export const MDeployDriftStatusSchema = Schema.Literals(['none', 'suspected', 'confirmed'])
 export type MDeployDriftStatusFromSchema = typeof MDeployDriftStatusSchema.Type
 
 export const MDeployDriverCapabilityV01Schema = Schema.Struct({
@@ -66,20 +66,20 @@ export const MDeployRuntimeHealthV01Schema = Schema.Struct({
 })
 export type MDeployRuntimeHealthV01FromSchema = typeof MDeployRuntimeHealthV01Schema.Type
 
-export const MDeployDriftTypeSchema = Schema.Literal(
+export const MDeployDriftTypeSchema = Schema.Literals([
   'runtime_state',
   'iac_state',
   'artifact_digest',
   'service_config'
-)
+])
 export type MDeployDriftTypeFromSchema = typeof MDeployDriftTypeSchema.Type
 
-export const MDeployDriftSeveritySchema = Schema.Literal('low', 'medium', 'high', 'critical')
+export const MDeployDriftSeveritySchema = Schema.Literals(['low', 'medium', 'high', 'critical'])
 export type MDeployDriftSeverityFromSchema = typeof MDeployDriftSeveritySchema.Type
 
 export const MDeployStateDigestRefV01Schema = Schema.Struct({
   digest: MDeployDigestSchema,
-  source: Schema.Literal('git', 'agent', 'iac', 'runtime')
+  source: Schema.Literals(['git', 'agent', 'iac', 'runtime'])
 })
 export type MDeployStateDigestRefV01FromSchema = typeof MDeployStateDigestRefV01Schema.Type
 

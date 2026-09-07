@@ -1,23 +1,18 @@
 import {
   approvalPermissions,
   configPermissions,
+  deploymentPermissions,
   extensionPermissions,
   identityPermissions,
   projectionPermissions,
   secretPermissions
 } from '../../contracts/src/index.ts'
 import { createSqlClient } from './client.ts'
+import { localSeedActors } from './seed-actors.ts'
 
 // 种子数据固定 MVP 的最小用户、角色和权限矩阵，避免本地演示链路再做手工初始化。
 const sql = createSqlClient()
 const now = new Date()
-
-const users = [
-  ['viewer', 'Viewer'],
-  ['operator', 'Operator'],
-  ['admin', 'Admin'],
-  ['security-admin', 'Security Admin']
-] as const
 
 const roles = [
   ['viewer', 'read-only operational visibility'],
@@ -74,7 +69,8 @@ const permissions = [
   ['config:rollback', 'rollback config lifecycle records'],
   ['projection:read', 'read projection health and DLQ state'],
   ['projection:backfill', 'execute projection backfills'],
-  ['projection:dlq-manage', 'replay or skip projection DLQ records']
+  ['projection:dlq-manage', 'replay or skip projection DLQ records'],
+  ...deploymentPermissions.map(permission => [permission, `M-Deploy permission: ${permission}`] as const)
 ] as const
 
 const rolePermissions: Record<string, readonly string[]> = {
@@ -99,7 +95,10 @@ const rolePermissions: Record<string, readonly string[]> = {
     'extension:read',
     configPermissions[0],
     configPermissions[1],
-    configPermissions[2]
+    configPermissions[2],
+    deploymentPermissions[0],
+    deploymentPermissions[5],
+    deploymentPermissions[6]
   ],
   admin: [
     'core:read',
@@ -130,7 +129,11 @@ const rolePermissions: Record<string, readonly string[]> = {
     secretPermissions[4],
     ...configPermissions,
     ...projectionPermissions,
-    ...extensionPermissions
+    ...extensionPermissions,
+    deploymentPermissions[0],
+    deploymentPermissions[1],
+    deploymentPermissions[5],
+    deploymentPermissions[6]
   ],
   'security-admin': [
     'core:read',
@@ -160,7 +163,8 @@ const rolePermissions: Record<string, readonly string[]> = {
     ...configPermissions,
     ...approvalPermissions,
     ...extensionPermissions,
-    ...projectionPermissions
+    ...projectionPermissions,
+    ...deploymentPermissions
   ]
 }
 
@@ -170,7 +174,7 @@ await sql.begin(async tx => {
   await tx`delete from permissions where id = 'task:assign'`
 
   // 用户、角色、权限三类基础数据分别 upsert，保证反复 seed 仍是幂等操作。
-  for (const [id, displayName] of users) {
+  for (const { id, displayName } of localSeedActors) {
     await tx`
       insert into users (id, display_name, created_at)
       values (${id}, ${displayName}, ${now})
@@ -194,10 +198,10 @@ await sql.begin(async tx => {
     `
   }
 
-  for (const [userId] of users) {
+  for (const { id: userId, roleId } of localSeedActors) {
     await tx`
       insert into user_roles (user_id, role_id)
-      values (${userId}, ${userId})
+      values (${userId}, ${roleId})
       on conflict do nothing
     `
   }
@@ -214,7 +218,7 @@ await sql.begin(async tx => {
   }
 
   // Seed identity actors for v0.2 token lifecycle
-  for (const [id, displayName] of users) {
+  for (const { id, displayName } of localSeedActors) {
     await tx`
       insert into actors (id, display_name, status, created_at, updated_at)
       values (${id}, ${displayName}, 'active', ${now}, ${now})

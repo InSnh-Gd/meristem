@@ -1,10 +1,4 @@
-import {
-  createHash,
-  generateKeyPairSync,
-  type KeyObject,
-  sign,
-  verify
-} from 'node:crypto'
+import { createHash, generateKeyPairSync, type KeyObject, sign, verify } from 'node:crypto'
 import { err, ok } from '../../../packages/common/src/result.ts'
 import {
   type ActorId,
@@ -14,11 +8,13 @@ import {
   type MDeployControllerTrustMaterialV01FromSchema,
   type MDeployDesiredStateDocumentV01FromSchema,
   type MDeployDigestFromSchema,
+  type MDeployGitSourceRefV01FromSchema,
   type MDeployDriftReportV01FromSchema,
   type MDeployEvidenceMetadataV01FromSchema,
   type MDeployProposalV01FromSchema,
   type MDeploySignedEnvelopeV01FromSchema,
   type MDeployStorageRefV01FromSchema,
+  mDeployApproverActorIds,
   type PolicyResult
 } from '../../../packages/contracts/src/index.ts'
 import { decidePermission, rolePermissions } from '../../../packages/policy/src/index.ts'
@@ -41,7 +37,22 @@ export type InMemoryMDeployOptions = {
   now?: string
   agentEnvelopeOverride?: unknown
   gitEnvelopeOverride?: unknown
-  existingPolicyApprovers?: readonly string[]
+  /**
+   * local-dev 专用：为任意被提案 pin 的 Git source 生成签名 envelope。
+   *
+   * 默认 fixture 只服务单一固定 digest，用于服务测试的确定性；本地控制面需要
+   * 对操作者真实提交的 sourceRef 作出响应，因此显式开启该行为而不是放宽默认值。
+   */
+  gitEnvelopeFromRequestedSource?: boolean
+  /**
+   * local-dev 专用：覆盖 controller trust 的到期时间。
+   *
+   * 默认值绑定服务测试使用的固定时钟；长期运行的本地控制面必须提供一个相对当前
+   * 时间有效的到期时间，否则 apply 会以 signature_verification_failed 结束。
+   */
+  controllerTrustExpiresAt?: string
+  existingPolicyApprovers?: readonly ActorId[]
+  initialAgents?: readonly MDeployAgentRecord[]
 }
 
 /**
@@ -90,15 +101,16 @@ export function runtimeTestControllerFingerprint(): string {
 function fixtureEnvelope(
   now: string,
   privateKey: KeyObject,
-  controllerTrust: MDeployControllerTrustMaterialV01FromSchema
+  controllerTrust: MDeployControllerTrustMaterialV01FromSchema,
+  source?: MDeployGitSourceRefV01FromSchema
 ): MDeploySignedEnvelopeV01FromSchema {
-  const digest: MDeployDigestFromSchema = {
+  const digest: MDeployDigestFromSchema = source?.digest ?? {
     algorithm: 'sha256',
     value: 'sha256:desired-state-001'
   }
   const desiredState: MDeployDesiredStateDocumentV01FromSchema = {
     schemaVersion: 'mdeploy.desired-state@0.1.0',
-    source: {
+    source: source ?? {
       repositoryUrl: 'https://git.example/meristem/desired-state.git',
       branch: 'main',
       commit: '0123456789abcdef0123456789abcdef01234567',
@@ -133,7 +145,7 @@ function fixtureEnvelope(
     signature: { algorithm: 'ed25519', value: 'pending-signature', payloadDigest: digest },
     signer: { kind: 'mdeploy-controller', identity: 'm-deploy-controller' },
     issuedAt: now,
-    expiresAt: '2026-07-13T00:20:00.000Z',
+    expiresAt: new Date(Date.parse(now) + 15 * 60 * 1000).toISOString(),
     verification: { verified: true, verifiedAt: now, verifier: 'm-deploy-controller' }
   }
   return {
@@ -158,7 +170,7 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
     secretResolutionCount(): number
     operationStatuses(): readonly MDeployOperationStatus[]
     controllerTrust(): MDeployControllerTrustMaterialV01FromSchema
-    recordPolicyApproval(proposalId: string, actor: string): void
+    recordPolicyApproval(proposalId: string, actor: ActorId): void
     setControllerAvailable(available: boolean): void
   }
 } {
@@ -167,12 +179,12 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
     issuer: 'm-deploy-controller',
     audience: 'mdeploy-agent',
     publicKeyFingerprint: controllerFingerprint(runtimeTestKeyPair().publicKey),
-    expiresAt: '2026-07-14T00:00:00.000Z'
+    expiresAt: options.controllerTrustExpiresAt ?? '2026-07-14T00:00:00.000Z'
   }
   const envelope = fixtureEnvelope(now, runtimeTestKeyPair().privateKey, controllerTrust)
   const proposals = new Map<string, MDeployProposalV01FromSchema>()
   const approvals = new Map<string, MDeployApprovalV01FromSchema>()
-  const policyApprovers = new Map<string, Set<string>>()
+  const policyApprovers = new Map<string, Set<ActorId>>()
   const operations = new Map<string, MDeployOperation>()
   const agents = new Map<string, MDeployAgentRecord>()
   const drift = new Map<string, MDeployDriftReportV01FromSchema>()
@@ -186,6 +198,8 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
   let runtimeApplyCount = 0
   let secretResolutionCount = 0
   let controllerAvailable = options.controllerAvailable !== false
+
+  for (const agent of options.initialAgents ?? []) agents.set(agent.enrollment.agentId, agent)
 
   const storage = {
     async createProposal(proposal: MDeployProposalV01FromSchema) {
@@ -400,7 +414,7 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
           correlationId: input.correlationId
         }
         const proposalApprovers =
-          policyApprovers.get(input.proposal.proposalId) ?? new Set<string>()
+          policyApprovers.get(input.proposal.proposalId) ?? new Set<ActorId>()
         if (input.result === 'approve') proposalApprovers.add(input.actor)
         policyApprovers.set(input.proposal.proposalId, proposalApprovers)
         const distinctEligible = new Set(
@@ -473,12 +487,19 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
         if (options.gitAvailable === false) {
           return err({ code: 'git.unavailable', message: 'git source unavailable' })
         }
-        return source.digest.value === envelope.payload.source.digest.value
-          ? ok(options.gitEnvelopeOverride === undefined ? envelope : options.gitEnvelopeOverride)
-          : err({
-              code: 'git.digest_not_found',
-              message: 'requested digest not found in git source'
-            })
+        if (source.digest.value === envelope.payload.source.digest.value) {
+          return ok(options.gitEnvelopeOverride === undefined ? envelope : options.gitEnvelopeOverride)
+        }
+        // local-dev 控制面按操作者实际 pin 的 sourceRef 签发 envelope；默认 fixture 仍严格匹配单一 digest。
+        if (options.gitEnvelopeFromRequestedSource === true) {
+          return ok(
+            fixtureEnvelope(now, runtimeTestKeyPair().privateKey, controllerTrust, source)
+          )
+        }
+        return err({
+          code: 'git.digest_not_found',
+          message: 'requested digest not found in git source'
+        })
       }
     },
     agentIdentity: {
@@ -560,7 +581,7 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
       operationStatuses: () => [...statuses],
       controllerTrust: () => ({ ...controllerTrust }),
       recordPolicyApproval: (proposalId, actor) => {
-        const approvers = policyApprovers.get(proposalId) ?? new Set<string>()
+        const approvers = policyApprovers.get(proposalId) ?? new Set<ActorId>()
         approvers.add(actor)
         policyApprovers.set(proposalId, approvers)
         const distinctEligible = [...approvers].filter(isSecurityAdmin)
@@ -576,6 +597,6 @@ export function createInMemoryMDeployDeps(options: InMemoryMDeployOptions = {}):
   }
 }
 
-function isSecurityAdmin(actor: string): boolean {
-  return actor === 'security-admin' || /^security-admin-[1-9][0-9]*$/.test(actor)
+function isSecurityAdmin(actor: ActorId): boolean {
+  return mDeployApproverActorIds.includes(actor)
 }

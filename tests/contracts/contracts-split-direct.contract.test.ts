@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'bun:test'
 import * as Schema from 'effect/Schema'
+import { MDeployApprovalStatusSchema } from '../../packages/contracts/src/schemas/mdeploy-operations-approval-runtime.ts'
+import { MDeployStorageRefV01Schema } from '../../packages/contracts/src/schemas/mdeploy-operations-artifacts.ts'
+import { MDeployApplyStatusSchema } from '../../packages/contracts/src/schemas/mdeploy-operations-lifecycle.ts'
 import { MNetPolicyEvidenceSchema } from '../../packages/contracts/src/schemas/mnet-closed-loop-evidence.ts'
 import {
   MNetClosedLoopEventSubjectSchema,
   MNetClosedLoopPublicationSchema
 } from '../../packages/contracts/src/schemas/mnet-closed-loop-policy.ts'
+import { decodeMNetNodeV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03-compatibility.ts'
 import {
   MNetProfileV03Schema,
   MNetRouteClassSchema
 } from '../../packages/contracts/src/schemas/mnet-profile-v03-contract.ts'
-import { decodeMNetNodeV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03-compatibility.ts'
-import { MDeployApprovalStatusSchema } from '../../packages/contracts/src/schemas/mdeploy-operations-approval-runtime.ts'
-import { MDeployStorageRefV01Schema } from '../../packages/contracts/src/schemas/mdeploy-operations-artifacts.ts'
-import { MDeployApplyStatusSchema } from '../../packages/contracts/src/schemas/mdeploy-operations-lifecycle.ts'
 import type { CoreDependencies } from '../../packages/contracts/src/types/core.ts'
-import type { MNode } from '../../packages/contracts/src/types/node.ts'
-import type { MTask } from '../../packages/contracts/src/types/task.ts'
 import type { MNetwork } from '../../packages/contracts/src/types/network.ts'
-import type { MNetSessionClientMessage } from '../../packages/contracts/src/types/session.ts'
-import type { PolicyDecision } from '../../packages/contracts/src/types/policy-log.ts'
+import type { MNode } from '../../packages/contracts/src/types/node.ts'
 import type { NodeAgentRuntimeStatus } from '../../packages/contracts/src/types/node-agent-runtime.ts'
+import type { PolicyDecision } from '../../packages/contracts/src/types/policy-log.ts'
+import type { MNetSessionClientMessage } from '../../packages/contracts/src/types/session.ts'
+import type { MTask } from '../../packages/contracts/src/types/task.ts'
 
 describe('contracts split direct seams', () => {
   it('decodes and rejects evidence module values directly', () => {
@@ -36,12 +36,18 @@ describe('contracts split direct seams', () => {
     expect(() => Schema.decodeUnknownSync(MNetPolicyEvidenceSchema)({})).toThrow()
     expect(
       Schema.decodeUnknownSync(MNetClosedLoopPublicationSchema)({
-        status: 'pending',
-        pendingSubjects: ['mnet.join.requested.v0']
-      }).status
-    ).toBe('pending')
+        status: 'published',
+        pendingSubjects: ['mnet.sidecar.degraded.v0']
+      })
+    ).toEqual({ status: 'published', pendingSubjects: ['mnet.sidecar.degraded.v0'] })
     expect(() =>
       Schema.decodeUnknownSync(MNetClosedLoopPublicationSchema)({ status: 'pending' })
+    ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(MNetClosedLoopPublicationSchema)({
+        status: 'pending',
+        pendingSubjects: ['mnet.unknown.v0']
+      })
     ).toThrow()
   })
 

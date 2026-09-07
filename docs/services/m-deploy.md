@@ -56,6 +56,8 @@ Current production-track scope:
 | Contract | Path / Subject | Version | Notes |
 |----------|----------------|---------|-------|
 | REST | `/api/v0/deploy/desired-state`, `/api/v0/deploy/proposals*`, `/api/v0/deploy/apply`, `/api/v0/deploy/rollback`, `/api/v0/deploy/drift`, `/api/v0/deploy/evidence*`, `/api/v0/deploy/agents*` | `v0` | Core public facade exposes operator-facing routes; high-risk mutations require M-Policy and Audit |
+
+Core 公开 facade 只做认证、授权与错误收敛并透传请求；公开路由请求体与 Core facade 共用 `packages/contracts/src/routes/deploy.ts` 的 TypeBox 定义。响应契约仍由 M-Deploy 拥有，但 Core facade 在跨服务边界用共享的 Effect Schema（`mdeploy-public-responses.ts`）解码并验证 M-Deploy 公开响应，非法响应 fail-closed 为 `m-deploy.invalid_response`；M-CLI/BFF 消费端同样以同一组共享 schema 解码。
 | REST / internal HTTP | `/internal/v0/deploy/agents/enroll`, `/internal/v0/deploy/agents/:id/heartbeat`, `/internal/v0/deploy/agents/:id/reconcile`, `/internal/v0/deploy/drift` | `v0` | mounted loopback-only agent API; every route requires `x-meristem-internal-token` |
 | REST / internal authority | M-Policy `/internal/v0/policy/mdeploy/approvals/:proposalId/{votes,quorum}`; M-Log `/internal/v0/deployment-evidence`; M-EventBus `/internal/v0/publish` | `v0` | production composition consumes these authenticated loopback boundaries; M-Policy owns eligibility/quorum and M-Log owns immutable evidence records |
 | Eden | `services/m-deploy/src/index.ts#MDeployApp` | `0.1.0` | exported Elysia type surface for Core → M-Deploy and agent-control clients; public composition remains Core-owned |
@@ -129,13 +131,18 @@ High-risk markings:
 | OCI registry | artifact source | digest verification or pull failure blocks apply; mutable tags are not accepted as authority |
 | Deployment agent | node service | disconnected agent pauses apply/drift for that target; last-known state stays visible and degraded |
 
+For local-dev quorum demonstrations only, the seeded `security-admin-2` principal maps to the existing `security-admin` role. It provides a second distinct approver for tests and local workflow validation; it is not a production role, identity-provider fallback, or a relaxation of the two-security-admin requirement.
+
 ---
 
 ## 6. Configuration
 
+本地开发由 `services/m-deploy/src/serve-local.ts` 提供 loopback 控制面：它使用本地 JWT、内存状态和自动 enrollment 的 `local-agent`，仅用于 `meristem deploy install` / `dev:full` 的流程联调，不代表生产 durable state 或生产 host trust。生产入口仍是 `serve.ts`，继续要求部署包提供 `MERISTEM_MDEPLOY_HOST_ADAPTER_MODULE`，PKI/Vault/controller enrollment 不由 M-CLI 伪造。
+
 | Key | Type | Required | Hot Reload | Notes |
 |-----|------|----------|------------|-------|
 | `MERISTEM_MDEPLOY_PORT` | number | yes | no | loopback internal service bind |
+| `MERISTEM_MDEPLOY_URL` | string | no | no | Core 公开部署 facade 的目标地址（默认 `http://127.0.0.1:3107`）；仅 Core 使用，操作者不应直连 M-Deploy |
 | `MERISTEM_MDEPLOY_AGENT_BIND` | string | yes | no | agent pull-reconcile ingress; must not expose generic SSH control |
 | `MERISTEM_INTERNAL_TOKEN` | string | yes | no | Core/internal service authentication |
 | `MERISTEM_MDEPLOY_RUNTIME_DRIVER` | `podman` \| `docker` | yes | yes | `podman` is required for production with `quadlet-systemd`; `docker` is compatibility-only with `docker-compose` |

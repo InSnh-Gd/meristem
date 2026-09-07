@@ -16,6 +16,8 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'network.not_found':
     case 'node.not_found':
     case 'task.not_found':
+    case 'deploy.not_found':
+    case 'deploy.proposal_not_found':
       return 404
     case 'approval.conflict':
     case 'approval.duplicate_vote':

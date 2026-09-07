@@ -104,7 +104,7 @@ Required claims:
 
 ```ts
 type MvpJwtClaims = {
-  sub: "viewer" | "operator" | "admin" | "security-admin";
+  sub: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   iss: "meristem-local";
   aud: "meristem-core";
   iat: number;
@@ -116,7 +116,8 @@ type MvpJwtClaims = {
 Rules:
 
 - CLI sends `Authorization: Bearer <jwt>`.
-- The JWT `sub` is the actor ID literal in the current local seed set (`viewer`, `operator`, `admin`, `security-admin`).
+- The JWT `sub` is the actor ID literal in the current local seed set (`viewer`, `operator`, `admin`, `security-admin`, `security-admin-2`).
+- `security-admin-2` is a local-dev-only seeded principal mapped to the existing `security-admin` role so the two-distinct-approver deployment quorum can be demonstrated. It is not a production role, OIDC fallback, or authorization shortcut.
 - Core verifies signature, issuer, audience, expiration, and subject.
 - Core sends only the verified actor subject to M-Policy.
 - Roles and permissions are read by M-Policy from PostgreSQL seed data.

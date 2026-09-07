@@ -5,13 +5,13 @@ import { MNetProfileV03VersionSchema } from './mnet-profile-v03.ts'
 import { RedactedSecretRefSchema } from './secret-provider.ts'
 
 function issue(path: readonly PropertyKey[], message: string): Schema.FilterIssue {
-  return { path, message }
+  return { path, issue: message }
 }
 
 export const MNetPolicyEvidenceSchema = Schema.Struct({
   policyDecisionId: Schema.String,
   source: Schema.Literal('m-policy'),
-  outcome: Schema.Literal('allow', 'deny', 'conditional'),
+  outcome: Schema.Literals(['allow', 'deny', 'conditional']),
   requiredPermission: Schema.String,
   reason: Schema.String,
   decidedAt: Schema.String
@@ -23,8 +23,8 @@ export const MNetClosedLoopAuditEvidenceSchema = Schema.Struct({
   source: Schema.Literal('m-log-audit'),
   action: Schema.String,
   resource: Schema.String,
-  actor: Schema.Literal(...actorIds),
-  result: Schema.Literal('allowed', 'denied', 'expired', 'auto-revoked', 'rolled-back'),
+  actor: Schema.Literals(actorIds),
+  result: Schema.Literals(['allowed', 'denied', 'expired', 'auto-revoked', 'rolled-back']),
   writtenAt: Schema.String,
   correlationId: Schema.String
 })
@@ -71,17 +71,17 @@ export const MNetJoinCredentialSchema = Schema.Struct({
 })
 export type MNetJoinCredentialFromSchema = typeof MNetJoinCredentialSchema.Type
 
-export const MNetCredentialOperationStateSchema = Schema.Literal(
+export const MNetCredentialOperationStateSchema = Schema.Literals([
   'pending_secret',
   'pending_previous_revoke',
   'completed'
-)
+])
 export type MNetCredentialOperationStateFromSchema = typeof MNetCredentialOperationStateSchema.Type
 
 /** 凭据操作在外部 SecretProvider 调用前持久化，重启后可继续执行。 */
 export const MNetCredentialOperationSchema = Schema.Struct({
   operationId: Schema.String,
-  action: Schema.Literal('rotate', 'revoke'),
+  action: Schema.Literals(['rotate', 'revoke']),
   state: MNetCredentialOperationStateSchema,
   networkId: Schema.String,
   nodeId: Schema.String,
@@ -94,26 +94,28 @@ export const MNetCredentialOperationSchema = Schema.Struct({
   createdAt: Schema.String,
   lastError: Schema.optional(Schema.String)
 }).pipe(
-  Schema.filter(value => {
-    const issues: Array<Schema.FilterIssue> = []
-    if (
-      value.action === 'rotate' &&
-      (!value.replacementCredentialId || !value.replacementExpiresAt)
-    ) {
-      issues.push(
-        issue(['replacementCredentialId'], 'credential rotation requires replacement metadata')
-      )
-    }
-    if (value.state === 'pending_previous_revoke' && !value.replacementCredential) {
-      issues.push(
-        issue(
-          ['replacementCredential'],
-          'pending previous revocation requires the replacement credential'
+  Schema.check(
+    Schema.makeFilter(value => {
+      const issues: Array<Schema.FilterIssue> = []
+      if (
+        value.action === 'rotate' &&
+        (!value.replacementCredentialId || !value.replacementExpiresAt)
+      ) {
+        issues.push(
+          issue(['replacementCredentialId'], 'credential rotation requires replacement metadata')
         )
-      )
-    }
-    return issues
-  })
+      }
+      if (value.state === 'pending_previous_revoke' && !value.replacementCredential) {
+        issues.push(
+          issue(
+            ['replacementCredential'],
+            'pending previous revocation requires the replacement credential'
+          )
+        )
+      }
+      return issues
+    })
+  )
 )
 export type MNetCredentialOperationFromSchema = typeof MNetCredentialOperationSchema.Type
 
@@ -123,8 +125,8 @@ export const MNetPendingJoinRequestSchema = Schema.Struct({
   nodeId: Schema.String,
   requestedNodeKind: MNetNodeKindSchema,
   requestedProfileVersion: MNetProfileV03VersionSchema,
-  requestedBy: Schema.Literal(...actorIds),
-  status: Schema.Literal('pending', 'approved', 'rejected', 'expired'),
+  requestedBy: Schema.Literals(actorIds),
+  status: Schema.Literals(['pending', 'approved', 'rejected', 'expired']),
   requestedAt: Schema.String,
   expiresAt: Schema.String,
   policyDecisionId: Schema.optional(Schema.String)
@@ -138,78 +140,87 @@ export const MNetJoinApprovalGrantedSchema = Schema.Struct({
   evidence: MNetEvidenceBundleSchema,
   correlationId: Schema.String
 }).pipe(
-  Schema.filter(value => {
-    const issues: Array<Schema.FilterIssue> = []
-    if (value.request.status !== 'approved')
-      issues.push(issue(['request', 'status'], 'approved join requires an approved request'))
-    if (value.credential.status !== 'issued')
-      issues.push(issue(['credential', 'status'], 'approved join must issue a credential'))
-    if (value.evidence.policy.outcome !== 'allow')
-      issues.push(issue(['evidence', 'policy', 'outcome'], 'approved join requires M-Policy allow'))
-    if (value.evidence.audit.result !== 'allowed')
-      issues.push(
-        issue(['evidence', 'audit', 'result'], 'approved join requires allowed Audit evidence')
+  Schema.check(
+    Schema.makeFilter(value => {
+      const issues: Array<Schema.FilterIssue> = []
+      if (value.request.status !== 'approved')
+        issues.push(issue(['request', 'status'], 'approved join requires an approved request'))
+      if (value.credential.status !== 'issued')
+        issues.push(issue(['credential', 'status'], 'approved join must issue a credential'))
+      if (value.evidence.policy.outcome !== 'allow')
+        issues.push(
+          issue(['evidence', 'policy', 'outcome'], 'approved join requires M-Policy allow')
+        )
+      if (value.evidence.audit.result !== 'allowed')
+        issues.push(
+          issue(['evidence', 'audit', 'result'], 'approved join requires allowed Audit evidence')
+        )
+      if (value.request.policyDecisionId !== value.evidence.policy.policyDecisionId)
+        issues.push(
+          issue(['request', 'policyDecisionId'], 'join request must reference its policy decision')
+        )
+      if (
+        value.request.nodeId !== value.credential.nodeId ||
+        value.request.networkId !== value.credential.networkId ||
+        value.request.requestedProfileVersion !== value.credential.profileVersion
       )
-    if (value.request.policyDecisionId !== value.evidence.policy.policyDecisionId)
-      issues.push(
-        issue(['request', 'policyDecisionId'], 'join request must reference its policy decision')
-      )
-    if (
-      value.request.nodeId !== value.credential.nodeId ||
-      value.request.networkId !== value.credential.networkId ||
-      value.request.requestedProfileVersion !== value.credential.profileVersion
-    )
-      issues.push(issue(['credential'], 'issued credential must match the approved join request'))
-    return issues
-  })
+        issues.push(issue(['credential'], 'issued credential must match the approved join request'))
+      return issues
+    })
+  )
 )
 export type MNetJoinApprovalGrantedFromSchema = typeof MNetJoinApprovalGrantedSchema.Type
 
 export const MNetJoinApprovalRejectedSchema = Schema.Struct({
   result: Schema.Literal('rejected'),
   request: MNetPendingJoinRequestSchema,
-  credential: Schema.Literal(null),
+  credential: Schema.Null,
   evidence: MNetEvidenceBundleSchema,
   correlationId: Schema.String
 }).pipe(
-  Schema.filter(value => {
-    const issues: Array<Schema.FilterIssue> = []
-    if (value.request.status !== 'rejected')
-      issues.push(issue(['request', 'status'], 'rejected join requires a rejected request'))
-    if (value.evidence.policy.outcome !== 'allow')
-      issues.push(
-        issue(['evidence', 'policy', 'outcome'], 'join rejection requires M-Policy allow')
-      )
-    if (value.evidence.audit.result !== 'allowed')
-      issues.push(
-        issue(['evidence', 'audit', 'result'], 'join rejection requires allowed Audit evidence')
-      )
-    if (value.request.policyDecisionId !== value.evidence.policy.policyDecisionId)
-      issues.push(
-        issue(['request', 'policyDecisionId'], 'join rejection must reference its policy decision')
-      )
-    return issues
-  })
+  Schema.check(
+    Schema.makeFilter(value => {
+      const issues: Array<Schema.FilterIssue> = []
+      if (value.request.status !== 'rejected')
+        issues.push(issue(['request', 'status'], 'rejected join requires a rejected request'))
+      if (value.evidence.policy.outcome !== 'allow')
+        issues.push(
+          issue(['evidence', 'policy', 'outcome'], 'join rejection requires M-Policy allow')
+        )
+      if (value.evidence.audit.result !== 'allowed')
+        issues.push(
+          issue(['evidence', 'audit', 'result'], 'join rejection requires allowed Audit evidence')
+        )
+      if (value.request.policyDecisionId !== value.evidence.policy.policyDecisionId)
+        issues.push(
+          issue(
+            ['request', 'policyDecisionId'],
+            'join rejection must reference its policy decision'
+          )
+        )
+      return issues
+    })
+  )
 )
 export type MNetJoinApprovalRejectedFromSchema = typeof MNetJoinApprovalRejectedSchema.Type
 
-export const MNetJoinApprovalResultSchema = Schema.Union(
+export const MNetJoinApprovalResultSchema = Schema.Union([
   MNetJoinApprovalGrantedSchema,
   MNetJoinApprovalRejectedSchema
-)
+])
 export type MNetJoinApprovalResultFromSchema = typeof MNetJoinApprovalResultSchema.Type
 
-export const MNetCredentialLifecycleActionSchema = Schema.Literal(
+export const MNetCredentialLifecycleActionSchema = Schema.Literals([
   'issue',
   'rotate',
   'revoke',
   'expire'
-)
+])
 export type MNetCredentialLifecycleActionFromSchema =
   typeof MNetCredentialLifecycleActionSchema.Type
 
 export const MNetCredentialLifecycleResultSchema = Schema.Struct({
-  result: Schema.Literal('issued', 'rotated', 'revoked', 'expired'),
+  result: Schema.Literals(['issued', 'rotated', 'revoked', 'expired']),
   action: MNetCredentialLifecycleActionSchema,
   credential: MNetJoinCredentialSchema,
   previousCredentialId: Schema.optional(Schema.String),
@@ -217,61 +228,63 @@ export const MNetCredentialLifecycleResultSchema = Schema.Struct({
   evidence: MNetEvidenceBundleSchema,
   correlationId: Schema.String
 }).pipe(
-  Schema.filter(value => {
-    const issues: Array<Schema.FilterIssue> = []
-    const expectedResult = {
-      issue: 'issued',
-      rotate: 'rotated',
-      revoke: 'revoked',
-      expire: 'expired'
-    } as const
-    const expectedStatus = {
-      issue: 'issued',
-      rotate: 'issued',
-      revoke: 'revoked',
-      expire: 'expired'
-    } as const
-    const mustInvalidateTunnels = value.action !== 'issue'
+  Schema.check(
+    Schema.makeFilter(value => {
+      const issues: Array<Schema.FilterIssue> = []
+      const expectedResult = {
+        issue: 'issued',
+        rotate: 'rotated',
+        revoke: 'revoked',
+        expire: 'expired'
+      } as const
+      const expectedStatus = {
+        issue: 'issued',
+        rotate: 'issued',
+        revoke: 'revoked',
+        expire: 'expired'
+      } as const
+      const mustInvalidateTunnels = value.action !== 'issue'
 
-    if (value.result !== expectedResult[value.action])
-      issues.push(issue(['result'], 'credential result must match its lifecycle action'))
-    if (value.credential.status !== expectedStatus[value.action])
-      issues.push(
-        issue(['credential', 'status'], 'credential status must match its lifecycle action')
-      )
-    if (value.existingTunnelsInvalidated !== mustInvalidateTunnels)
-      issues.push(
-        issue(
-          ['existingTunnelsInvalidated'],
-          'credential lifecycle must fail closed for existing tunnels'
-        )
-      )
-    if (value.evidence.policy.outcome !== 'allow')
-      issues.push(
-        issue(['evidence', 'policy', 'outcome'], 'credential lifecycle requires M-Policy allow')
-      )
-    if (value.action === 'rotate') {
-      if (!value.previousCredentialId)
+      if (value.result !== expectedResult[value.action])
+        issues.push(issue(['result'], 'credential result must match its lifecycle action'))
+      if (value.credential.status !== expectedStatus[value.action])
         issues.push(
-          issue(['previousCredentialId'], 'credential rotation requires the previous credential')
+          issue(['credential', 'status'], 'credential status must match its lifecycle action')
         )
-      if (value.credential.rotatedFromCredentialId !== value.previousCredentialId)
+      if (value.existingTunnelsInvalidated !== mustInvalidateTunnels)
         issues.push(
           issue(
-            ['credential', 'rotatedFromCredentialId'],
-            'rotated credential must reference the previous credential'
+            ['existingTunnelsInvalidated'],
+            'credential lifecycle must fail closed for existing tunnels'
           )
         )
-    }
-    if (
-      value.action === 'revoke' &&
-      (!value.credential.revokedAt || !value.credential.revokedByAuditId)
-    )
-      issues.push(
-        issue(['credential'], 'revoked credential requires revocation time and Audit evidence')
+      if (value.evidence.policy.outcome !== 'allow')
+        issues.push(
+          issue(['evidence', 'policy', 'outcome'], 'credential lifecycle requires M-Policy allow')
+        )
+      if (value.action === 'rotate') {
+        if (!value.previousCredentialId)
+          issues.push(
+            issue(['previousCredentialId'], 'credential rotation requires the previous credential')
+          )
+        if (value.credential.rotatedFromCredentialId !== value.previousCredentialId)
+          issues.push(
+            issue(
+              ['credential', 'rotatedFromCredentialId'],
+              'rotated credential must reference the previous credential'
+            )
+          )
+      }
+      if (
+        value.action === 'revoke' &&
+        (!value.credential.revokedAt || !value.credential.revokedByAuditId)
       )
-    return issues
-  })
+        issues.push(
+          issue(['credential'], 'revoked credential requires revocation time and Audit evidence')
+        )
+      return issues
+    })
+  )
 )
 export type MNetCredentialLifecycleResultFromSchema =
   typeof MNetCredentialLifecycleResultSchema.Type

@@ -1,15 +1,18 @@
 # Archived Documentation
 
-This directory preserves historical context only. Nothing here may be cited as a current contract, spec, or design authority. If you arrived here looking for active specifications, return to [`docs/README.md`](../README.md).
+> Historical reference only: nothing here is an active contract, specification, design authority, or implementation instruction. Start at [`docs/README.md`](../README.md).
 
-## What lives here
+## UI exploration
 
-| Subdirectory | Contents | Superseded by |
-|--------------|----------|---------------|
-| `ui/` | M-UI design exploration, tool evaluation, and concept documents from pre-reset frontend work | [`docs/ui/SDUI-SCHEMA.md`](../ui/SDUI-SCHEMA.md) (executable UI contract) and [`docs/ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](../ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md) (active design brief) |
+The six pre-reset M-UI documents are retained for provenance only:
 
-## Rules
+- [`ui/M-UI-DESIGN-EXPLORATION-DECISION.md`](ui/M-UI-DESIGN-EXPLORATION-DECISION.md)
+- [`ui/M-UI-STITCH-CONCEPTS.md`](ui/M-UI-STITCH-CONCEPTS.md)
+- [`ui/M-UI-DESIGN-MD-CLI-EVALUATION.md`](ui/M-UI-DESIGN-MD-CLI-EVALUATION.md)
+- [`ui/M-UI-DESIGN-TOOL-AVAILABILITY.md`](ui/M-UI-DESIGN-TOOL-AVAILABILITY.md)
+- [`ui/M-UI-FIGMA-CONTEXT-VALIDATION.md`](ui/M-UI-FIGMA-CONTEXT-VALIDATION.md)
+- [`ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md`](ui/M-UI-STRUCTURE-AND-TEST-GAP-AUDIT.md)
 
-1. Archived docs must not be referenced as authoritative input for implementation decisions.
-2. If an archived document's content becomes relevant again, it must be promoted back to an active location with a new ADR or explicit product decision, not silently re-cited from the archive.
-3. This marker file exists to prevent archived docs from drifting back into being treated as live specs.
+Current UI authority is [`docs/ui/SDUI-SCHEMA.md`](../ui/SDUI-SCHEMA.md), [`docs/ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md`](../ui/M-UI-TRANSITIONAL-WORKBENCH-BRIEF.md), and [`docs/services/m-ui-bff.md`](../services/m-ui-bff.md).
+
+Archived material must not be cited for implementation decisions. Reintroduce relevant decisions through an active document and ADR or explicit product decision.

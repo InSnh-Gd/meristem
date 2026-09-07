@@ -12,7 +12,7 @@ if (!secret) {
 
 if (!isActorId(actor)) {
   console.error(
-    'Usage: bun run token:mint --actor viewer|operator|admin|security-admin|break-glass-reviewer'
+    'Usage: bun run token:mint --actor viewer|operator|admin|security-admin|security-admin-2|break-glass-reviewer'
   )
   process.exit(1)
 }

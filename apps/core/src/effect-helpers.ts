@@ -35,7 +35,7 @@ export async function runServiceEffect<T>(program: Effect.Effect<T, ServiceFailu
   return Effect.runPromise(
     program.pipe(
       Effect.map(value => ok(value)),
-      Effect.catchAll(failure => Effect.succeed(err(failure)))
+      Effect.catch(failure => Effect.succeed(err(failure)))
     )
   )
 }

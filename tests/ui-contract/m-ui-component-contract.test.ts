@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   SduiV02ComponentKindSchema,
@@ -122,7 +123,7 @@ describe('M-UI component contract: forbidden UI patterns', () => {
 
   it('unknown component kinds fail closed and forbidden components are rejected by SDUI schema', () => {
     // Check an unknown component
-    const decodeRoute = Schema.decodeUnknownEither(SduiV02RouteRegistrySchema)
+    const decodeRoute = Schema.decodeUnknownResult(SduiV02RouteRegistrySchema)
     const badRegistry = {
       schemaVersion: 'sdui@0.2.0',
       routes: [
@@ -138,12 +139,12 @@ describe('M-UI component contract: forbidden UI patterns', () => {
     }
 
     const result = decodeRoute(badRegistry)
-    expect(result._tag).toBe('Left')
+    expect(Result.isFailure(result)).toBe(true)
 
     // Check forbidden components are rejected
     FORBIDDEN_COMPONENT_NAMES.forEach(forbidden => {
-      const isForbiddenAccepted = Schema.decodeUnknownEither(SduiV02ComponentKindSchema)(forbidden)
-      expect(isForbiddenAccepted._tag).toBe('Left')
+      const isForbiddenAccepted = Schema.decodeUnknownResult(SduiV02ComponentKindSchema)(forbidden)
+      expect(Result.isFailure(isForbiddenAccepted)).toBe(true)
     })
   })
 })

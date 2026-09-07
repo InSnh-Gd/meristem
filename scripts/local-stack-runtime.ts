@@ -18,6 +18,7 @@ export type LocalServiceCommand = {
   cwd?: string
   label: string
   command: string[]
+  readiness?: string
 }
 
 export const coreServiceCommands: readonly LocalServiceCommand[] = [
@@ -44,6 +45,11 @@ export const coreServiceCommands: readonly LocalServiceCommand[] = [
   {
     label: 'dev:m-extension',
     command: ['bun', 'run', 'services/m-extension/src/index.ts']
+  },
+  {
+    label: 'dev:m-deploy',
+    command: ['bun', 'run', 'services/m-deploy/src/serve-local.ts'],
+    readiness: 'http://127.0.0.1:3107/ready'
   },
   {
     label: 'dev:core-app',
@@ -86,6 +92,13 @@ export function profileFlagsFromArgv(argv = Bun.argv): InfraProfiles {
     redis: argv.includes('--redis'),
     apisix: argv.includes('--apisix')
   }
+}
+
+/** 为本地启动路径提供可复现的运行时部署配置，同时允许调用方覆盖。 */
+export function ensureLocalRuntimeDeploymentConfig(
+  environment: NodeJS.ProcessEnv = process.env
+): void {
+  environment.MERISTEM_V02_DEPLOYMENT_CONFIG ??= `${rootDir}/config/dev-deployment.json`
 }
 
 export function run(command: string[], cwd = rootDir, env = process.env): CommandResult {
@@ -160,6 +173,7 @@ export async function prepareInfra(profiles: InfraProfiles): Promise<void> {
 }
 
 export async function prepareWorkspace(): Promise<void> {
+  ensureLocalRuntimeDeploymentConfig()
   assertSuccess('cert generation', run(['bun', 'run', 'scripts/certs-dev.ts']))
   assertSuccess('db migrate', run(['bun', 'run', 'db:migrate']))
   assertSuccess('db seed', run(['bun', 'run', 'db:seed']))
@@ -178,6 +192,8 @@ export async function prepareWorkspace(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = 'postgres://meristem:meristem@localhost:55432/meristem'
   }
+
+  process.env.MERISTEM_MDEPLOY_URL ??= 'http://127.0.0.1:3107'
 
   // 自动设置网络地图签名密钥环境变量（与 harness 保持一致）
   // 优先使用已配置的环境变量；否则使用测试默认密钥
@@ -209,6 +225,20 @@ export function spawnService(service: LocalServiceCommand): Bun.Subprocess {
   })
 }
 
+async function waitForServiceReady(url: string, timeoutMs = 60_000): Promise<void> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(url)
+      if (response.ok) return
+    } catch {
+      // The child may still be binding its loopback listener.
+    }
+    await Bun.sleep(500)
+  }
+  throw new Error(`Timed out waiting for service readiness: ${url}`)
+}
+
 export async function runServiceGroup(
   serviceCommands: readonly LocalServiceCommand[]
 ): Promise<void> {
@@ -216,6 +246,12 @@ export async function runServiceGroup(
     service,
     child: spawnService(service)
   }))
+  await Promise.all(
+    children
+      .flatMap(({ service }) =>
+        service.readiness === undefined ? [] : [waitForServiceReady(service.readiness)]
+      )
+  )
   let shuttingDown = false
 
   const handleShutdown = (signal: NodeJS.Signals) => {

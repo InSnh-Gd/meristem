@@ -72,7 +72,8 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
 
   for await (const path of new Bun.Glob('.agents/skills/*/SKILL.md').scan({
     cwd: root,
-    absolute: false
+    absolute: false,
+    dot: true
   })) {
     seen.add(path)
     const text = await Bun.file(`${root}/${path}`).text()
@@ -82,7 +83,8 @@ export async function collectSkillHygieneFindings(root: string): Promise<SkillHy
   for await (const skillDir of new Bun.Glob('.agents/skills/*').scan({
     cwd: root,
     absolute: false,
-    onlyFiles: false
+    onlyFiles: false,
+    dot: true
   })) {
     if (seen.has(`${skillDir}/SKILL.md`)) continue
     findings.push({ path: skillDir, reason: 'skill directory is missing SKILL.md' })

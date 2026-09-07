@@ -23,7 +23,7 @@ export const BffJoinTicketListResponseSchema = Schema.Struct({
 
 export const BffCredentialMutationResponseSchema = Schema.Struct({
   nodeId: Schema.String,
-  action: Schema.Literal('issued', 'rotated', 'revoked'),
+  action: Schema.Literals(['issued', 'rotated', 'revoked']),
   policyDecisionId: Schema.String,
   correlationId: Schema.String,
   issuedAt: Schema.optional(Schema.String),

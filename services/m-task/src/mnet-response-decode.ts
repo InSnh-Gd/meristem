@@ -1,4 +1,4 @@
-import { Effect, Either } from 'effect'
+import { Effect, Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   type NodeAgentTaskExecuteEnvelopeResponseFromSchema,
@@ -23,8 +23,8 @@ function invalidDispatchResponse(details: string): DispatchDecodeFailure {
 export function decodeMNetNoopDispatchResponse(
   value: unknown
 ): Effect.Effect<NodeAgentTaskExecuteEnvelopeResponseFromSchema, DispatchDecodeFailure> {
-  const decoded = Schema.decodeUnknownEither(NodeAgentTaskExecuteEnvelopeResponseSchema)(value)
-  return Either.isRight(decoded)
-    ? Effect.succeed(decoded.right)
-    : Effect.fail(invalidDispatchResponse(String(decoded.left)))
+  const decoded = Schema.decodeUnknownResult(NodeAgentTaskExecuteEnvelopeResponseSchema)(value)
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success)
+    : Effect.fail(invalidDispatchResponse(String(decoded.failure)))
 }

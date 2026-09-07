@@ -19,18 +19,14 @@
 - `.agents/skills/meristem-service-definition/SKILL.md` - 新增、修改或审查 Core、功能域服务、node service、task service、extension service、BFF 或 service definition。
 - `.agents/skills/meristem-contract-versioning/SKILL.md` - 修改 REST、OpenAPI、Eden、事件、Effect Schema、服务定义、配置、策略、日志、Webhook、BFF、SDUI 或 M-Net Profile 契约。
 - `.agents/skills/meristem-ui-contract/SKILL.md` - 修改 M-UI、SvelteKit UI、SDUI、BFF workbench contract、CommandWell、审计/策略/日志可见性或过渡型工作台行为。
-- `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收。
-- `.agents/skills/meristem-acceptance-scenarios/SKILL.md` - 为跨服务、高风险、权限/审计、M-UI CommandWell、M-Net profile、M-Task lifecycle 或契约迁移工作编写轻量 BDD-lite acceptance scenarios，并映射到现有测试门禁。
+- `.agents/skills/meristem-testing-gates/SKILL.md` - 实现、审查或声明完成任何功能、修复、契约、服务、CLI、BFF、UI、迁移、故障模式或阶段验收；跨服务、高风险、权限/审计、M-UI CommandWell、M-Net profile、M-Task lifecycle 或契约迁移工作的验收行为澄清也归此入口，并映射到现有测试门禁。
 
-代码库探索与理解始终使用：
-
-- `.agents/skills/meristem-codegraph/SKILL.md` - 代替重复 grep/read 的 CodeGraph 使用规则：何时优先用 CodeGraph、可用工具映射、优先级顺序、以及不使用 CodeGraph 的场景。
+代码库探索与理解的 CodeGraph 使用规则见下文「Code intelligence tools」。
 
 技术栈相关任务继续使用已有项目 skill：
 
 - `.agents/skills/elysiajs/SKILL.md` - ElysiaJS 路由、插件、schema、OpenAPI、Eden、测试。
-- `.agents/skills/effect-ts/SKILL.md` - Effect v4 服务、Layer、Schema、错误、测试、HTTP、CLI、配置。
-- `.agents/skills/functional-programming/SKILL.md` - TypeScript 领域逻辑、策略、验证器、事件、状态转换和副作用边界。
+- `.agents/skills/meristem-effect/SKILL.md` - effect@4.0.0-rc.112 / @effect/platform-bun@4.0.0-rc.112（RC 迁移中）工作流、Layer、Schema v4、typed errors、并发与 bun:test；承载 ADR-F01 Effect-first 边界（仅复杂工作流）以及 TypeScript 领域逻辑、策略、验证器和状态转换的副作用边界。
 
 ---
 
@@ -77,7 +73,7 @@ This does not replace the boundary-specific gates from `docs/testing/TESTING.md`
     - `bun run depcruise:mermaid` — 生成 Mermaid 依赖图
     - `bun run depcruise:html` — 生成 HTML 交互式依赖图
 
-这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应**优先使用 CodeGraph**，而不是重复发起大量 grep/read 探索。详细的 CodeGraph 优先级规则和触发场景见 `.agents/skills/meristem-codegraph/SKILL.md`。
+这些工具是开发辅助，不替代 `bun run lint` 中的既有边界导入检查。Agent 在回答结构性问题时应**优先使用 CodeGraph**，而不是重复发起大量 grep/read 探索。
 
 ### Issue tracker
 

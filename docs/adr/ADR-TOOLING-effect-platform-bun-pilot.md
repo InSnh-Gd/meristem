@@ -6,7 +6,9 @@ Accepted
 
 ## Context
 
-Meristem already pins `@effect/platform-bun@0.90.0`, `@effect/platform@0.96.1`, and `effect@3.21.2`. Before any broader adoption work, the repo needs a narrow proof that `@effect/platform-bun` can be imported and execute a trivial Effect program under Bun without disturbing the current internal HTTP boundary.
+> Historical note: The initial pilot baseline referenced `@effect/platform-bun@0.90.0`, `@effect/platform@0.96.1`, and `effect@3.21.2`. Those 3.x version assumptions are historical and non-authoritative.
+
+Under the active Effect v4 migration, Meristem installs `effect@4.0.0-rc.112` and `@effect/platform-bun@4.0.0-rc.112` (accepted RC, migration in progress); standalone `@effect/platform` has been removed. Before any broader adoption work, the repo needs a narrow proof that `@effect/platform-bun` can be imported and execute a trivial Effect program under Bun without disturbing the current internal HTTP boundary.
 
 Meristem also already has production-facing internal service conventions:
 

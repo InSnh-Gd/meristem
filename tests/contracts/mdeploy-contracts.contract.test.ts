@@ -63,7 +63,7 @@ function desiredState(): MDeployDesiredStateDocumentV01FromSchema {
   }
 }
 
-function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
+function assertRoundTrip(schema: Schema.Codec<unknown>, value: unknown) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
   const encoded = Schema.encodeSync(schema)(decoded)
   expect(Schema.decodeUnknownSync(schema)(encoded)).toEqual(decoded)

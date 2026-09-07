@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { err } from '../../packages/common/src/result.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import {
   createInMemoryMDeployDeps,
   createMDeployApp,
@@ -179,7 +180,7 @@ async function createProposal(
 async function approveProposal(
   app: ReturnType<typeof createMDeployApp>,
   proposalId: string,
-  actor: 'security-admin' | 'break-glass-reviewer'
+  actor: ActorId
 ) {
   return app.handle(
     new Request(`http://mdeploy.internal/api/v0/deploy/proposals/${proposalId}/approve`, {
@@ -420,7 +421,7 @@ describe('M-Deploy rejected-review security regressions', () => {
       ).toBe(200)
       const proposalId = await createProposal(app, 'admin')
       expect((await approveProposal(app, proposalId, 'security-admin')).status).toBe(200)
-      deps.__testing.recordPolicyApproval(proposalId, 'security-admin-2')
+      expect((await approveProposal(app, proposalId, 'security-admin-2')).status).toBe(200)
 
       const apply = await applyProposal(app, proposalId, 'agent-two-approval')
 

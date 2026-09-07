@@ -1,43 +1,21 @@
 import { t } from 'elysia'
-import { apiErrorRouteSchema } from '../../../packages/contracts/src/index.ts'
+import {
+  apiErrorRouteSchema,
+  deployApprovalBodySchema,
+  deployApplyBodySchema,
+  deployDigestSchema,
+  deployProposalBodySchema,
+  deployRollbackBodySchema
+} from '../../../packages/contracts/src/index.ts'
 
 export { apiErrorRouteSchema }
 
-const digestSchema = t.Object({
-  algorithm: t.Union([t.Literal('sha256'), t.Literal('sha512')]),
-  value: t.String({ minLength: 1 })
-})
-
-export const proposalBodySchema = t.Object({
-  sourceRef: t.Object({
-    repositoryUrl: t.String({ minLength: 1 }),
-    branch: t.String({ minLength: 1 }),
-    commit: t.String({ minLength: 1 }),
-    path: t.String({ minLength: 1 }),
-    digest: digestSchema,
-    syncedAt: t.String({ minLength: 1 })
-  }),
-  diffSummary: t.Object({
-    added: t.Number({ minimum: 0 }),
-    changed: t.Number({ minimum: 0 }),
-    removed: t.Number({ minimum: 0 }),
-    summary: t.String({ minLength: 1 })
-  })
-})
-
-export const approvalBodySchema = t.Object({
-  result: t.Union([t.Literal('approve'), t.Literal('reject')])
-})
-
-export const applyBodySchema = t.Object({
-  proposalId: t.String({ minLength: 1 }),
-  agentId: t.String({ minLength: 1 })
-})
-
-export const rollbackBodySchema = t.Object({
-  agentId: t.String({ minLength: 1 }),
-  targetDigest: digestSchema
-})
+// 公开路由请求体与 Core facade 共用 contracts 定义，避免两侧漂移。
+export const digestSchema = deployDigestSchema
+export const proposalBodySchema = deployProposalBodySchema
+export const approvalBodySchema = deployApprovalBodySchema
+export const applyBodySchema = deployApplyBodySchema
+export const rollbackBodySchema = deployRollbackBodySchema
 
 export const agentEnrollmentBodySchema = t.Object({
   schemaVersion: t.Literal('mdeploy.agent-enrollment@0.1.0'),

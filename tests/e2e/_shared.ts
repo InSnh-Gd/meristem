@@ -16,6 +16,7 @@ export const baseEnv = {
   }),
   MERISTEM_INTERNAL_TOKEN: 'e2e-internal-token',
   MERISTEM_JWT_SECRET: 'e2e-jwt-secret',
+  MERISTEM_V02_DEPLOYMENT_CONFIG: 'config/dev-deployment.json',
   MERISTEM_BFF_PORT: '3200',
   MERISTEM_CORE_URL: 'http://localhost:3000',
   MERISTEM_TASK_URL: 'http://localhost:3105',

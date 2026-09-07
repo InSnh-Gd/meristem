@@ -2,6 +2,7 @@ import { serviceUrl } from '../../../packages/internal-http/src/index.ts'
 import { createApprovalsClient } from './clients/approvals-client.ts'
 import { createConfigClient } from './clients/config-client.ts'
 import { createCoreDomainClient } from './clients/core-client.ts'
+import { createDeployClient } from './clients/deploy-client.ts'
 import { createExtensionClient } from './clients/extension-client.ts'
 import { createIdentityClient } from './clients/identity-client.ts'
 import { createMnetClient } from './clients/mnet-client.ts'
@@ -30,7 +31,8 @@ export function createCoreClient(config: CliConfig): CliClient {
     ...createExtensionClient(runtime),
     identity: createIdentityClient(runtime),
     secret: createSecretClient(runtime),
-    config: createConfigClient(runtime)
+    config: createConfigClient(runtime),
+    deploy: createDeployClient(runtime)
   }
 }
 

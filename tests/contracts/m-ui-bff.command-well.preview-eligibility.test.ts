@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { OperationalCommandPreviewSchema } from '../../packages/contracts/src/index.ts'
 import {
@@ -32,7 +32,7 @@ export function registerCommandWellPreviewEligibilityContractTests(): void {
         executePath?: string
       }
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('policy.approval.approve.preview')
       expect(body.state).toBe('enabled')
@@ -73,7 +73,7 @@ export function registerCommandWellPreviewEligibilityContractTests(): void {
         displayOnly: boolean
       }
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('policy.approval.approve.preview')
       expect(body.state).toBe('disabled')
@@ -123,7 +123,7 @@ export function registerCommandWellPreviewEligibilityContractTests(): void {
         displayOnly: boolean
       }
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('policy.approval.reject.preview')
       expect(body.state).toBe('disabled')
@@ -152,7 +152,7 @@ export function registerCommandWellPreviewEligibilityContractTests(): void {
         displayOnly: boolean
       }
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('network.profile.enable.preview')
       expect(body.state).toBe('disabled')
@@ -181,7 +181,7 @@ export function registerCommandWellPreviewEligibilityContractTests(): void {
         displayOnly: boolean
       }
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('network.profile.disable.preview')
       expect(body.state).toBe('disabled')

@@ -739,6 +739,7 @@ async function waitForServiceReadiness(
 ): Promise<boolean> {
   const startedAt = deps.now().getTime()
   const readiness = context.runtimeConfig.raw.readiness[definition.readinessKey]
+  if (!readiness) return false
   const endpoint = readiness.endpoint
   if (!endpoint) return false
   while (deps.now().getTime() - startedAt < timeoutMs) {
@@ -757,7 +758,7 @@ async function ensureManagedServices(
   deps: DeployProofDeps
 ): Promise<boolean> {
   for (const definition of managedServices) {
-    const endpoint = context.runtimeConfig.raw.readiness[definition.readinessKey].endpoint
+    const endpoint = context.runtimeConfig.raw.readiness[definition.readinessKey]?.endpoint
     if (endpoint && (await deps.probeReadyEndpoint(endpoint, context.sharedEnv.MERISTEM_INTERNAL_TOKEN))) {
       services[definition.name] = {
         status: 'reused',

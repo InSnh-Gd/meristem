@@ -1,8 +1,8 @@
 import * as Schema from 'effect/Schema'
 
-export const SecretRefScopeSchema = Schema.Literal('system', 'service', 'node')
+export const SecretRefScopeSchema = Schema.Literals(['system', 'service', 'node'])
 
-export const SecretRefStatusSchema = Schema.Literal('active', 'rotated', 'disabled')
+export const SecretRefStatusSchema = Schema.Literals(['active', 'rotated', 'disabled'])
 
 export const SecretRefV01Schema = Schema.Struct({
   id: Schema.String,
@@ -15,7 +15,7 @@ export const SecretRefV01Schema = Schema.Struct({
   createdAt: Schema.String,
   rotatedAt: Schema.optional(Schema.String),
   disabledAt: Schema.optional(Schema.String),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.String })
+  metadata: Schema.Record(Schema.String, Schema.String)
 })
 
 export const SecretRefVersionSchema = Schema.Struct({
@@ -50,5 +50,5 @@ export const SecretRefDTOSchema = Schema.Struct({
   createdAt: Schema.String,
   rotatedAt: Schema.optional(Schema.String),
   disabledAt: Schema.optional(Schema.String),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.String })
+  metadata: Schema.Record(Schema.String, Schema.String)
 })

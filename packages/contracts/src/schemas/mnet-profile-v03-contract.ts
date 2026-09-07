@@ -2,7 +2,7 @@ import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
 import { RedactedSecretRefSchema, SecretRefSchema } from './secret-provider.ts'
 
-export const MNetProfileV03VersionSchema = Schema.Literal('m-net@0.3.0', 'm-net-cn@0.3.0')
+export const MNetProfileV03VersionSchema = Schema.Literals(['m-net@0.3.0', 'm-net-cn@0.3.0'])
 export type MNetProfileV03VersionFromSchema = typeof MNetProfileV03VersionSchema.Type
 
 export const MNetProfileV03SchemaVersionSchema = Schema.Literal('mnet-profile@0.3.0')
@@ -13,30 +13,30 @@ export const MNetInfrastructureConfigRefSchema = Schema.Struct({
 })
 export type MNetInfrastructureConfigRefFromSchema = typeof MNetInfrastructureConfigRefSchema.Type
 
-export const MNetSidecarDesiredStateSchema = Schema.Literal(
+export const MNetSidecarDesiredStateSchema = Schema.Literals([
   'install',
   'configure',
   'start',
   'drain',
   'stop'
-)
+])
 export type MNetSidecarDesiredStateFromSchema = typeof MNetSidecarDesiredStateSchema.Type
 
-export const MNetSidecarCredentialStatusSchema = Schema.Literal(
+export const MNetSidecarCredentialStatusSchema = Schema.Literals([
   'missing',
   'pending',
   'ready',
   'expired',
   'rotation_required'
-)
+])
 export type MNetSidecarCredentialStatusFromSchema = typeof MNetSidecarCredentialStatusSchema.Type
 
-export const MNetSidecarHealthStatusSchema = Schema.Literal(
+export const MNetSidecarHealthStatusSchema = Schema.Literals([
   'unknown',
   'healthy',
   'degraded',
   'unhealthy'
-)
+])
 export type MNetSidecarHealthStatusFromSchema = typeof MNetSidecarHealthStatusSchema.Type
 
 export const MNetNetBirdDataPlaneCapabilitiesSchema = Schema.Struct({
@@ -54,13 +54,13 @@ export const MNetNetBirdDataPlaneCapabilitiesSchema = Schema.Struct({
 export type MNetNetBirdDataPlaneCapabilitiesFromSchema =
   typeof MNetNetBirdDataPlaneCapabilitiesSchema.Type
 
-export const MNetRouteClassSchema = Schema.Literal('standard', 'cn-resident', 'forced-tcp-relay')
+export const MNetRouteClassSchema = Schema.Literals(['standard', 'cn-resident', 'forced-tcp-relay'])
 export type MNetRouteClassFromSchema = typeof MNetRouteClassSchema.Type
 
-export const MNetSelectorOwnershipSchema = Schema.Literal('operator', 'policy')
+export const MNetSelectorOwnershipSchema = Schema.Literals(['operator', 'policy'])
 export type MNetSelectorOwnershipFromSchema = typeof MNetSelectorOwnershipSchema.Type
 
-export const MNetNodeSelectorSchema = Schema.Union(
+export const MNetNodeSelectorSchema = Schema.Union([
   Schema.Struct({
     selectorType: Schema.Literal('all-leaf-nodes'),
     includeAllLeafNodes: Schema.Literal(true)
@@ -71,15 +71,15 @@ export const MNetNodeSelectorSchema = Schema.Union(
   }),
   Schema.Struct({
     selectorType: Schema.Literal('label-selector'),
-    matchLabels: Schema.Record({ key: Schema.String, value: Schema.String })
+    matchLabels: Schema.Record(Schema.String, Schema.String)
   })
-)
+])
 export type MNetNodeSelectorFromSchema = typeof MNetNodeSelectorSchema.Type
 
 export const MNetPolicyDecisionRefSchema = Schema.Struct({
   decisionId: Schema.String,
   source: Schema.Literal('m-policy'),
-  outcome: Schema.Literal('allow', 'deny', 'conditional'),
+  outcome: Schema.Literals(['allow', 'deny', 'conditional']),
   reason: Schema.String
 })
 export type MNetPolicyDecisionRefFromSchema = typeof MNetPolicyDecisionRefSchema.Type
@@ -98,7 +98,7 @@ export const MNetForcedTcpRelaySelectorSchema = Schema.Struct({
   routeClass: MNetRouteClassSchema,
   operatorOverrideAllowed: Schema.Boolean,
   operatorOverrideActive: Schema.Boolean,
-  operatorOverrideActor: Schema.optional(Schema.Literal(...actorIds)),
+  operatorOverrideActor: Schema.optional(Schema.Literals(actorIds)),
   operatorOverrideReason: Schema.optional(Schema.String),
   policyDecision: MNetPolicyDecisionRefSchema,
   auditEvidence: MNetAuditEvidenceSchema
@@ -110,8 +110,8 @@ const MNetDefaultProfileV03BaseSchema = Schema.Struct({
   region: Schema.Literal('default'),
   displayName: Schema.String,
   schemaVersion: MNetProfileV03SchemaVersionSchema,
-  status: Schema.Literal('available', 'deprecated'),
-  rules: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  status: Schema.Literals(['available', 'deprecated']),
+  rules: Schema.Record(Schema.String, Schema.Unknown),
   capabilities: MNetNetBirdDataPlaneCapabilitiesSchema
 })
 
@@ -123,33 +123,33 @@ export const MNetCnProfileV03Schema = Schema.Struct({
   region: Schema.Literal('cn'),
   displayName: Schema.String,
   schemaVersion: MNetProfileV03SchemaVersionSchema,
-  status: Schema.Literal('available', 'deprecated'),
-  rules: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  status: Schema.Literals(['available', 'deprecated']),
+  rules: Schema.Record(Schema.String, Schema.Unknown),
   capabilities: MNetNetBirdDataPlaneCapabilitiesSchema,
   forcedTcpRelaySelector: MNetForcedTcpRelaySelectorSchema
 })
 export type MNetCnProfileV03FromSchema = typeof MNetCnProfileV03Schema.Type
 
-export const MNetRegionalProfileV03Schema = Schema.Union(
+export const MNetRegionalProfileV03Schema = Schema.Union([
   MNetProfileV03Schema,
   MNetCnProfileV03Schema
-)
+])
 export type MNetRegionalProfileV03FromSchema = typeof MNetRegionalProfileV03Schema.Type
 
-export const MNetMigrationRequiredReasonCodeSchema = Schema.Literal(
+export const MNetMigrationRequiredReasonCodeSchema = Schema.Literals([
   'legacy_profile_v0_1',
   'legacy_cn_profile_v0_1',
   'legacy_wstunnel_profile_v0_2',
   'legacy_wstunnel_node'
-)
+])
 export type MNetMigrationRequiredReasonCodeFromSchema =
   typeof MNetMigrationRequiredReasonCodeSchema.Type
 
-export const MNetMigrationRequiredGuidanceKeySchema = Schema.Literal(
+export const MNetMigrationRequiredGuidanceKeySchema = Schema.Literals([
   'rebuild_node_with_netbird_sidecar',
   'migrate_profile_to_mnet_v03',
   'migrate_profile_to_mnet_cn_v03'
-)
+])
 export type MNetMigrationRequiredGuidanceKeyFromSchema =
   typeof MNetMigrationRequiredGuidanceKeySchema.Type
 
@@ -182,14 +182,14 @@ export type MNetMigrationRequiredCliOutputFromSchema =
   typeof MNetMigrationRequiredCliOutputSchema.Type
 
 export const MNetMigrationReportItemSchema = Schema.Struct({
-  resourceKind: Schema.Literal('profile', 'node'),
+  resourceKind: Schema.Literals(['profile', 'node']),
   resourceId: Schema.String,
   migration: MNetMigrationRequiredSchema
 })
 export type MNetMigrationReportItemFromSchema = typeof MNetMigrationReportItemSchema.Type
 
 export const MNetMigrationReportSchema = Schema.Struct({
-  status: Schema.Literal('ok', 'migration_required'),
+  status: Schema.Literals(['ok', 'migration_required']),
   generatedAt: Schema.String,
   items: Schema.Array(MNetMigrationReportItemSchema)
 })
@@ -205,38 +205,38 @@ export type MNetMigrationRequiredDisabledReasonFromSchema =
 export const MNetNodeRuntimeProfileSchema = Schema.Struct({
   nodeId: Schema.String,
   profileVersion: Schema.String,
-  transport: Schema.Literal('netbird-sidecar', 'wstunnel', 'wireguard-rendered')
+  transport: Schema.Literals(['netbird-sidecar', 'wstunnel', 'wireguard-rendered'])
 })
 export type MNetNodeRuntimeProfileFromSchema = typeof MNetNodeRuntimeProfileSchema.Type
 
-export const MNetProfileV03CompatibilityResultSchema = Schema.Union(
+export const MNetProfileV03CompatibilityResultSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('profile'), profile: MNetRegionalProfileV03Schema }),
   Schema.Struct({
     kind: Schema.Literal('migration_required'),
     migration: MNetMigrationRequiredSchema
   })
-)
+])
 export type MNetProfileV03CompatibilityResultFromSchema =
   typeof MNetProfileV03CompatibilityResultSchema.Type
 
-export const MNetNodeV03CompatibilityResultSchema = Schema.Union(
+export const MNetNodeV03CompatibilityResultSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('node-ready'), node: MNetNodeRuntimeProfileSchema }),
   Schema.Struct({
     kind: Schema.Literal('migration_required'),
     migration: MNetMigrationRequiredSchema
   })
-)
+])
 export type MNetNodeV03CompatibilityResultFromSchema =
   typeof MNetNodeV03CompatibilityResultSchema.Type
 
-export const MNetProfileV03EventSubjectSchema = Schema.Literal(
+export const MNetProfileV03EventSubjectSchema = Schema.Literals([
   'mnet.sidecar.lifecycle.v0',
   'mnet.sidecar.health.v0',
   'mnet.topology.update.v0',
   'mnet.migration.required.v0',
   'mnet.forced_relay.change.v0',
   'mnet.credential.expiry.v0'
-)
+])
 export type MNetProfileV03EventSubjectFromSchema = typeof MNetProfileV03EventSubjectSchema.Type
 
 export const MNetSidecarLifecycleEventPayloadSchema = Schema.Struct({
@@ -285,7 +285,7 @@ export type MNetTopologyUpdateEventPayloadFromSchema =
   typeof MNetTopologyUpdateEventPayloadSchema.Type
 
 export const MNetMigrationRequiredEventPayloadSchema = Schema.Struct({
-  resourceKind: Schema.Literal('profile', 'node'),
+  resourceKind: Schema.Literals(['profile', 'node']),
   networkId: Schema.optional(Schema.String),
   policyDecisionId: Schema.optional(Schema.String),
   auditId: Schema.String,

@@ -32,6 +32,7 @@ import type {
   ProfileSwitchWriterPort
 } from './global-defaults-ports.ts'
 import type { IdentityPort } from './identity.ts'
+import type { MDeployFacadePort } from './mdeploy-facade.ts'
 import type { MNetPort } from './mnet.ts'
 import type { SecretRefPort } from './secrets.ts'
 
@@ -180,6 +181,7 @@ export type CoreDeps = {
   globalDefaultsReader?: GlobalDefaultsReaderPort
   globalDefaultsWriter?: GlobalDefaultsWriterPort
   profileSwitchWriter?: ProfileSwitchWriterPort
+  mDeploy?: MDeployFacadePort
   identity: IdentityPort
   secrets: SecretRefPort
   config: ConfigPort

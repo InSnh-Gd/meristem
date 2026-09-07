@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   MNetBreakGlassGrantSchema,
@@ -50,15 +50,15 @@ const eventIntentSchema = Schema.Struct({
   subject: MNetClosedLoopEventSubjectSchema,
   payload: Schema.Unknown,
   correlationId: Schema.String,
-  status: Schema.Literal('pending', 'published'),
+  status: Schema.Literals(['pending', 'published']),
   createdAt: Schema.String,
   publishedAt: Schema.optional(Schema.String),
   lastError: Schema.optional(Schema.String)
 })
 
-function decodeRequired<A, I>(schema: Schema.Schema<A, I>, value: unknown, label: string): A {
-  const decoded = Schema.decodeUnknownEither(schema)(value)
-  if (Either.isRight(decoded)) return decoded.right
+function decodeRequired<A, I>(schema: Schema.Codec<A, I>, value: unknown, label: string): A {
+  const decoded = Schema.decodeUnknownResult(schema)(value)
+  if (Result.isSuccess(decoded)) return decoded.success
   throw new MNetClosedLoopStorageError(
     'mnet.store.decode_failed',
     `invalid persisted M-Net closed-loop ${label}`

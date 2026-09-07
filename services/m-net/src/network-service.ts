@@ -60,10 +60,19 @@ export function createNetworkService({
       db.select().from(networkMemberships)
     ])
 
+    // 先聚合成员行，避免为每个网络重复扫描并分配过滤结果数组。
+    const membershipCounts = new Map<string, number>()
+    for (const membership of membershipRows) {
+      membershipCounts.set(
+        membership.networkId,
+        (membershipCounts.get(membership.networkId) ?? 0) + 1
+      )
+    }
+
     return ok(
       networkRows.map(network => ({
         ...mapNetwork(network),
-        memberCount: membershipRows.filter(membership => membership.networkId === network.id).length
+        memberCount: membershipCounts.get(network.id) ?? 0
       }))
     )
   }

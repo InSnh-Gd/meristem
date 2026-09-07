@@ -20,9 +20,9 @@ const desiredStateSummarySchema = Schema.Struct({
 
 const operationSchema = Schema.Struct({
   operationId: Schema.String,
-  kind: Schema.Literal('apply', 'rollback'),
+  kind: Schema.Literals(['apply', 'rollback']),
   agentId: Schema.String,
-  status: Schema.Literal('queued', 'running', 'succeeded', 'failed', 'blocked'),
+  status: Schema.Literals(['queued', 'running', 'succeeded', 'failed', 'blocked']),
   policyDecisionId: Schema.String,
   auditId: Schema.String,
   correlationId: Schema.String,

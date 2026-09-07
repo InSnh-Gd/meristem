@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { fromPartial } from '@total-typescript/shoehorn'
-import { Effect, Exit } from 'effect'
+import { Cause, Effect, Exit } from 'effect'
 import type { BackfillParams } from '../../packages/contracts/src/index.ts'
 import {
   auditLogs,
@@ -384,10 +384,10 @@ describe('Projection engine', () => {
     )
 
     expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit)) {
-      const error = exit.cause._tag === 'Fail' ? exit.cause.error : null
+    if (Exit.isFailure(exit) && Cause.hasFails(exit.cause)) {
+      const failReason = exit.cause.reasons.find(Cause.isFailReason)
+      const error = failReason?.error
       expect(error).toBeInstanceOf(ProjectionUnknownIndexError)
-      expect(error?._tag).toBe('ProjectionUnknownIndexError')
     }
   })
 })

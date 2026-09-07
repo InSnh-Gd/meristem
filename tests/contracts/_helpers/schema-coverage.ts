@@ -11,18 +11,18 @@ export { Contracts, Schema }
 
 export type EventContract = {
   subject: string
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
   fixture: unknown
 }
 
 export type ResponseContract = {
   route: string
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
   fixture: unknown
 }
 
 export type EventSchemaContract = EventContract & {
-  schema: Schema.Schema.AnyNoContext
+  schema: Schema.Codec<unknown>
 }
 
 export const schemaCoverageMapUrl = new URL('../schema-coverage.md', import.meta.url)
@@ -72,7 +72,7 @@ export const contractActivatedMNetSubjects = [
   ...contractActivatedMNetClosedLoopSubjects
 ] as const
 
-export function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
+export function assertRoundTrip(schema: Schema.Codec<unknown>, value: unknown) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
   const encoded = Schema.encodeSync(schema)(decoded)
   expect(Schema.decodeUnknownSync(schema)(encoded)).toEqual(decoded)

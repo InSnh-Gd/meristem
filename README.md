@@ -94,52 +94,139 @@ AGENTS.md
 └── docs/README.md            # 详细文档索引
 ```
 
-## 快速开始
+## 部署与运行
 
-### 先决条件
+### 依赖
 
-| 依赖 | 版本 |
-| --- | --- |
-| Bun | 1.x |
-| PostgreSQL | 建议 16+ |
-| NATS | 当前稳定版 |
-| OpenSearch | 搜索 / 投影流程所需 |
+- **本地**：Bun 1.x、Git、Docker Engine、Docker Compose v2。
+- **NixOS**：Nix/NixOS（`compose2nix` 由 `nix develop` 提供）。
+- **生产**：rootless Podman、user systemd、Vault、受信任 OCI registry 与签名身份。
 
-### 本地开发
+本地启动前确认 Docker daemon 已启动，且 `3000`、`3200`、`5173`、`55432`、`4222/4223` 未被占用。
+
+### 1. 本地完整开发环境
 
 ```bash
 git clone https://github.com/InSnh-Gd/meristem.git
 cd meristem
-
 bun install
-bun run db:migrate
-bun run db:seed
-bun run dev:all
+bun run dev:full
 ```
 
-有关运行时、端口、依赖模式和降级路径行为的详细信息，请参阅 [`docs/operations/RUNBOOK.md`](./docs/operations/RUNBOOK.md)。
-
-## 可用命令
-
-| 命令 | 描述 |
-| --- | --- |
-| `bun run dev:all` | 启动标准本地多服务开发栈 |
-| `bun run dev:core` | 仅启动 Core 开发服务器 |
-| `bun run dev:full` | 启动更完整的本地服务集 |
-| `bun run dev:m-ui` | 启动 SvelteKit UI |
-| `bun run db:migrate` | 应用 PostgreSQL 迁移 |
-| `bun run db:seed` | 填充本地开发数据 |
-| `bun run mnet:v02:sidecar-proof` | 执行 ADR-N04 NetBird sidecar viability gate；未证明无 Management 依赖时输出 typed fallback |
-| `bun run lint` | 运行 Biome lint 和仓库规范检查 |
-| `bun run typecheck` | 运行 TypeScript 类型检查 |
-
-### 运行测试
+一键安装器（生成并校验部署清单，再准备依赖并启动完整栈）：
 
 ```bash
-bun run test
-bun run test:contracts
-bun run test:integration
-bun run test:e2e
+bun run meristem deploy install --profiles opensearch,redis,apisix
+# 只准备依赖、不启动长期进程：
+bun run meristem deploy install --profiles opensearch,redis,apisix --prepare-only
+```
+
+只启动后端：
+
+```bash
+bun run dev:core
+```
+
+启动 OpenSearch、Redis 与 APISIX 一起测试：
+
+```bash
+bun run dev:full --opensearch --redis --apisix
+```
+
+另开一个终端验证；最后用 `Ctrl-C` 停止 Bun 进程：
+
+```bash
+docker compose ps
+curl --fail http://127.0.0.1:3000/api/v0/health
+
+# 仅在使用 --opensearch --redis --apisix 时执行：
+curl --fail http://127.0.0.1:9200/_cluster/health
+docker compose exec -T redis redis-cli ping
+curl --fail http://127.0.0.1:9080/api/v0/health
+
+# 删除本地容器与数据：
+docker compose down --volumes
+```
+
+`APISIX` profile 仅支持 Linux/NixOS 本地验证；它使用 host networking 访问 loopback 服务，且不会暴露 `/internal/v0/*`。
+
+### 2. 本地静态 UI 部署验证
+
+```bash
+# 只准备容器、证书、迁移和 seed 数据
+bun run deploy:local --prepare-only
+
+# 启动 Core、BFF 与静态 Web UI
+bun run deploy:local
+```
+
+### 3. NixOS 单机部署
+
+```bash
+nix develop
+bun run nix:generate
+sudo install -d -m 0750 /etc/meristem
+sudo install -m 0640 ops/nixos/meristem.env.example /etc/meristem/meristem.env
+```
+
+在目标主机配置中导入 `ops/nixos/module.nix` 并设置 `services.meristem.enable = true` 后，执行主机自己的 rebuild：
+
+```bash
+sudo nixos-rebuild switch --flake /etc/nixos#<hostname>
+systemctl status meristem-core
+```
+
+`docker-compose.yml` 是 NixOS 基础设施容器的唯一源；修改后执行 `bun run nix:generate`。完整模块配置见 [`ops/nixos/README.md`](./ops/nixos/README.md)。
+
+### 4. 生产部署（GitOps）
+
+生产运行时是 rootless Podman + Quadlet；Git 是 desired-state 权威，M-Deploy agent 只 pull-reconcile 已签名、已审批的状态。`deploy init` / `validate` 是离线命令；`deploy propose` 及之后需要已 bootstrap 并运行的 M-Deploy 控制面（Core → M-Deploy + M-Policy + M-Log）。前置 bootstrap、OCI 构建签名与灾备恢复见 [`RUNBOOK.md`](./docs/operations/RUNBOOK.md) 和 [`OCI-PIPELINE.md`](./docs/operations/OCI-PIPELINE.md)。
+
+```bash
+# 0. 设置环境（propose 及之后需要运行中的控制面）
+export MERISTEM_CORE_URL=http://127.0.0.1:3000
+export MERISTEM_TOKEN=<operator-jwt>
+
+# 1. 离线：从当前 Git checkout 自动生成生产清单并立即校验
+bun run meristem deploy init --profile production-podman
+bun run meristem deploy validate
+
+# 2. admin 或 security-admin 提交 desired-state proposal（生成 M-Policy 双人审批；需运行中控制面）
+bun run meristem deploy propose
+
+# 3. 两位不同的 security-admin 分别批准同一 proposal
+bun run meristem deploy approve <proposal-id>
+bun run meristem deploy approve <proposal-id>
+
+# 4. 双人批准后排队 agent reconcile
+bun run meristem deploy apply --proposal <proposal-id> --agent <agent-id> --confirm
+
+# 5. 验证结果与证据
+bun run meristem deploy status
+bun run meristem deploy agents
+bun run meristem deploy evidence
+bun run meristem deploy drift
+
+# 6. 独立授权的 rollback（不复用 apply 审批）
+bun run meristem deploy rollback --agent <agent-id> --digest-value <sha256-hex> --confirm
+```
+
+`deploy init` 从运行命令的 Git checkout 自动派生生产 sourceRef：origin URL、附着分支、不可变 commit，以及对原始 `git archive --format=tar <commit> -- .` 字节的小写 SHA-256 digest；脏工作树与未跟踪文件不进入 digest。必须在带 origin 的附着 checkout 中运行：缺少 origin、detached HEAD、archive 失败或 origin 含凭据时不会写入清单。已存在且校验通过的同一 profile 清单会被原样复用，只有旧版占位清单会被原地升级；不同 profile 或损坏清单会失败。`validate` 只做离线语义校验，不证明远端 source/envelope 可获取或可信、已签名、通过策略审批或已被 agent 复核；签名与准入复核由 M-Deploy/agent 拉取时执行。
+
+### 5. 测试
+
+```bash
+bun run lint
+bun run typecheck
+bun run test:agent-submit
+bun run test:real-env --opensearch --redis --apisix
+```
+
+M-Net 多主机前置检查：
+
+```bash
+bun run mnet:harness:preflight
+bun run mnet:v02:sidecar-proof
 ```
 
 ## 文档
@@ -155,6 +242,11 @@ bun run test:e2e
 | [`docs/services/README.md`](./docs/services/README.md) | 服务定义索引 |
 | [`docs/security/SECURITY-MODEL.md`](./docs/security/SECURITY-MODEL.md) | 安全模型 |
 | [`docs/testing/TESTING.md`](./docs/testing/TESTING.md) | 测试准则与策略 |
+| [`docs/operations/RUNBOOK.md`](./docs/operations/RUNBOOK.md) | 本地运行、生产 bootstrap、promotion、rollback、恢复与故障响应的权威手册 |
+| [`docs/operations/OPTIONAL-DEPLOYMENT-PACK.md`](./docs/operations/OPTIONAL-DEPLOYMENT-PACK.md) | OpenSearch、Redis 与 APISIX profile 的边界、验证和降级行为 |
+| [`docs/operations/OCI-PIPELINE.md`](./docs/operations/OCI-PIPELINE.md) | OCI 构建、签名证据、promotion 与 rollback metadata 规则 |
+| [`ops/nixos/README.md`](./ops/nixos/README.md) | NixOS 单机适配、OCI unit 与 Bun systemd unit 说明 |
+| [`docs/production-readiness/READINESS-SUMMARY.md`](./docs/production-readiness/READINESS-SUMMARY.md) | 生产轨道的实现证据索引与仍需在目标环境完成的 proof gate |
 
 ## 许可证
 

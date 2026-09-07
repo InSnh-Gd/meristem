@@ -4,7 +4,7 @@ import type { PublicReaderFetch } from '../../apps/core/src/adapters/http-approv
 import {
   createHttpApprovalReaderPort,
   createHttpNetworkProfileReaderPort
-} from '../../apps/core/src/adapters.ts'
+} from '../../apps/core/src/adapters/http-approval-profile-readers.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import type { PolicyApproval } from '../../packages/contracts/src/index.ts'
@@ -203,5 +203,40 @@ describe('Core approval and network profile read facade contract', () => {
     ])
     expect(calls.every(call => !call.url.includes('/internal/v0/'))).toBe(true)
     expect(calls.every(call => call.authorization === 'Bearer admin-token')).toBe(true)
+  })
+
+  it('production reader adapters reject malformed successful service payloads', async () => {
+    const fetcher: PublicReaderFetch = async input =>
+      new Response(
+        JSON.stringify(
+          String(input).includes('policy/approvals')
+            ? { approvals: [{ id: 42 }] }
+            : { profiles: [{ profileVersion: 42 }] }
+        ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+
+    const approvalResult = await createHttpApprovalReaderPort({ fetcher }).list({
+      actor: 'admin',
+      bearerToken: 'admin-token',
+      correlationId: 'corr-1'
+    })
+    const profileResult = await createHttpNetworkProfileReaderPort({ fetcher }).list({
+      actor: 'admin',
+      bearerToken: 'admin-token',
+      correlationId: 'corr-1'
+    })
+
+    expect(approvalResult).toEqual({
+      ok: false,
+      error: {
+        code: 'm-policy.invalid_response',
+        message: 'M-Policy approval API invalid response'
+      }
+    })
+    expect(profileResult).toEqual({
+      ok: false,
+      error: { code: 'mnet.invalid_response', message: 'M-Net profile API invalid response' }
+    })
   })
 })

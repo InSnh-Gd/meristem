@@ -3,6 +3,16 @@ import { apiErrorRouteSchema } from '../../../packages/contracts/src/index.ts'
 
 export const internalErrorSchema = apiErrorRouteSchema
 
+const auditActorSchema = t.Union([
+  t.Literal('viewer'),
+  t.Literal('operator'),
+  t.Literal('admin'),
+  t.Literal('security-admin'),
+  t.Literal('security-admin-2'),
+  t.Literal('break-glass-reviewer'),
+  t.Literal('system')
+])
+
 // /ready 响应包含 opensearch 可用性，满足 projection degraded state 可观测要求。
 export const readyResponseSchema = t.Object({
   ready: t.Boolean(),
@@ -31,14 +41,7 @@ export const fullLogSchema = t.Object({
 export const auditLogSchema = t.Object({
   id: t.String(),
   timestamp: t.String(),
-  actor: t.Union([
-    t.Literal('viewer'),
-    t.Literal('operator'),
-    t.Literal('admin'),
-    t.Literal('security-admin'),
-    t.Literal('break-glass-reviewer'),
-    t.Literal('system')
-  ]),
+  actor: auditActorSchema,
   action: t.String({ minLength: 1 }),
   resource: t.String({ minLength: 1 }),
   decisionId: t.Optional(t.String()),
@@ -175,14 +178,7 @@ export const fullWriteBodySchema = t.Object({
 })
 
 export const auditWriteBodySchema = t.Object({
-  actor: t.Union([
-    t.Literal('viewer'),
-    t.Literal('operator'),
-    t.Literal('admin'),
-    t.Literal('security-admin'),
-    t.Literal('break-glass-reviewer'),
-    t.Literal('system')
-  ]),
+  actor: auditActorSchema,
   action: t.String({ minLength: 1 }),
   resource: t.String({ minLength: 1 }),
   decisionId: t.Optional(t.String()),

@@ -97,6 +97,7 @@ async function startMNetService(): Promise<ManagedProcess> {
         keyFile: '.local/certs/join-ingress-key.pem'
       }),
       MERISTEM_INTERNAL_TOKEN: 'test-internal-token',
+      MERISTEM_V02_DEPLOYMENT_CONFIG: 'config/dev-deployment.json',
       MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS: '20000',
       MERISTEM_AGENT_TASK_TIMEOUT_MS: '5000'
     }

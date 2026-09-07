@@ -1,7 +1,7 @@
 import * as Schema from 'effect/Schema'
 import { type MDeployDigestFromSchema, MDeployDigestSchema } from './mdeploy-common.ts'
 
-export const MDeployOpenTofuStatusSchema = Schema.Literal(
+export const MDeployOpenTofuStatusSchema = Schema.Literals([
   'not_started',
   'planning',
   'planned',
@@ -9,7 +9,7 @@ export const MDeployOpenTofuStatusSchema = Schema.Literal(
   'succeeded',
   'failed',
   'skipped'
-)
+])
 export type MDeployOpenTofuStatusFromSchema = typeof MDeployOpenTofuStatusSchema.Type
 
 export const MDeployOpenTofuPlanApplyStatusV01Schema = Schema.Struct({
@@ -24,7 +24,7 @@ export const MDeployOpenTofuPlanApplyStatusV01Schema = Schema.Struct({
 export type MDeployOpenTofuPlanApplyStatusV01FromSchema =
   typeof MDeployOpenTofuPlanApplyStatusV01Schema.Type
 
-export const MDeployEvidenceTypeSchema = Schema.Literal(
+export const MDeployEvidenceTypeSchema = Schema.Literals([
   'signature_verification',
   'runtime_plan',
   'runtime_apply',
@@ -33,22 +33,22 @@ export const MDeployEvidenceTypeSchema = Schema.Literal(
   'agent_ack',
   'drift_report',
   'rollback'
-)
+])
 export type MDeployEvidenceTypeFromSchema = typeof MDeployEvidenceTypeSchema.Type
 
 export const MDeployStorageRefV01Schema = Schema.Struct({
   uri: Schema.String,
   digest: MDeployDigestSchema,
-  redactionStatus: Schema.Literal('redacted', 'metadata_only')
+  redactionStatus: Schema.Literals(['redacted', 'metadata_only'])
 })
 export type MDeployStorageRefV01FromSchema = typeof MDeployStorageRefV01Schema.Type
 
-export const MDeployOciReferrerArtifactSchema = Schema.Literal('signature', 'attestation')
+export const MDeployOciReferrerArtifactSchema = Schema.Literals(['signature', 'attestation'])
 export type MDeployOciReferrerArtifactFromSchema = typeof MDeployOciReferrerArtifactSchema.Type
 
 export const MDeployOciReferrerVerificationV01Schema = Schema.Struct({
   tool: Schema.Literal('cosign'),
-  operation: Schema.Literal('download-signature', 'download-attestation')
+  operation: Schema.Literals(['download-signature', 'download-attestation'])
 })
 export type MDeployOciReferrerVerificationV01FromSchema =
   typeof MDeployOciReferrerVerificationV01Schema.Type
@@ -57,41 +57,46 @@ export type MDeployOciReferrerVerificationV01FromSchema =
 export const MDeployOciReferrerReferenceV01Schema = Schema.Struct({
   uri: Schema.String,
   digest: MDeployDigestSchema,
-  redactionStatus: Schema.Literal('redacted', 'metadata_only'),
+  redactionStatus: Schema.Literals(['redacted', 'metadata_only']),
   subjectDigest: MDeployDigestSchema,
   artifact: MDeployOciReferrerArtifactSchema,
   predicateType: Schema.optional(Schema.String),
   verification: MDeployOciReferrerVerificationV01Schema
 }).pipe(
-  Schema.filter(
-    reference => {
-      const isSignature =
-        reference.artifact === 'signature' &&
-        reference.verification.operation === 'download-signature' &&
-        reference.predicateType === undefined
-      const isAttestation =
-        reference.artifact === 'attestation' &&
-        reference.verification.operation === 'download-attestation' &&
-        typeof reference.predicateType === 'string' &&
-        reference.predicateType.length > 0
-      return isSignature || isAttestation
-    },
-    {
-      message: () => 'OCI referrer artifact and Cosign retrieval operation must agree'
-    }
+  Schema.check(
+    Schema.makeFilter(
+      reference => {
+        const isSignature =
+          reference.artifact === 'signature' &&
+          reference.verification.operation === 'download-signature' &&
+          reference.predicateType === undefined
+        const isAttestation =
+          reference.artifact === 'attestation' &&
+          reference.verification.operation === 'download-attestation' &&
+          typeof reference.predicateType === 'string' &&
+          reference.predicateType.length > 0
+        return isSignature || isAttestation
+      },
+      {
+        message: 'OCI referrer artifact and Cosign retrieval operation must agree'
+      }
+    )
   )
 )
 export type MDeployOciReferrerReferenceV01FromSchema =
   typeof MDeployOciReferrerReferenceV01Schema.Type
 
-export const MDeployArtifactEvidenceReferenceV01Schema = Schema.Union(
+export const MDeployArtifactEvidenceReferenceV01Schema = Schema.Union([
   MDeployOciReferrerReferenceV01Schema,
   MDeployStorageRefV01Schema
-)
+])
 export type MDeployArtifactEvidenceReferenceV01FromSchema =
   typeof MDeployArtifactEvidenceReferenceV01Schema.Type
 
-export const MDeployArtifactSignerKindSchema = Schema.Literal('cosign-keyless', 'cosign-key-pair')
+export const MDeployArtifactSignerKindSchema = Schema.Literals([
+  'cosign-keyless',
+  'cosign-key-pair'
+])
 export type MDeployArtifactSignerKindFromSchema = typeof MDeployArtifactSignerKindSchema.Type
 
 export const MDeployArtifactSignerV01Schema = Schema.Struct({
@@ -111,19 +116,24 @@ export const MDeployImageArtifactV01Schema = Schema.Struct({
   signer: MDeployArtifactSignerV01Schema,
   verifiedAt: Schema.String
 }).pipe(
-  Schema.filter(artifact => imageReferenceMatchesDigest(artifact.imageReference, artifact.digest), {
-    message: () => 'production image reference must contain only an immutable matching digest'
-  })
+  Schema.check(
+    Schema.makeFilter(
+      artifact => imageReferenceMatchesDigest(artifact.imageReference, artifact.digest),
+      {
+        message: 'production image reference must contain only an immutable matching digest'
+      }
+    )
+  )
 )
 export type MDeployImageArtifactV01FromSchema = typeof MDeployImageArtifactV01Schema.Type
 
 export const MDeployImageArtifactValidationFailureSchema = Schema.Struct({
-  code: Schema.Literal(
+  code: Schema.Literals([
     'artifact_contract_invalid',
     'mutable_image_reference',
     'image_digest_mismatch',
     'missing_provenance'
-  ),
+  ]),
   message: Schema.String
 })
 export type MDeployImageArtifactValidationFailureFromSchema =

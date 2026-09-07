@@ -7,7 +7,7 @@ description: Use when adding, changing, reviewing, migrating, or testing Meriste
 
 ## Use With
 
-Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. Use `effect-ts` when the contract is modeled with Effect Schema and `elysiajs` when exposing REST/OpenAPI or Eden adapters.
+Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. Use `meristem-effect` when the contract is modeled with Effect Schema and `elysiajs` when exposing REST/OpenAPI or Eden adapters.
 
 Primary source documents:
 

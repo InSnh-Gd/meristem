@@ -7,7 +7,7 @@ description: Use when adding, changing, reviewing, or documenting a Meristem Cor
 
 ## Use With
 
-Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. Also use `elysiajs`, `effect-ts`, or `functional-programming` when the implementation touches those boundaries.
+Use after `meristem-context-protocol` and `meristem-engineering-guardrails`. Also use `elysiajs` or `meristem-effect` when the implementation touches those boundaries.
 
 Primary source documents:
 

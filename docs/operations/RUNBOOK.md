@@ -121,6 +121,7 @@ MERISTEM_TOKEN="$(bun run token:mint --actor security-admin)" bun run meristem a
 | M-Net internal | `3104` | loopback HTTP health/ready + `/internal/v0/*` |
 | M-Task | `3105` | canonical M-Task API `/api/v0/tasks` |
 | M-Extension | `3106` | M-Extension control-plane API |
+| M-Deploy internal | `3107` | loopback HTTP; Core 公开部署 facade 通过 `MERISTEM_MDEPLOY_URL`（默认 `http://127.0.0.1:3107`）转发到该入口 |
 | M-Net fallback relay | `443` | public WSS endpoint for pinned `wstunnel` UDP-over-WSS fallback to local WireGuard `51820`（ADR-N03 旧版路径） |
 | M-Net join ingress | `8443` | public TLS + WebSocket join entrypoint |
 | NetBird Signal | managed externally | NetBird 信令服务（NixOS/systemd 管理，v0.2 基础设施依赖，ADR-N04） |
@@ -198,7 +199,7 @@ Public exposure rule:
 | `MERISTEM_NODE_RUNTIME_STATE_PATH` | node-agent 运行时状态文件路径（nodeId + runtimeToken 持久化） | `/var/lib/meristem/node-agent/runtime.json` |
 | `MERISTEM_NODE_RUNTIME_SYNC_INTERVAL_MS` | node-agent 运行时同步间隔 | `30000` |
 
-MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
+MVP uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`, `security-admin-2`). `security-admin-2` is a local-dev-only principal mapped to the existing `security-admin` role so a two-distinct-approver deployment quorum can be demonstrated; it is not a production role or OIDC fallback. Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
 ---
 

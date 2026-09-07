@@ -187,7 +187,11 @@ export async function verifyLocalToken(input: {
     }
 
     return { ok: true, actor: payload.sub, jti: payload.jti }
-  } catch {
+  } catch (error) {
+    if (isExpiredJwtError(error)) {
+      return { ok: false, code: 'expired_token', message: 'JWT has expired' }
+    }
+
     return { ok: false, code: 'invalid_token', message: 'JWT verification failed' }
   }
 }

@@ -71,7 +71,7 @@ Meristem 的实现必须服务于三个上游意图：微内核、微内核多�
 | 修改测试门禁 | `docs/testing/TESTING.md` |
 | 修改 M-UI 或 SDUI | `docs/ui/SDUI-SCHEMA.md` |
 | 修改 ElysiaJS 路由、插件、OpenAPI、Eden 或测试 | `.agents/skills/elysiajs/SKILL.md` 和 `docs/references/elysiajs-latest.md` |
-| 修改 TypeScript 领域逻辑、策略、验证器、事件或状态转换 | `.agents/skills/functional-programming/SKILL.md` |
+| 修改 TypeScript 领域逻辑、策略、验证器、事件、状态转换或 Effect 工作流 | `.agents/skills/meristem-effect/SKILL.md` |
 | 修改 Svelte / SvelteKit UI | `docs/references/svelte-latest.md` 和 `docs/ui/SDUI-SCHEMA.md` |
 | 引入 Wasm3 / WASI / WebAssembly 扩展运行时 | `docs/references/wasm3-latest.md` 和新增 ADR |
 
@@ -80,8 +80,7 @@ Meristem 的实现必须服务于三个上游意图：微内核、微内核多�
 - 服务定义、服务边界、生命周期或 BFF：`.agents/skills/meristem-service-definition/SKILL.md`。
 - 版本化契约、迁移或 drift test：`.agents/skills/meristem-contract-versioning/SKILL.md`。
 - M-UI、SDUI、CommandWell、M-UI Transitional Workbench：`.agents/skills/meristem-ui-contract/SKILL.md`。
-- 测试矩阵、完成声明、阶段验收：`.agents/skills/meristem-testing-gates/SKILL.md`。
-- 跨服务、高风险、权限/审计、M-UI CommandWell、M-Net profile、M-Task lifecycle 或契约迁移的验收行为澄清：`.agents/skills/meristem-acceptance-scenarios/SKILL.md`。
+- 测试矩阵、完成声明、阶段验收，以及跨服务、高风险、权限/审计、M-UI CommandWell、M-Net profile、M-Task lifecycle 或契约迁移的验收行为澄清：`.agents/skills/meristem-testing-gates/SKILL.md`。
 
 ## Agent 项目上下文
 

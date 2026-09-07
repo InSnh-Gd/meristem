@@ -1,4 +1,4 @@
-import { Either } from 'effect'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { extractBearerToken } from '../../../../../packages/auth/src/index.ts'
 import type { CommandWellEligibilityFromSchema as CommandWellEligibility } from '../../../../../packages/contracts/src/index.ts'
@@ -64,13 +64,13 @@ export function withStateSourceDetail(
 
 /** 上游返回成功时仍需按契约 schema 解码，避免 BFF 用断言吞掉漂移。 */
 export function decodeUpstreamData<A, I>(
-  schema: Schema.Schema<A, I>,
+  schema: Schema.Codec<A, I>,
   value: unknown,
   message: string
 ): A | Response {
-  const decoded = Schema.decodeUnknownEither(schema)(value)
-  return Either.isRight(decoded)
-    ? decoded.right
+  const decoded = Schema.decodeUnknownResult(schema)(value)
+  return Result.isSuccess(decoded)
+    ? decoded.success
     : bffError(502, 'bff.invalid_upstream_response', message)
 }
 
@@ -90,7 +90,7 @@ export async function fetchDecodedUpstream<A, I>(input: {
   fetcher: ServiceFetch
   path: string
   token: string
-  schema: Schema.Schema<A, I>
+  schema: Schema.Codec<A, I>
   errorMessage: string
   init?: RequestInit
 }): Promise<A | Response> {
@@ -104,7 +104,7 @@ export async function fetchDecodedUpstreamAllow404<A, I>(input: {
   fetcher: ServiceFetch
   path: string
   token: string
-  schema: Schema.Schema<A, I>
+  schema: Schema.Codec<A, I>
   errorMessage: string
   init?: RequestInit
 }): Promise<A | null | Response> {

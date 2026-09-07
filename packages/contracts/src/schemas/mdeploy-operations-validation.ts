@@ -51,12 +51,12 @@ export function validateMDeployImageArtifactV01(
 }
 
 export const MDeployPromotionValidationFailureSchema = Schema.Struct({
-  code: Schema.Literal(
+  code: Schema.Literals([
     'promotion_contract_invalid',
     'promotion_source_target_invalid',
     'promotion_artifact_invalid',
     'rollback_pointer_invalid'
-  ),
+  ]),
   message: Schema.String
 })
 export type MDeployPromotionValidationFailureFromSchema =

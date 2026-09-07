@@ -2,7 +2,9 @@ import { Type } from '@sinclair/typebox'
 import * as Schema from 'effect/Schema'
 import { actorIds } from '../literals.ts'
 
-const NonEmptyStringSchema = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyStringSchema = Schema.String.pipe(
+  Schema.check(Schema.makeFilter(value => value.length >= 1))
+)
 
 export const OidcIamContractVersions = {
   provider: 'oidc-iam-provider@0.1.0',
@@ -20,7 +22,7 @@ export const oidcIamCookiePolicyV01 = {
   name: '__Host-meristem-session'
 } as const
 
-export const OidcIamRoleV01Schema = Schema.Literal(...actorIds)
+export const OidcIamRoleV01Schema = Schema.Literals(actorIds)
 export type OidcIamRoleV01FromSchema = typeof OidcIamRoleV01Schema.Type
 
 export const OidcIamProviderConfigV01Schema = Schema.Struct({
@@ -39,18 +41,14 @@ export const OidcIamProviderConfigV01Schema = Schema.Struct({
 })
 export type OidcIamProviderConfigV01FromSchema = typeof OidcIamProviderConfigV01Schema.Type
 
-export const OidcIamProviderFailureCodeV01Schema = Schema.Literal(
-  'invalid_discovery',
-  'bad_issuer',
-  'bad_audience',
-  'unsupported_algorithm',
-  'expired_token',
-  'missing_claim',
-  'stale_jwks',
-  'revoked_token',
-  'introspection_required',
-  'invalid_token'
-)
+export const OidcIamProviderFailureCodeV01Schema = Schema.Literals(['invalid_discovery', 'bad_issuer', 'bad_audience',
+'unsupported_algorithm',
+'expired_token',
+'missing_claim',
+'stale_jwks',
+'revoked_token',
+'introspection_required',
+'invalid_token'])
 export type OidcIamProviderFailureCodeV01FromSchema =
   typeof OidcIamProviderFailureCodeV01Schema.Type
 
@@ -70,12 +68,8 @@ export const OidcIamPrincipalDisplayV01Schema = Schema.Struct({
 })
 export type OidcIamPrincipalDisplayV01FromSchema = typeof OidcIamPrincipalDisplayV01Schema.Type
 
-export const OidcIamPrincipalStatusV01Schema = Schema.Literal(
-  'pending',
-  'approved',
-  'rejected',
-  'disabled'
-)
+export const OidcIamPrincipalStatusV01Schema = Schema.Literals(['pending', 'approved', 'rejected',
+'disabled'])
 export type OidcIamPrincipalStatusV01FromSchema = typeof OidcIamPrincipalStatusV01Schema.Type
 
 export const OidcIamPrincipalV01Schema = Schema.Struct({
@@ -103,7 +97,7 @@ export type OidcIamPrincipalV01FromSchema = typeof OidcIamPrincipalV01Schema.Typ
 export const OidcIamSessionCookieV01Schema = Schema.Struct({
   httpOnly: Schema.Literal(true),
   secure: Schema.Literal(true),
-  sameSite: Schema.Literal('Strict', 'Lax'),
+  sameSite: Schema.Literals(['Strict', 'Lax']),
   path: Schema.Literal('/'),
   name: Schema.Literal('__Host-meristem-session')
 })
@@ -111,7 +105,7 @@ export type OidcIamSessionCookieV01FromSchema = typeof OidcIamSessionCookieV01Sc
 
 export const OidcIamSessionCsrfV01Schema = Schema.Struct({
   required: Schema.Literal(true),
-  mode: Schema.Literal('synchronizer-token', 'double-submit'),
+  mode: Schema.Literals(['synchronizer-token', 'double-submit']),
   tokenBinding: Schema.Literal('server-side-session')
 })
 export type OidcIamSessionCsrfV01FromSchema = typeof OidcIamSessionCsrfV01Schema.Type
@@ -137,7 +131,7 @@ export const OidcIamSessionStateV01Schema = Schema.Struct({
   principalId: NonEmptyStringSchema,
   oidcIssuer: NonEmptyStringSchema,
   oidcSubject: NonEmptyStringSchema,
-  status: Schema.Literal('active', 'rotated', 'revoked', 'expired'),
+  status: Schema.Literals(['active', 'rotated', 'revoked', 'expired']),
   rolesSnapshot: Schema.Array(OidcIamRoleV01Schema),
   cookie: OidcIamSessionCookieV01Schema,
   csrf: OidcIamSessionCsrfV01Schema,
@@ -147,55 +141,47 @@ export const OidcIamSessionStateV01Schema = Schema.Struct({
   expiresAt: NonEmptyStringSchema,
   rotatedAt: Schema.optional(NonEmptyStringSchema),
   rotationReason: Schema.optional(
-    Schema.Literal('login', 'privilege_change', 'ttl_refresh', 'manual_rotation')
+    Schema.Literals(['login', 'privilege_change', 'ttl_refresh', 'manual_rotation'])
   ),
   revokedAt: Schema.optional(NonEmptyStringSchema),
   revokedReason: Schema.optional(
-    Schema.Literal('logout', 'role_revoked', 'principal_disabled', 'provider_unavailable')
+    Schema.Literals(['logout', 'role_revoked', 'principal_disabled', 'provider_unavailable'])
   )
 })
 export type OidcIamSessionStateV01FromSchema = typeof OidcIamSessionStateV01Schema.Type
 
-export const OidcIamAuditActionV01Schema = Schema.Literal(
-  'login.denied',
-  'principal.pending_created',
-  'principal.approved',
-  'principal.rejected',
-  'principal.roles_assigned',
-  'principal.roles_revoked',
-  'principal.disabled',
-  'principal.rebound',
-  'principal.conflict_detected',
-  'principal.subject_mismatch',
-  'session.issued',
-  'session.rotated',
-  'session.revoked',
-  'session.logout',
-  'provider.unavailable'
-)
+export const OidcIamAuditActionV01Schema = Schema.Literals(['login.denied', 'principal.pending_created', 'principal.approved',
+'principal.rejected',
+'principal.roles_assigned',
+'principal.roles_revoked',
+'principal.disabled',
+'principal.rebound',
+'principal.conflict_detected',
+'principal.subject_mismatch',
+'session.issued',
+'session.rotated',
+'session.revoked',
+'session.logout',
+'provider.unavailable'])
 export type OidcIamAuditActionV01FromSchema = typeof OidcIamAuditActionV01Schema.Type
 
-export const OidcIamDeniedReasonV01Schema = Schema.Literal(
-  'principal_disabled',
-  'principal_rejected',
-  'principal_conflict',
-  'subject_mismatch',
-  'keycloak_unavailable',
-  'invalid_oidc_token',
-  'approval_required',
-  'role_revoked'
-)
+export const OidcIamDeniedReasonV01Schema = Schema.Literals(['principal_disabled', 'principal_rejected', 'principal_conflict',
+'subject_mismatch',
+'keycloak_unavailable',
+'invalid_oidc_token',
+'approval_required',
+'role_revoked'])
 export type OidcIamDeniedReasonV01FromSchema = typeof OidcIamDeniedReasonV01Schema.Type
 
 export const OidcIamAuditFactV01Schema = Schema.Struct({
   contractVersion: Schema.Literal(OidcIamContractVersions.audit),
   action: OidcIamAuditActionV01Schema,
-  actor: Schema.Union(OidcIamRoleV01Schema, Schema.Literal('system')),
+  actor: Schema.Union([OidcIamRoleV01Schema, Schema.Literal('system')]),
   principalId: Schema.optional(NonEmptyStringSchema),
   oidcIssuer: Schema.optional(NonEmptyStringSchema),
   oidcSubject: Schema.optional(NonEmptyStringSchema),
   sessionId: Schema.optional(NonEmptyStringSchema),
-  result: Schema.Literal('allowed', 'denied', 'pending'),
+  result: Schema.Literals(['allowed', 'denied', 'pending']),
   reason: Schema.optional(OidcIamDeniedReasonV01Schema),
   occurredAt: NonEmptyStringSchema,
   correlationId: NonEmptyStringSchema
@@ -238,12 +224,12 @@ export const OidcIamProviderUnavailableResultV01Schema = Schema.Struct({
   audit: OidcIamAuditFactV01Schema
 })
 
-export const OidcIamLoginFlowResultV01Schema = Schema.Union(
+export const OidcIamLoginFlowResultV01Schema = Schema.Union([
   OidcIamSessionIssuedResultV01Schema,
   OidcIamPendingPrincipalResultV01Schema,
   OidcIamDeniedResultV01Schema,
   OidcIamProviderUnavailableResultV01Schema
-)
+])
 export type OidcIamLoginFlowResultV01FromSchema = typeof OidcIamLoginFlowResultV01Schema.Type
 
 export const OidcIamLogoutFlowResultV01Schema = Schema.Struct({
@@ -251,7 +237,7 @@ export const OidcIamLogoutFlowResultV01Schema = Schema.Struct({
   sessionId: NonEmptyStringSchema,
   cookieCleared: Schema.Literal(true),
   serverSessionDestroyed: Schema.Literal(true),
-  frontChannelOidcLogout: Schema.Literal('attempted', 'skipped', 'failed'),
+  frontChannelOidcLogout: Schema.Literals(['attempted', 'skipped', 'failed']),
   audit: OidcIamAuditFactV01Schema
 })
 export type OidcIamLogoutFlowResultV01FromSchema = typeof OidcIamLogoutFlowResultV01Schema.Type

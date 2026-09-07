@@ -5,6 +5,7 @@ const actorIdSchema = t.Union([
   t.Literal('operator'),
   t.Literal('admin'),
   t.Literal('security-admin'),
+  t.Literal('security-admin-2'),
   t.Literal('break-glass-reviewer')
 ])
 

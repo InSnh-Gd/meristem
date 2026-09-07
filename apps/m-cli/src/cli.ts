@@ -1,5 +1,6 @@
 import cac from 'cac'
 import { handleBasicCommands } from './commands/basic-commands.ts'
+import { handleDeployCommands } from './commands/deploy-commands.ts'
 import { handleExtensionApprovalCommands } from './commands/extension-approval-commands.ts'
 import { handleIdentityCommands } from './commands/identity-commands.ts'
 import { handleNodeAgentCommands } from './commands/node-agent-commands.ts'
@@ -12,6 +13,7 @@ export type { CliClient, CliRunResult } from './commands/types.ts'
 
 const handlers = [
   handleBasicCommands,
+  handleDeployCommands,
   handleNodeAgentCommands,
   handleNodeNetworkCommands,
   handleTaskProjectionCommands,
@@ -38,7 +40,8 @@ const knownCommands = new Set([
   'projection',
   'identity',
   'secret',
-  'config'
+  'config',
+  'deploy'
 ])
 
 /**
@@ -102,6 +105,7 @@ function generateHelp(): CliRunResult {
   cli.command('identity', 'Identity: actor, token')
   cli.command('secret', 'Secret: list, show, create, rotate, disable')
   cli.command('config', 'Config: list, show, set, reload')
+  cli.command('deploy', 'Deploy: install, stop, init, validate, status, agents, drift, evidence, propose, approve, apply, rollback')
   cli.help()
 
   // 捕获 cac 的 console.info 输出

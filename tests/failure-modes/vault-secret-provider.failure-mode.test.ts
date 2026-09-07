@@ -25,7 +25,7 @@ const redactedRef = {
   version: 7
 }
 
-function encodedPayload(schema: Schema.Schema.AnyNoContext, payload: unknown): string {
+function encodedPayload(schema: Schema.Codec<unknown>, payload: unknown): string {
   const decoded = Schema.decodeUnknownSync(schema)(payload)
   return JSON.stringify(Schema.encodeSync(schema)(decoded))
 }

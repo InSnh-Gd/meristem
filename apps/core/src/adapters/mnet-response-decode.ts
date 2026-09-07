@@ -1,4 +1,4 @@
-import { Effect, Either } from 'effect'
+import { Cause, Effect, Exit } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
   type NetworkListResponseFromSchema,
@@ -35,14 +35,14 @@ const invalidNodeAgentResponseFailure = (details: string): DecodeFailure => ({
  * 不能依赖 Eden 推断或原始断言把非法 payload 混入控制面。
  */
 function decodeBoundaryPayload<T>(
-  schema: Schema.Schema<T>,
+  schema: Schema.ConstraintDecoder<T>,
   value: unknown,
   createFailure: (details: string) => DecodeFailure
 ): Effect.Effect<T, DecodeFailure> {
-  const decoded = Schema.decodeUnknownEither(schema)(value)
-  return Either.isRight(decoded)
-    ? Effect.succeed(decoded.right)
-    : Effect.fail(createFailure(String(decoded.left)))
+  const decoded = Schema.decodeUnknownExit(schema)(value)
+  return Exit.isSuccess(decoded)
+    ? Effect.succeed(decoded.value)
+    : Effect.fail(createFailure(Cause.pretty(decoded.cause)))
 }
 
 /**

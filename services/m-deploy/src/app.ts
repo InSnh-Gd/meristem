@@ -8,6 +8,10 @@ import { createMDeployPublicRoutes } from './public-routes.ts'
 export function createMDeployApp(deps: MDeployDeps) {
   return new Elysia()
     .get('/health', () => ({ ok: true, service: 'm-deploy' }))
+    .get('/ready', async ({ status }) => {
+      const ready = await deps.controller.isAvailable()
+      return ready ? { ready: true, service: 'm-deploy' } : status(503, { ready: false })
+    })
     .use(createMDeployPublicRoutes(deps))
     .use(createMDeployInternalRoutes(deps))
 }

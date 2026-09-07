@@ -24,12 +24,12 @@ type DeliveryPortOptions = {
 function decodeDispatchResponse(
   value: unknown
 ): Result<NodeAgentTaskExecuteEnvelopeResponseFromSchema, ServiceError> {
-  const decoded = Schema.decodeUnknownEither(NodeAgentTaskExecuteEnvelopeResponseSchema)(value)
-  return decoded._tag === 'Right'
-    ? resultOk(decoded.right)
+  const decoded = Schema.decodeUnknownResult(NodeAgentTaskExecuteEnvelopeResponseSchema)(value)
+  return decoded._tag === 'Success'
+    ? resultOk(decoded.success)
     : resultErr({
         code: 'dispatch.invalid_response',
-        message: `M-Net returned invalid dispatch payload: ${String(decoded.left)}`
+        message: `M-Net returned invalid dispatch payload: ${String(decoded.failure)}`
       })
 }
 

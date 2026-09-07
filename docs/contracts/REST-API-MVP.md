@@ -209,7 +209,7 @@ Returns all local-mode identity actors.
 
 ```ts
 type IdentityActorRecord = {
-  id: "viewer" | "operator" | "admin" | "security-admin";
+  id: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   displayName: string;
   status: "active" | "disabled";
   createdAt: string;
@@ -245,7 +245,7 @@ Issues an actor token. Writes Audit before returning the plaintext token. Token 
 
 ```ts
 type IssueTokenRequest = {
-  actor: "viewer" | "operator" | "admin" | "security-admin";
+  actor: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   ttl: string;        // duration string, e.g. "1h", "7d"
   purpose: string;    // human-readable reason for the token
 };
@@ -254,7 +254,7 @@ type IssueTokenResponse = {
   jti: string;
   token: string;        // JWT plaintext, returned only once
   expiresAt: string;
-  actor: "viewer" | "operator" | "admin" | "security-admin";
+  actor: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   issuer: "meristem-local";
   audience: "meristem-core";
   purpose: string;
@@ -273,16 +273,16 @@ Returns token metadata and status without token plaintext.
 ```ts
  type ActorTokenRecord = {
   jti: string;
-  actor: "viewer" | "operator" | "admin" | "security-admin";
+   actor: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   issuer: "meristem-local";
   audience: "meristem-core" | "meristem-service";
   issuedAt: string;
   expiresAt: string;
-  issuedBy: "viewer" | "operator" | "admin" | "security-admin";
+   issuedBy: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   purpose: string;
   status: "active" | "revoked" | "expired";
   revokedAt?: string;
-  revokedBy?: "viewer" | "operator" | "admin" | "security-admin";
+   revokedBy?: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   revokeReason?: string;
 };
 ```
@@ -304,13 +304,13 @@ type RevokeTokenResponse = {
   jti: string;
   status: "revoked";
   revokedAt: string;
-  revokedBy: "viewer" | "operator" | "admin" | "security-admin";
+  revokedBy: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   revokeReason: string;
   token: {
     jti: string;
     status: "revoked";
     revokedAt: string;
-    revokedBy: "viewer" | "operator" | "admin" | "security-admin";
+    revokedBy: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
     revokeReason: string;
   };
 };
@@ -332,7 +332,7 @@ type IntrospectTokenRequest = {
 type IntrospectTokenResponse = {
   jti?: string;
   active: boolean;
-  actor?: "viewer" | "operator" | "admin" | "security-admin";
+  actor?: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
 };
 ```
 
@@ -971,7 +971,7 @@ Requires a valid Bearer token.
 
 ```ts
 type SessionContextResponse = {
-  actor: "viewer" | "operator" | "admin" | "security-admin";
+  actor: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2";
   permissions: string[];
   correlationId: string;
 };

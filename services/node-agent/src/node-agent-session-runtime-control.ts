@@ -1,4 +1,4 @@
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import type { NodeAgentRuntimeDesiredSidecar } from '../../../packages/contracts/src/index.ts'
 import {
@@ -20,7 +20,7 @@ const NodeRuntimeKeyRegistrationResponseSchema = Schema.Struct({
   nodeId: Schema.NonEmptyString,
   keyId: Schema.NonEmptyString,
   fingerprint: Schema.NonEmptyString,
-  mapVersion: Schema.Number.pipe(Schema.greaterThanOrEqualTo(1)),
+  mapVersion: Schema.Number.check(Schema.isGreaterThanOrEqualTo(1)),
   correlationId: Schema.NonEmptyString
 })
 
@@ -38,12 +38,8 @@ const NodeRuntimeNetworkMapResponseSchema = Schema.Struct({
   })
 })
 
-const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownEither(
-  NodeRuntimeKeyRegistrationResponseSchema
-)
-const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownEither(
-  NodeRuntimeNetworkMapResponseSchema
-)
+const decodeNodeRuntimeKeyRegistrationResponse = Schema.decodeUnknownResult(NodeRuntimeKeyRegistrationResponseSchema)
+const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownResult(NodeRuntimeNetworkMapResponseSchema)
 
 function normalizeDesiredSidecar(payload: {
   signalConfigRef: { configRef: string }
@@ -124,13 +120,13 @@ export async function registerNodeRuntimeKey(
       return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
     }
     const payload = decodeNodeRuntimeKeyRegistrationResponse(await response.json())
-    if (Either.isLeft(payload)) {
+    if (Result.isFailure(payload)) {
       return {
         kind: 'runtime.request_failed',
         reason: 'runtime key registration response is invalid'
       }
     }
-    return { kind: 'runtime.key.registered', ...payload.right }
+    return { kind: 'runtime.key.registered', ...payload.success }
   } catch (error) {
     return {
       kind: 'runtime.request_failed',
@@ -154,13 +150,13 @@ export async function fetchLatestNodeRuntimeNetworkMap(
       return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
     }
     const payload = decodeNodeRuntimeNetworkMapResponse(await response.json())
-    if (Either.isLeft(payload)) {
+    if (Result.isFailure(payload)) {
       return { kind: 'runtime.request_failed', reason: 'runtime network-map response is invalid' }
     }
     return {
       kind: 'runtime.network_map.fetched',
-      map: payload.right.map,
-      sidecar: normalizeDesiredSidecar(payload.right.sidecar)
+      map: payload.success.map,
+      sidecar: normalizeDesiredSidecar(payload.success.sidecar)
     }
   } catch (error) {
     return {

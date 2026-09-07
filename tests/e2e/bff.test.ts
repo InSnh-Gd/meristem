@@ -271,7 +271,7 @@ if (!infraOk) {
         expect(body.error.code).toBe('approval.not_found')
       })
 
-      it('GET /api/v0/network-profiles returns profiles and CN controlPlaneOnly profile', async () => {
+      it('GET /api/v0/network-profiles returns the CN data-plane profile', async () => {
         const res = await bffFetch('/api/v0/network-profiles', adminToken)
         expect(res.ok).toBe(true)
         const body = res.data as {
@@ -281,9 +281,9 @@ if (!infraOk) {
           }>
         }
         expect(Array.isArray(body.profiles)).toBe(true)
-        const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.1.0')
+        const cnProfile = body.profiles.find(profile => profile.profileVersion === 'm-net-cn@0.3.0')
         expect(cnProfile).toBeDefined()
-        expect(cnProfile?.capabilities.controlPlaneOnly).toBe(true)
+        expect(cnProfile?.capabilities.controlPlaneOnly).toBe(false)
       })
 
       it('approval/profile routes preserve 401 and 403 permission failures', async () => {

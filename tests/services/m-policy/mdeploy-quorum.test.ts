@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import type { ActorId } from '../../../packages/contracts/src/index.ts'
+import { rolePermissions } from '../../../packages/policy/src/index.ts'
 import { createInMemoryApprovalStore } from '../../../services/m-policy/src/approval-helpers.ts'
 import type { ApprovalDeps } from '../../../services/m-policy/src/approval-schemas.ts'
 import { createMDeployApprovalRoutes } from '../../../services/m-policy/src/mdeploy-approvals.ts'
@@ -24,16 +25,16 @@ function deps(): ApprovalDeps {
       async publish() {}
     },
     async authorize(actor, permission) {
-      const eligible: readonly ActorId[] = ['security-admin', 'break-glass-reviewer']
-      return (
-        eligible.includes(actor) &&
-        (permission === 'policy:approval-approve' || permission === 'policy:approval-reject')
-      )
+      return rolePermissions[actor].includes(permission)
     }
   }
 }
 
-function voteRequest(proposalId: string, actor: ActorId): Request {
+function voteRequest(
+  proposalId: string,
+  actor: ActorId,
+  proposalActor: ActorId = 'admin'
+): Request {
   return new Request(
     `http://m-policy.internal/internal/v0/policy/mdeploy/approvals/${proposalId}/votes`,
     {
@@ -43,7 +44,7 @@ function voteRequest(proposalId: string, actor: ActorId): Request {
         'x-meristem-internal-token': internalToken
       },
       body: JSON.stringify({
-        proposalActor: 'admin',
+        proposalActor,
         policyDecisionId: 'decision-quorum',
         actor,
         result: 'approve',
@@ -85,12 +86,50 @@ describe('M-Policy M-Deploy quorum authority', () => {
       error: { code: 'policy.quorum_not_satisfied' }
     })
 
-    expect((await app.handle(voteRequest(proposalId, 'break-glass-reviewer'))).status).toBe(200)
+    expect((await app.handle(voteRequest(proposalId, 'security-admin-2'))).status).toBe(200)
     const twoVoteProof = await app.handle(proofRequest(proposalId))
     expect(twoVoteProof.status).toBe(200)
     expect(await twoVoteProof.json()).toMatchObject({
       proposalId,
-      approvers: ['security-admin', 'break-glass-reviewer']
+      approvers: ['security-admin', 'security-admin-2']
+    })
+  })
+
+  it('rejects operator, admin, and break-glass identities as M-Deploy approvers', async () => {
+    const app = createMDeployApprovalRoutes(deps())
+
+    for (const actor of [
+      'operator',
+      'admin',
+      'break-glass-reviewer'
+    ] satisfies readonly ActorId[]) {
+      const response = await app.handle(voteRequest(`proposal-${actor}`, actor))
+
+      expect(response.status).toBe(403)
+      expect(await response.json()).toMatchObject({
+        error: { code: 'policy.approver_ineligible' }
+      })
+    }
+  })
+
+  it('rejects proposer self-approval and duplicate M-Deploy votes', async () => {
+    const app = createMDeployApprovalRoutes(deps())
+    const selfProposalId = `proposal-self-${crypto.randomUUID()}`
+    const duplicateProposalId = `proposal-duplicate-${crypto.randomUUID()}`
+
+    const selfApproval = await app.handle(
+      voteRequest(selfProposalId, 'security-admin', 'security-admin')
+    )
+    expect(selfApproval.status).toBe(403)
+    expect(await selfApproval.json()).toMatchObject({
+      error: { code: 'approval.self_vote_denied' }
+    })
+
+    expect((await app.handle(voteRequest(duplicateProposalId, 'security-admin'))).status).toBe(200)
+    const duplicateApproval = await app.handle(voteRequest(duplicateProposalId, 'security-admin'))
+    expect(duplicateApproval.status).toBe(409)
+    expect(await duplicateApproval.json()).toMatchObject({
+      error: { code: 'approval.duplicate_vote' }
     })
   })
 

@@ -4,7 +4,7 @@
 {
   # Containers
   virtualisation.oci-containers.containers."meristem-opensearch" = {
-    image = "opensearchproject/opensearch:2-alpine";
+    image = "opensearchproject/opensearch:2.19.6";
     environment = {
       "OPENSEARCH_INITIAL_ADMIN_PASSWORD" = "Meristem0pensearch!";
       "discovery.type" = "single-node";

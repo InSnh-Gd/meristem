@@ -46,7 +46,7 @@ const imageArtifact = {
   verifiedAt: '2026-07-13T00:01:00.000Z'
 } as const
 
-function assertRoundTrip(schema: Schema.Schema.AnyNoContext, value: unknown) {
+function assertRoundTrip(schema: Schema.Codec<unknown>, value: unknown) {
   const decoded = Schema.decodeUnknownSync(schema)(value)
   const encoded = Schema.encodeSync(schema)(decoded)
   expect(Schema.decodeUnknownSync(schema)(encoded)).toEqual(decoded)

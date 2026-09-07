@@ -461,7 +461,7 @@ type MNetClosedLoopAuditEvidence = {
   source: "m-log-audit";
   action: string;
   resource: string;
-  actor: "viewer" | "operator" | "admin" | "security-admin" | "break-glass-reviewer";
+  actor: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2" | "break-glass-reviewer";
   result: "allowed" | "denied" | "expired" | "auto-revoked" | "rolled-back";
   writtenAt: string;
   correlationId: string;
@@ -479,7 +479,7 @@ type MNetPendingJoinRequest = {
   nodeId: string;
   requestedNodeKind: "core" | "stem" | "leaf";
   requestedProfileVersion: "m-net@0.3.0" | "m-net-cn@0.3.0";
-  requestedBy: "viewer" | "operator" | "admin" | "security-admin" | "break-glass-reviewer";
+  requestedBy: "viewer" | "operator" | "admin" | "security-admin" | "security-admin-2" | "break-glass-reviewer";
   status: "pending" | "approved" | "rejected" | "expired";
   requestedAt: string;
   expiresAt: string;

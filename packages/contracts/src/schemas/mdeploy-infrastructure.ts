@@ -2,11 +2,11 @@ import * as Schema from 'effect/Schema'
 import { err, ok, type Result } from '../../../common/src/result.ts'
 import { MDeployRuntimeDriverSchema } from './mdeploy-common.ts'
 
-export const MDeployInfrastructureWorkloadClassSchema = Schema.Literal(
+export const MDeployInfrastructureWorkloadClassSchema = Schema.Literals([
   'control-state',
   'search',
   'leaf'
-)
+])
 export type MDeployInfrastructureWorkloadClassFromSchema =
   typeof MDeployInfrastructureWorkloadClassSchema.Type
 

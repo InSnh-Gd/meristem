@@ -59,6 +59,10 @@ ops/apisix/config.yaml
 ops/apisix/apisix.yaml
 ```
 
+在 Linux 本地开发中，APISIX profile 使用 host networking，以便网关访问仍保持
+loopback-only 的 Core 和内部 M-* 服务。它不通过把这些服务改绑到 `0.0.0.0` 来换取
+容器可达性；因此该 profile 仅用于本地 Linux/NixOS 验证，不是生产部署拓扑。
+
 The route file is an explicit allowlist. It intentionally does not contain an active catch-all `/api/v0/*` route.
 
 Allowed route groups:

@@ -19,28 +19,23 @@ const ErrorResponseSchema = Schema.Struct({
 })
 
 const OpenApiOperationSchema = Schema.Struct({
-  security: Schema.optional(
-    Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
-  ),
-  responses: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  security: Schema.optional(Schema.Array(Schema.Record(Schema.String, Schema.Unknown))),
+  responses: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 
 const OpenApiDocumentSchema = Schema.Struct({
   components: Schema.optional(
     Schema.Struct({
-      securitySchemes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+      securitySchemes: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
     })
   ),
-  paths: Schema.Record({
-    key: Schema.String,
-    value: Schema.Record({ key: Schema.String, value: OpenApiOperationSchema })
-  })
+  paths: Schema.Record(Schema.String, Schema.Record(Schema.String, OpenApiOperationSchema))
 })
 
-async function decodeJson<TSchema extends Schema.Schema.AnyNoContext>(
+async function decodeJson<TSchema extends Schema.ConstraintDecoder<unknown>>(
   response: Response,
   schema: TSchema
-): Promise<Schema.Schema.Type<TSchema>> {
+): Promise<TSchema['Type']> {
   return Schema.decodeUnknownSync(schema)(await response.json())
 }
 

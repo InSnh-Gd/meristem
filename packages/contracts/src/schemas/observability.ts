@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema'
 
-const NonEmptyStringSchema = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyStringSchema = Schema.String.check(Schema.isMinLength(1))
 
 function hasExactMembers(values: readonly string[], expected: readonly string[]): boolean {
   return (
@@ -19,25 +19,25 @@ export type ObservabilityContractVersionFromSchema = typeof ObservabilityContrac
 export const ObservabilityAuthorityRoleSchema = Schema.Literal('non-authoritative')
 export type ObservabilityAuthorityRoleFromSchema = typeof ObservabilityAuthorityRoleSchema.Type
 
-export const ObservabilityDegradationIndicatorSchema = Schema.Literal(
+export const ObservabilityDegradationIndicatorSchema = Schema.Literals([
   'prometheus_unavailable',
   'grafana_unavailable',
   'alertmanager_unavailable',
   'otel_collector_degraded'
-)
+])
 export type ObservabilityDegradationIndicatorFromSchema =
   typeof ObservabilityDegradationIndicatorSchema.Type
 
-export const DashboardReadModelSourceSchema = Schema.Literal(
+export const DashboardReadModelSourceSchema = Schema.Literals([
   'prometheus',
   'opensearch',
   'alertmanager',
   'otel-collector',
   'dashboards'
-)
+])
 export type DashboardReadModelSourceFromSchema = typeof DashboardReadModelSourceSchema.Type
 
-export const DashboardDegradationIndicatorSchema = Schema.Literal(
+export const DashboardDegradationIndicatorSchema = Schema.Literals([
   'opensearch_unavailable',
   'dashboards_unavailable',
   'projection_queue_degraded',
@@ -46,7 +46,7 @@ export const DashboardDegradationIndicatorSchema = Schema.Literal(
   'grafana_unavailable',
   'alertmanager_unavailable',
   'otel_collector_degraded'
-)
+])
 export type DashboardDegradationIndicatorFromSchema =
   typeof DashboardDegradationIndicatorSchema.Type
 
@@ -54,23 +54,25 @@ export const PrometheusScrapeTargetSchema = Schema.Struct({
   jobName: NonEmptyStringSchema,
   service: NonEmptyStringSchema,
   metricsPath: NonEmptyStringSchema,
-  scheme: Schema.Literal('http', 'https'),
+  scheme: Schema.Literals(['http', 'https']),
   interval: NonEmptyStringSchema
 })
 export type PrometheusScrapeTargetFromSchema = typeof PrometheusScrapeTargetSchema.Type
 
 const PrometheusScrapeTargetsSchema = Schema.Array(PrometheusScrapeTargetSchema).pipe(
-  Schema.filter(targets =>
-    includesAll(
-      targets.map(target => target.service),
-      ['core', 'm-eventbus', 'm-log', 'm-policy', 'm-deploy']
+  Schema.check(
+    Schema.makeFilter(targets =>
+      includesAll(
+        targets.map(target => target.service),
+        ['core', 'm-eventbus', 'm-log', 'm-policy', 'm-deploy']
+      )
     )
   )
 )
 
 export const GrafanaDatasourceSchema = Schema.Struct({
   name: NonEmptyStringSchema,
-  kind: Schema.Literal('prometheus', 'opensearch'),
+  kind: Schema.Literals(['prometheus', 'opensearch']),
   url: NonEmptyStringSchema,
   readOnly: Schema.Literal(true)
 })
@@ -87,10 +89,10 @@ const minimumAlertNames = [
   'agent_drift_or_reconcile_failure'
 ] as const
 
-export const MinimumAlertNameSchema = Schema.Literal(...minimumAlertNames)
+export const MinimumAlertNameSchema = Schema.Literals(minimumAlertNames)
 export type MinimumAlertNameFromSchema = typeof MinimumAlertNameSchema.Type
 
-export const AlertSeveritySchema = Schema.Literal('warning', 'critical')
+export const AlertSeveritySchema = Schema.Literals(['warning', 'critical'])
 export type AlertSeverityFromSchema = typeof AlertSeveritySchema.Type
 
 export const AlertmanagerRuleSchema = Schema.Struct({
@@ -104,17 +106,19 @@ export const AlertmanagerRuleSchema = Schema.Struct({
 export type AlertmanagerRuleFromSchema = typeof AlertmanagerRuleSchema.Type
 
 const MinimumAlertmanagerRulesSchema = Schema.Array(AlertmanagerRuleSchema).pipe(
-  Schema.filter(rules =>
-    hasExactMembers(
-      rules.map(rule => rule.name),
-      minimumAlertNames
+  Schema.check(
+    Schema.makeFilter(rules =>
+      hasExactMembers(
+        rules.map(rule => rule.name),
+        minimumAlertNames
+      )
     )
   )
 )
 
 export const OTelCollectorConfigSchema = Schema.Struct({
-  receivers: Schema.Array(Schema.Literal('otlp/http', 'otlp/grpc')),
-  exporters: Schema.Array(Schema.Literal('prometheus', 'otlp', 'logging')),
+  receivers: Schema.Array(Schema.Literals(['otlp/http', 'otlp/grpc'])),
+  exporters: Schema.Array(Schema.Literals(['prometheus', 'otlp', 'logging'])),
   correlationIdAttribute: Schema.Literal('correlationId'),
   propagateCorrelationId: Schema.Literal(true)
 })
@@ -123,8 +127,10 @@ export type OTelCollectorConfigFromSchema = typeof OTelCollectorConfigSchema.Typ
 export const PinoLoggingContractSchema = Schema.Struct({
   format: Schema.Literal('jsonl'),
   requiredFields: Schema.Array(NonEmptyStringSchema).pipe(
-    Schema.filter(fields =>
-      includesAll(fields, ['time', 'level', 'service', 'msg', 'correlationId'])
+    Schema.check(
+      Schema.makeFilter(fields =>
+        includesAll(fields, ['time', 'level', 'service', 'msg', 'correlationId'])
+      )
     )
   ),
   correlationIdField: Schema.Literal('correlationId'),
@@ -138,10 +144,10 @@ export const DashboardOwnershipSchema = Schema.Struct({
   owner: NonEmptyStringSchema,
   datasources: Schema.Array(NonEmptyStringSchema),
   stateSources: Schema.Array(DashboardReadModelSourceSchema).pipe(
-    Schema.filter(sources => sources.length > 0)
+    Schema.check(Schema.makeFilter(sources => sources.length > 0))
   ),
   degradationIndicators: Schema.Array(DashboardDegradationIndicatorSchema).pipe(
-    Schema.filter(indicators => indicators.length > 0)
+    Schema.check(Schema.makeFilter(indicators => indicators.length > 0))
   ),
   correlationIdField: Schema.Literal('correlationId'),
   degradedStateVisible: Schema.Literal(true)

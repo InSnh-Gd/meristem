@@ -83,6 +83,7 @@ describe('isActorId', () => {
     expect(isActorId('operator')).toBe(true)
     expect(isActorId('admin')).toBe(true)
     expect(isActorId('security-admin')).toBe(true)
+    expect(isActorId('security-admin-2')).toBe(true)
     expect(isActorId('break-glass-reviewer')).toBe(true)
   })
 
@@ -169,6 +170,9 @@ describe('mintLocalToken', () => {
     expect(typeof (await mintLocalToken({ actor: 'operator', secret: testSecret }))).toBe('string')
     expect(typeof (await mintLocalToken({ actor: 'admin', secret: testSecret }))).toBe('string')
     expect(typeof (await mintLocalToken({ actor: 'security-admin', secret: testSecret }))).toBe(
+      'string'
+    )
+    expect(typeof (await mintLocalToken({ actor: 'security-admin-2', secret: testSecret }))).toBe(
       'string'
     )
     expect(
@@ -500,13 +504,67 @@ describe('verifyLocalToken', () => {
     expect(result).toMatchObject({ ok: true, actor: 'operator' })
   })
 
-  it('returns invalid_token for invalid tokens', async () => {
-    await expect(
-      verifyLocalToken({ token: 'not-a-token', secret: testSecret })
-    ).resolves.toMatchObject({
-      ok: false,
-      code: 'invalid_token'
+  it('verifies a minted local token for the second security administrator', async () => {
+    const token = await mintLocalToken({ actor: 'security-admin-2', secret: testSecret })
+
+    await expect(verifyLocalToken({ token, secret: testSecret })).resolves.toMatchObject({
+      ok: true,
+      actor: 'security-admin-2'
     })
+  })
+
+  it('distinguishes expired local tokens from invalid local tokens', async () => {
+    const nowSeconds = Math.floor(Date.now() / 1_000)
+    const expiredToken = await new SignJWT({})
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer('meristem-local')
+      .setAudience('meristem-core')
+      .setSubject('operator')
+      .setIssuedAt(nowSeconds - 120)
+      .setExpirationTime(nowSeconds - 60)
+      .setJti('expired-local-jti')
+      .sign(testSecretBytes(testSecret))
+
+    await expect(verifyLocalToken({ token: expiredToken, secret: testSecret })).resolves.toEqual({
+      ok: false,
+      code: 'expired_token',
+      message: 'JWT has expired'
+    })
+
+    const invalidTokens = [
+      {
+        token: await mintLocalToken({ actor: 'operator', secret: testSecret }),
+        secret: 'wrong-secret'
+      },
+      { token: 'not-a-token', secret: testSecret },
+      {
+        token: await new SignJWT({})
+          .setProtectedHeader({ alg: 'HS256' })
+          .setIssuer('unexpected-issuer')
+          .setAudience('meristem-core')
+          .setSubject('operator')
+          .setIssuedAt(nowSeconds)
+          .setExpirationTime(nowSeconds + 60)
+          .setJti('unexpected-issuer-jti')
+          .sign(testSecretBytes(testSecret)),
+        secret: testSecret
+      },
+      {
+        token: await mintLocalToken({
+          actor: 'operator',
+          secret: testSecret,
+          audience: 'unexpected-audience'
+        }),
+        secret: testSecret
+      }
+    ]
+
+    for (const invalidToken of invalidTokens) {
+      await expect(verifyLocalToken(invalidToken)).resolves.toMatchObject({
+        ok: false,
+        code: 'invalid_token'
+      })
+    }
   })
 
   it('returns invalid_actor for tokens with unknown actors', async () => {

@@ -4,10 +4,13 @@ export const actorIds = [
   'operator',
   'admin',
   'security-admin',
+  'security-admin-2',
   'break-glass-reviewer'
 ] as const
 
 export type ActorId = (typeof actorIds)[number]
+
+export const mDeployApproverActorIds: readonly ActorId[] = ['security-admin', 'security-admin-2']
 
 export const basePermissions = [
   'core:read',

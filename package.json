@@ -34,6 +34,7 @@
     "dev:m-net": "bun run services/m-net/src/index.ts",
     "dev:m-task": "bun run services/m-task/src/index.ts",
     "dev:m-extension": "bun run services/m-extension/src/index.ts",
+    "dev:m-deploy": "bun run services/m-deploy/src/serve-local.ts",
     "dev:m-policy": "bun run services/m-policy/src/index.ts",
     "dev:m-ui": "cd apps/m-ui && bun run dev",
     "dev:m-ui-bff": "bun run services/m-ui-bff/src/index.ts",
@@ -97,15 +98,14 @@
     "@opentelemetry/semantic-conventions": "1.40.0",
     "@scalar/types": "0.9.5",
     "drizzle-orm": "0.45.2",
-    "effect": "3.21.2",
+    "effect": "4.0.0-rc.112",
     "elysia": "1.4.28",
     "jose": "6.2.3",
     "postgres": "3.4.9",
     "date-fns": "4.4.0",
     "cac": "7.0.0",
     "pino": "10.3.1",
-    "@effect/platform-bun": "0.90.0",
-    "@effect/platform": "0.96.1"
+    "@effect/platform-bun": "4.0.0-rc.112"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",

@@ -25,6 +25,7 @@ export type {
   SetProfileDefaultsResponse
 } from './types/global-defaults-ports.ts'
 export type { IdentityPort } from './types/identity.ts'
+export type { MDeployFacadePort } from './types/mdeploy-facade.ts'
 export type { MNetPort } from './types/mnet.ts'
 export type { SecretRefPort } from './types/secrets.ts'
 export type {

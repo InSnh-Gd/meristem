@@ -233,4 +233,19 @@ export type CliClient = {
       input: { toVersion: string; reason: string }
     ): Promise<{ id: string; status: string }>
   }
+  deploy?: {
+    desiredState?(): Promise<unknown>
+    propose?(input: unknown): Promise<unknown>
+    getProposal?(proposalId: string): Promise<unknown>
+    approve?(proposalId: string, result: 'approve' | 'reject'): Promise<unknown>
+    apply?(input: { proposalId: string; agentId: string }): Promise<unknown>
+    rollback?(input: {
+      agentId: string
+      targetDigest: { algorithm: string; value: string }
+    }): Promise<unknown>
+    drift?(): Promise<unknown>
+    driftCheck?(): Promise<unknown>
+    evidence?(): Promise<unknown>
+    agents?(): Promise<unknown>
+  }
 }

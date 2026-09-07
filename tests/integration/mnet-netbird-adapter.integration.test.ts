@@ -284,6 +284,17 @@ describe('integration: M-Net NetBird runtime adapter', () => {
     const operationalBody = requireObject(await operationalResponse.json())
     const sidecars = operationalBody.sidecars
     if (!Array.isArray(sidecars)) throw new Error('expected operational sidecars array')
+    const topology = requireNestedObject(operationalBody, 'topology')
+    const topologyNodes = topology.nodes
+    if (!Array.isArray(topologyNodes)) throw new Error('expected operational topology nodes array')
+    expect(
+      topologyNodes.map(item => requireString(requireObject(item).nodeId, 'topology nodeId'))
+    ).toEqual(['stem-runtime-1', 'leaf-runtime-1'])
+    expect(requireObject(topologyNodes[1])).toMatchObject({
+      nodeId: 'leaf-runtime-1',
+      healthStatus: 'unknown',
+      state: 'migration_required'
+    })
     const sidecar = sidecars
       .map(item => requireObject(item))
       .find(item => item.nodeId === 'stem-runtime-1')

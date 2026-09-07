@@ -602,3 +602,88 @@ Rules:
 - one reject vote rejects the approval.
 - same self-approval and duplicate restrictions as approve.
 - non-zero exit on missing permission, self-approval, duplicate vote, or expired approval.
+
+---
+
+## 6. Deployment Commands
+
+> M-CLI 是部署安装器与操作入口；生产事实、审批、审计与证据仍由 M-Deploy / M-Policy / M-Log 拥有。
+> 所有 HTTP 命令都通过 Core 公开部署 facade（`/api/v0/deploy/*`）执行，CLI 不直连 M-Deploy。
+
+### `meristem deploy init [--profile local-compose|production-podman] [--config <path>]`
+
+生成部署安装清单 `meristem.deploy.json`。`production-podman` 从运行命令的 Git checkout 自动派生 sourceRef：origin URL（`git remote get-url origin`）、附着分支（`git symbolic-ref HEAD`）、不可变 commit（`git rev-parse --verify HEAD^{commit}`）、`path: "."`，以及对原始 `git archive --format=tar <commit> -- .` 字节的小写 SHA-256 digest；脏工作树与未跟踪文件不进入 digest。必须在带 origin 的附着 checkout 中运行：缺少 origin、detached HEAD、archive 失败或 origin 含凭据（userinfo 或查询串）时 `init` 失败且不写入清单。
+
+已存在且通过校验、profile 相同时幂等复用且不改写内容（byte-for-byte）；仅精确匹配的旧版生成占位清单会被原地升级为真实 provenance；清单损坏、无法读取或请求不同 profile 时拒绝且不改写。清单只承载可验证意图，永不包含 token、密钥或 SecretProvider 明文。
+
+### `meristem deploy validate [--config <path>]`
+
+离线校验清单：结构用 Effect Schema 解码，语义校验拒绝 `deploy init` 生成的占位 sourceRef、可变 Git 指针（非 40/64 位 commit）、带凭据 URL 与非 sha256 摘要。校验只证明清单在语义上自洽，不证明远端 source/envelope 可获取或可信、已签名、通过策略审批或已被 agent 复核；签名与准入复核由 M-Deploy/agent 拉取时执行。
+
+### `meristem deploy install [--profiles opensearch,redis,apisix] [--prepare-only] [--config <path>]`
+
+本地一键安装：缺清单则生成 → 校验 → 运行 `deploy:local --prepare-only` 准备依赖 → （非 prepare-only）启动包含 Core、M-Policy、M-Log、M-EventBus 与本地 M-Deploy 控制面的 `dev:full`。本地 M-Deploy 自动提供 loopback `/ready` 与 `local-agent`，不执行生产 Git/Vault/PKI bootstrap；仅接受 `local-compose` 清单，生产清单必须走 propose 流程。
+
+启动语义：`dev:full` 以 detached 进程组运行，安装命令记录进程组 leader PID 并等待本地 M-Deploy `/ready` 与 Core `/api/v0/ready` 的 `ready: true`（Core 在依赖降级时仍返回 200，因此只看状态码不足以判定就绪）。就绪等待失败时终止该进程组，不留下半启动的服务。
+
+本地 M-Deploy 的 Git 与 controller trust 是 local-dev 专用接缝：它为操作者实际 pin 的 `sourceRef` 签发 envelope（否则 apply 永远停在 `git.digest_not_found`），controller trust 到期时间相对本地启动时刻生成而不是沿用服务测试的固定时钟。两者都不改变生产签名、Git 获取与 host adapter 边界。
+
+### `meristem deploy stop`
+
+停止由 `deploy install` 启动的本地 detached 控制面进程组并清理其 PID 状态；已退出的进程视为幂等成功。生产进程不由此命令管理。
+
+### `meristem deploy status`
+
+Permission: `deploy:desired-state-read`。显示 desired-state 摘要（stale / controllerAvailable / 最新 digest）。
+
+### `meristem deploy agents`
+
+Permission: `deploy:desired-state-read`。列出注册的部署 agent。
+
+### `meristem deploy drift [--check]`
+
+Permission: `deploy:drift-read`。列出 drift 报告；`--check` 触发一次 drift 检查。
+
+### `meristem deploy evidence`
+
+Permission: `deploy:evidence-read`。列出部署证据记录（digest / 签名 / provenance 验证）。
+
+### `meristem deploy propose --config <production-manifest>`
+
+Permission: `deploy:desired-state-propose`（admin 或 security-admin）。从 production-podman 清单提交 desired-state proposal；生成 M-Policy 审批请求。
+
+### `meristem deploy approve <proposal-id> [--reject]`
+
+Permission: `deploy:desired-state-approve`（security-admin）。批准或拒绝 proposal。
+
+### `meristem deploy apply --proposal <id> --agent <agent-id> --confirm`
+
+Permission: `deploy:desired-state-apply`（security-admin）。请求 agent pull-reconcile；必须显式 `--confirm`。
+
+### `meristem deploy rollback --agent <agent-id> --digest-value <hex> [--digest-algorithm sha256|sha512] --confirm`
+
+Permission: `deploy:desired-state-rollback`（security-admin）。回滚到指定 digest；必须显式 `--confirm`；rollback 不复用 apply 的审批。
+
+### 安全边界
+
+- CLI 永不接收/存储生产明文 secret；Vault/SecretProvider 值只能以 SecretRef 形式出现在 desired-state 中。
+- 不允许 SSH push、手工替换容器、mutable tag；签名与准入复核在 M-Deploy/agent 拉取时执行。
+- 命令失败非零退出并打印短错误；HTTP 错误信封携带 correlationId（可通过 API 响应或日志串查）。
+- HTTP 401 且 `error.code` 为 `expired_token` 时，操作者必须通过已配置的身份提供方续期后重试；只有明确使用 `local-dev` 身份提供方的本地开发环境才可显式运行 `bun run token:mint --actor <actor>`。CLI 不自动签发、刷新、重试或重新执行部署操作。
+- HTTP 403 且 `error.code` 为 `policy.denied` 时，部署操作需要具备对应权限的身份。local-dev 中 admin 可读取/提案，security-admin 可审批、apply 与 rollback；`security-admin-2` 仅作为映射到同一 security-admin 角色的第二个 local-dev quorum demonstrator。不会把 `operator` 自动提权，也不接受 local token 作为生产凭据。
+
+### Acceptance Scenarios（映射到现有测试门禁）
+
+1. **Given** 无清单且未指定 profiles，**When** 运行 `deploy install`，**Then** 退出非零并提示至少一个 profile。 → `tests/cli/deploy-commands.test.ts`
+2. **Given** production-podman 清单含可变 commit `main`，**When** 运行 `deploy validate`，**Then** 拒绝并报 immutable Git commit。 → `tests/cli/deploy-commands.test.ts` / `tests/contracts/mdeploy-install-manifest.contract.test.ts`
+3. **Given** local-dev admin token，**When** 提交 `deploy apply --confirm`，**Then** Core facade 返回 403；local-dev security-admin token 通过。 → `tests/contracts/core-deploy-facade.contract.test.ts`
+4. **Given** M-Deploy 端口未接线，**When** 访问任何 `/api/v0/deploy/*`，**Then** 一致 503 feature.unavailable。 → `tests/contracts/core-deploy-facade.contract.test.ts`
+5. **Given** 非法 proposal body，**When** 运行 `deploy propose`，**Then** Core 在转发前以 400 拒绝，不产生下游调用。 → `tests/contracts/core-deploy-facade.contract.test.ts`
+6. **Given** 本地安装依赖已准备完成，**When** 运行 `deploy install`，**Then** `dev:full` 启动 M-Deploy 并暴露 `/ready`，后续 deploy 命令不再要求操作者手动启动控制面。 → `tests/contracts/local-deployment-compose.contract.test.ts`
+7. **Given** 从带 origin 的附着 Git checkout 运行，且工作树存在脏改动与未跟踪文件，**When** 运行 `deploy init --profile production-podman` 后立即运行 `deploy validate`，**Then** 清单写入真实 provenance 且 `validate` 成功；sourceRef 为 origin URL、附着分支、不可变 commit、`path: "."` 与原始 archive 字节的小写 sha256 digest，脏工作树不影响 digest。 → `tests/cli/deploy-manifest.test.ts` / `tests/cli/m-cli-entrypoint.test.ts`
+8. **Given** 已存在有效且同 profile 的生产清单，**When** 再次运行 `deploy init --profile production-podman`，**Then** 原样复用且不改写内容（`"reused": true`）；仅精确匹配的旧版生成占位清单会被原地升级（`"upgraded": true`）。 → `tests/cli/deploy-manifest.test.ts`
+9. **Given** 不在 Git checkout、缺少 origin、detached HEAD、origin 含凭据或 archive 失败，**When** 运行 `deploy init --profile production-podman`，**Then** 失败退出且不写入或改写清单。 → `tests/cli/deploy-manifest.test.ts`
+10. **Given** local-dev admin 已提交 proposal，**When** security-admin 与 security-admin-2 分别批准，**Then** M-Policy 产生双人 quorum；任一单票、proposer、重复票或非 security-admin 都不能使 apply 通过。 → `tests/services/m-policy/mdeploy-quorum.test.ts` / `tests/failure-modes/mdeploy-security-repair.failure-mode.test.ts`
+11. **Given** 冷启动本地环境（无运行中控制面），**When** 运行 `deploy install`，**Then** 命令在服务组就绪后返回而不是阻塞等待长驻进程退出，且记录的 PID 是真实进程组 leader。 → `tests/cli/local-control-plane-lifecycle.test.ts`
+12. **Given** `deploy install` 启动的本地控制面，**When** 运行 `deploy stop`，**Then** 整个服务进程组被终止且监听端口释放；重复执行为幂等成功。 → `tests/cli/local-control-plane-lifecycle.test.ts`
+13. **Given** 本地控制面与操作者真实 pin 的 production sourceRef，**When** 依次执行 `propose` → 两位 security-admin `approve` → `apply --confirm`，**Then** apply 以该 digest 产生 queued operation 并写出 evidence；默认服务测试 fixture 仍对未知 digest 返回 `git.digest_not_found`。 → `tests/cli/local-control-plane-lifecycle.test.ts` / `tests/contracts/mdeploy-controller.contract.test.ts`

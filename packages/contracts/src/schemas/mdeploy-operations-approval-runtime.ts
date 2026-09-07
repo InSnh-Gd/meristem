@@ -2,15 +2,15 @@ import * as Schema from 'effect/Schema'
 import { err, ok, type Result } from '../../../common/src/result.ts'
 import { MDeployGitSourceRefV01Schema, MDeployIacDriverSchema } from './mdeploy-common.ts'
 
-export const MDeployApprovalStatusSchema = Schema.Literal(
+export const MDeployApprovalStatusSchema = Schema.Literals([
   'pending',
   'approved',
   'rejected',
   'expired'
-)
+])
 export type MDeployApprovalStatusFromSchema = typeof MDeployApprovalStatusSchema.Type
 
-export const MDeployApprovalResultSchema = Schema.Literal('approve', 'reject')
+export const MDeployApprovalResultSchema = Schema.Literals(['approve', 'reject'])
 export type MDeployApprovalResultFromSchema = typeof MDeployApprovalResultSchema.Type
 
 export const MDeployDiffSummaryV01Schema = Schema.Struct({
@@ -46,10 +46,10 @@ export const MDeployApprovalV01Schema = Schema.Struct({
 })
 export type MDeployApprovalV01FromSchema = typeof MDeployApprovalV01Schema.Type
 
-export const MDeployRuntimeClassSchema = Schema.Literal('production', 'compatibility')
+export const MDeployRuntimeClassSchema = Schema.Literals(['production', 'compatibility'])
 export type MDeployRuntimeClassFromSchema = typeof MDeployRuntimeClassSchema.Type
 
-export const MDeployRuntimeUnitManagerSchema = Schema.Literal('quadlet-systemd', 'docker-compose')
+export const MDeployRuntimeUnitManagerSchema = Schema.Literals(['quadlet-systemd', 'docker-compose'])
 export type MDeployRuntimeUnitManagerFromSchema = typeof MDeployRuntimeUnitManagerSchema.Type
 
 export const MDeployPodmanRuntimeDriverSelectionV01Schema = Schema.Struct({
@@ -76,10 +76,10 @@ export const MDeployDockerRuntimeDriverSelectionV01Schema = Schema.Struct({
 export type MDeployDockerRuntimeDriverSelectionV01FromSchema =
   typeof MDeployDockerRuntimeDriverSelectionV01Schema.Type
 
-export const MDeployRuntimeDriverSelectionV01Schema = Schema.Union(
+export const MDeployRuntimeDriverSelectionV01Schema = Schema.Union([
   MDeployPodmanRuntimeDriverSelectionV01Schema,
   MDeployDockerRuntimeDriverSelectionV01Schema
-)
+])
 export type MDeployRuntimeDriverSelectionV01FromSchema =
   typeof MDeployRuntimeDriverSelectionV01Schema.Type
 

@@ -41,16 +41,16 @@ export const MDeployEvidenceMetadataV01Schema = Schema.Struct({
 })
 export type MDeployEvidenceMetadataV01FromSchema = typeof MDeployEvidenceMetadataV01Schema.Type
 
-export const MDeployApplyStatusSchema = Schema.Literal(
+export const MDeployApplyStatusSchema = Schema.Literals([
   'queued',
   'running',
   'succeeded',
   'failed',
   'blocked'
-)
+])
 export type MDeployApplyStatusFromSchema = typeof MDeployApplyStatusSchema.Type
 
-export const MDeployPublicationStatusSchema = Schema.Literal('pending', 'published')
+export const MDeployPublicationStatusSchema = Schema.Literals(['pending', 'published'])
 export type MDeployPublicationStatusFromSchema = typeof MDeployPublicationStatusSchema.Type
 
 export const MDeployReconcileResultV01Schema = Schema.Struct({
@@ -76,12 +76,12 @@ export const MDeployRollbackRequestV01Schema = Schema.Struct({
 })
 export type MDeployRollbackRequestV01FromSchema = typeof MDeployRollbackRequestV01Schema.Type
 
-export const MDeployRollbackStatusSchema = Schema.Literal(
+export const MDeployRollbackStatusSchema = Schema.Literals([
   'running',
   'succeeded',
   'failed',
   'blocked'
-)
+])
 export type MDeployRollbackStatusFromSchema = typeof MDeployRollbackStatusSchema.Type
 
 export const MDeployRollbackResultV01Schema = Schema.Struct({

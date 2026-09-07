@@ -43,7 +43,7 @@ export const ConfigRollbackRequestSchema = Schema.Struct({
 })
 export type ConfigRollbackRequestFromSchema = typeof ConfigRollbackRequestSchema.Type
 
-export const ConfigApplyAckRouteStatusSchema = Schema.Literal('acked', 'failed')
+export const ConfigApplyAckRouteStatusSchema = Schema.Literals(['acked', 'failed'])
 export type ConfigApplyAckRouteStatusFromSchema = typeof ConfigApplyAckRouteStatusSchema.Type
 
 export const ConfigApplyAckRequestSchema = Schema.Struct({

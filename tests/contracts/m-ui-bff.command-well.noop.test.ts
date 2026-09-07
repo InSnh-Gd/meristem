@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { CommandWellEligibilitySchema } from '../../packages/contracts/src/index.ts'
 import {
@@ -35,7 +35,7 @@ export function registerCommandWellNoopContractTests(): void {
       })
       expect(res.status).toBe(200)
       const body = (await res.json()) as { state: string; command: { id: string } }
-      expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
         true
       )
       expect(body.state).toBe('enabled')
@@ -56,7 +56,7 @@ export function registerCommandWellNoopContractTests(): void {
         disabledReason: string
         disabled: { code: string; missingPermission?: string }
       }
-      expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
         true
       )
       expect(body.state).toBe('disabled')
@@ -91,7 +91,7 @@ export function registerCommandWellNoopContractTests(): void {
         disabledReason: string
         disabled: { code: string }
       }
-      expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
         true
       )
       expect(body.state).toBe('disabled')
@@ -114,7 +114,7 @@ export function registerCommandWellNoopContractTests(): void {
         disabledReason: string
         disabled: { code: string }
       }
-      expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
         true
       )
       expect(body.state).toBe('disabled')
@@ -155,7 +155,7 @@ export function registerCommandWellNoopContractTests(): void {
         disabledReason: string
         disabled: { code: string }
       }
-      expect(Either.isRight(Schema.decodeUnknownEither(CommandWellEligibilitySchema)(body))).toBe(
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CommandWellEligibilitySchema)(body))).toBe(
         true
       )
       expect(body.state).toBe('disabled')

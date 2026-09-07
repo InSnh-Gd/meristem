@@ -1,9 +1,11 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
 type WorkspaceHygieneViolation = {
   path: string
   reason: string
 }
 
-const DEFAULT_SCAN_ROOTS = ['apps', 'services', 'packages', 'tests', 'docs', 'scripts']
 const LOCAL_RUNTIME_ROOTS = ['.agent-sources', '.codex', '.antigravitycli', 'doc-driven-ai']
 
 /**
@@ -36,14 +38,21 @@ function classifyWorkspacePath(path: string): string | null {
   return null
 }
 
-async function collectWorkspacePaths(): Promise<string[]> {
+/**
+ * 收集评审面路径：Git 跟踪文件列表 + 显式检测本地禁止的运行时根目录。
+ */
+export function collectWorkspacePaths(root: string = process.cwd()): string[] {
   const paths: string[] = []
-  const rootGlobs = DEFAULT_SCAN_ROOTS.map(root => `${root}/**/*`)
-  rootGlobs.push(...LOCAL_RUNTIME_ROOTS.map(root => `${root}/**/*`))
 
-  for (const pattern of rootGlobs) {
-    for await (const entry of new Bun.Glob(pattern).scan('.')) {
-      paths.push(entry)
+  const gitResult = Bun.spawnSync(['git', 'ls-files'], { cwd: root })
+  if (gitResult.exitCode === 0) {
+    const lines = gitResult.stdout.toString().split('\n').filter(Boolean)
+    paths.push(...lines)
+  }
+
+  for (const runtimeRoot of LOCAL_RUNTIME_ROOTS) {
+    if (existsSync(join(root, runtimeRoot))) {
+      paths.push(runtimeRoot)
     }
   }
 
@@ -51,7 +60,7 @@ async function collectWorkspacePaths(): Promise<string[]> {
 }
 
 if (import.meta.main) {
-  const violations = findWorkspaceHygieneViolations(await collectWorkspacePaths())
+  const violations = findWorkspaceHygieneViolations(collectWorkspacePaths())
   if (violations.length > 0) {
     for (const violation of violations) {
       console.error(`${violation.path}: ${violation.reason}`)

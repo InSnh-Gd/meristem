@@ -144,11 +144,8 @@ describe('DFW-001 redaction — no raw secrets in schema surface', () => {
   it('ApprovalContextSchema has no optional unbounded catch-all', () => {
     // Schema.Struct uses exact object encoding — extra fields means decode
     // failure unless the schema has a rest field. Verify none exists.
-    const ast = ApprovalContextSchema.ast as {
-      propertySignatures?: Record<string, unknown>
-      indexSignature?: unknown
-    }
-    expect(ast.indexSignature).toBeUndefined()
+    const ast = ApprovalContextSchema.ast
+    expect(ast.indexSignatures).toHaveLength(0)
   })
 })
 

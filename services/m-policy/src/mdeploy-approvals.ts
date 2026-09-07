@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import type { ActorId, PolicyApproval } from '../../../packages/contracts/src/index.ts'
-import { actorIds } from '../../../packages/contracts/src/index.ts'
+import { actorIds, mDeployApproverActorIds } from '../../../packages/contracts/src/index.ts'
 import { validateInternalRequest } from '../../../packages/internal-http/src/index.ts'
 import { approveApprovalForActor, rejectApprovalForActor } from './approval-execution.ts'
 import type { ApprovalDeps } from './approval-schemas.ts'
@@ -63,8 +63,12 @@ async function recordMDeployVote(
     }
   | MDeployApprovalFailure
 > {
-  const permission = input.result === 'approve' ? 'policy:approval-approve' : 'policy:approval-reject'
-  if (!(await deps.authorize(input.actor, permission, `deploy-proposal:${input.proposalId}`))) {
+  const permission =
+    input.result === 'approve' ? 'policy:approval-approve' : 'policy:approval-reject'
+  if (
+    !mDeployApproverActorIds.includes(input.actor) ||
+    !(await deps.authorize(input.actor, permission, `deploy-proposal:${input.proposalId}`))
+  ) {
     return {
       status: 403,
       error: { code: 'policy.approver_ineligible', message: 'actor is not an eligible approver' }
@@ -101,7 +105,11 @@ async function proveMDeployQuorum(
   }
   const votes = await deps.approvals.getVotes(approval.id)
   const approvers = [
-    ...new Set(votes.filter(vote => vote.vote === 'approve').map(vote => vote.actor))
+    ...new Set(
+      votes
+        .filter(vote => vote.vote === 'approve' && mDeployApproverActorIds.includes(vote.actor))
+        .map(vote => vote.actor)
+    )
   ]
   if (
     approval.status !== 'approved' ||

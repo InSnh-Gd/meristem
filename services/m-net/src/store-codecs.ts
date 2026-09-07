@@ -139,7 +139,14 @@ export function asSuspendedStatus(value: string): NetworkSuspendedOperationStatu
  * 校验并收窄 actor 字段；未知 actor 直接拒绝解码。
  */
 export function asActorId(value: string): ActorId | null {
-  return ['viewer', 'operator', 'admin', 'security-admin', 'break-glass-reviewer'].includes(value)
+  return [
+    'viewer',
+    'operator',
+    'admin',
+    'security-admin',
+    'security-admin-2',
+    'break-glass-reviewer'
+  ].includes(value)
     ? (value as ActorId)
     : null
 }

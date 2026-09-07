@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import {
   mnetNetworkMapRenders,
@@ -55,8 +55,14 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
         const rows = await db
           .select()
           .from(mnetProfileMigrations)
-          .where(eq(mnetProfileMigrations.networkId, networkId))
-        const row = rows.find(candidate => candidate.operationId === operationId)
+          .where(
+            and(
+              eq(mnetProfileMigrations.networkId, networkId),
+              eq(mnetProfileMigrations.operationId, operationId)
+            )
+          )
+          .limit(1)
+        const row = rows[0]
         return row
           ? {
               networkId: row.networkId,
@@ -123,8 +129,14 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
         const rows = await db
           .select()
           .from(mnetNetworkMapRenders)
-          .where(eq(mnetNetworkMapRenders.networkId, networkId))
-        const row = rows.find(candidate => candidate.mapVersion === mapVersion)
+          .where(
+            and(
+              eq(mnetNetworkMapRenders.networkId, networkId),
+              eq(mnetNetworkMapRenders.mapVersion, mapVersion)
+            )
+          )
+          .limit(1)
+        const row = rows[0]
         const map = row ? decodeNetworkMap(row.mapJson) : null
         return row && map
           ? {
@@ -142,11 +154,12 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
           : null
       },
       async getLatest(networkId) {
-        const rows = await db
+        const [latest] = await db
           .select()
           .from(mnetNetworkMapRenders)
           .where(eq(mnetNetworkMapRenders.networkId, networkId))
-        const latest = rows.sort((left, right) => right.mapVersion - left.mapVersion)[0]
+          .orderBy(desc(mnetNetworkMapRenders.mapVersion))
+          .limit(1)
         const map = latest ? decodeNetworkMap(latest.mapJson) : null
         return latest && map
           ? {
@@ -200,8 +213,9 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
         const rows = await db
           .select()
           .from(mnetNodePublicKeys)
-          .where(eq(mnetNodePublicKeys.nodeId, nodeId))
-        const row = rows.find(candidate => candidate.keyId === keyId)
+          .where(and(eq(mnetNodePublicKeys.nodeId, nodeId), eq(mnetNodePublicKeys.keyId, keyId)))
+          .limit(1)
+        const row = rows[0]
         return hydrateStoredKey(row)
       },
       async listByNode(nodeId) {
@@ -289,8 +303,14 @@ function createTunnelAllocationStore(
       const rows = await db
         .select()
         .from(mnetTunnelAddressAllocations)
-        .where(eq(mnetTunnelAddressAllocations.networkId, networkId))
-      const row = rows.find(candidate => candidate.nodeId === nodeId)
+        .where(
+          and(
+            eq(mnetTunnelAddressAllocations.networkId, networkId),
+            eq(mnetTunnelAddressAllocations.nodeId, nodeId)
+          )
+        )
+        .limit(1)
+      const row = rows[0]
       return row
         ? {
             networkId: row.networkId,

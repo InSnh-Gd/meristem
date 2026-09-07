@@ -1015,6 +1015,7 @@ MVP seed users:
 | `operator` | `operator` |
 | `admin` | `admin` |
 | `security-admin` | `security-admin` |
+| `security-admin-2` | `security-admin` (local-dev quorum demonstrator only) |
 
 MVP seed permissions:
 

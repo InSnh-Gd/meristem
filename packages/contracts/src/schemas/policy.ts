@@ -3,43 +3,31 @@ import { actorIds, permissions } from '../literals.ts'
 
 // Permission literals are executable contracts so Core, M-Policy, and adapters cannot drift silently.
 // Policy 契约 schema 边界见 `docs/security/SECURITY-MODEL.md` 和 M-Policy 服务文档。
-export const PermissionSchema = Schema.Literal(...permissions)
+export const PermissionSchema = Schema.Literals(permissions)
 export type PermissionFromSchema = typeof PermissionSchema.Type
 
 // 审批状态和投票的 Effect Schema，用于 decode/encode 契约测试和 drift 检查。
 
-export const ApprovalStatusSchema = Schema.Literal(
-  'pending',
-  'approved',
-  'rejected',
-  'expired',
-  'canceled'
-)
+export const ApprovalStatusSchema = Schema.Literals(['pending', 'approved', 'rejected',
+'expired',
+'canceled'])
 export type ApprovalStatusFromSchema = typeof ApprovalStatusSchema.Type
 
-export const ApprovalVoteTypeSchema = Schema.Literal('approve', 'reject')
+export const ApprovalVoteTypeSchema = Schema.Literals(['approve', 'reject'])
 export type ApprovalVoteTypeFromSchema = typeof ApprovalVoteTypeSchema.Type
 
-export const ApprovalOriginServiceSchema = Schema.Literal('m-task', 'm-net', 'm-deploy')
+export const ApprovalOriginServiceSchema = Schema.Literals(['m-task', 'm-net', 'm-deploy'])
 export type ApprovalOriginServiceFromSchema = typeof ApprovalOriginServiceSchema.Type
 
-export const ApprovalOriginActionSchema = Schema.Literal(
-  'task.submit',
-  'task.cancel',
-  'task.retry',
-  'mnet.profile.enable'
-)
+export const ApprovalOriginActionSchema = Schema.Literals(['task.submit', 'task.cancel', 'task.retry',
+'mnet.profile.enable'])
 export type ApprovalOriginActionFromSchema = typeof ApprovalOriginActionSchema.Type
 
-export const RequiredActionSchema = Schema.Literal('manual_review', 'multi_approval')
+export const RequiredActionSchema = Schema.Literals(['manual_review', 'multi_approval'])
 export type RequiredActionFromSchema = typeof RequiredActionSchema.Type
 
-export const PolicyDecisionResultSchema = Schema.Literal(
-  'allow',
-  'deny',
-  'require_manual_review',
-  'require_multi_approval'
-)
+export const PolicyDecisionResultSchema = Schema.Literals(['allow', 'deny', 'require_manual_review',
+'require_multi_approval'])
 export type PolicyDecisionResultFromSchema = typeof PolicyDecisionResultSchema.Type
 
 export const PolicyApprovalSchema = Schema.Struct({
@@ -47,7 +35,7 @@ export const PolicyApprovalSchema = Schema.Struct({
   policyDecisionId: Schema.String,
   originService: ApprovalOriginServiceSchema,
   operationId: Schema.String,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   requiredAction: RequiredActionSchema,
   status: ApprovalStatusSchema,
   quorumRequired: Schema.Number,
@@ -61,7 +49,7 @@ export type PolicyApprovalFromSchema = typeof PolicyApprovalSchema.Type
 export const PolicyApprovalVoteSchema = Schema.Struct({
   id: Schema.String,
   approvalId: Schema.String,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Literals(actorIds),
   vote: ApprovalVoteTypeSchema,
   reason: Schema.optional(Schema.String),
   createdAt: Schema.String
@@ -88,7 +76,7 @@ export const ApprovalDetailResponseSchema = Schema.Struct({
   policyDecisionId: Schema.String,
   originService: ApprovalOriginServiceSchema,
   operationId: Schema.String,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   requiredAction: RequiredActionSchema,
   status: ApprovalStatusSchema,
   quorumRequired: Schema.Number,
@@ -106,20 +94,16 @@ export const ApprovalActionResponseSchema = Schema.Struct({
 })
 export type ApprovalActionResponseFromSchema = typeof ApprovalActionResponseSchema.Type
 
-export const SuspendedOperationStatusSchema = Schema.Literal(
-  'suspended',
-  'resumed',
-  'rejected',
-  'expired',
-  'resume_failed'
-)
+export const SuspendedOperationStatusSchema = Schema.Literals(['suspended', 'resumed', 'rejected',
+'expired',
+'resume_failed'])
 export type SuspendedOperationStatusFromSchema = typeof SuspendedOperationStatusSchema.Type
 
 export const TaskSuspendedOperationSchema = Schema.Struct({
   id: Schema.String,
   policyDecisionId: Schema.String,
   action: ApprovalOriginActionSchema,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   resource: Schema.String,
   sanitizedPayload: Schema.Unknown,
   correlationId: Schema.String,
@@ -137,7 +121,7 @@ export const PolicyApprovalEventPayloadSchema = Schema.Struct({
   policyDecisionId: Schema.String,
   originService: ApprovalOriginServiceSchema,
   operationId: Schema.String,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   requiredAction: RequiredActionSchema,
   status: ApprovalStatusSchema
 })
@@ -148,7 +132,7 @@ export type PolicyApprovalEventPayloadFromSchema = typeof PolicyApprovalEventPay
 // projections and the approval profile UI without coupling to lifecycle transitions.
 export const PolicyApprovalVoteEventPayloadSchema = Schema.Struct({
   approvalId: Schema.String,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Literals(actorIds),
   vote: ApprovalVoteTypeSchema,
   reason: Schema.optional(Schema.String),
   timestamp: Schema.String
@@ -158,7 +142,7 @@ export type PolicyApprovalVoteEventPayloadFromSchema =
 
 export const PolicyDecisionCreatedPayloadSchema = Schema.Struct({
   decisionId: Schema.String,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Literals(actorIds),
   action: PermissionSchema,
   resource: Schema.String,
   result: PolicyDecisionResultSchema,
@@ -178,7 +162,7 @@ export type PolicyDecisionSummaryFromSchema = typeof PolicyDecisionSummarySchema
 
 export const MinimalPolicyDecisionSummarySchema = Schema.Struct({
   id: Schema.String,
-  actor: Schema.Literal(...actorIds),
+  actor: Schema.Literals(actorIds),
   action: PermissionSchema,
   resource: Schema.String,
   result: PolicyDecisionResultSchema,
@@ -201,7 +185,7 @@ export type PolicyApprovalSummaryFromSchema = typeof PolicyApprovalSummarySchema
 export const PolicyPendingApprovalSummarySchema = Schema.Struct({
   approvalId: Schema.String,
   policyDecisionId: Schema.String,
-  requestedBy: Schema.Literal(...actorIds),
+  requestedBy: Schema.Literals(actorIds),
   requiredAction: RequiredActionSchema,
   status: ApprovalStatusSchema,
   createdAt: Schema.String,

@@ -30,7 +30,7 @@ services:
 
 # OpenSearch 读模型，可作为可选 compose profile。
   opensearch:
-    image: opensearchproject/opensearch:2-alpine
+    image: opensearchproject/opensearch:2.19.6
     environment:
       discovery.type: single-node
       plugins.security.disabled: "true"
@@ -61,17 +61,15 @@ services:
 # Optional edge gateway example. APISIX must not become an auth or policy root.
   apisix:
     image: apache/apisix:3.9.1-debian
-    ports:
-      - "9080:9080"
+    # 本地网关共享宿主网络，才能在不扩大 M-* 服务监听范围的前提下访问其 loopback 端口。
+    network_mode: host
     volumes:
       - ./ops/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
       - ./ops/apisix/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     profiles:
       - apisix
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9080/api/v0/health >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9080'"]
       interval: 5s
       timeout: 3s
       retries: 20

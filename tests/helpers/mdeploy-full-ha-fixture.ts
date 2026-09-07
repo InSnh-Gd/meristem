@@ -79,7 +79,7 @@ export async function runCommand(
     catch: cause => commandFailure(command, args, cause)
   }).pipe(
     Effect.map(ok),
-    Effect.catchAll(error => Effect.succeed(err(error)))
+    Effect.catch(error => Effect.succeed(err(error)))
   )
   return await Effect.runPromise(program)
 }

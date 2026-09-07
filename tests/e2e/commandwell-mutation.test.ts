@@ -16,7 +16,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import * as Either from 'effect/Either'
+import { Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import { OperationalCommandPreviewSchema } from '../../packages/contracts/src/index.ts'
 import {
@@ -236,7 +236,7 @@ describe('E2E: CommandWell Mutation UX Contract', () => {
       expect(res.status).toBe(200)
       const body = (await res.json()) as Record<string, unknown>
       expect(
-        Either.isRight(Schema.decodeUnknownEither(OperationalCommandPreviewSchema)(body))
+        Result.isSuccess(Schema.decodeUnknownResult(OperationalCommandPreviewSchema)(body))
       ).toBe(true)
       expect(body.commandId).toBe('policy.approval.approve.preview')
       expect(body.displayOnly).toBe(true)

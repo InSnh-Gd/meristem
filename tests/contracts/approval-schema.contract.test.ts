@@ -30,6 +30,20 @@ describe('Approval schema and RBAC drift', () => {
     expect(rolePermissions.operator).not.toContain('policy:approval-read')
   })
 
+  it('deployment permissions are seeded with the policy role matrix', async () => {
+    const { deploymentPermissions } = await import('../../packages/contracts/src/literals.ts')
+    const { rolePermissions } = await import('../../packages/policy/src/index.ts')
+    const seed = await Bun.file('packages/db/src/seed.ts').text()
+
+    for (const permission of deploymentPermissions) {
+      expect(rolePermissions['security-admin']).toContain(permission)
+    }
+    expect(seed).toContain('...deploymentPermissions.map')
+    expect(seed).toContain('deploymentPermissions[0]')
+    expect(seed).toContain('deploymentPermissions[1]')
+    expect(seed).toContain('...deploymentPermissions')
+  })
+
   it('approval status and vote schemas decode valid values and reject invalid values', async () => {
     for (const status of ['pending', 'approved', 'rejected', 'expired', 'canceled'] as const) {
       expect(Schema.decodeUnknownSync(ApprovalStatusSchema)(status)).toBe(status)

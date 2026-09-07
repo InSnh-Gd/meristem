@@ -25,6 +25,37 @@ export type PolicyInput = {
 
 export type PolicyDecisionDraft = Omit<PolicyDecision, 'id' | 'createdAt'>
 
+const securityAdminPermissions: readonly Permission[] = [
+  'core:read',
+  'node:register',
+  'node:issue-token',
+  'node:switch-role',
+  'node:disable',
+  'node:isolate',
+  'node:recover',
+  'task:read',
+  'task:submit',
+  'task:cancel',
+  'task:retry',
+  'task:manage',
+  'timeline:read',
+  'log:read-full',
+  'audit:read',
+  'service:register',
+  'service:reload',
+  'network:read',
+  'network:create',
+  'network:join',
+  ...identityPermissions,
+  ...secretPermissions,
+  ...configPermissions,
+  ...approvalPermissions,
+  ...networkProfilePermissions,
+  ...extensionPermissions,
+  ...projectionPermissions,
+  ...deploymentPermissions
+]
+
 // 角色权限矩阵作为最小 RBAC 默认值存在，真实权威表仍在 PostgreSQL seed 中。
 export const rolePermissions: Record<ActorId, readonly Permission[]> = {
   viewer: ['core:read', 'timeline:read', 'network:read', 'extension:read', configPermissions[0]],
@@ -84,36 +115,8 @@ export const rolePermissions: Record<ActorId, readonly Permission[]> = {
     deploymentPermissions[5],
     deploymentPermissions[6]
   ],
-  'security-admin': [
-    'core:read',
-    'node:register',
-    'node:issue-token',
-    'node:switch-role',
-    'node:disable',
-    'node:isolate',
-    'node:recover',
-    'task:read',
-    'task:submit',
-    'task:cancel',
-    'task:retry',
-    'task:manage',
-    'timeline:read',
-    'log:read-full',
-    'audit:read',
-    'service:register',
-    'service:reload',
-    'network:read',
-    'network:create',
-    'network:join',
-    ...identityPermissions,
-    ...secretPermissions,
-    ...configPermissions,
-    ...approvalPermissions,
-    ...networkProfilePermissions,
-    ...extensionPermissions,
-    ...projectionPermissions,
-    ...deploymentPermissions
-  ],
+  'security-admin': securityAdminPermissions,
+  'security-admin-2': securityAdminPermissions,
   'break-glass-reviewer': [
     'core:read',
     'timeline:read',

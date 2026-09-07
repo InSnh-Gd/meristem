@@ -1,4 +1,4 @@
-import { Either } from 'effect'
+import { Result as EffectResult } from 'effect'
 import * as Schema from 'effect/Schema'
 import { err, ok, type Result } from '../../common/src/result.ts'
 import {
@@ -170,13 +170,13 @@ function decodeDeploymentConfig(
   const oidcFieldFailure = missingOidcFieldFromUnknown(path, value)
   if (oidcFieldFailure) return err(oidcFieldFailure)
 
-  const decoded = Schema.decodeUnknownEither(DeploymentConfigV02Schema)(value)
-  if (Either.isRight(decoded)) return ok(decoded.right)
+  const decoded = Schema.decodeUnknownResult(DeploymentConfigV02Schema)(value)
+  if (EffectResult.isSuccess(decoded)) return ok(decoded.success)
 
   return err({
     code: 'runtime_deployment_config.invalid_schema',
     path,
-    message: `Deployment config at ${path} does not match the v0.2 deployment contract: ${String(decoded.left)}`
+    message: `Deployment config at ${path} does not match the v0.2 deployment contract: ${String(decoded.failure)}`
   })
 }
 

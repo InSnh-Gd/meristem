@@ -6,7 +6,10 @@ import {
   NetworkSuspendedOperationSchema,
   SetNetworkProfileRequestSchema
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import { decodeMNetProfileV03Compatibility } from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
+import {
+  decodeMNetProfileV03Compatibility,
+  MNetSidecarDesiredStateSchema
+} from '../../packages/contracts/src/schemas/mnet-profile-v03.ts'
 
 describe('M-Net profile contract schemas', () => {
   it('decodes and encodes MNetRegionalProfile for default and cn variants', () => {
@@ -150,6 +153,19 @@ describe('M-Net profile contract schemas', () => {
     expect(Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-cn@0.2.0')).toBe(
       'm-net-cn@0.2.0'
     )
+  })
+
+  it('rejects profile values outside the active and sidecar vocabularies', () => {
+    expect(() =>
+      Schema.decodeUnknownSync(SetNetworkProfileRequestSchema)({
+        profileVersion: 'm-net-eu@0.3.0',
+        reason: 'unsupported region'
+      })
+    ).toThrow()
+    expect(() => Schema.decodeUnknownSync(MNetSidecarDesiredStateSchema)('restart')).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(MNetHistoricalProfileVersionSchema)('m-net-eu@0.1.0')
+    ).toThrow()
   })
 
   it('exports and validates network profile permissions as literal contracts', async () => {

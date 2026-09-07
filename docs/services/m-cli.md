@@ -24,14 +24,21 @@ What this service owns:
 - human-readable and JSON output rendering
 - non-zero exit codes on command failure
 - bounded host-local node-agent file staging for the existing NixOS/systemd operator path
+- local deployment installer commands (`deploy init/validate/install`) that only produce a validated non-secret install manifest and spawn the repository's own local scripts
+- local committed Git provenance collection for production manifests (`deploy init --profile production-podman`): origin URL, attached branch, immutable commit, and a lowercase SHA-256 over the raw `git archive --format=tar <commit> -- .` bytes of the committed tree
+- deployment workflow commands (`deploy status/agents/drift/evidence/propose/approve/apply/rollback`) that call the Core public deploy facade and decode all M-Deploy public responses with shared Effect Schema contracts at the HTTP boundary
 
 What this service must not own:
 
 - authorization decisions
+- signing deployment envelopes, generating production keys, or bypassing host adapter trust
+- policy decisions (M-Policy remains authoritative)
 - database writes
 - event publication
 - Audit Log writes
 - Core-side secret issuance, token mutation, or any remote host orchestration
+- deployment facts, approvals, drift or evidence ownership (M-Deploy / M-Policy / M-Log remain authoritative)
+- storing or transmitting plaintext production secrets; the CLI never receives a production secret
 
 ---
 
@@ -62,6 +69,8 @@ M-CLI does not enforce permissions locally. Core and M-Policy enforce all author
 |------------|------|------------------|
 | meristem-core | service | command fails non-zero and surfaces the Core error envelope |
 | `packages/contracts` | shared package | CLI loses Eden client and shared schema helpers |
+
+For deployment commands, an HTTP 401 with `error.code` `expired_token` exits non-zero. The operator renews through the configured identity provider before retrying with an updated `MERISTEM_TOKEN`. Only an explicit `local-dev` identity-provider local-development setup may use `bun run token:mint --actor <actor>`; M-CLI never automatically issues, refreshes, retries, or re-executes a deployment command.
 
 ---
 

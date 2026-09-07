@@ -6,16 +6,12 @@ export const ProjectionCursorSchema = Schema.Struct({
 })
 export type ProjectionCursorFromSchema = typeof ProjectionCursorSchema.Type
 
-export const ProjectionStatusSchema = Schema.Literal('healthy', 'degraded', 'unavailable')
+export const ProjectionStatusSchema = Schema.Literals(['healthy', 'degraded', 'unavailable'])
 export type ProjectionStatusFromSchema = typeof ProjectionStatusSchema.Type
 
-export const ProjectorJobStatusSchema = Schema.Literal(
-  'pending',
-  'running',
-  'completed',
-  'failed',
-  'cancelled'
-)
+export const ProjectorJobStatusSchema = Schema.Literals(['pending', 'running', 'completed',
+'failed',
+'cancelled'])
 export type ProjectorJobStatusFromSchema = typeof ProjectorJobStatusSchema.Type
 
 // Projection control payloads are internal executable contracts; Elysia keeps TypeBox at the REST edge.
@@ -83,12 +79,8 @@ export type ProjectionSkipResponseFromSchema = typeof ProjectionSkipResponseSche
 // Projection staleness and source metadata mark every read-model row as non-authoritative.
 // PostgreSQL tables and audit logs remain the only authoritative state.
 // 投影 sourceType 和 staleness 元数据保证每个读模型行都被标记为非权威。
-export const ProjectionSourceTypeSchema = Schema.Literal(
-  'nats_event',
-  'postgres_cdc',
-  'rest_api',
-  'backfill'
-)
+export const ProjectionSourceTypeSchema = Schema.Literals(['nats_event', 'postgres_cdc', 'rest_api',
+'backfill'])
 export type ProjectionSourceTypeFromSchema = typeof ProjectionSourceTypeSchema.Type
 
 export const ProjectionStalenessSchema = Schema.Struct({
@@ -105,7 +97,7 @@ export type ProjectionStalenessFromSchema = typeof ProjectionStalenessSchema.Typ
 export const ApprovalProfileProjectionSchema = Schema.Struct({
   networkId: Schema.String,
   profileVersion: Schema.String,
-  status: Schema.Literal('enabled', 'disabled'),
+  status: Schema.Literals(['enabled', 'disabled']),
   updatedAt: Schema.String,
   staleness: ProjectionStalenessSchema
 })
@@ -116,8 +108,8 @@ export type ApprovalProfileProjectionFromSchema = typeof ApprovalProfileProjecti
 export const BehaviorAnalysisProjectionSchema = Schema.Struct({
   approvalId: Schema.String,
   actor: Schema.String,
-  action: Schema.Literal('approve', 'reject'),
-  decision: Schema.Literal('vote_recorded', 'approved', 'rejected'),
+  action: Schema.Literals(['approve', 'reject']),
+  decision: Schema.Literals(['vote_recorded', 'approved', 'rejected']),
   timestamp: Schema.String,
   staleness: ProjectionStalenessSchema
 })
