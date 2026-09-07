@@ -2,6 +2,7 @@ import { expect } from 'bun:test'
 import * as Schema from 'effect/Schema'
 import * as Contracts from '../../../packages/contracts/src/index.ts'
 import {
+  contractActivatedMNetClosedLoopSubjects,
   documentedEventBusSubjects,
   eventBusOperationalSubjects
 } from '../../../packages/events/src/index.ts'
@@ -39,6 +40,9 @@ const taskLifecyclePublishSubjectPattern = /publishTaskEvent\(\s*deps,\s*['"`]([
 const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 // Extracted workflow helpers may carry literal subjects in named options instead of direct publish args.
 const workflowSubjectOptionPattern = /requestedSubject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
+// M-Deploy durable outbox intents carry the literal subject as the second argument of createMDeployEventIntent.
+const mDeployEventIntentPattern =
+  /createMDeployEventIntent\([^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [
@@ -86,7 +90,7 @@ function definedMatchGroup(match: RegExpMatchArray, index = 1): string {
 }
 
 export function extractCoverageMapActiveSubjects(markdown: string): string[] {
-  const start = markdown.indexOf('### Active emitted events')
+  const start = markdown.indexOf('### Active event contract coverage')
   const end = markdown.indexOf('### Active REST responses')
   const section = markdown.slice(start, end)
   const subjects: string[] = []
@@ -162,6 +166,10 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
           subjects.add(definedMatchGroup(match))
         }
 
+        for (const match of source.matchAll(mDeployEventIntentPattern)) {
+          subjects.add(definedMatchGroup(match))
+        }
+
         // Windows 上 Bun.Glob 返回反斜杠路径；目录前缀判断必须先归一化分隔符，否则 m-extension 事件通道在 Windows 静默失效。
         const normalizedPath = relativePath.replaceAll('\\', '/')
         if (normalizedPath.startsWith('services/m-extension/src/')) {
@@ -184,7 +192,11 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
 
 export async function getActiveCoverageSubjects(): Promise<Set<string>> {
   const publisherSubjects = await getActivePublisherSubjects()
-  return new Set([...publisherSubjects, ...contractActivatedDataPlaneSubjects])
+  return new Set([
+    ...publisherSubjects,
+    ...contractActivatedDataPlaneSubjects,
+    ...contractActivatedMNetClosedLoopSubjects
+  ])
 }
 
 export const activePublisherSchemaContracts: EventSchemaContract[] = [
