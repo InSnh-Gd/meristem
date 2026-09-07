@@ -1,5 +1,5 @@
 /**
- * E2E-style CommandWell Mutation Contract Tests (TDD Red Phase)
+ * E2E-style CommandWell Mutation Contract Tests
  *
  * Tests the UX contract for CommandWell mutation execution from the BFF boundary.
  * Uses app.handle() pattern (no external infra required).
