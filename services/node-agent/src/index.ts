@@ -36,15 +36,9 @@ import {
 } from './node-agent-runtime-state.ts'
 import {
   deriveControlUrl,
-  fetchLatestNodeRuntimeNetworkMap,
-  leaveNetwork,
   registerNodeRuntimeKey
 } from './node-agent-session.ts'
-import {
-  applySidecarDesiredState,
-  type NodeAgentLifecycleState,
-  stopSidecarLifecycle
-} from './node-agent-sidecar-lifecycle.ts'
+import { fetchLatestNodeRuntimeNetworkMap, leaveNetwork } from './node-agent-runtime-client.ts'
 import { createSidecarSupervisor, type SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 import { discoverPublicEndpoint } from './node-agent-stun.ts'
 import { createTunnelStatusReporter } from './node-agent-tunnel-status.ts'

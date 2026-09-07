@@ -115,7 +115,7 @@ export function mapClaimValidationFailure(token: string, error: unknown): OidcAu
     return { ok: false, code: 'expired_token', message: 'OIDC access token has expired' }
   let payload: JWTPayload | null = null
   try {
-    payload = decodeJwt(token)
+    payload = decodeJwt<JWTPayload>(token)
   } catch {
     payload = null
   }

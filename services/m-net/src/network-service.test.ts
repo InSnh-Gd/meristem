@@ -32,6 +32,7 @@ describe('createNetworkService.listNetworks', () => {
       {
         id: 'network-b',
         name: 'Network B',
+        displayName: null,
         profileVersion: 'm-net@0.3.0',
         status: 'active',
         createdAt: now,
@@ -40,6 +41,7 @@ describe('createNetworkService.listNetworks', () => {
       {
         id: 'network-a',
         name: 'Network A',
+        displayName: null,
         profileVersion: 'm-net-cn@0.3.0',
         status: 'active',
         createdAt: now,

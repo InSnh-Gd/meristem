@@ -1,6 +1,6 @@
 import type { NetworkProfileMigrationResult } from './global-defaults-store.ts'
 import { migrationResult } from './migration-engine-helpers.ts'
-import { getStoredMigration, storeMigration } from './migration-engine-locks.ts'
+import { getStoredMigration, storeMigration } from './migration-engine-storage.ts'
 import type { MigrationEngineDeps } from './migration-engine-pure.ts'
 import {
   type MigrationNetworkState,

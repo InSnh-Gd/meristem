@@ -4,6 +4,7 @@ import type {
   NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
 import type { SecretManager } from '../../../packages/secrets/src/index.ts'
+import type { SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 
 /** 节点代理部署配置的默认宿主路径。 */
 export const DEFAULT_DEPLOYMENT_CONFIG_PATH = '/etc/meristem/node-agent/deployment-v02.json'
@@ -49,6 +50,9 @@ export type SidecarLifecycleInput = {
 }
 
 /** sidecar 生命周期的宿主 I/O 与 SecretProvider 依赖。 */
+/** NetBird 基础设施 endpoint 集合，来自 deployment config 的 netbird 引用。 */
+export type NetbirdEndpoints = DeploymentConfigV02FromSchema['netbird']
+
 export type SidecarLifecycleDependencies = {
   env?: NodeJS.ProcessEnv
   secretManager?: SecretManager

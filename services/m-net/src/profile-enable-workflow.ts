@@ -90,7 +90,6 @@ export async function requestEnableProfile(
     reason: input.reason,
     policyDecisionId: policyResult.id,
     action: 'mnet.profile.enable',
-    pendingStatus: 'enabling',
     requestedEvent: 'mnet.profile.enable.requested',
     requestedSubject: 'mnet.profile.enable.requested.v0',
     auditAction: 'mnet.profile.enable.request',

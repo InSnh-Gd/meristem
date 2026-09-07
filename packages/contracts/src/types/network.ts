@@ -13,6 +13,8 @@ export type CreateNetworkRequest = {
 export type MNetwork = {
   id: string
   name: string
+  /** 展示名；可选元数据，identity 仍是 name。 */
+  displayName?: string
   profileVersion: string
   status: NetworkStatus
   createdAt: string

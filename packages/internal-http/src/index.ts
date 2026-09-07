@@ -39,7 +39,8 @@ export const internalServiceUrlEnvNames: Record<InternalServiceName, string> = {
   'm-eventbus': 'MERISTEM_EVENTBUS_URL',
   'm-net': 'MERISTEM_MNET_URL',
   'm-task': 'MERISTEM_TASK_URL',
-  'm-extension': 'MERISTEM_EXTENSION_URL'
+  'm-extension': 'MERISTEM_EXTENSION_URL',
+  'm-deploy': 'MERISTEM_DEPLOY_URL'
 }
 export const internalApiPaths = {
   authorize: '/internal/v0/authorize',

@@ -1,3 +1,4 @@
+import type { SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 import * as Schema from 'effect/Schema'
 import type {
   DeploymentConfigV02FromSchema,
@@ -266,6 +267,21 @@ async function writeLocalSidecarConfig(
 /**
  * 统一解析期望态、secret 与本地配置；任何 secret 失败均在写入配置或启动进程前 fail-closed。
  */
+/**
+ * 从 deployment config 读取 NetBird Signal/Relay/STUN endpoint；
+ * config 缺失或解析失败时返回 null，调用方按“未配置”跳过依赖该结果的动作。
+ */
+export async function loadNetbirdEndpoints(
+  deps: Pick<SidecarLifecycleDependencies, 'env' | 'readTextFile'> = {}
+): Promise<DeploymentConfigV02FromSchema['netbird'] | null> {
+  try {
+    const config = await loadDeploymentConfig(deps)
+    return config.netbird
+  } catch {
+    return null
+  }
+}
+
 export async function applySidecarDesiredState(
   input: SidecarLifecycleInput,
   deps: SidecarLifecycleDependencies = {}

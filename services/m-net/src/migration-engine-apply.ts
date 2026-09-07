@@ -5,13 +5,8 @@ import {
   type NetworkSnapshot,
   readReason
 } from './migration-engine-helpers.ts'
-import {
-  acquireLock,
-  assessOffline,
-  getStoredMigration,
-  releaseLock,
-  storeMigration
-} from './migration-engine-locks.ts'
+import { acquireLock, assessOffline, releaseLock } from './migration-engine-locks.ts'
+import { getStoredMigration, storeMigration } from './migration-engine-storage.ts'
 import type { MigrationEngineDeps } from './migration-engine-pure.ts'
 import { TARGET_CN_PROFILE_VERSION, toMigrationProfileCandidate } from './migration-engine-pure.ts'
 import type { NetworkOperationLock } from './operation-locks.ts'

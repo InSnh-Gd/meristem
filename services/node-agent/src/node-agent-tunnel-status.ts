@@ -11,7 +11,8 @@
 import type { AgentEnforcementState } from './node-agent-map-enforcement.ts'
 import type { NodeAgentRuntimeStatus } from '../../../packages/contracts/src/index.ts'
 import type { SidecarSupervisorState } from './node-agent-sidecar-supervisor.ts'
-import { loadNetbirdEndpoints, type NetbirdEndpoints } from './node-agent-sidecar-lifecycle.ts'
+import { loadNetbirdEndpoints } from './node-agent-sidecar-lifecycle-operations.ts'
+import type { NetbirdEndpoints } from './node-agent-sidecar-lifecycle-types.ts'
 import {
   reportNodeTunnelStatus,
   type NodeTunnelStatusReport,
