@@ -249,18 +249,14 @@ export async function handleMNetExecuteCommand(input: {
     }
     const permissionCheck = await requireExecuteSessionPermission(deps.cf, token, commandId)
     if (permissionCheck instanceof Response) return permissionCheck
+    // break-glass 统一走 Core facade 的 /profile/disable-break-glass，由 Core 透传 M-Net 公开路由
     return forwardCoreExecute(
       deps.cfRaw(
-        `/api/v0/networks/${encodeURIComponent(breakGlassBody.networkId)}/break-glass`,
+        `/api/v0/networks/${encodeURIComponent(breakGlassBody.networkId)}/profile/disable-break-glass`,
         token,
         {
           method: 'POST',
-          body: JSON.stringify({
-            confirmation: breakGlassBody.confirmation,
-            ...(breakGlassBody.emergencyReason === undefined
-              ? {}
-              : { emergencyReason: breakGlassBody.emergencyReason })
-          })
+          body: JSON.stringify({ emergencyReason: breakGlassBody.emergencyReason ?? '' })
         }
       )
     )

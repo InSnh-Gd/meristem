@@ -216,16 +216,16 @@ export function createBffMNetDataplaneMutationRoutes({ mfRaw }: MUiBffRouteDeps)
             'confirmation is required; emergencyReason must be a non-empty string when provided'
           )
         }
+        // M-Net 公开契约是 /profile/disable-break-glass；BFF facade 只透传，不改写状态事实
         return forwardCoreExecute(
-          mfRaw(`/api/v0/networks/${encodeURIComponent(params.id)}/break-glass`, token, {
-            method: 'POST',
-            body: JSON.stringify({
-              confirmation: breakGlassBody.confirmation,
-              ...(breakGlassBody.emergencyReason === undefined
-                ? {}
-                : { emergencyReason: breakGlassBody.emergencyReason })
-            })
-          })
+          mfRaw(
+            `/api/v0/networks/${encodeURIComponent(params.id)}/profile/disable-break-glass`,
+            token,
+            {
+              method: 'POST',
+              body: JSON.stringify({ emergencyReason: breakGlassBody.emergencyReason ?? '' })
+            }
+          )
         )
       },
       {
