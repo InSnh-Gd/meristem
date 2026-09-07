@@ -15,9 +15,13 @@ import {
   resolveSidecarCredentials,
   type SecretManager
 } from '../../../packages/secrets/src/index.ts'
+import type { SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 
 export const DEFAULT_DEPLOYMENT_CONFIG_PATH = '/etc/meristem/node-agent/deployment-v02.json'
 export const DEFAULT_SIDECAR_CONFIG_PATH = '/run/meristem/netbird/sidecar.json'
+
+/** NetBird 基础设施 endpoint 集合，来自 deployment config 的 netbird 引用。 */
+export type NetbirdEndpoints = DeploymentConfigV02FromSchema['netbird']
 
 type RuntimeSidecarDesiredState = NodeAgentRuntimeDesiredSidecar
 
@@ -50,6 +54,8 @@ export type SidecarLifecycleDependencies = {
   readTextFile?: (path: string) => Promise<string>
   writeTextFile?: (path: string, contents: string) => Promise<void>
   mkdir?: (path: string) => Promise<void>
+  /** NetBird 客户端进程监督器；未配置客户端二进制时为空，生命周期退化为配置写入。 */
+  supervisor?: SidecarSupervisor
 }
 
 type ResolvedSecrets = {
@@ -264,14 +270,37 @@ async function writeLocalSidecarConfig(
 }
 
 /**
- * 统一在 node-agent 内部解析 sidecar 期望态、secret 和本地配置写入。
+ * 统一在 node-agent 内部解析 sidecar 期望态、secret 和本地配置写入，
+ * 并在配置了监督器时驱动 NetBird 客户端进程的真实启停。
  */
 export async function applySidecarDesiredState(
   input: SidecarLifecycleInput,
   deps: SidecarLifecycleDependencies = {}
 ): Promise<NodeAgentLifecycleState> {
   const runtimeEnv = deps.env ?? process.env
-  const config = await loadDeploymentConfig({ ...deps, env: runtimeEnv })
+  let config: DeploymentConfigV02FromSchema
+  try {
+    config = await loadDeploymentConfig({ ...deps, env: runtimeEnv })
+  } catch (error) {
+    // deployment config 缺失 = 本节点未部署 sidecar（如无 NetBird 基础设施的环境）。
+    // sidecar 降级为 degraded，但不抛错阻塞不依赖 sidecar 的 WireGuard 本地 overlay。
+    return {
+      runtimeStatus: buildStatus({
+        kind: 'degraded',
+        observedAt: input.observedAt,
+        correlationId: input.correlationId,
+        desired: input.desired,
+        degradedReasons: [
+          {
+            code: 'sidecar_start_failed',
+            message: 'sidecar deployment config is not provisioned on this node',
+            detail: error instanceof Error ? error.message : 'unknown deployment config error'
+          }
+        ]
+      }),
+      process: {}
+    }
+  }
   const secrets = createSecretManager(config, runtimeEnv)
   const resolved = await resolveSecrets(secrets, config, input.desired)
 
@@ -313,10 +342,28 @@ export async function applySidecarDesiredState(
           ? 'healthy'
           : 'starting'
 
+  // 进程启停跟随期望态：start 族拉起监督器，stop/drain 优雅回收；失败降级不伪装成功
+  const supervisor = deps.supervisor
+  if (supervisor) {
+    if (kind === 'stopped') {
+      await supervisor.stop()
+    } else {
+      const started = await supervisor.start()
+      if (!started.ok) {
+        degradedReasons.push({
+          code: 'sidecar_start_failed',
+          message: 'netbird sidecar process failed to start',
+          detail: started.error.code
+        })
+      }
+    }
+  }
+
+  const startFailed = degradedReasons.some(reason => reason.code === 'sidecar_start_failed')
   return {
     runtimeStatus: withDependencies(
       buildStatus({
-        kind,
+        kind: startFailed ? 'degraded' : kind,
         observedAt: input.observedAt,
         correlationId: input.correlationId,
         desired: input.desired,
@@ -326,6 +373,21 @@ export async function applySidecarDesiredState(
       resolved.value
     ),
     process: nextProcess
+  }
+}
+
+/**
+ * 从 deployment config 读取 NetBird Signal/Relay/STUN endpoint；
+ * config 缺失或解析失败时返回 null，调用方按"未配置"跳过依赖该结果的动作。
+ */
+export async function loadNetbirdEndpoints(
+  deps: Pick<SidecarLifecycleDependencies, 'env' | 'readTextFile'> = {}
+): Promise<NetbirdEndpoints | null> {
+  try {
+    const config = await loadDeploymentConfig(deps)
+    return config.netbird
+  } catch {
+    return null
   }
 }
 

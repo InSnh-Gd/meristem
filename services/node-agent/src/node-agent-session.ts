@@ -5,6 +5,7 @@
 
 // ---- runtime HTTP 客户端：URL 推导、schema 解码与 fetch 编排 ----
 export {
+  leaveNetwork,
   deriveControlUrl,
   fetchLatestNodeRuntimeNetworkMap,
   type RuntimeKeyRegistrationInput,

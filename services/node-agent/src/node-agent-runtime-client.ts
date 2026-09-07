@@ -81,6 +81,13 @@ const decodeNodeRuntimeNetworkMapResponse = Schema.decodeUnknownResult(
   NodeRuntimeNetworkMapResponseSchema
 )
 
+const NodeTunnelStatusResponseSchema = Schema.Struct({
+  accepted: Schema.Literal(true),
+  nodeId: Schema.NonEmptyString,
+  publishStatus: Schema.Literals(['published', 'degraded']),
+  correlationId: Schema.NonEmptyString
+})
+
 function normalizeDesiredSidecar(payload: {
   signalConfigRef: { configRef: string }
   relayConfigRef: { configRef: string }
@@ -122,7 +129,7 @@ export function deriveControlUrl(joinUrl: string): string | null {
 function createNodeRuntimeUrl(
   controlUrl: string,
   nodeId: string,
-  suffix: 'key' | 'network-map'
+  suffix: 'key' | 'network-map' | 'tunnel-status' | 'leave'
 ): URL {
   const url = new URL(
     `/api/v0/node-runtime/nodes/${encodeURIComponent(nodeId)}/${suffix}`,
@@ -214,6 +221,106 @@ export async function fetchLatestNodeRuntimeNetworkMap(
     return {
       kind: 'runtime.request_failed',
       reason: error instanceof Error ? error.message : 'runtime network-map fetch failed'
+    }
+  }
+}
+
+/** 节点隧道状态上报载荷，与 M-Net tunnel-status 路由契约对齐。 */
+export type NodeTunnelStatusReport = {
+  networkId: string
+  profileVersion: string
+  healthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  previousHealthStatus: 'unknown' | 'healthy' | 'degraded' | 'unhealthy'
+  signalReachable: boolean
+  relayReachable: boolean
+  stunReachable: boolean
+  checkedAt: string
+}
+
+export type NodeTunnelStatusReportResult =
+  | {
+      kind: 'tunnel_status.reported'
+      nodeId: string
+      publishStatus: 'published' | 'degraded'
+      correlationId: string
+    }
+  | {
+      kind: 'runtime.request_failed'
+      reason: string
+    }
+
+export async function reportNodeTunnelStatus(
+  controlUrl: string,
+  nodeId: string,
+  nodeToken: string,
+  report: NodeTunnelStatusReport,
+  fetchImpl: RuntimeFetch = fetch
+): Promise<NodeTunnelStatusReportResult> {
+  try {
+    const response = await fetchImpl(createNodeRuntimeUrl(controlUrl, nodeId, 'tunnel-status'), {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${nodeToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(report)
+    })
+
+    if (!response.ok) {
+      return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
+    }
+
+    const payload = Schema.decodeUnknownSync(NodeTunnelStatusResponseSchema)(await response.json())
+    return {
+      kind: 'tunnel_status.reported',
+      nodeId: payload.nodeId,
+      publishStatus: payload.publishStatus,
+      correlationId: payload.correlationId
+    }
+  } catch (error) {
+    return {
+      kind: 'runtime.request_failed',
+      reason: error instanceof Error ? error.message : 'tunnel status report failed'
+    }
+  }
+}
+
+export type NodeLeaveResult =
+  | { kind: 'node.leave'; networkId: string; nodeId: string }
+  | { kind: 'runtime.request_failed'; reason: string }
+
+/** 节点主动退出：通知 M-Net 移除成员关系；404（本就不是成员）按幂等成功处理。 */
+export async function leaveNetwork(
+  controlUrl: string,
+  nodeId: string,
+  nodeToken: string,
+  networkId: string,
+  fetchImpl: RuntimeFetch = fetch
+): Promise<NodeLeaveResult> {
+  try {
+    const response = await fetchImpl(createNodeRuntimeUrl(controlUrl, nodeId, 'leave'), {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${nodeToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ networkId })
+    })
+    if (response.status === 404) {
+      return { kind: 'node.leave', networkId, nodeId }
+    }
+    if (!response.ok) {
+      return { kind: 'runtime.request_failed', reason: await parseRuntimeFailure(response) }
+    }
+    const payload = (await response.json()) as { left?: boolean; networkId?: string }
+    if (payload.left !== true) {
+      return { kind: 'runtime.request_failed', reason: 'node leave response is invalid' }
+    }
+    return { kind: 'node.leave', networkId, nodeId }
+  } catch (error) {
+    return {
+      kind: 'runtime.request_failed',
+      reason: error instanceof Error ? error.message : 'node leave request failed'
     }
   }
 }

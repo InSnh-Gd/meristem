@@ -307,3 +307,11 @@ export async function reconcileLocalOverlay(input: {
     localTunnelIp: nextState.localTunnelIp
   }
 }
+
+/**
+ * 节点主动退出时显式拆除本地 WireGuard 接口与状态文件；
+ * 复用 fail-closed 拆除逻辑，接口不存在时按已完成处理。
+ */
+export async function teardownLocalOverlay(env: LocalOverlayEnv): Promise<void> {
+  await tearDownWireGuardInterface(env)
+}
