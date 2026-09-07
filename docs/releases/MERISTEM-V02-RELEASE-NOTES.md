@@ -61,14 +61,13 @@
 发布声明必须附以下门禁结果（见 `MERISTEM-ROADMAP.md` §6 与操作者清单 `MERISTEM-V02-OPERATOR-CHECKLIST.md`）：
 
 ```text
-bun run lint
-bun run typecheck
-bun run test
-bun run test:contracts
-bun run test:cli
-bun run test:failure-modes
-bun run test:integration
-bun run test:e2e
+bun run test:v02-gates
+```
+
+该门禁串联 frozen-lockfile 安装、format、lint、依赖图、三道 typecheck、contract / failure-mode / integration / CLI / UI-contract 测试与 agent-submit 漂移守卫；发布级验证再叠加 live proof：
+
+```text
+bun run test:v02-release
 ```
 
 ---
@@ -76,3 +75,42 @@ bun run test:e2e
 ## 4. 延后工作
 
 延后工作记录于根目录 `DEFERRED-WORK.md`（DFW-001 ~ DFW-030）。v0.2 明确不在本版本的：真实 NetBird 数据面 rollout 的全域迁移、LLM-assisted approval review、M-Extension runtime、production secret backend 实施。
+
+---
+
+## 5. Verification Gates
+
+### 5.1 Deterministic CI and local gate split
+
+Regular CI remains deterministic and fast. It must not depend on host-specific
+capabilities such as Docker, NetBird, or elevated network permissions.
+
+For the full local deterministic gate set, run:
+
+```bash
+bun run test:v02-gates
+```
+
+This gate covers install, formatting, linting, dependency graph checks,
+typecheck, contract coverage, failure-mode coverage, integration coverage, CLI
+coverage, UI contract coverage, and the agent-submit drift guard.
+
+### 5.2 Release acceptance gate
+
+The release acceptance command is:
+
+```bash
+bun run test:v02-release
+```
+
+`test:v02-release` runs the deterministic gate set and then executes the live
+proof command:
+
+```bash
+bun run mnet:v02:live-proof --topology=three-host --oidc=keycloak
+```
+
+The release is not accepted unless live proof completes with success evidence.
+Typed `prerequisite-missing` is not release success; it documents missing host
+capabilities and must be treated as a blocked release path, not a deployable
+result.
