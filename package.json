@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "hooks:install": "bun run scripts/install-git-hooks.ts",
+    "cli:build": "bun build --compile apps/m-cli/src/index.ts --outfile bin/meristem-cli",
     "codegraph:explore": "codegraph explore",
     "codegraph:status": "codegraph status",
     "depcruise": "depcruise --config .dependency-cruiser.cjs apps services packages",

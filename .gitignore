@@ -29,3 +29,9 @@ doc-driven-ai/
 playwright-report/
 test-results/
 tests/evidence/
+
+# 生产 env：deploy init 生成，含数据库密码与共享密钥，禁止提交
+ops/compose/meristem.prod.env
+
+# 编译产物：单文件 meristem-cli 二进制，不入库
+bin/
