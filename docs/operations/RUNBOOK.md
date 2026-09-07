@@ -136,7 +136,8 @@ Public exposure rule:
 | `MERISTEM_LOG_LEVEL` | Core log level | `info` |
 | `MERISTEM_NODE_ID` | node-agent target node ID for `session.resume` | none |
 | `MERISTEM_NODE_TOKEN` | node-agent runtime token used only by `session.resume` | none |
-| `MERISTEM_AGENT_VERSION` | node-agent reported version | `0.1.0` |
+| `MERISTEM_AGENT_VERSION` | node-agent reported version | `0.2.0` |
+| `MERISTEM_NODE_AGENT_ADVERTISED_ENDPOINT` | explicit WireGuard endpoint advertised to M-Net (ip:port); overrides STUN discovery — required for 1:1-NAT hosts and same-host container fleets where the public mapping cannot be hairpinned | none (STUN) |
 | `MERISTEM_AGENT_HEARTBEAT_INTERVAL_MS` | node-agent heartbeat interval | `5000` |
 | `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | M-Net offline timeout | `15000` |
 | `MERISTEM_MNET_CONTROL_URL` | node-agent M-Net control plane URL | derived from join URL host on port `3104` |
@@ -169,6 +170,128 @@ Public exposure rule:
 The local identity mode uses locally signed HS256 JWTs. The token subject is the actor ID literal from the local seed set (`viewer`, `operator`, `admin`, `security-admin`). Roles and permissions are never trusted from token claims; M-Policy reads them from PostgreSQL.
 
 ---
+
+## 4.1 Production Split-Container Deployment
+
+Production deploys each service as its own container built from
+`ops/docker/Dockerfile.service` (parameterized by `SERVICE_ENTRY`) or
+`apps/m-ui/Dockerfile` (static M-UI build). The production manifest is
+`ops/compose/meristem.prod.yml`; a bootstrap init container runs migrations,
+seed data, join-ingress certificates and initial actor token minting.
+
+Local build and start via the `meristem-cli` deploy command group (preferred;
+see `docs/contracts/CLI-COMMANDS.md` for the full `meristem deploy` contract):
+
+```bash
+bun run cli:build                     # build the standalone bin/meristem-cli executable
+meristem-cli deploy wizard            # interactive wizard: prompts (Enter accepts defaults in a TTY) -> env -> up --wait
+meristem-cli deploy init              # non-interactive: generate ops/compose/meristem.prod.env (random secrets, 0600)
+meristem-cli deploy up                # build images, start the stack, wait until healthy
+meristem-cli deploy token admin       # read the initial admin token from the bootstrap volume
+meristem-cli deploy status            # per-service container/health table
+meristem-cli deploy tui               # fullscreen console: live health table, per-service logs, start/stop
+meristem-cli deploy logs <service>
+meristem-cli deploy down --volumes
+```
+
+All commands are also runnable from a repo checkout as `bun run meristem
+<command>` with identical behavior.
+
+Same-host container fleets (WSL2 smoke): node containers need
+`NET_ADMIN` + `/dev/net/tun`, `NODE_TLS_REJECT_UNAUTHORIZED=0` (bootstrap
+join certificate is self-signed), `MERISTEM_MNET_CONTROL_URL=http://m-net:3104`
+(the derived default is https and the internal port is plain HTTP) and a
+`MERISTEM_NODE_AGENT_ADVERTISED_ENDPOINT` pointing at the container's bridge
+IP — STUN public mappings cannot be hairpinned between containers on one
+host. Each node consumes one single-use join ticket.
+
+Notes for the interactive forms:
+
+- `deploy wizard` keeps existing secrets when reconfiguring an existing
+  deployment (the PostgreSQL data volume applies its password only on first
+  initialization; rotating secrets requires `down --volumes` first). In a
+  TTY, pressing Enter accepts a question's default; piped/EOF input counts
+  as declining at every question.
+- `deploy tui` renders a single snapshot frame when stdin is not a TTY and
+  requires two-key confirmation (`D` then `y`) before stopping the stack.
+
+Equivalent raw compose (e.g. on hosts without the repo checkout, pull-based):
+
+```bash
+docker compose -f ops/compose/meristem.prod.yml --env-file ops/compose/meristem.prod.env up -d --build
+```
+
+Remote host deployment (images pushed to the registry by CI):
+
+```bash
+ops/scripts/deploy.sh <user@host> ops/compose/meristem.prod.env
+# or on the target host, with the compose file + env file synced:
+bun run meristem deploy up --pull
+```
+
+Deployment notes:
+
+- every service publishes a healthcheck; services start only after the
+  bootstrap container completes and postgres/nats are healthy.
+- split-container service URLs are wired through `MERISTEM_POLICY_URL`,
+  `MERISTEM_LOG_URL`, `MERISTEM_EVENTBUS_URL`, `MERISTEM_MNET_URL`,
+  `MERISTEM_TASK_URL` and `MERISTEM_EXTENSION_URL` (container DNS names);
+  internal services must set `MERISTEM_INTERNAL_HOST=0.0.0.0`.
+- bootstrap mints tokens into the `meristem-bootstrap` volume
+  (`/bootstrap/tokens/<actor>.token`); retrieve them before exposing control
+  routes and never log token contents.
+- join-ingress certificates live in the `meristem-certs` volume; production
+  should provision real certificates instead of relying on bootstrap self-signed
+  generation.
+- optional profiles: `observability` (OpenSearch) and `node` (node-agent demo
+  container with NET_ADMIN + `/dev/net/tun`; production node-agents run on
+  hosts via the NixOS module).
+
+## 4.2 外围服务部署（OIDC / Vault / NetBird 基础设施）
+
+控制面默认只依赖 compose 内置的 PostgreSQL 与 NATS。以下外围服务全部可选，
+按需接入；Meristem 不内置任何 IdP / Vault / NetBird 服务端。
+
+### OIDC 身份提供方（生产身份认证）
+
+默认认证使用 bootstrap 铸造的本地 actor token。要启用上游 OIDC 登录：
+
+1. 部署任一标准 OIDC Provider（Keycloak / Authentik / Dex / 云 IAM），创建 client：
+   - token 签发算法必须在白名单内：RS256 / RS384 / RS512 / ES256 / ES384
+   - audience 与 `MERISTEM_OIDC_AUDIENCES` 保持一致
+2. 组/角色 claim 直接使用 Meristem 角色名放入 groups claim：
+   `security-admin` / `break-glass-reviewer` / `admin` / `operator` / `viewer`。
+   映射按权限从高到低先命中先得，未命中收敛为 viewer。
+3. 在 `meristem.prod.env` 填写（留空任何一项即保持本地 token 模式）：
+
+```text
+MERISTEM_OIDC_ISSUER=https://idp.example.com/realms/meristem
+MERISTEM_OIDC_DISCOVERY_URL=            # issuer 带 path 或私有 discovery 时显式覆盖，否则留空
+MERISTEM_OIDC_AUDIENCES=meristem-core
+MERISTEM_OIDC_ALLOWED_ALGORITHMS=RS256
+```
+
+4. 重启 core 生效。启用后本地受管 token 与 OIDC token 并行有效；所有验证失败统一 fail-closed 返回 401。
+
+### Vault（可选 Secret 后端）
+
+控制面自身不依赖 Vault。节点侧 SecretProvider 已内置 `vault-kv-v2` adapter
+（`packages/secrets/src/providers.ts`），通过 node-agent deployment config 声明
+backend 地址 / mount path / auth method 接入；NixOS module
+（`ops/nixos/module.nix`）已预留对应配置项。NetBird 凭证建议经 Vault 分发，
+遵守 SecretRef 规则（凭证不进日志 / UI / LLM）。
+
+### NetBird Signal / Relay / STUN（数据面穿透）
+
+控制面（M-Net / Core）不进 packet path，且按 ADR-N04 排除 NetBird Management，
+因此**不需要**部署 Management；节点 sidecar 需要穿透基础设施：
+
+- 自托管 NetBird Signal + Relay，或使用可达的公网 STUN
+- endpoint 由 node-agent deployment config 的 `netbird.signalEndpoint` /
+  `relayEndpoint` / `stunEndpoint` 下发；控制面侧 `MERISTEM_NETBIRD_*` env
+  用于网络地图渲染与 adapter 探测
+- viability gate：`bun run mnet:v02:sidecar-proof` 验证四环节通过；proof
+  失败时按 ADR-N04 回退到自有 WireGuard 渲染 + NetBird Signal/Relay 基础设施
 
 ## 5. Incident Response Baseline
 

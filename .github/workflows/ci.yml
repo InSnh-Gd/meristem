@@ -62,3 +62,29 @@ jobs:
           path: tests/evidence/
           if-no-files-found: warn
           retention-days: 30
+
+  images:
+    runs-on: ubuntu-latest
+    needs: gates
+    env:
+      # compose 插值要求所有 :?required 变量都有值；镜像构建本身不使用这些值
+      POSTGRES_PASSWORD: ci-interpolation-only
+      OPENSEARCH_INITIAL_PASSWORD: ci-interpolation-only
+      MERISTEM_INTERNAL_TOKEN: ci-interpolation-only
+      MERISTEM_JWT_SECRET: ci-interpolation-only
+      MERISTEM_REGISTRY: ${{ vars.MERISTEM_REGISTRY || 'localhost/meristem' }}
+      MERISTEM_TAG: ${{ github.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build all service images
+        run: docker compose -f ops/compose/meristem.prod.yml --profile node build
+
+      - name: Push images to registry
+        # 仅 main 分支且仓库配置了 MERISTEM_REGISTRY 变量时推送
+        if: github.ref == 'refs/heads/main' && vars.MERISTEM_REGISTRY != ''
+        run: docker compose -f ops/compose/meristem.prod.yml --profile node push

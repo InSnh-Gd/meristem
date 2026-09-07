@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1
+# Bootstrap init 容器：数据库迁移、种子数据、Join Ingress 证书与初始 actor token。
+# 与服务镜像共用同一套依赖安装；容器执行完即退出，编排器按完成条件推进依赖服务。
+ARG BUN_VERSION=1
+
+FROM oven/bun:${BUN_VERSION}-alpine AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY apps/core/package.json apps/core/package.json
+COPY apps/m-cli/package.json apps/m-cli/package.json
+COPY apps/m-ui/package.json apps/m-ui/package.json
+COPY services/m-net/package.json services/m-net/package.json
+COPY services/m-policy/package.json services/m-policy/package.json
+COPY services/m-log/package.json services/m-log/package.json
+COPY services/m-eventbus/package.json services/m-eventbus/package.json
+COPY packages/auth/package.json packages/auth/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/events/package.json packages/events/package.json
+COPY packages/internal-http/package.json packages/internal-http/package.json
+COPY packages/policy/package.json packages/policy/package.json
+COPY packages/secrets/package.json packages/secrets/package.json
+COPY packages/telemetry/package.json packages/telemetry/package.json
+COPY packages/testing/package.json packages/testing/package.json
+# --ignore-scripts 跳过根 prepare（git hooks 安装在容器内无意义）
+RUN bun install --frozen-lockfile --ignore-scripts
+
+FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+# 证书生成依赖 openssl CLI；alpine 基础镜像默认不带
+RUN apk add --no-cache openssl
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock tsconfig.json tsconfig.base.json ./
+COPY apps ./apps
+COPY services ./services
+COPY packages ./packages
+COPY scripts ./scripts
+VOLUME ["/bootstrap"]
+ENTRYPOINT ["bun", "run", "scripts/bootstrap-production.ts"]

@@ -1,0 +1,25 @@
+# 镜像构建上下文只保留运行所需源码，缓存、证据与本地产物一律不进入构建上下文。
+.git
+node_modules/
+apps/*/node_modules/
+apps/*/build/
+apps/*/.svelte-kit/
+.local/
+.env
+.env.*
+coverage/
+dist/
+tmp/
+.worktrees/
+doc-driven-ai/
+*.bak
+*.tmp
+*.orig
+.codegraph/
+.serena/
+.codex/
+.antigravitycli/
+tests/evidence/
+dependency-graph.html
+ops/compose/meristem.prod.env
+ops/compose/*.env

@@ -1,0 +1,386 @@
+# Meristem 生产 split-container compose。
+# 每个服务使用独立构建镜像（ops/docker/Dockerfile.service 参数化构建），
+# 服务间通过容器网络 DNS 互通；敏感值一律来自 .env / secret 注入，不写入本文件。
+#
+# 用法：
+#   构建并启动：   docker compose -f ops/compose/meristem.prod.yml --env-file ops/compose/meristem.prod.env up -d --build
+#   远程主机部署： docker compose -f ops/compose/meristem.prod.yml --env-file ... pull && docker compose ... up -d
+name: meristem
+
+x-bun-service: &bun-service
+  build:
+    context: ../..
+    dockerfile: ops/docker/Dockerfile.service
+    args:
+      BUN_VERSION: ${BUN_VERSION:-1}
+  restart: unless-stopped
+  environment: &bun-base-env
+    NODE_ENV: production
+    DATABASE_URL: postgres://meristem:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/meristem
+    NATS_URL: ws://nats:4223
+    MERISTEM_INTERNAL_TOKEN: ${MERISTEM_INTERNAL_TOKEN:?set MERISTEM_INTERNAL_TOKEN}
+    MERISTEM_JWT_SECRET: ${MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}
+    # split-container 内部服务 URL：容器网络 DNS 名
+    MERISTEM_POLICY_URL: http://m-policy:3101
+    MERISTEM_LOG_URL: http://m-log:3102
+    MERISTEM_EVENTBUS_URL: http://m-eventbus:3103
+    MERISTEM_MNET_URL: http://m-net:3104
+    MERISTEM_TASK_URL: http://m-task:3105
+    MERISTEM_EXTENSION_URL: http://m-extension:3106
+    MERISTEM_INTERNAL_HOST: 0.0.0.0
+    MERISTEM_JOIN_PUBLIC_URL: ${MERISTEM_JOIN_PUBLIC_URL:-https://localhost:8443}
+    MERISTEM_OIDC_ISSUER: ${MERISTEM_OIDC_ISSUER:-}
+    MERISTEM_OIDC_DISCOVERY_URL: ${MERISTEM_OIDC_DISCOVERY_URL:-}
+    MERISTEM_OIDC_AUDIENCES: ${MERISTEM_OIDC_AUDIENCES:-}
+    MERISTEM_OIDC_ALLOWED_ALGORITHMS: ${MERISTEM_OIDC_ALLOWED_ALGORITHMS:-}
+    MERISTEM_NETBIRD_SIGNAL_ENDPOINT: ${MERISTEM_NETBIRD_SIGNAL_ENDPOINT:-}
+    MERISTEM_NETBIRD_RELAY_ENDPOINT: ${MERISTEM_NETBIRD_RELAY_ENDPOINT:-}
+    MERISTEM_NETBIRD_STUN_ENDPOINT: ${MERISTEM_NETBIRD_STUN_ENDPOINT:-}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    nats:
+      condition: service_healthy
+  networks:
+    - meristem
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: meristem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: meristem
+    volumes:
+      - meristem-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U meristem -d meristem']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - meristem
+
+  nats:
+    image: nats:2-alpine
+    volumes:
+      - ../nats/nats.conf:/etc/nats/nats.conf:ro
+    command: ['-c', '/etc/nats/nats.conf']
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:8222/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - meristem
+
+  opensearch:
+    image: opensearchproject/opensearch:2-alpine
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: 'true'
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_PASSWORD:?set OPENSEARCH_INITIAL_PASSWORD}
+    volumes:
+      - meristem-opensearch:/usr/share/opensearch/data
+    profiles:
+      - observability
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -s http://localhost:9200/_cluster/health | grep -E "green|yellow|red" || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - meristem
+
+  # Bootstrap init：迁移、种子、证书、初始 token；完成后各服务才启动
+  bootstrap:
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-bootstrap:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.bootstrap
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+    environment:
+      DATABASE_URL: postgres://meristem:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/meristem
+      MERISTEM_JWT_SECRET: ${MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}
+      MERISTEM_BOOTSTRAP_CERT_DIR: /bootstrap/certs
+      MERISTEM_BOOTSTRAP_TOKEN_DIR: /bootstrap/tokens
+      MERISTEM_BOOTSTRAP_ACTORS: ${MERISTEM_BOOTSTRAP_ACTORS:-admin}
+    volumes:
+      - meristem-certs:/bootstrap/certs
+      - meristem-bootstrap:/bootstrap/tokens
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks:
+      - meristem
+
+  core:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-core:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: apps/core/src/index.ts
+    environment:
+      <<: *bun-base-env
+      PORT: 3000
+      MERISTEM_CORE_HOST: 0.0.0.0
+    ports:
+      - '${MERISTEM_CORE_PORT:-3000}:3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3000/api/v0/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-policy:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-policy:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-policy/src/index.ts
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3101/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-log:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-log:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-log/src/index.ts
+    environment:
+      <<: *bun-base-env
+      OPENSEARCH_URL: http://opensearch:9200
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3102/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-eventbus:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-eventbus:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-eventbus/src/index.ts
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3103/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-net:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-net:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-net/src/index.ts
+    environment:
+      <<: *bun-base-env
+      MERISTEM_JOIN_TLS_CERT_FILE: /certs/join-ingress-cert.pem
+      MERISTEM_JOIN_TLS_KEY_FILE: /certs/join-ingress-key.pem
+      MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_FILE: /certs/network-map-signing-private.pem
+    volumes:
+      - meristem-certs:/certs:ro
+    ports:
+      - '${MERISTEM_JOIN_INGRESS_PORT:-8443}:8443'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3104/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-task:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-task:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-task/src/index.ts
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3105/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  m-extension:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-extension:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-extension/src/index.ts
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3106/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+      m-policy:
+        condition: service_started
+      m-log:
+        condition: service_started
+      m-eventbus:
+        condition: service_started
+
+  m-ui-bff:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-ui-bff:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/m-ui-bff/src/index.ts
+    environment:
+      <<: *bun-base-env
+      MERISTEM_BFF_PORT: 3200
+      MERISTEM_CORE_URL: http://core:3000
+    ports:
+      - '${MERISTEM_BFF_PORT:-3200}:3200'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:3200/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      core:
+        condition: service_healthy
+
+  m-ui:
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-m-ui:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/m-ui/Dockerfile
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        VITE_MERISTEM_MUI_BFF_URL: ${MERISTEM_PUBLIC_BFF_URL:-http://localhost:3200}
+    restart: unless-stopped
+    ports:
+      - '${MERISTEM_UI_PORT:-8080}:4173'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:4173/']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      m-ui-bff:
+        condition: service_started
+    networks:
+      - meristem
+
+  # node-agent 正常部署在独立主机（NixOS module 或 systemd）；
+  # 此 profile 仅用于单机演示，WireGuard 内核操作需要 NET_ADMIN 与 /dev/net/tun。
+  node-agent:
+    <<: *bun-service
+    image: ${MERISTEM_REGISTRY:-localhost/meristem}/meristem-node-agent:${MERISTEM_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: ops/docker/Dockerfile.service
+      args:
+        BUN_VERSION: ${BUN_VERSION:-1}
+        SERVICE_ENTRY: services/node-agent/src/index.ts
+        # WireGuard 数据面必需的用户态工具（内核 wg 接口配置）
+        EXTRA_PACKAGES: iproute2 wireguard-tools
+    environment:
+      <<: *bun-base-env
+      MERISTEM_JOIN_URL: ${MERISTEM_JOIN_URL:-https://m-net:8443}
+      MERISTEM_NODE_AGENT_URL: http://node-agent:3307
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    profiles:
+      - node
+    depends_on:
+      m-net:
+        condition: service_healthy
+
+volumes:
+  meristem-postgres:
+  meristem-opensearch:
+  meristem-certs:
+  meristem-bootstrap:
+
+networks:
+  meristem:
+    driver: bridge
