@@ -11,13 +11,23 @@ import { createInternalRoutes } from '../../services/m-net/src/internal-routes.t
 
 type InternalRouteDeps = Pick<
   MNetAppDeps,
-  'createNetwork' | 'listNetworks' | 'joinNetwork' | 'listMembers' | 'executeNoop'
+  | 'createNetwork'
+  | 'listNetworks'
+  | 'joinNetwork'
+  | 'listMembers'
+  | 'deleteNetwork'
+  | 'removeMember'
+  | 'updateNetworkMetadata'
+  | 'executeNoop'
 >
 
 type CapturedCalls = {
   createNetwork: Parameters<InternalRouteDeps['createNetwork']>[0][]
   joinNetwork: Parameters<InternalRouteDeps['joinNetwork']>[0][]
   listMembers: Parameters<InternalRouteDeps['listMembers']>[0][]
+  deleteNetwork: Parameters<NonNullable<InternalRouteDeps['deleteNetwork']>>[0][]
+  removeMember: Parameters<NonNullable<InternalRouteDeps['removeMember']>>[0][]
+  updateNetworkMetadata: Parameters<NonNullable<InternalRouteDeps['updateNetworkMetadata']>>[0][]
   executeNoop: Parameters<InternalRouteDeps['executeNoop']>[0][]
 }
 
@@ -58,7 +68,17 @@ function internalHeaders(): Record<string, string> {
   return { [internalTokenHeaderName]: internalToken }
 }
 
-function jsonRequest(path: string, method: 'POST', body: Record<string, unknown>): Request {
+function jsonRequest(
+  path: string,
+  method: 'POST' | 'DELETE' | 'PATCH',
+  body?: Record<string, unknown>
+): Request {
+  if (body === undefined) {
+    return new Request(`http://localhost${path}`, {
+      method,
+      headers: { ...internalHeaders() }
+    })
+  }
   return new Request(`http://localhost${path}`, {
     method,
     headers: { ...internalHeaders(), 'content-type': 'application/json' },
@@ -75,6 +95,9 @@ function createRouteFixture(overrides: Partial<InternalRouteDeps> = {}) {
     createNetwork: [],
     joinNetwork: [],
     listMembers: [],
+    deleteNetwork: [],
+    removeMember: [],
+    updateNetworkMetadata: [],
     executeNoop: []
   }
 
@@ -93,6 +116,18 @@ function createRouteFixture(overrides: Partial<InternalRouteDeps> = {}) {
     async listMembers(input) {
       calls.listMembers.push(input)
       return { ok: true, value: [memberFixture] }
+    },
+    async deleteNetwork(input) {
+      calls.deleteNetwork.push(input)
+      return { ok: true, value: { networkId: input.networkId } }
+    },
+    async removeMember(input) {
+      calls.removeMember.push(input)
+      return { ok: true, value: { networkId: input.networkId, nodeId: input.nodeId } }
+    },
+    async updateNetworkMetadata(input) {
+      calls.updateNetworkMetadata.push(input)
+      return { ok: true, value: networkFixture }
     },
     async executeNoop(input) {
       calls.executeNoop.push(input)
@@ -243,5 +278,84 @@ describe('M-Net internal route contracts', () => {
     await expectJson(unavailable, {
       error: { code: 'node.transport_down', message: 'transport down' }
     })
+  })
+})
+
+// ── Network lifecycle mutations (delete / remove member / update metadata) ──
+
+describe('M-Net internal network lifecycle mutations', () => {
+  beforeEach(() => {
+    process.env.MERISTEM_INTERNAL_TOKEN = internalToken
+    process.env.MERISTEM_OTEL_EXPORTER = 'none'
+  })
+
+  afterEach(() => {
+    if (originalInternalToken === undefined) delete process.env.MERISTEM_INTERNAL_TOKEN
+    else process.env.MERISTEM_INTERNAL_TOKEN = originalInternalToken
+
+    if (originalOtelExporter === undefined) delete process.env.MERISTEM_OTEL_EXPORTER
+    else process.env.MERISTEM_OTEL_EXPORTER = originalOtelExporter
+  })
+
+  it('DELETE /internal/v0/networks/:id deletes an empty disabled network', async () => {
+    const { app, calls } = createRouteFixture()
+
+    const response = await app.handle(jsonRequest('/internal/v0/networks/network-1', 'DELETE'))
+
+    expect(response.status).toBe(200)
+    await expectJson(response, { deleted: true, networkId: 'network-1' })
+    expect(calls.deleteNetwork).toEqual([{ networkId: 'network-1' }])
+  })
+
+  it('DELETE /internal/v0/networks/:id returns 409 when members are still present', async () => {
+    const { app } = createRouteFixture({
+      deleteNetwork: async () => ({
+        ok: false,
+        error: { code: 'network.members_present', message: 'network still has members' }
+      })
+    })
+
+    const response = await app.handle(jsonRequest('/internal/v0/networks/network-1', 'DELETE'))
+    expect(response.status).toBe(409)
+    const body = (await response.json()) as { error?: { code?: string } }
+    expect(body.error?.code).toBe('network.members_present')
+  })
+
+  it('DELETE /internal/v0/networks/:id/members/:nodeId removes a member', async () => {
+    const { app, calls } = createRouteFixture()
+
+    const response = await app.handle(
+      jsonRequest('/internal/v0/networks/network-1/members/leaf-1', 'DELETE')
+    )
+
+    expect(response.status).toBe(200)
+    await expectJson(response, { networkId: 'network-1', nodeId: 'leaf-1' })
+    expect(calls.removeMember).toEqual([{ networkId: 'network-1', nodeId: 'leaf-1' }])
+  })
+
+  it('PATCH /internal/v0/networks/:id updates network metadata', async () => {
+    const { app, calls } = createRouteFixture()
+
+    const response = await app.handle(
+      jsonRequest('/internal/v0/networks/network-1', 'PATCH', { displayName: 'Primary 显示名' })
+    )
+
+    expect(response.status).toBe(200)
+    await expectJson(response, { network: networkFixture })
+    expect(calls.updateNetworkMetadata).toEqual([
+      { networkId: 'network-1', displayName: 'Primary 显示名' }
+    ])
+  })
+
+  it('network lifecycle mutations require the internal token', async () => {
+    const { app } = createRouteFixture()
+    const paths = [
+      { path: '/internal/v0/networks/network-1', method: 'DELETE' as const },
+      { path: '/internal/v0/networks/network-1/members/leaf-1', method: 'DELETE' as const }
+    ]
+    for (const { path, method } of paths) {
+      const response = await app.handle(new Request(`http://localhost${path}`, { method }))
+      expect(response.status).toBe(401)
+    }
   })
 })

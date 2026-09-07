@@ -24,6 +24,8 @@
 | `node.status.changed.v0` | `apps/core/src/routes/nodes.ts` | `NodeStatusChangedPayloadSchema` |
 | `mnet.network.created.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
 | `mnet.membership.joined.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
+| `mnet.network.deleted.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkDeletedPayloadSchema` |
+| `mnet.membership.removed.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipRemovedPayloadSchema` |
 | `mnet.reachability.changed.v0` | `services/m-net/src/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
 | `mnet.path.changed.v0` | contract-activated data-plane subject | `MNetPathChangedEventPayloadSchema` |
 | `mnet.wstunnel.fallback.changed.v0` | contract-activated data-plane subject | `MNetWstunnelFallbackChangedEventPayloadSchema` |

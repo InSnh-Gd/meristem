@@ -25,7 +25,7 @@ export async function materializeMembers(
   deps: DataPlaneDeps,
   networkId: string,
   profileVersion: MNetProfileVersionFromSchema,
-  _correlationId: string
+  correlationId: string
 ): Promise<ProfileWorkflowFailure | MaterializedMembers> {
   try {
     const membersResult = await deps.listMembers({ networkId })
@@ -170,6 +170,28 @@ export async function materializeMembers(
         `network_maps save failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error }
       )
+    }
+
+    // 网络地图变更写入 Timeline 与 Audit：地图是数据面授权事实，必须留下审计痕迹
+    if (deps.log) {
+      try {
+        await deps.log.writeTimeline(
+          `network map ${map.mapVersion} rendered for ${networkId} (${map.members.length} members)`,
+          networkId
+        )
+        await deps.log.writeAudit(
+          'meristem-m-net',
+          'mnet.network_map.published',
+          `network:${networkId}`,
+          'success',
+          correlationId
+        )
+      } catch (error) {
+        // 审计日志写入失败不能阻断地图发布；后续同步会再次留下渲染事实
+        process.stderr.write(
+          `network map audit log failed for ${networkId}: ${error instanceof Error ? error.message : String(error)}\n`
+        )
+      }
     }
 
     const currentPartition = (await deps.dataPlane.partitionStates.get(networkId)) ?? {

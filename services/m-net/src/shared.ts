@@ -60,10 +60,18 @@ export function membershipModeFor(kind: NodeKind): MNetworkMember['membershipMod
   return kind === 'stem' ? 'full' : 'restricted'
 }
 
-export function mapNetwork(row: typeof networks.$inferSelect): MNetwork {
+export function mapNetwork(row: {
+  id: string
+  name: string
+  displayName?: string | null
+  profileVersion: string
+  status: string
+  createdAt: Date
+}): MNetwork {
   return {
     id: row.id,
     name: row.name,
+    ...(row.displayName ? { displayName: row.displayName } : {}),
     profileVersion: row.profileVersion,
     status: 'active',
     createdAt: row.createdAt.toISOString()

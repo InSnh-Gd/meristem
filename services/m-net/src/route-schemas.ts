@@ -116,6 +116,27 @@ export const joinNetworkBodySchema = t.Object({
   nodeId: t.String({ minLength: 1 })
 })
 
+/** 网络成员移除路径参数（internal 与公开路由共用） */
+export const networkMemberParamsSchema = t.Object({
+  id: t.String({ minLength: 1 }),
+  nodeId: t.String({ minLength: 1 })
+})
+
+/** 网络元数据更新请求体：name 是身份键，不可变更 */
+export const updateNetworkMetadataBodySchema = t.Object({
+  displayName: t.Optional(t.String({ minLength: 1 }))
+})
+
+export const removeMemberResponseSchema = t.Object({
+  networkId: t.String(),
+  nodeId: t.String()
+})
+
+export const deleteNetworkResponseSchema = t.Object({
+  deleted: t.Literal(true),
+  networkId: t.String()
+})
+
 export const executeNoopBodySchema = t.Object({
   nodeId: t.String({ minLength: 1 }),
   taskId: t.String({ minLength: 1 }),
@@ -283,6 +304,39 @@ export const nodeKeyRegistrationResponseSchema = t.Object({
   keyId: t.String(),
   fingerprint: t.String(),
   mapVersion: t.Number(),
+  correlationId: t.String()
+})
+
+/**
+ * 节点隧道状态上报请求体：node-agent 周期性把 sidecar 健康与隧道可达性
+ * 上报到 M-Net 运营读模型（mnet.sidecar.health.v0 载荷）。
+ */
+export const nodeTunnelStatusBodySchema = t.Object({
+  networkId: t.String({ minLength: 1 }),
+  // 节点只能上报 M-Net 已下发的 v0.3 profile 地图，字面量与运营事件契约保持一致
+  profileVersion: t.Union([t.Literal('m-net-cn@0.3.0'), t.Literal('m-net@0.3.0')]),
+  healthStatus: t.Union([
+    t.Literal('unknown'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('unhealthy')
+  ]),
+  previousHealthStatus: t.Union([
+    t.Literal('unknown'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('unhealthy')
+  ]),
+  signalReachable: t.Boolean(),
+  relayReachable: t.Boolean(),
+  stunReachable: t.Boolean(),
+  checkedAt: t.String({ minLength: 1 })
+})
+
+export const nodeTunnelStatusResponseSchema = t.Object({
+  accepted: t.Literal(true),
+  nodeId: t.String(),
+  publishStatus: t.Union([t.Literal('published'), t.Literal('degraded')]),
   correlationId: t.String()
 })
 

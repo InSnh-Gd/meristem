@@ -35,6 +35,17 @@ export type MNetAppDeps = {
     nodeId: string
   }): Promise<MNetServiceResult<MNetworkMember>>
   listMembers(input: { networkId: string }): Promise<MNetServiceResult<MNetworkMember[]>>
+  deleteNetwork?: (input: {
+    networkId: string
+  }) => Promise<MNetServiceResult<{ networkId: string }>>
+  removeMember?: (input: {
+    networkId: string
+    nodeId: string
+  }) => Promise<MNetServiceResult<{ networkId: string; nodeId: string }>>
+  updateNetworkMetadata?: (input: {
+    networkId: string
+    displayName?: string
+  }) => Promise<MNetServiceResult<MNetwork>>
   executeNoop(input: {
     nodeId: string
     taskId: string

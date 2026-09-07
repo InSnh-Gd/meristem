@@ -10,19 +10,23 @@ import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
 import { internalError, requireInternal, statusCodeForMNetError } from './route-helpers.ts'
 import {
   createNetworkBodySchema,
+  deleteNetworkResponseSchema,
   executeNoopBodySchema,
   internalErrorSchema,
   internalResponse,
   joinNetworkBodySchema,
   latestNetworkMapSchema,
   networkIdParamsSchema,
+  networkMemberParamsSchema,
   networkMemberSchema,
   networkSchema,
   networkSummarySchema,
   nodeIdParamsSchema,
   nodeKeyRegistrationBodySchema,
   nodeKeyRegistrationResponseSchema,
-  taskExecuteResponseSchema
+  removeMemberResponseSchema,
+  taskExecuteResponseSchema,
+  updateNetworkMetadataBodySchema
 } from './route-schemas.ts'
 
 /**
@@ -78,6 +82,9 @@ export function createInternalRoutes(
     | 'listNetworks'
     | 'joinNetwork'
     | 'listMembers'
+    | 'deleteNetwork'
+    | 'removeMember'
+    | 'updateNetworkMetadata'
     | 'executeNoop'
     | 'profileStore'
     | 'policyAuthorize'
@@ -162,6 +169,95 @@ export function createInternalRoutes(
       {
         params: networkIdParamsSchema,
         response: internalResponse(t.Object({ members: t.Array(networkMemberSchema) }), {
+          404: internalErrorSchema,
+          503: internalErrorSchema
+        })
+      }
+    )
+    .delete(
+      '/networks/:id',
+      async ({ params, headers, status }) => {
+        const unauthorized = requireInternal(headers, status)
+        if (unauthorized) return unauthorized
+        const { deleteNetwork } = deps
+        if (!deleteNetwork) {
+          return internalError(status, 503, {
+            code: 'feature.unavailable',
+            message: 'network deletion is not available'
+          })
+        }
+        return withExtractedSpan('m-net', 'm-net.network.delete', headers, async () => {
+          const result = await deleteNetwork({ networkId: params.id })
+          return result.ok
+            ? { deleted: true as const, networkId: result.value.networkId }
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
+        })
+      },
+      {
+        params: networkIdParamsSchema,
+        response: internalResponse(deleteNetworkResponseSchema, {
+          404: internalErrorSchema,
+          409: internalErrorSchema,
+          503: internalErrorSchema
+        })
+      }
+    )
+    .delete(
+      '/networks/:id/members/:nodeId',
+      async ({ params, headers, status }) => {
+        const unauthorized = requireInternal(headers, status)
+        if (unauthorized) return unauthorized
+        const { removeMember } = deps
+        if (!removeMember) {
+          return internalError(status, 503, {
+            code: 'feature.unavailable',
+            message: 'member removal is not available'
+          })
+        }
+        return withExtractedSpan('m-net', 'm-net.network.member.remove', headers, async () => {
+          const result = await removeMember({
+            networkId: params.id,
+            nodeId: params.nodeId
+          })
+          return result.ok
+            ? { networkId: result.value.networkId, nodeId: result.value.nodeId }
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
+        })
+      },
+      {
+        params: networkMemberParamsSchema,
+        response: internalResponse(removeMemberResponseSchema, {
+          404: internalErrorSchema,
+          503: internalErrorSchema
+        })
+      }
+    )
+    .patch(
+      '/networks/:id',
+      async ({ params, body, headers, status }) => {
+        const unauthorized = requireInternal(headers, status)
+        if (unauthorized) return unauthorized
+        const { updateNetworkMetadata } = deps
+        if (!updateNetworkMetadata) {
+          return internalError(status, 503, {
+            code: 'feature.unavailable',
+            message: 'network metadata update is not available'
+          })
+        }
+        return withExtractedSpan('m-net', 'm-net.network.metadata.update', headers, async () => {
+          const result = await updateNetworkMetadata({
+            networkId: params.id,
+            ...(body.displayName !== undefined ? { displayName: body.displayName } : {})
+          })
+          return result.ok
+            ? { network: result.value }
+            : internalError(status, statusCodeForMNetError(result.error.code), result.error)
+        })
+      },
+      {
+        params: networkIdParamsSchema,
+        body: updateNetworkMetadataBodySchema,
+        response: internalResponse(t.Object({ network: networkSchema }), {
           404: internalErrorSchema,
           503: internalErrorSchema
         })
