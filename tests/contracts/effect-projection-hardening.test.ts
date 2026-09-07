@@ -31,6 +31,7 @@ describe('Effect projection hardening contracts', () => {
       'operator',
       'admin',
       'security-admin',
+      'security-admin-2',
       'break-glass-reviewer'
     ])
     expect(projectionPermissions).toEqual([

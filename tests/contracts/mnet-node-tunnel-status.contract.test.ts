@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 import type { MNetOperationalEventIngestRequestFromSchema } from '../../packages/contracts/src/index.ts'
+import type { ActorId } from '../../packages/contracts/src/literals.ts'
 import {
   deriveSidecarHealthStatus,
   parseEndpointHostPort,
@@ -18,6 +19,11 @@ function createApp(options: { withoutIngest?: boolean } = {}): {
 } {
   const ingested: IngestRecord[] = []
   const deps: MNetAppDeps = {
+    auth: {
+      async verify() {
+        return { ok: true as const, actor: 'operator' as ActorId }
+      }
+    },
     async readiness() {
       return { ready: true }
     },

@@ -163,6 +163,11 @@ export function createTestApp(
   })
 
   return createMNetApp({
+    auth: {
+      async verify() {
+        return { ok: true as const, actor: 'admin' as ActorId }
+      }
+    },
     ...(dbOverride ? { db: dbOverride } : {}),
     async readiness() {
       return { ready: true }

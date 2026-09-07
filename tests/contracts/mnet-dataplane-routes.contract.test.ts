@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { generateKeyPairSync } from 'node:crypto'
 import type { ActorId, MNetworkMember } from '../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
 import { createMNetApp } from '../../services/m-net/src/app.ts'
@@ -6,6 +7,7 @@ import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-pla
 import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
 import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 import { enableDataPlaneProfile } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
+import { NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY } from '../../services/m-net/src/network-map-signing.ts'
 import { requireDataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
 import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
@@ -203,10 +205,16 @@ function createRouteFixture(): RouteFixture {
 describe('M-Net dataplane route contracts', () => {
   const originalJwtSecret = process.env.MERISTEM_JWT_SECRET
   const originalInternalToken = process.env.MERISTEM_INTERNAL_TOKEN
+  const originalSigningPrivateKey = process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]
+  // 签名键显式注入：测试默认键依赖 NODE_ENV=test，宿主环境可能显式设置 NODE_ENV=production
+  const mapSigningPrivateKeyPem = generateKeyPairSync('ed25519')
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString()
 
   beforeEach(() => {
     process.env.MERISTEM_JWT_SECRET = jwtSecret
     process.env.MERISTEM_INTERNAL_TOKEN = internalToken
+    process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY] = mapSigningPrivateKeyPem
   })
 
   afterEach(() => {
@@ -215,6 +223,10 @@ describe('M-Net dataplane route contracts', () => {
 
     if (originalInternalToken === undefined) delete process.env.MERISTEM_INTERNAL_TOKEN
     else process.env.MERISTEM_INTERNAL_TOKEN = originalInternalToken
+
+    if (originalSigningPrivateKey === undefined)
+      delete process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY]
+    else process.env[NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY] = originalSigningPrivateKey
   })
 
   it('profile enable for m-net-cn@0.3.0 produces network map, relay assignment, events, and log facts', async () => {
