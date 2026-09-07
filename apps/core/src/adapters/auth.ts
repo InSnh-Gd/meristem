@@ -1,5 +1,12 @@
 import { eq } from 'drizzle-orm'
-import { verifyLocalToken } from '../../../../packages/auth/src/index.ts'
+import {
+  createOidcAuthProvider,
+  oidcSupportedAlgorithms,
+  verifyLocalToken,
+  type OidcActorSession,
+  type OidcSupportedAlgorithm
+} from '../../../../packages/auth/src/index.ts'
+import type { OidcAuthProviderConfigFromSchema } from '../../../../packages/contracts/src/index.ts'
 import { err, ok } from '../../../../packages/common/src/result.ts'
 import type { ActorId, Permission } from '../../../../packages/contracts/src/index.ts'
 import type { MeristemDb } from '../../../../packages/db/src/client.ts'
@@ -61,5 +68,83 @@ export function createSessionAuthPort(db: MeristemDb, secret = requiredSecret())
         return err({ code: 'db.unavailable', message: 'unable to query permissions' })
       }
     }
+  }
+}
+
+/** OIDC groups → Meristem actor 的映射顺序：先命中先得，未命中按最小权限 viewer 处理。 */
+const OIDC_GROUP_ACTOR_ORDER: readonly ActorId[] = [
+  'security-admin',
+  'break-glass-reviewer',
+  'admin',
+  'operator',
+  'viewer'
+]
+
+export function actorFromOidcSession(session: OidcActorSession): ActorId {
+  for (const candidate of OIDC_GROUP_ACTOR_ORDER) {
+    if (session.groups.includes(candidate)) return candidate
+  }
+  return 'viewer'
+}
+
+/**
+ * 生产 OIDC/JWT 认证端口：本地受管 token 优先（运维铸造/吊销路径），
+ * 未命中且配置了 OIDC 时按 discovery + JWKS 验证上游 access token 并映射 actor。
+ * 本地与上游两条路径都 fail-closed：任何失败都返回显式错误码而不是放行。
+ */
+export function createOidcSessionAuthPort(
+  db: MeristemDb,
+  options: {
+    localSecret: string
+    oidcConfig: OidcAuthProviderConfigFromSchema
+    /** 注入式 provider；生产默认按配置创建，测试注入受控实现。 */
+    oidcProvider?: ReturnType<typeof createOidcAuthProvider>
+  }
+) {
+  const oidc = options.oidcProvider ?? createOidcAuthProvider(options.oidcConfig)
+  const sessionPort = createSessionAuthPort(db, options.localSecret)
+  return {
+    async verify(token: string) {
+      const local = await sessionPort.verify(token)
+      if (local.ok) return local
+      const result = await oidc.verifyAccessToken({ token })
+      if (result.ok) {
+        return { ok: true as const, actor: actorFromOidcSession(result.session) }
+      }
+      return {
+        ok: false as const,
+        code: result.code,
+        message: result.message
+      }
+    },
+    getPermissions: sessionPort.getPermissions
+  }
+}
+
+/** 从环境变量组装 OIDC provider 配置；未配置 issuer 时返回 null（保持本地认证模式）。 */
+export function oidcConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env
+): OidcAuthProviderConfigFromSchema | null {
+  const issuer = env.MERISTEM_OIDC_ISSUER
+  const audiences =
+    env.MERISTEM_OIDC_AUDIENCES?.split(',')
+      .map(a => a.trim())
+      .filter(a => a) ?? []
+  const allowedAlgorithms =
+    env.MERISTEM_OIDC_ALLOWED_ALGORITHMS?.split(',')
+      .map(a => a.trim())
+      .filter(a => a) ?? []
+  if (!issuer || audiences.length === 0 || allowedAlgorithms.length === 0) return null
+  // 只保留 provider 支持的算法字面量，未知算法在装配期被丢弃而不是运行期失败
+  const supportedAlgorithms = allowedAlgorithms.filter(algorithm =>
+    (oidcSupportedAlgorithms as readonly string[]).includes(algorithm)
+  ) as OidcSupportedAlgorithm[]
+  if (supportedAlgorithms.length === 0) return null
+  return {
+    provider: 'oidc' as const,
+    issuer,
+    ...(env.MERISTEM_OIDC_DISCOVERY_URL ? { discoveryUrl: env.MERISTEM_OIDC_DISCOVERY_URL } : {}),
+    audiences,
+    allowedAlgorithms: supportedAlgorithms
   }
 }

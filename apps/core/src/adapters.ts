@@ -9,7 +9,11 @@ import {
   warnDegradedAndReturn
 } from '../../../packages/internal-http/src/index.ts'
 import { connectToNats } from '../../../packages/nats-rpc/src/index.ts'
-import { createSessionAuthPort } from './adapters/auth.ts'
+import {
+  createOidcSessionAuthPort,
+  createSessionAuthPort,
+  oidcConfigFromEnv
+} from './adapters/auth.ts'
 import { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 import {
   createHttpApprovalReaderPort,
@@ -33,6 +37,15 @@ import { createDbStorage, createIdentityStore, createSecretRefStore } from './st
 import type { CoreDeps } from './types.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
+
+function createOidcAuthPort(db: Parameters<typeof createSessionAuthPort>[0]) {
+  const oidcConfig = oidcConfigFromEnv()
+  if (!oidcConfig) return createSessionAuthPort(db)
+  return createOidcSessionAuthPort(db, {
+    localSecret: process.env.MERISTEM_JWT_SECRET ?? 'change-me-local-secret',
+    oidcConfig
+  })
+}
 export { createHttpAgentTaskPort } from './adapters/http-agent-task.ts'
 export {
   createHttpApprovalReaderPort,
@@ -130,7 +143,8 @@ export async function createProductionDeps(): Promise<CoreDeps & { close(): Prom
     startedAt: Date.now(),
     version: '0.1.0',
     joinIngressPublicUrl: process.env.MERISTEM_JOIN_PUBLIC_URL ?? 'https://localhost:8443',
-    auth: createSessionAuthPort(db),
+    // 生产身份认证：配置了 OIDC 环境变量时启用上游 JWT 验证，否则保持本地受管 token 模式
+    auth: createOidcAuthPort(db),
     policy: createHttpPolicyPort(),
     log: createHttpLogPort(),
     events: createHttpEventPort(),
