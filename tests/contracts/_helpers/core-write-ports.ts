@@ -90,6 +90,16 @@ function createTrackedNetworkProfileWriter(
         body
       })
       return inner.setProfile(networkId, body, context)
+    },
+    async disableBreakGlass(networkId, body, context) {
+      calls.push({
+        method: 'POST',
+        path: `/api/v0/networks/${networkId}/profile/disable-break-glass`,
+        authorization: `Bearer ${context.bearerToken}`,
+        correlationId: context.correlationId,
+        body
+      })
+      return inner.disableBreakGlass(networkId, body, context)
     }
   }
 }

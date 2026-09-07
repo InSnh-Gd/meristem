@@ -20,7 +20,7 @@ afterAll(() => {
 /** 提供故障模式场景用的最小 M-Net mock。 */
 function createFailureModeMNetApp() {
   return new Elysia()
-    .post('/api/v0/networks/network-cn-001/break-glass', () => {
+    .post('/api/v0/networks/network-cn-001/profile/disable-break-glass', () => {
       return new Response(
         JSON.stringify({
           error: { code: 'mnet.break_glass.denied', message: 'break-glass denied' }

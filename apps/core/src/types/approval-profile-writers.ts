@@ -29,6 +29,23 @@ export type ProfileWriteResponse =
       correlationId: string
     }
 
+/** M-Net break-glass 禁用请求体，Core 透传到 POST /api/v0/networks/:id/profile/disable-break-glass */
+export type BreakGlassDisableRequest = {
+  emergencyReason: string
+}
+
+/** M-Net 返回的 break-glass 禁用响应，与 M-Net breakGlassDisableResponseSchema 对齐 */
+export type BreakGlassDisableResponse = {
+  operationId: string
+  profileVersion: string
+  status: 'disabled'
+  approvalDegraded: boolean
+  degradationSource?: string
+  auditId: string
+  fullLogId: string
+  correlationId: string
+}
+
 /**
  * ApprovalWriterPort 对应 M-Policy 公开 POST /api/v0/policy/approvals/:id/approve 和
  * POST /api/v0/policy/approvals/:id/reject 的 HTTP 契约。
@@ -48,7 +65,8 @@ export type ApprovalWriterPort = {
 }
 
 /**
- * NetworkProfileWriterPort 对应 M-Net 公开 POST /api/v0/networks/:id/profile 的 HTTP 契约。
+ * NetworkProfileWriterPort 对应 M-Net 公开 POST /api/v0/networks/:id/profile 和
+ * POST /api/v0/networks/:id/profile/disable-break-glass 的 HTTP 契约。
  * Core 仅做认证、授权与错误收敛，真实状态转换仍由 M-Net 处理。
  */
 export type NetworkProfileWriterPort = {
@@ -57,4 +75,9 @@ export type NetworkProfileWriterPort = {
     body: ProfileWriteRequest,
     context: WriterContext
   ): Promise<Result<ProfileWriteResponse, ServiceError>>
+  disableBreakGlass(
+    networkId: string,
+    body: BreakGlassDisableRequest,
+    context: WriterContext
+  ): Promise<Result<BreakGlassDisableResponse, ServiceError>>
 }

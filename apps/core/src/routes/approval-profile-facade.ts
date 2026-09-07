@@ -250,5 +250,46 @@ export function approvalProfileFacadeRoutes(deps: CoreDeps) {
           detail: protectedRouteDetail('Set network profile through Core facade')
         }
       )
+      /** POST /api/v0/networks/:id/profile/disable-break-glass — break-glass 紧急禁用（Core 认证+授权后转发到 M-Net） */
+      .post(
+        '/api/v0/networks/:id/profile/disable-break-glass',
+        async ({ params, body, headers }) => {
+          return runFacadeWrite(deps, {
+            headers,
+            action: 'network:profile-disable',
+            resource: `network:${params.id}`,
+            run: (_auth, ctx) =>
+              deps.networkProfileWriter.disableBreakGlass(
+                params.id,
+                { emergencyReason: body.emergencyReason },
+                ctx
+              )
+          })
+        },
+        {
+          params: t.Object({ id: t.String({ minLength: 1 }) }),
+          body: t.Object({ emergencyReason: t.String() }),
+          response: {
+            200: t.Object({
+              operationId: t.String(),
+              profileVersion: t.String(),
+              status: t.Literal('disabled'),
+              approvalDegraded: t.Boolean(),
+              degradationSource: t.Optional(t.String()),
+              auditId: t.String(),
+              fullLogId: t.String(),
+              correlationId: t.String()
+            }),
+            401: apiErrorSchema,
+            403: apiErrorSchema,
+            404: apiErrorSchema,
+            409: apiErrorSchema,
+            503: apiErrorSchema
+          },
+          detail: protectedRouteDetail(
+            'Disable a network profile through break-glass via Core facade'
+          )
+        }
+      )
   )
 }

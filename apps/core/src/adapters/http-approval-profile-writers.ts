@@ -4,6 +4,7 @@ import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import { serviceErrorFromHttpResponse } from '../effect-helpers.ts'
 import type {
   ApprovalWriterPort,
+  BreakGlassDisableResponse,
   NetworkProfileWriterPort,
   ProfileWriteResponse,
   WriterContext
@@ -143,6 +144,25 @@ export function createHttpNetworkProfileWriterPort(
         return err({
           code: 'mnet.invalid_response',
           message: 'M-Net profile API invalid response'
+        })
+      }
+      return ok(value)
+    },
+    async disableBreakGlass(networkId, body, context) {
+      const result = await postJson(
+        fetcher,
+        `${baseUrl}/api/v0/networks/${encodeURIComponent(networkId)}/profile/disable-break-glass`,
+        { emergencyReason: body.emergencyReason },
+        context,
+        'mnet.unavailable',
+        'M-Net break-glass API unavailable'
+      )
+      if (!result.ok) return result
+      const value = result.value as BreakGlassDisableResponse
+      if (!value || typeof value !== 'object' || value.status !== 'disabled') {
+        return err({
+          code: 'mnet.invalid_response',
+          message: 'M-Net break-glass API invalid response'
         })
       }
       return ok(value)
