@@ -17,20 +17,38 @@
     "tokenEnvVar": "MERISTEM_INTERNAL_TOKEN"
   },
   "oidc": {
-    "provider": "local-dev"
+    "provider": "oidc",
+    "issuer": "http://meristem-keycloak-oidc:8080/realms/meristem",
+    "discoveryUrl": "http://meristem-keycloak-oidc:8080/realms/meristem/.well-known/openid-configuration",
+    "audiences": ["meristem-core"],
+    "allowedAlgorithms": ["RS256"],
+    "claims": {
+      "subjectClaim": "sub",
+      "groupsClaim": "realm_access.roles"
+    }
   },
   "secretProvider": {
-    "providerName": "dev-env",
+    "providerName": "runtime",
     "backend": "local-dev-env",
     "namedProvider": {
-      "name": "dev-env",
+      "name": "runtime",
       "config": {
         "backend": "local-dev-env",
-        "envMappings": {}
+        "envMappings": {
+          "keycloak/client-secret": "MERISTEM_OIDC_CLIENT_SECRET"
+        }
       }
     }
   },
-  "secretBindings": [],
+  "secretBindings": [
+    {
+      "envVar": "MERISTEM_OIDC_CLIENT_SECRET",
+      "ref": {
+        "provider": "runtime",
+        "keyPath": "keycloak/client-secret"
+      }
+    }
+  ],
   "netbird": {
     "signalEndpoint": "http://netbird-signal:3301",
     "relayEndpoint": "http://netbird-relay:3302",
