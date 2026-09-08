@@ -14,12 +14,15 @@ x-bun-service: &bun-service
     args:
       BUN_VERSION: ${BUN_VERSION:-1}
   restart: unless-stopped
+  # 上游 v0.2 运行时要求每个服务显式加载部署配置；config/ 不进镜像构建上下文，
+  # 用只读挂载提供 OCI 轨道配置（容器 DNS serviceUrls）。
   environment: &bun-base-env
     NODE_ENV: production
     DATABASE_URL: postgres://meristem:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/meristem
     NATS_URL: ws://nats:4223
     MERISTEM_INTERNAL_TOKEN: ${MERISTEM_INTERNAL_TOKEN:?set MERISTEM_INTERNAL_TOKEN}
     MERISTEM_JWT_SECRET: ${MERISTEM_JWT_SECRET:?set MERISTEM_JWT_SECRET}
+    MERISTEM_V02_DEPLOYMENT_CONFIG: /app/config/compose-deployment.json
     # split-container 内部服务 URL：容器网络 DNS 名
     MERISTEM_POLICY_URL: http://m-policy:3101
     MERISTEM_LOG_URL: http://m-log:3102
@@ -36,6 +39,8 @@ x-bun-service: &bun-service
     MERISTEM_NETBIRD_SIGNAL_ENDPOINT: ${MERISTEM_NETBIRD_SIGNAL_ENDPOINT:-}
     MERISTEM_NETBIRD_RELAY_ENDPOINT: ${MERISTEM_NETBIRD_RELAY_ENDPOINT:-}
     MERISTEM_NETBIRD_STUN_ENDPOINT: ${MERISTEM_NETBIRD_STUN_ENDPOINT:-}
+  volumes:
+    - ../../config/compose-deployment.json:/app/config/compose-deployment.json:ro
   depends_on:
     postgres:
       condition: service_healthy
@@ -233,6 +238,8 @@ services:
       MERISTEM_MNET_MAP_SIGNING_PRIVATE_KEY_FILE: /certs/network-map-signing-private.pem
     volumes:
       - meristem-certs:/certs:ro
+      # m-net 自带 volumes 覆盖锚点清单，config 挂载必须在这里重复声明
+      - ../../config/compose-deployment.json:/app/config/compose-deployment.json:ro
     ports:
       - '${MERISTEM_JOIN_INGRESS_PORT:-8443}:8443'
     healthcheck:

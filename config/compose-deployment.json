@@ -1,0 +1,58 @@
+{
+  "track": "oci",
+  "serviceUrls": {
+    "core": "http://core:3000",
+    "mnet": "http://m-net:3104",
+    "policy": "http://m-policy:3101",
+    "log": "http://m-log:3102",
+    "eventbus": "http://m-eventbus:3103",
+    "task": "http://m-task:3105",
+    "extension": "http://m-extension:3106",
+    "uiBff": "http://m-ui-bff:3200",
+    "nodeAgent": "http://node-agent:3307",
+    "mDeploy": "http://m-deploy:3107"
+  },
+  "internalAuth": {
+    "headerName": "Authorization",
+    "tokenEnvVar": "MERISTEM_INTERNAL_TOKEN"
+  },
+  "oidc": {
+    "provider": "local-dev"
+  },
+  "secretProvider": {
+    "providerName": "dev-env",
+    "backend": "local-dev-env",
+    "namedProvider": {
+      "name": "dev-env",
+      "config": {
+        "backend": "local-dev-env",
+        "envMappings": {}
+      }
+    }
+  },
+  "secretBindings": [],
+  "netbird": {
+    "signalEndpoint": "http://netbird-signal:3301",
+    "relayEndpoint": "http://netbird-relay:3302",
+    "stunEndpoint": "stun:netbird-signal:3478"
+  },
+  "nodeAgentCapabilities": {
+    "netAdmin": false,
+    "wireguardModulePath": "/lib/modules/extra/wireguard.ko",
+    "wgBinaryPath": "/usr/bin/wg",
+    "ipBinaryPath": "/usr/sbin/ip"
+  },
+  "readiness": {
+    "postgres": { "kind": "postgres-select-1", "target": "postgres" },
+    "core": { "kind": "http-get", "target": "core", "endpoint": "http://core:3000/ready" },
+    "mnet": { "kind": "http-get", "target": "mnet", "endpoint": "http://m-net:3104/ready" },
+    "policy": { "kind": "http-get", "target": "policy", "endpoint": "http://m-policy:3101/ready" },
+    "log": { "kind": "http-get", "target": "log", "endpoint": "http://m-log:3102/ready" },
+    "eventbus": { "kind": "http-get", "target": "eventbus", "endpoint": "http://m-eventbus:3103/ready" },
+    "task": { "kind": "http-get", "target": "task", "endpoint": "http://m-task:3105/ready" },
+    "extension": { "kind": "http-get", "target": "extension", "endpoint": "http://m-extension:3106/ready" },
+    "uiBff": { "kind": "http-get", "target": "uiBff", "endpoint": "http://m-ui-bff:3200/ready" },
+    "nodeAgent": { "kind": "http-get", "target": "nodeAgent", "endpoint": "http://node-agent:3307/ready" },
+    "mDeploy": { "kind": "http-get", "target": "mDeploy", "endpoint": "http://m-deploy:3107/ready" }
+  }
+}
