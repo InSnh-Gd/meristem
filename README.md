@@ -152,7 +152,7 @@ meristem-cli deploy up            # 构建镜像并启动全栈，等待全部 h
 
 编排自动完成：PostgreSQL / NATS 健康检查 → bootstrap 容器（迁移、种子、Join 证书、铸造初始 admin token）→ 全部服务按依赖启动。
 
-- `meristem deploy status`：查看各服务健康状态；`meristem deploy logs <service>`：查看服务日志；`meristem deploy down --volumes`：停栈并清理数据卷。
+- `meristem deploy status --file ops/compose/meristem.prod.yml`：查看各服务容器状态（裸 `deploy status` 是控制面 desired-state 摘要）；`meristem deploy logs <service>`：查看服务日志；`meristem deploy down --volumes`：停栈并清理数据卷。
 - 浏览器打开 `http://<host>:8080` 登录 M-UI（API 3000 / BFF 3200 / Join Ingress 8443）。
 - 已有部署重新运行 wizard 会保留现有密钥、仅更新端口等配置（Postgres 数据卷初始化后密码不可变更；轮换密钥需先 `down --volumes`）。
 

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -9,6 +10,23 @@ import {
   validateManifest
 } from './deploy-manifest.ts'
 import {
+  type DeployCommandDeps,
+  DEPLOY_USAGE,
+  buildEnvContent,
+  loadEnvTemplate,
+  resolveComposeContext,
+  resolveComposePaths,
+  resolveDefaultRepoRoot,
+  runProcess,
+  runToken,
+  runUp,
+  streamResult,
+  writeEnvFile
+} from './deploy-common.ts'
+import { defaultDeployPrompter, runDeployWizard } from './deploy-wizard.ts'
+import { runDeployTui } from './deploy-tui.ts'
+import {
+  encode,
   hasFlag,
   optionalOption,
   parseArgs,
@@ -17,6 +35,7 @@ import {
   success,
   type CliCommandHandler
 } from './shared.ts'
+import type { CliRunResult } from './types.ts'
 
 const LOCAL_STACK_STATE_DIR = '/tmp/meristem-local-stack'
 const LOCAL_STACK_STATE_FILE = join(LOCAL_STACK_STATE_DIR, 'state.json')
@@ -30,10 +49,25 @@ type LocalStackState = {
 export const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 
 /**
- * 部署命令分组：
- * - install / init / validate / prepare 是本地安装器，只产生可验证的非秘密清单和本地进程；
- * - status / agents / drift / evidence / propose / approve / apply / rollback 通过 Core 公开
- *   facade 访问 M-Deploy 控制面，生产事实、审批、审计与证据始终由 M-Deploy/M-Policy/M-Log 拥有。
+ * 单机部署（wizard/tui/up/status/logs/down/token）的 compose 执行 seam：
+ * 部署发生在控制面可用之前，副作用直接委托容器 provider，不经 Core client。
+ */
+const singleHostDeps: DeployCommandDeps = {
+  repoRoot: resolveDefaultRepoRoot(),
+  which: binary => Bun.which(binary),
+  run: runProcess
+}
+
+/**
+ * deploy 命令分组：
+ * - 单机组（wizard / tui / up / logs / down / token）在控制面可用之前操作本地
+ *   compose 栈；`init` 按旗标消歧——`--profile` / `--config` 生成安装清单，
+ *   否则生成单机 compose env 文件；
+ * - `status` 同样消歧——带 `--file` / `--env-file` 显示 compose 容器表，裸调用
+ *   走 Core facade 的 desired-state 摘要；
+ * - install / stop / validate / agents / drift / evidence / propose / approve /
+ *   apply / rollback 通过 Core 公开 facade 访问 M-Deploy 控制面，生产事实、
+ *   审批、审计与证据始终由 M-Deploy/M-Policy/M-Log 拥有。
  */
 export const handleDeployCommands: CliCommandHandler = async (client, args) => {
   const { positionals, options } = parseArgs(args)
@@ -42,25 +76,70 @@ export const handleDeployCommands: CliCommandHandler = async (client, args) => {
 
   const manifestPath = optionalOption(options, '--config') ?? DEFAULT_MANIFEST_PATH
 
-  if (subcommand === 'install') {
-    return install({ client, options, manifestPath })
+  if (subcommand === 'init') {
+    const profile = optionalOption(options, '--profile')
+    const config = optionalOption(options, '--config')
+    if (profile !== undefined || config !== undefined) {
+      return initManifest({ manifestPath, profile, cwd: process.cwd() })
+    }
+    return initEnvFile(options)
   }
   if (subcommand === 'stop') {
     return stopLocalStack()
   }
-  if (subcommand === 'init') {
-    return initManifest({
-      manifestPath,
-      profile: optionalOption(options, '--profile'),
-      cwd: process.cwd()
-    })
+  if (subcommand === 'install') {
+    return install({ client, options, manifestPath })
   }
   if (subcommand === 'validate') {
     return validateManifest(manifestPath)
   }
   if (subcommand === 'status') {
+    const stackView =
+      optionalOption(options, '--file') !== undefined ||
+      optionalOption(options, '--env-file') !== undefined
+    if (stackView) {
+      const compose = resolveComposeContext(singleHostDeps, composeOverrides(options))
+      const result = await singleHostDeps.run({
+        binary: compose.binary,
+        args: [...compose.args, 'ps', '--all'],
+        stream: true
+      })
+      return streamResult(result.exitCode)
+    }
     const desiredState = requireMethod(client.deploy?.desiredState, 'deploy.desiredState')
     return success(await desiredState())
+  }
+  if (subcommand === 'up') {
+    return deployUp(options)
+  }
+  if (subcommand === 'logs') {
+    return deployLogs(options, positionals)
+  }
+  if (subcommand === 'down') {
+    const compose = resolveComposeContext(singleHostDeps, composeOverrides(options))
+    const result = await singleHostDeps.run({
+      binary: compose.binary,
+      args: [
+        ...compose.args,
+        'down',
+        ...(hasFlag(options, '--volumes') ? ['--volumes'] : []),
+        '--remove-orphans'
+      ],
+      stream: true
+    })
+    return streamResult(result.exitCode)
+  }
+  if (subcommand === 'token') {
+    return deployToken(options, positionals)
+  }
+  if (subcommand === 'wizard') {
+    const timeout = optionalOption(options, '--timeout')
+    return runDeployWizard(singleHostDeps, defaultDeployPrompter, composeOverrides(options), {
+      ...(timeout ? { timeout } : {})
+    })
+  }
+  if (subcommand === 'tui') {
+    return runDeployTui(singleHostDeps, composeOverrides(options))
   }
   if (subcommand === 'agents') {
     const agents = requireMethod(client.deploy?.agents, 'deploy.agents')
@@ -103,7 +182,84 @@ export const handleDeployCommands: CliCommandHandler = async (client, args) => {
     return success(await rollback({ agentId, targetDigest: { algorithm, value } }))
   }
 
-  throw new Error(`unknown deploy command: ${subcommand ?? ''}`)
+  throw new Error(`unknown deploy command: ${subcommand ?? ''}\n${DEPLOY_USAGE}`)
+}
+
+/** 组装 compose 路径覆盖：exactOptionalPropertyTypes 下只携带显式传入的键。 */
+function composeOverrides(options: Record<string, string | boolean>): {
+  file?: string
+  envFile?: string
+} {
+  const file = optionalOption(options, '--file')
+  const envFile = optionalOption(options, '--env-file')
+  return {
+    ...(file ? { file } : {}),
+    ...(envFile ? { envFile } : {})
+  }
+}
+
+/** 单机部署 init：从模板生成 compose env 文件并替换随机密钥，重复执行默认拒绝覆盖。 */
+async function initEnvFile(options: Record<string, string | boolean>): Promise<CliRunResult> {
+  const envFile = resolveComposePaths(singleHostDeps, composeOverrides(options)).envFile
+  const overwriting = existsSync(envFile)
+  if (overwriting && !hasFlag(options, '--force')) {
+    throw new Error(`${envFile} already exists; pass --force to overwrite`)
+  }
+  const template = await loadEnvTemplate(singleHostDeps)
+  const { content, generatedKeys } = buildEnvContent(template)
+  await writeEnvFile(envFile, content)
+  // 覆盖即轮换全部密钥：与既有 postgres 数据卷密码失配会让栈起不来
+  const stderr = overwriting
+    ? 'warning: regenerated all secrets; if a data volume from a previous deployment exists, ' +
+      "run 'meristem deploy down --volumes' before the next 'deploy up'\n"
+    : ''
+  return { exitCode: 0, stdout: encode({ envFile, generatedKeys }), stderr }
+}
+
+/** 单机部署 up：默认从源码构建并等待全部 healthy，--pull 走 registry 镜像。 */
+async function deployUp(options: Record<string, string | boolean>): Promise<CliRunResult> {
+  const compose = resolveComposeContext(singleHostDeps, composeOverrides(options))
+  const timeout = optionalOption(options, '--timeout')
+  const exitCode = await runUp(singleHostDeps, compose, {
+    pull: hasFlag(options, '--pull'),
+    ...(timeout ? { timeout } : {})
+  })
+  return streamResult(exitCode)
+}
+
+/** 单机部署 logs：stream compose logs，--tail/--follow 与服务名原样转发。 */
+async function deployLogs(
+  options: Record<string, string | boolean>,
+  positionals: string[]
+): Promise<CliRunResult> {
+  const compose = resolveComposeContext(singleHostDeps, composeOverrides(options))
+  const logArgs = [...compose.args, 'logs']
+  const tail = optionalOption(options, '--tail')
+  if (tail) logArgs.push('--tail', tail)
+  if (hasFlag(options, '--follow')) logArgs.push('--follow')
+  const service = positionals[2]
+  if (service) logArgs.push(service)
+  const result = await singleHostDeps.run({ binary: compose.binary, args: logArgs, stream: true })
+  return streamResult(result.exitCode)
+}
+
+/**
+ * 单机部署 token：读取 bootstrap 铸造的 actor 运行时 token。
+ * actor 直接拼进容器内路径；argv 数组执行无 shell 注入面，字符集校验只防路径穿越。
+ */
+async function deployToken(
+  options: Record<string, string | boolean>,
+  positionals: string[]
+): Promise<CliRunResult> {
+  const actor = positionals[2]
+  if (!actor) throw new Error('usage: meristem deploy token <actor>')
+  if (!/^[A-Za-z0-9_-]+$/.test(actor)) {
+    throw new Error('actor must match [A-Za-z0-9_-]+')
+  }
+  const compose = resolveComposeContext(singleHostDeps, composeOverrides(options))
+  const token = await runToken(singleHostDeps, compose, actor)
+  if (!token.ok) return { exitCode: 1, stdout: '', stderr: token.stderr }
+  return success({ actor, token: token.token })
 }
 
 async function install(input: {

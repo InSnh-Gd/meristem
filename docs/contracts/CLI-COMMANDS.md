@@ -530,6 +530,9 @@ Skips one projection DLQ record. Core writes Audit Log before execution and writ
 
 Permission: none (local host orchestration; does not call Core).
 
+> 与下文 facade 段的 `deploy init` 消歧：带 `--profile` 或 `--config` 时本命令生成
+> 部署安装清单；不带旗标（或带 `--env-file` / `--force`）时执行本节的 env 文件生成。
+
 Generates a production env file at `ops/compose/meristem.prod.env` from
 `meristem.prod.env.example`, replacing the four `change-me` placeholders with
 random 256-bit secrets. The generated file is chmod `0600` and must never be
@@ -552,7 +555,8 @@ codes map to a non-zero CLI exit.
 
 Permission: none (local host orchestration).
 
-Shows the per-service container table (`compose ps --all`).
+Shows the per-service container table (`compose ps --all`). 裸 `deploy status`
+（不带 `--file` / `--env-file`）是控制面 desired-state 摘要，见下文 facade 段。
 
 ### `meristem deploy logs [<service>] [--tail <n>] [--follow] [--file <compose>] [--env-file <path>]`
 
@@ -728,6 +732,9 @@ Rules:
 
 ### `meristem deploy init [--profile local-compose|production-podman] [--config <path>]`
 
+> 与上文单机段的 `deploy init` 消歧：本节命令在带 `--profile` 或 `--config` 时执行；
+> 不带旗标时生成单机 compose env 文件。
+
 生成部署安装清单 `meristem.deploy.json`。`production-podman` 从运行命令的 Git checkout 自动派生 sourceRef：origin URL（`git remote get-url origin`）、附着分支（`git symbolic-ref HEAD`）、不可变 commit（`git rev-parse --verify HEAD^{commit}`）、`path: "."`，以及对原始 `git archive --format=tar <commit> -- .` 字节的小写 SHA-256 digest；脏工作树与未跟踪文件不进入 digest。必须在带 origin 的附着 checkout 中运行：缺少 origin、detached HEAD、archive 失败或 origin 含凭据（userinfo 或查询串）时 `init` 失败且不写入清单。
 
 已存在且通过校验、profile 相同时幂等复用且不改写内容（byte-for-byte）；仅精确匹配的旧版生成占位清单会被原地升级为真实 provenance；清单损坏、无法读取或请求不同 profile 时拒绝且不改写。清单只承载可验证意图，永不包含 token、密钥或 SecretProvider 明文。
@@ -750,7 +757,7 @@ Rules:
 
 ### `meristem deploy status`
 
-Permission: `deploy:desired-state-read`。显示 desired-state 摘要（stale / controllerAvailable / 最新 digest）。
+Permission: `deploy:desired-state-read`。显示 desired-state 摘要（stale / controllerAvailable / 最新 digest）。单机 compose 栈视图用 `deploy status --file/--env-file` 或 `deploy tui`。
 
 ### `meristem deploy agents`
 
