@@ -12,6 +12,7 @@ import {
   type LocalIamAuditFact,
   type LocalIamAuditFactInput,
   type LocalIamError,
+  type LocalIamIdentity,
   type LocalIamLoginResolution,
   type LocalIamPrincipal,
   type LocalIamPrincipalMutation,
@@ -34,6 +35,16 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
   const now = options.now ?? (() => new Date())
   const principalsById = new Map<string, LocalIamPrincipal>()
   const principalIdsByBinding = new Map<string, string>()
+  // 首登绑定是「查无 → 写审计 → 建 pending」的异步三步；同一绑定并发首登若各走一遍
+  // 会写出重复 pending principal 和重复审计事实。用 per-binding 的 in-flight promise
+  // 把并发首登收敛到一次创建；promise 同步登记（登记前无 await），不留给竞态窗口。
+  // ponytail: 去重范围只到单进程。local IAM 目前整体是内存态（无 principal 表），
+  // 天花板是多实例或重启：跨进程会各建一条，重启后并发重放同样会分叉。升级路径是
+  // 把 principal/session 落库后改用 (oidc_issuer, oidc_subject) UNIQUE + ON CONFLICT。
+  const pendingResolutions = new Map<
+    string,
+    Promise<Result<LocalIamLoginResolution, LocalIamError>>
+  >()
 
   for (const principal of options.initialPrincipals ?? []) {
     const copied = copyPrincipal(principal)
@@ -97,40 +108,72 @@ export function createLocalIamService(options: LocalIamServiceOptions): LocalIam
     writeAudit
   })
 
+  /**
+   * 创建 pending principal 并写审计；仅在 binding 查无时调用。
+   * 审计写入失败则整体失败，不落内存状态，避免出现无审计记录的 principal。
+   */
+  async function createPendingPrincipal(
+    key: string,
+    identity: LocalIamIdentity,
+    correlationId: string
+  ): Promise<Result<LocalIamLoginResolution, LocalIamError>> {
+    const createdAt = nowIso()
+    const principal: LocalIamPrincipal = {
+      contractVersion: OidcIamContractVersions.principal,
+      principalId: `principal-${crypto.randomUUID()}`,
+      oidcIssuer: identity.oidcIssuer,
+      oidcSubject: identity.oidcSubject,
+      status: 'pending',
+      roles: [],
+      display: { ...identity.display },
+      createdAt,
+      updatedAt: createdAt,
+      displayUpdatedAt: createdAt
+    }
+    const fact = auditFact({
+      action: 'principal.pending_created',
+      actor: 'system',
+      result: 'pending',
+      principal,
+      correlationId
+    })
+    const written = await writeAudit(fact)
+    if (!written.ok) return written
+    principalsById.set(principal.principalId, principal)
+    principalIdsByBinding.set(key, principal.principalId)
+    return ok<LocalIamLoginResolution>({
+      kind: 'pending_principal_created',
+      principal: copyPrincipal(principal),
+      audit: fact
+    })
+  }
+
+  /**
+   * 首登路径的去重入口：同一 binding 的并发首登共享同一次创建，后续调用复用其结果，
+   * 保证最多创建一条 pending principal 和一条审计事实。settle 后清理登记，后续请求
+   * 走正常 unresolved → 已绑定分支（此时 binding 已存在，不会再次进入本函数）。
+   */
+  function resolveFirstLogin(
+    key: string,
+    identity: LocalIamIdentity,
+    correlationId: string
+  ): Promise<Result<LocalIamLoginResolution, LocalIamError>> {
+    const inFlight = pendingResolutions.get(key)
+    if (inFlight) return inFlight
+    const resolution = createPendingPrincipal(key, identity, correlationId)
+    const tracked = resolution.finally(() => {
+      if (pendingResolutions.get(key) === tracked) pendingResolutions.delete(key)
+    })
+    pendingResolutions.set(key, tracked)
+    return tracked
+  }
+
   return {
     async resolveLogin(input) {
       const key = bindingKey(input.identity.oidcIssuer, input.identity.oidcSubject)
       const existingId = principalIdsByBinding.get(key)
       if (existingId === undefined) {
-        const createdAt = nowIso()
-        const principal: LocalIamPrincipal = {
-          contractVersion: OidcIamContractVersions.principal,
-          principalId: `principal-${crypto.randomUUID()}`,
-          oidcIssuer: input.identity.oidcIssuer,
-          oidcSubject: input.identity.oidcSubject,
-          status: 'pending',
-          roles: [],
-          display: { ...input.identity.display },
-          createdAt,
-          updatedAt: createdAt,
-          displayUpdatedAt: createdAt
-        }
-        const fact = auditFact({
-          action: 'principal.pending_created',
-          actor: 'system',
-          result: 'pending',
-          principal,
-          correlationId: input.correlationId
-        })
-        const written = await writeAudit(fact)
-        if (!written.ok) return written
-        principalsById.set(principal.principalId, principal)
-        principalIdsByBinding.set(key, principal.principalId)
-        return ok<LocalIamLoginResolution>({
-          kind: 'pending_principal_created',
-          principal: copyPrincipal(principal),
-          audit: fact
-        })
+        return resolveFirstLogin(key, input.identity, input.correlationId)
       }
 
       const existing = getPrincipal(existingId)
