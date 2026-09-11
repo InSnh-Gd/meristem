@@ -26,8 +26,6 @@ import {
   type GlobalDefaultsStore
 } from './global-defaults-store.ts'
 import { createPgGlobalDefaultsStore } from './global-defaults-store-pg.ts'
-import type { MigrationEngine } from './migration-engine.ts'
-import { createWiredMigrationEngine } from './migration-engine-factory.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
   createPgProfileDisablePolicyStore,
@@ -38,15 +36,14 @@ import {
   createPgProfileStore,
   type ProfileStore
 } from './profile-store.ts'
-import { asActorId } from './store-codecs.ts'
 import {
   createInMemorySuspendedOperationStore,
   createPgSuspendedOperationStore,
   type SuspendedOperationStore
 } from './suspended-operations.ts'
+import type { MNetDb, MNetSqlClient } from './types.ts'
 
-export type MNetDb = ReturnType<typeof createDb>['db']
-export type MNetSqlClient = ReturnType<typeof createDb>['client']
+export type { MNetDb, MNetSqlClient } from './types.ts'
 
 export type { ProfileEvents, ProfileLog } from './event-log-factories.ts'
 export type { ApprovalClient, PolicyAuthorize } from './external-client-factories.ts'
@@ -58,7 +55,6 @@ export type MNetInfrastructure = {
   globalDefaultsStore: GlobalDefaultsStore
   suspendedOps: SuspendedOperationStore
   profileDisablePolicy: ProfileDisablePolicyStore
-  migrationEngine: MigrationEngine
   dataPlaneStores: DataPlaneStores
   requireDatabase: boolean
   checkStoreHealth(): Promise<boolean>
@@ -124,32 +120,6 @@ export function createMNetInfrastructure(): MNetInfrastructure {
   const profileLog = createProfileLogClient(logService)
   const policyAuthorize = createPolicyAuthorizeClient(fetcher)
 
-  const migrationEngine = createWiredMigrationEngine({
-    globalDefaultsStore,
-    profileStore,
-    dataPlaneStores,
-    log: {
-      async writeTimeline(summary, subject, correlationId) {
-        await profileLog.writeTimeline(summary, subject, correlationId)
-      },
-      async writeFull(level, message, correlationId, payload) {
-        await profileLog.writeFull(level, message, correlationId, payload)
-      },
-      async writeAudit(actor, action, resource, result, correlationId, payload) {
-        const normalizedActor = asActorId(actor)
-        if (!normalizedActor) throw new Error('invalid audit actor for migration engine')
-        await profileLog.writeAudit(
-          normalizedActor,
-          action,
-          resource,
-          result,
-          correlationId,
-          payload
-        )
-      }
-    }
-  })
-
   async function checkStoreHealth(): Promise<boolean> {
     try {
       await Promise.all([
@@ -173,7 +143,6 @@ export function createMNetInfrastructure(): MNetInfrastructure {
     globalDefaultsStore,
     suspendedOps,
     profileDisablePolicy,
-    migrationEngine,
     dataPlaneStores,
     requireDatabase,
     checkStoreHealth,

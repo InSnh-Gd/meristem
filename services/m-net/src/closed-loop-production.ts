@@ -13,6 +13,7 @@ import { createInMemoryMNetClosedLoopStore } from './closed-loop-store-memory.ts
 import { createPgMNetClosedLoopStore } from './closed-loop-store-pg.ts'
 import { createMNetClosedLoopService } from './closed-loop-workflow.ts'
 import type { MNetClosedLoopDeps } from './closed-loop-workflow-types.ts'
+import type { MigrationEngine } from './migration-engine-contract.ts'
 
 function secretRef(provider: string, credentialId: string): SecretRefFromSchema {
   return { provider, keyPath: `mnet/credentials/${credentialId}` }
@@ -69,7 +70,7 @@ export function createClosedLoopProduction(input: {
   infrastructure: MNetInfrastructure
   runtimeConfig: RuntimeDeploymentConfig
   network: MNetClosedLoopDeps['network']
-  migrationEngine: MNetInfrastructure['migrationEngine']
+  migrationEngine: MigrationEngine
 }): ClosedLoopProduction {
   const { infrastructure, runtimeConfig, network, migrationEngine } = input
   const configuredProvider = runtimeConfig.secretProvider.namedProvider
@@ -136,6 +137,7 @@ export function createClosedLoopProduction(input: {
           operationId: migration.migrationId,
           targetProfileVersion: migration.targetProfileVersion
         })
+        if (!result.ok) return { ok: false as const, message: result.error }
         return result.value.result.status === 'failed' || result.value.result.status === 'skipped'
           ? {
               ok: false as const,
@@ -152,6 +154,7 @@ export function createClosedLoopProduction(input: {
           sourceProfileVersion: migration.sourceProfileVersion,
           targetProfileVersion: migration.targetProfileVersion
         })
+        if (!result.ok) return { ok: false as const, message: result.error }
         return result.value.result.status === 'rolled_back'
           ? { ok: true as const, appliedNetworkIds: [migration.networkId] }
           : {

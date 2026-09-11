@@ -1,6 +1,5 @@
 import type { MNetworkMember } from '../../../packages/contracts/src/index.ts'
 import type { DataPlaneStores, StoredTunnelAddressAllocation } from './data-plane-store-types.ts'
-import type { MNetAppDeps } from './deps.ts'
 import {
   type BreakGlassDeps,
   type CHINA_DATA_PLANE_PROFILE_VERSION,
@@ -102,16 +101,18 @@ export function getDataPlaneStores(dataPlane?: DataPlaneStores | null): DataPlan
 
 /** 校验数据面工作流依赖，缺失时保持 fail-closed。 */
 export function requireDataPlaneDeps(
-  deps: Pick<
-    MNetAppDeps,
-    | 'profileStore'
-    | 'policyAuthorize'
-    | 'dataPlane'
-    | 'events'
-    | 'log'
-    | 'networkUpdater'
-    | 'listMembers'
-    | 'resolveNetBirdControlPlane'
+  deps: Partial<
+    Pick<
+      ProfileWriteDeps,
+      | 'profileStore'
+      | 'policyAuthorize'
+      | 'dataPlane'
+      | 'events'
+      | 'log'
+      | 'networkUpdater'
+      | 'listMembers'
+      | 'resolveNetBirdControlPlane'
+    >
   >
 ): DataPlaneDeps | ProfileWorkflowFailure {
   if (!deps.profileStore || !deps.policyAuthorize || !deps.listMembers) {

@@ -1,6 +1,14 @@
 import { addMilliseconds } from 'date-fns'
-import type { MNetMigrationRequired } from '../../../packages/contracts/src/index.ts'
-import type { MNetAppDeps } from './deps.ts'
+import type {
+  MNetMigrationRequired,
+  MNetworkMember,
+  NetworkSuspendedOperation
+} from '../../../packages/contracts/src/index.ts'
+import type { DataPlaneStores } from './data-plane-store-types.ts'
+import type { MigrationEngine } from './migration-engine-contract.ts'
+import type { NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
+import type { ProfileStore } from './profile-store.ts'
+import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
 import type { ProfileState } from './profile-state-machine.ts'
 
 /** 中国区域默认启用的 NetBird Profile 版本。 */
@@ -34,11 +42,84 @@ export type BreakGlassBody = {
   approvalDegraded?: boolean
 }
 
-export type ProfileStore = NonNullable<MNetAppDeps['profileStore']>
-export type PolicyAuthorize = NonNullable<MNetAppDeps['policyAuthorize']>
-export type SuspendedOps = NonNullable<MNetAppDeps['suspendedOps']>
-export type Approvals = NonNullable<MNetAppDeps['approvals']>
-export type ProfileDisablePolicy = NonNullable<MNetAppDeps['profileDisablePolicy']>
+export type { ProfileStore } from './profile-store.ts'
+
+// 这些依赖形状改为引用各自权威模块的类型，而非从 deps.ts 的 MNetAppDeps 派生——
+// 后者会让本文件反向依赖 deps.ts，正是 DFW-041 依赖环的一环。
+export type PolicyAuthorize = {
+  authorize(
+    actor: string,
+    action: string,
+    resource: string
+  ): Promise<{
+    result: 'allow' | 'deny' | 'require_manual_review' | 'require_multi_approval'
+    id: string
+    reasons: string[]
+  }>
+}
+export type SuspendedOps = {
+  create(input: {
+    policyDecisionId: string
+    action: string
+    networkId: string
+    fromProfileVersion: string
+    toProfileVersion: string
+    requestedBy: string
+    reason?: string
+    correlationId: string
+    idempotencyKey: string
+    expiresAt: string
+  }): Promise<NetworkSuspendedOperation>
+  get(id: string): Promise<NetworkSuspendedOperation | null>
+  transition(
+    id: string,
+    status: string,
+    terminalReason?: string
+  ): Promise<NetworkSuspendedOperation | null>
+}
+export type Approvals = {
+  create(input: {
+    policyDecisionId: string
+    originService: string
+    operationId: string
+    requestedBy: string
+    requiredAction: string
+    quorumRequired: number
+    expiresAt: string
+  }): Promise<
+    | { ok: true; value: { approvalId: string } }
+    | { ok: false; error: { code: string; message: string } }
+  >
+}
+export type ProfileEvents = {
+  publish(subject: string, type: string, payload: unknown, correlationId?: string): Promise<void>
+}
+export type ProfileLog = {
+  writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void>
+  writeFull(
+    level: string,
+    message: string,
+    correlationId?: string,
+    payload?: unknown
+  ): Promise<void>
+  writeAudit(
+    actor: string,
+    action: string,
+    resource: string,
+    result: string,
+    correlationId?: string,
+    payload?: unknown
+  ): Promise<void>
+}
+export type NetworkUpdater = {
+  setProfileVersion(networkId: string, profileVersion: string): Promise<void>
+}
+export type ListMembers = (input: {
+  networkId: string
+}) => Promise<
+  { ok: true; value: MNetworkMember[] } | { ok: false; error: { code: string; message: string } }
+>
+export type PolicyHealthCheck = { checkHealth(): Promise<{ healthy: boolean }> }
 
 export type ProfileReadDeps = {
   profileStore: ProfileStore
@@ -48,26 +129,29 @@ export type ProfileReadDeps = {
 export type ProfileWriteDeps = ProfileReadDeps & {
   suspendedOps: SuspendedOps
   approvals: Approvals
-  events?: MNetAppDeps['events']
-  log?: MNetAppDeps['log']
-  profileDisablePolicy?: MNetAppDeps['profileDisablePolicy']
-  networkUpdater?: MNetAppDeps['networkUpdater']
-  listMembers?: MNetAppDeps['listMembers']
-  migrationEngine?: MNetAppDeps['migrationEngine']
-  dataPlane?: MNetAppDeps['dataPlane']
-  resolveNetBirdControlPlane?: MNetAppDeps['resolveNetBirdControlPlane']
+  events?: ProfileEvents
+  log?: ProfileLog
+  profileDisablePolicy?: ProfileDisablePolicyStore
+  networkUpdater?: NetworkUpdater
+  listMembers?: ListMembers
+  migrationEngine?: MigrationEngine
+  dataPlane?: DataPlaneStores
+  resolveNetBirdControlPlane?: (input: {
+    networkId: string
+    profileVersion: 'm-net@0.3.0' | 'm-net-cn@0.3.0'
+  }) => Promise<NetBirdResolvedControlPlaneConfig | null>
 }
 
 export type BreakGlassDeps = {
   profileStore: ProfileStore
   policyAuthorize: PolicyAuthorize
-  profileDisablePolicy: ProfileDisablePolicy
-  policyHealthCheck?: MNetAppDeps['policyHealthCheck']
-  events?: MNetAppDeps['events']
-  log?: MNetAppDeps['log']
-  networkUpdater?: MNetAppDeps['networkUpdater']
-  listMembers?: MNetAppDeps['listMembers']
-  dataPlane?: MNetAppDeps['dataPlane']
+  profileDisablePolicy: ProfileDisablePolicyStore
+  policyHealthCheck?: PolicyHealthCheck
+  events?: ProfileEvents
+  log?: ProfileLog
+  networkUpdater?: NetworkUpdater
+  listMembers?: ListMembers
+  dataPlane?: DataPlaneStores
 }
 
 export type StoredNetworkState = Awaited<ReturnType<ProfileStore['getNetworkState']>>

@@ -3,6 +3,7 @@ export type { PlanMigrationResult } from './migration-engine-types.ts'
 import { isCandidate } from './migration-engine-helpers.ts'
 import { applyNetwork } from './migration-engine-application.ts'
 import { fail, ok } from './migration-engine-locks.ts'
+import type { MigrationEngine } from './migration-engine-contract.ts'
 import { type MigrationEngineDeps, TARGET_CN_PROFILE_VERSION } from './migration-engine-types.ts'
 import { rollbackNetwork } from './migration-engine-rollback.ts'
 
@@ -12,9 +13,11 @@ export { TARGET_CN_PROFILE_VERSION } from './migration-engine-types.ts'
 import type { NetworkProfileMigrationResult, SwitchBatch } from './global-defaults-store.ts'
 import type { NetworkSnapshot } from './migration-engine-helpers.ts'
 
-export type MigrationEngine = ReturnType<typeof createMigrationEngine>
+// 显式接口定义在 migration-engine-contract.ts 叶模块；此处仅 re-export 以保持既有导入点兼容，
+// 并让返回值显式标注为 MigrationEngine（DFW-041：避免 ReturnType 派生类型把实现拉进 deps.ts 闭包）。
+export type { MigrationEngine } from './migration-engine-contract.ts'
 
-export function createMigrationEngine(deps: MigrationEngineDeps) {
+export function createMigrationEngine(deps: MigrationEngineDeps): MigrationEngine {
   async function plan(input: {
     targetProfileVersion: string
     batchSize?: number

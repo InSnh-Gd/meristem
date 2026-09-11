@@ -4,7 +4,6 @@ import type {
   MNetOperationalEventIngestRequestFromSchema,
   MNetOperationalEventIngestResponseFromSchema,
   MNetOperationalSnapshotFromSchema,
-  MNetRegionalProfile,
   MNetwork,
   MNetworkMember,
   NetworkSummary,
@@ -16,15 +15,18 @@ import type {
   NodeControlResponse
 } from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import type { MNetDb } from './clients.ts'
 import type { DataPlaneStores } from './data-plane-store-types.ts'
-import type { ForcedRelayNodeContext } from './forced-relay-node-context.ts'
 import type { GlobalDefaultsStore } from './global-defaults-store.ts'
-import type { MigrationEngine } from './migration-engine.ts'
-import type { NodeKeyRegistrationSuccess } from './mnet-dataplane-support.ts'
+import type { MigrationEngine } from './migration-engine-contract.ts'
 import type { NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
 import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
-import type { MNetServiceResult } from './types.ts'
+import type { ProfileStore } from './profile-store.ts'
+import type {
+  ForcedRelayNodeContext,
+  MNetDb,
+  MNetServiceResult,
+  NodeKeyRegistrationSuccess
+} from './types.ts'
 import type { MNetClosedLoopService } from './closed-loop-workflow.ts'
 
 export type MNetAppDeps = {
@@ -88,35 +90,9 @@ export type MNetAppDeps = {
         error: { code: string; message: string }
       }
   >
-  profileStore?: {
-    getDefinitions(): Promise<MNetRegionalProfile[]>
-    getDefinition(profileVersion: string): Promise<MNetRegionalProfile | null>
-    getNetworkState(networkId: string): Promise<{
-      networkId: string
-      profileVersion: string
-      status: string
-      updatedAt: string
-    } | null>
-    setNetworkState(
-      networkId: string,
-      state: { profileVersion: string; status: string }
-    ): Promise<void>
-    recordTransition(record: {
-      networkId: string
-      fromVersion: string
-      toVersion: string
-      fromStatus: string
-      toStatus: string
-      actor: string
-      reason?: string
-      policyDecisionId?: string
-      correlationId?: string
-    }): Promise<void>
-    /** 列出所有网络 Profile 状态（用于批量迁移扫描） */
-    listNetworkStates(): Promise<
-      Array<{ networkId: string; profileVersion: string; status: string; updatedAt: string }>
-    >
-  }
+  // 复用 profile-store.ts 的权威 ProfileStore 定义，避免此处再声明一份 inline 结构
+  // 造成类型重复（DFW-041 清理项）。
+  profileStore?: ProfileStore
   networkUpdater?: {
     setProfileVersion(networkId: string, profileVersion: string): Promise<void>
   }
