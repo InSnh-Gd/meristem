@@ -14,9 +14,9 @@ for executing environment-dependent gates in the target environment.
 | --- | --- |
 | Main TypeScript typecheck | Clean |
 | M-UI typecheck | 0 errors, 0 warnings |
-| Lint | 0 warnings after the repository cleanup |
+| Lint | 0 errors; 1 benign warning retained (see note below) |
 | Agent-submit drift guard | 8/8 passing |
-| Dependency cruiser | 0 errors; 5 pre-existing circular-dependency warnings |
+| Dependency cruiser | 0 errors, 0 cycles: the TypeScript parse false-green was fixed (`@swc/core` + `parser:'swc'`) and the 18 real cycles were eliminated; `no-circular` is now `error` for `apps/core` and `services/m-net` |
 | Type-safety and path hygiene review | No unsafe assertion anti-patterns or internal-orchestration-path leakage found |
 
 The production track keeps PostgreSQL and local IAM authoritative, Git as the
@@ -181,16 +181,19 @@ proofs must be rerun for the deployment candidate and target topology.
 contract, runner, timeout, or dependency-boundary rules.
 
 **Key gate results:** main typecheck is clean; M-UI typecheck has 0 errors and
-0 warnings; lint has 0 warnings; the agent-submit drift guard passes 8/8; and
-dependency-cruiser reports 0 errors.
+0 warnings; lint reports a single benign warning (`useRegexLiterals` in
+`apps/m-cli/src/commands/deploy-tui-render.ts`, retained because the regex literal
+is rejected by Biome's `noControlCharactersInRegex`); the agent-submit drift guard
+passes 8/8; and dependency-cruiser reports 0 errors.
 
 **Evidence files:** `package.json`, `docs/testing/TESTING.md`,
 `tests/contracts/schema-coverage.drift.contract.test.ts`, and
 `tests/contracts/m-task-draft.test.ts`.
 
-**Known limitations:** dependency-cruiser retains five pre-existing circular
-dependency warnings. They are documented as warnings, not production-track
-errors, and should be addressed independently rather than hidden or suppressed.
+**Known limitations:** the previously reported five circular-dependency warnings
+have been eliminated — the dependency-cruiser TypeScript parse false-green was
+fixed and all 18 real cycles were broken, with `no-circular` promoted to `error`
+for `apps/core` and `services/m-net`. See `DEFERRED-WORK.md` DFW-040/041/045.
 
 ## T30 Containerfile Security Hardening
 

@@ -112,11 +112,13 @@ apps/
       core-error.ts             Core 统一错误类型
       errors.ts                 错误辅助
       public-types.ts           对外暴露的公共类型
-      storage-adapter.ts        PostgreSQL 权威写模型适配器（主）
-      storage-adapter-*.ts      按资源拆分的存储适配器（config, core, identity, secret-refs, records-*）
+      storage/                  PostgreSQL 权威写模型适配器（storage-adapter.ts 主适配器 +
+                                storage-adapter-{config,core,identity,secret-refs,records-*}）
       adapters/                 per-service adapter ports（http-policy, http-log, http-eventbus, http-mnet, http-mdeploy-facade, http-agent-task, rpc-legacy, service-lifecycle 等）
       middleware/               auth middleware（requireActor, authorize）+ route helpers
-      routes/                   per-resource routes（health, services, networks, nodes, tasks, logs, policy, config, secrets, identity, deploy-facade 等）
+      routes/                   per-domain 路由子目录（health, service, network, node, log,
+                                policy, config, secrets, identity, projection, facade），
+                                每个子目录内按资源拆分路由/支持/schema 文件；根目录不再平铺
       types/                    per-resource port 接口
       testing/                  Core 内部测试 helper 与 in-memory deps
   m-ui/                         SvelteKit + SDUI
