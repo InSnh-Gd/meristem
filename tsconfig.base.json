@@ -18,6 +18,9 @@
     "target": "ESNext",
     "types": ["bun"],
     "useDefineForClassFields": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@m-net/*": ["./services/m-net/src/*"]
+    }
   }
 }
