@@ -3,11 +3,12 @@ import type { Permission } from '../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../core-error.ts'
 import { authorize, requireActor } from '../middleware/auth.ts'
 import { statusCodeForServiceError } from '../middleware/route-support.ts'
+import type { FacadeServiceResult, ServiceErrorLike } from '../types/facade-result.ts'
 import type { CoreDeps } from '../types.ts'
 
-type ServiceErrorLike = { code: string; message: string }
-
-export type FacadeServiceResult<T> = { ok: true; value: T } | { ok: false; error: ServiceErrorLike }
+// 定义已移至 types/facade-result.ts，以断开 types/ → routes/ 的反向依赖（DFW-040）；
+// 此处 re-export 保持既有 `from './facade-support.ts'` 消费点兼容。
+export type { FacadeServiceResult, ServiceErrorLike }
 
 export type FacadeAuth = Awaited<ReturnType<typeof requireActor>>
 export type FacadeWriterContext = ReturnType<typeof facadeContext>
