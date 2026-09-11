@@ -1,13 +1,45 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
+    // 循环依赖门禁分三条规则：dependency-cruiser 不会跨规则去重匹配，因此全局 warn 规则
+    // 必须用 from.pathNot 排除 apps/core 与 services/m-net，否则同一 worker 会被双报
+    // （warn + error）并可能翻转退出码。这两个树的循环已清零（DFW-040/041），故设为 error；
+    // 其余目录保持 warn，避免把未清理的预存循环一次性变成阻塞。
     {
       name: 'no-circular',
       severity: 'warn',
       comment:
         "This dependency is part of a circular relationship. You might want to revise " +
         "your solution (i.e. use dependency inversion, make sure the modules have a single responsibility) ",
-      from: {},
+      from: {
+        pathNot: ['^apps/core/src/', '^services/m-net/src/']
+      },
+      to: {
+        circular: true
+      }
+    },
+    {
+      name: 'no-circular-core',
+      severity: 'error',
+      comment:
+        'apps/core 不允许循环依赖（DFW-040 已清零）。新增循环会让本规则以 error 失败，' +
+        '请用依赖反转或抽叶模块断开，而不是放宽规则。',
+      from: {
+        path: '^apps/core/src/'
+      },
+      to: {
+        circular: true
+      }
+    },
+    {
+      name: 'no-circular-mnet',
+      severity: 'error',
+      comment:
+        'services/m-net 不允许循环依赖（DFW-041 已清零）。新增循环会让本规则以 error 失败，' +
+        '请用依赖反转或抽叶模块断开，而不是放宽规则。',
+      from: {
+        path: '^services/m-net/src/'
+      },
       to: {
         circular: true
       }

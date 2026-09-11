@@ -46,9 +46,11 @@ async function cruiseSummary(): Promise<CruiseSummary> {
     new Response(process.stderr).text(),
     process.exited
   ])
-  // warn 级违规不阻断（循环规则当前为 warn），但不接受解析失败导致的非零退出。
+  // 注意：json reporter 的 exitCode 恒为 0（report/json.mjs 硬编码），不能据此判断门禁。
+  // 因此改用 summary.error 断言当前无 error 级违规（真实门禁用默认 reporter，exitCode = error 数）。
   expect(exitCode).toBe(0)
   const result = JSON.parse(stdout) as { summary: CruiseSummary }
+  expect(result.summary.error).toBe(0)
   return result.summary
 }
 
@@ -57,5 +59,56 @@ describe('dependency-cruiser parse coverage contract', () => {
     const summary = await cruiseSummary()
     expect(summary.totalCruised).toBeGreaterThanOrEqual(MIN_MODULES_CRUISED)
     expect(summary.totalDependenciesCruised).toBeGreaterThanOrEqual(MIN_DEPENDENCIES_CRUISED)
+  }, 60_000)
+
+  it('actually reports a seeded cycle (positive control for the cycle rule)', async () => {
+    // 若解析器失效，no-circular 也会静默失效；本用例种一个真实循环、配最小 error 级规则，
+    // 用**默认 reporter** 断言退出码非零（json reporter 恒为 0，无法证明门禁阻断）。
+    const fixtureRoot = `/tmp/meristem-depcruise-cycle-${crypto.randomUUID()}`
+    const srcDir = `${fixtureRoot}/apps/core/src`
+    await Bun.write(
+      `${srcDir}/cycle-a.ts`,
+      "import { b } from './cycle-b.ts'\nexport const a = b\n"
+    )
+    await Bun.write(
+      `${srcDir}/cycle-b.ts`,
+      "import { a } from './cycle-a.ts'\nexport const b = a\n"
+    )
+    await Bun.write(
+      `${fixtureRoot}/tsconfig.json`,
+      JSON.stringify({
+        compilerOptions: { moduleResolution: 'Bundler', allowImportingTsExtensions: true }
+      })
+    )
+    await Bun.write(
+      `${fixtureRoot}/depcruise.config.cjs`,
+      `module.exports = {
+        forbidden: [{ name: 'no-circular-core', severity: 'error', from: { path: '^apps/core/src/' }, to: { circular: true } }],
+        options: { parser: 'swc', tsConfig: { fileName: 'tsconfig.json' }, doNotFollow: { path: ['node_modules'] } }
+      }
+      `
+    )
+
+    try {
+      // fixture 在 /tmp，需借仓库的 depcruise 与 @swc/core：链接 node_modules 并直接调用二进制，
+      // 避免 bunx 在无 node_modules 的临时目录里解析失败。
+      await Bun.spawn(['ln', '-s', `${repoRoot}/node_modules`, `${fixtureRoot}/node_modules`])
+        .exited
+      const depcruiseBin = `${repoRoot}/node_modules/.bin/depcruise`
+      const process = Bun.spawn(
+        [depcruiseBin, '--config', `${fixtureRoot}/depcruise.config.cjs`, 'apps'],
+        { cwd: fixtureRoot, stdout: 'pipe', stderr: 'pipe' }
+      )
+      const [stdout, , exitCode] = await Promise.all([
+        new Response(process.stdout).text(),
+        new Response(process.stderr).text(),
+        process.exited
+      ])
+      expect(stdout).toContain('no-circular-core')
+      // error 级违规必须导致非零退出码（gate 才能真正阻断）。
+      expect(exitCode).not.toBe(0)
+    } finally {
+      await Bun.spawn(['rm', '-rf', fixtureRoot]).exited
+    }
   }, 60_000)
 })
