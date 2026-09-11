@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import { bindSession } from '@m-net/agent/agent-runtime-session-lifecycle.ts'
+import { authorizeSessionMessage, joinTicketRedeemability } from '@m-net/runtime.ts'
+import type { JoinSessionData } from '@m-net/shared.ts'
 import type { ServerWebSocket } from 'bun'
-import { bindSession } from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
-import {
-  authorizeSessionMessage,
-  joinTicketRedeemability
-} from '../../services/m-net/src/runtime.ts'
-import type { JoinSessionData } from '../../services/m-net/src/shared.ts'
 
 type BindableSocket = Pick<ServerWebSocket<JoinSessionData>, 'data' | 'close'> & {
   closeCalls: Array<{ code: number | undefined; reason: string | undefined }>

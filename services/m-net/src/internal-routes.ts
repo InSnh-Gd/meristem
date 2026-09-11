@@ -1,12 +1,12 @@
 import { Elysia, t } from 'elysia'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
-import type { MNetAppDeps } from './deps.ts'
 import {
   fetchLatestNetworkMap,
   registerNodePublicKey,
   requireDataPlaneDeps
-} from './mnet-dataplane-workflows.ts'
-import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
+} from './data-plane/mnet-dataplane-workflows.ts'
+import type { MNetAppDeps } from './deps.ts'
+import { isProfileWorkflowFailure } from './profile/profile-workflow-types.ts'
 import { internalError, requireInternal, statusCodeForMNetError } from './route-helpers.ts'
 import {
   createNetworkBodySchema,

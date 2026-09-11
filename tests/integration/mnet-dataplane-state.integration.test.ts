@@ -1,13 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { createPgDataPlaneStores } from '@m-net/data-plane/data-plane-store-pg.ts'
+import { createPgGlobalDefaultsStore } from '@m-net/profile/global-defaults-store-pg.ts'
+import { createPgProfileDisablePolicyStore } from '@m-net/profile/profile-disable-policy.ts'
+import { createPgProfileStore } from '@m-net/profile/profile-store.ts'
+import { createPgSuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
 import { migrateFoundation } from '../../packages/db/src/migrate-foundation.ts'
 import { migrateMNetDataPlane } from '../../packages/db/src/migrate-mnet-dataplane.ts'
 import { migrateServices } from '../../packages/db/src/migrate-services.ts'
-import { createPgDataPlaneStores } from '../../services/m-net/src/data-plane-store-pg.ts'
-import { createPgGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store-pg.ts'
-import { createPgProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
-import { createPgProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createPgSuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
 const pgAvailable = await (async () => {
   try {

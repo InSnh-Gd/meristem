@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import type { MNetAppDeps } from '../../../services/m-net/src/deps.ts'
-import { requestEnableProfile } from '../../../services/m-net/src/profile-enable-workflow.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import { requestEnableProfile } from '@m-net/profile/profile-enable-workflow.ts'
 
 function createProfileStore(): NonNullable<MNetAppDeps['profileStore']> {
   return {

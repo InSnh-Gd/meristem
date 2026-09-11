@@ -6,7 +6,7 @@ import type {
   MNetworkMember,
   NodeAgentRuntimeStatus
 } from '../../../packages/contracts/src/index.ts'
-import type { StoredSidecarDesiredConfig } from './data-plane-store-types.ts'
+import type { StoredSidecarDesiredConfig } from './data-plane/data-plane-store-types.ts'
 
 export type EventSubject = MNetOperationalEventIngestRequestFromSchema['event']['subject']
 

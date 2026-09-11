@@ -48,7 +48,7 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
       '已排期拆分：上游合并后网络 lifecycle schema 增长 7 行，将按 node / network / control 拆分'
   },
   {
-    filePath: 'services/m-net/src/node-runtime-routes.ts',
+    filePath: 'services/m-net/src/agent/node-runtime-routes.ts',
     reason: '已排期拆分：上游合并新增 tunnel-status 路由，将按 map / key / tunnel 路由族拆分'
   },
   {

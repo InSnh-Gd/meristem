@@ -23,10 +23,10 @@ import {
   networks,
   nodes
 } from '../../../packages/db/src/schema.ts'
+import { isNodeExcludedFromPeerPaths } from './agent/node-control-state-machine.ts'
 import type { MNetDb } from './clients.ts'
-import type { GlobalDefaultsStore } from './global-defaults-store.ts'
-import { isNodeExcludedFromPeerPaths } from './node-control-state-machine.ts'
-import type { ProfileStore } from './profile-store.ts'
+import type { GlobalDefaultsStore } from './profile/global-defaults-store.ts'
+import type { ProfileStore } from './profile/profile-store.ts'
 import { asNodeKind, asNodeStatus, err, mapNetwork, membershipModeFor, ok } from './shared.ts'
 import type { MNetServiceResult } from './types.ts'
 

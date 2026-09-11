@@ -4,29 +4,29 @@
  * 该 proof 不再只检查前置条件；它会拉起或复用真实本地服务，
  * 并输出可机读 JSON 证据，而不是把失败折叠成泛化异常。
  */
-import { mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { createSqlClient } from '../packages/db/src/client.ts'
+import {
+  createRuntimeSecretManager,
+  resolveCoreOidcStartupSecrets
+} from '../apps/core/src/adapters.ts'
+import { mintLocalToken } from '../packages/auth/src/index.ts'
 import {
   loadRuntimeDeploymentConfig,
   RUNTIME_DEPLOYMENT_CONFIG_ENV,
   type RuntimeDeploymentConfig
 } from '../packages/config/src/index.ts'
-import { resolveDeploymentSecretBindings } from '../packages/secrets/src/index.ts'
-import { connectToNats } from '../packages/nats-rpc/src/index.ts'
-import { mintLocalToken } from '../packages/auth/src/index.ts'
 import type { DeploymentConfigV02FromSchema } from '../packages/contracts/src/index.ts'
-import {
-  createRuntimeSecretManager,
-  resolveCoreOidcStartupSecrets
-} from '../apps/core/src/adapters.ts'
+import { createSqlClient } from '../packages/db/src/client.ts'
+import { connectToNats } from '../packages/nats-rpc/src/index.ts'
+import { resolveDeploymentSecretBindings } from '../packages/secrets/src/index.ts'
 import {
   buildKeycloakDeploymentConfig,
   ensureKeycloakDevRealm,
-  keycloakClientSecretEnvVar,
-  mintKeycloakTokenForActor,
   type KeycloakDevRealmResult,
-  type KeycloakRealmState
+  type KeycloakRealmState,
+  keycloakClientSecretEnvVar,
+  mintKeycloakTokenForActor
 } from './keycloak-dev-realm.ts'
 import { prepareInfra, prepareWorkspace, rootDir } from './local-stack-runtime.ts'
 

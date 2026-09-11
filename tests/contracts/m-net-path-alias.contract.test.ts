@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
-import { collectBoundaryViolations } from '../../scripts/boundary-import-check.ts'
 import type { MNetServiceResult } from '@m-net/types.ts'
+import { collectBoundaryViolations } from '../../scripts/boundary-import-check.ts'
 
 /**
  * `@m-net/*` path alias 的落地守卫（DFW-038 硬前置条件 3）。

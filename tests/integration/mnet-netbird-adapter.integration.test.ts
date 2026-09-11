@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { fetchLatestNetworkMap } from '@m-net/data-plane/mnet-dataplane-materialize.ts'
+import { requireDataPlaneDeps } from '@m-net/data-plane/mnet-dataplane-support.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import { createOperationalReadModel } from '@m-net/operational-read-model.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import type {
   ActorId,
   MNetworkMember,
   NodeAgentRuntimeStatus
 } from '../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
-import { fetchLatestNetworkMap } from '../../services/m-net/src/mnet-dataplane-materialize.ts'
-import { requireDataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
-import { createOperationalReadModel } from '../../services/m-net/src/operational-read-model.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
 const bearerHeaders = {
   authorization: 'Bearer operator-token',

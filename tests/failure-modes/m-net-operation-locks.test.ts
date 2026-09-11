@@ -7,12 +7,12 @@ import {
   preemptWithBreakGlass,
   registerIdempotentOperation,
   releaseOperationLock
-} from '../../services/m-net/src/operation-locks.ts'
+} from '@m-net/data-plane/operation-locks.ts'
 import {
   type NetworkPartitionState,
   type PartitionTransitionRequest,
   transitionPartitionState
-} from '../../services/m-net/src/partition-state.ts'
+} from '@m-net/data-plane/partition-state.ts'
 
 const networkId = 'network-op-locks'
 const acquiredAt = '2026-06-18T10:00:00.000Z'

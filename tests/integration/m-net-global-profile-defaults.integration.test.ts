@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import {
   bearerHeaders,
   createTestApp,

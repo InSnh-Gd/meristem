@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import type { ActorId } from '../../packages/contracts/src/index.ts'
 import {
   MNetMigrationRequiredErrorSchema,
   SetNetworkProfileResponseSchema
 } from '../../packages/contracts/src/index.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import {
   bearerHeaders,
   createTestApp,

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import type { MNetBreakGlassGrantFromSchema } from '../../packages/contracts/src/index.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { createInMemoryMNetClosedLoopStore } from '../../services/m-net/src/closed-loop-store-memory.ts'
 import {
   MNetClosedLoopStorageError,
   type MNetClosedLoopStore
-} from '../../services/m-net/src/closed-loop-store.ts'
-import { decodeStoredMNetClosedLoopJoin } from '../../services/m-net/src/closed-loop-store-pg.ts'
-import { createMNetClosedLoopService } from '../../services/m-net/src/closed-loop-workflow.ts'
+} from '@m-net/closed-loop/closed-loop-store.ts'
+import { createInMemoryMNetClosedLoopStore } from '@m-net/closed-loop/closed-loop-store-memory.ts'
+import { decodeStoredMNetClosedLoopJoin } from '@m-net/closed-loop/closed-loop-store-pg.ts'
+import { createMNetClosedLoopService } from '@m-net/closed-loop/closed-loop-workflow.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import type { MNetBreakGlassGrantFromSchema } from '../../packages/contracts/src/index.ts'
 
 const networkId = 'network-closed-loop-failure'
 const nodeId = 'leaf-closed-loop-failure'

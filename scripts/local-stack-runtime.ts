@@ -4,7 +4,7 @@ import {
   NETWORK_MAP_SIGNING_PRIVATE_KEY_FILE_ENV_KEY,
   NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY,
   resolveNetworkMapSigningKeyMaterial
-} from '../services/m-net/src/network-map-signing.ts'
+} from '@m-net/data-plane/network-map-signing.ts'
 
 export const rootDir = import.meta.dir.replace(/\/scripts$/, '')
 

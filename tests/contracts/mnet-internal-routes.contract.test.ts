@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import { createInternalRoutes } from '@m-net/internal-routes.ts'
 import type {
   MNetwork,
   MNetworkMember,
@@ -6,8 +8,6 @@ import type {
   NodeAgentTaskExecuteResponse
 } from '../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
-import { createInternalRoutes } from '../../services/m-net/src/internal-routes.ts'
 
 type InternalRouteDeps = Pick<
   MNetAppDeps,

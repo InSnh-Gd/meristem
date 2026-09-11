@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryNodeControlStore } from '@m-net/agent/node-control-store.ts'
+import { executeNodeControl } from '@m-net/agent/node-control-workflow.ts'
 import type { MNode } from '../../packages/contracts/src/index.ts'
-import { createInMemoryNodeControlStore } from '../../services/m-net/src/node-control-store.ts'
-import { executeNodeControl } from '../../services/m-net/src/node-control-workflow.ts'
 
 const baseNode: MNode = {
   id: 'node-control-test',

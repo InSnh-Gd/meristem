@@ -5,16 +5,16 @@ import {
   eventBusUnavailable,
   planFailClosedTunnelTeardown,
   resolveRelayAvailability
-} from '../../services/m-net/src/data-plane-security-support.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { gateClockSkew, rejectDuplicatePublicKey } from '../../services/m-net/src/key-lifecycle.ts'
-import { registerNodePublicKey } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
+} from '@m-net/data-plane/data-plane-security-support.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { gateClockSkew, rejectDuplicatePublicKey } from '@m-net/data-plane/key-lifecycle.ts'
+import { registerNodePublicKey } from '@m-net/data-plane/mnet-dataplane-workflows.ts'
 import {
   buildNetworkMapSignatureMetadata,
   resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
-import { assignNodeTunnelIp } from '../../services/m-net/src/overlay-cidr.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+} from '@m-net/data-plane/network-map-signing.ts'
+import { assignNodeTunnelIp } from '@m-net/data-plane/overlay-cidr.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import {
   type AgentEnforcementState,
   applyEnforcementDecision,

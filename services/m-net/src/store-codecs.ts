@@ -9,17 +9,17 @@ import type {
   NetworkSuspendedOperation,
   NetworkSuspendedOperationStatus
 } from '../../../packages/contracts/src/types/mnet-profile.ts'
-import type { StoredNodePublicKey } from './data-plane-store-types.ts'
+import type { StoredNodePublicKey } from './data-plane/data-plane-store-types.ts'
 import type {
   NetworkOperationLock,
   NetworkOperationType,
   OperationLockStatus
-} from './operation-locks.ts'
+} from './data-plane/operation-locks.ts'
 import type {
   NetworkPartitionState,
   NetworkPartitionStatus,
   PartitionTransitionReason
-} from './partition-state.ts'
+} from './data-plane/partition-state.ts'
 
 /**
  * 断言未知值为对象记录；失败时返回 null，供存储层走显式降级路径。

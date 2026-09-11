@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'bun:test'
-import { redeemJoinTicket } from '../../services/m-net/src/agent-runtime-session-enrollment.ts'
-import { applyHeartbeat } from '../../services/m-net/src/agent-runtime-session-heartbeat.ts'
-import { bindSession } from '../../services/m-net/src/agent-runtime-session-state.ts'
-import { deriveForcedRelayEligibility } from '../../services/m-net/src/forced-relay-eligibility.ts'
-import { executeForcedRelayChange } from '../../services/m-net/src/forced-relay-execution.ts'
-import { applyNetwork } from '../../services/m-net/src/migration-engine-application.ts'
-import { assessOffline } from '../../services/m-net/src/migration-engine-locks.ts'
-import { getStoredMigration } from '../../services/m-net/src/migration-engine-storage.ts'
+import { redeemJoinTicket } from '@m-net/agent/agent-runtime-session-enrollment.ts'
+import { applyHeartbeat } from '@m-net/agent/agent-runtime-session-heartbeat.ts'
+import { bindSession } from '@m-net/agent/agent-runtime-session-state.ts'
+import { deriveForcedRelayEligibility } from '@m-net/forced-relay/forced-relay-eligibility.ts'
+import { executeForcedRelayChange } from '@m-net/forced-relay/forced-relay-execution.ts'
+import { applyNetwork } from '@m-net/migration/migration-engine-application.ts'
+import { assessOffline } from '@m-net/migration/migration-engine-locks.ts'
+import { getStoredMigration } from '@m-net/migration/migration-engine-storage.ts'
 
 describe('M-Net module split contracts', () => {
   it('keeps extracted responsibilities directly importable', () => {

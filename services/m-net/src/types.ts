@@ -1,5 +1,5 @@
-import type { createDb } from '../../../packages/db/src/client.ts'
 import type { Result } from '../../../packages/common/src/result.ts'
+import type { createDb } from '../../../packages/db/src/client.ts'
 
 export type MNetServiceError = {
   code: string

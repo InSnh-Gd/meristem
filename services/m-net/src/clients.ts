@@ -4,9 +4,9 @@ import { createInternalFetcher, serviceUrl } from '../../../packages/internal-ht
 import { initTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
 import type { LogApp } from '../../m-log/src/public-types.ts'
-import { createInMemoryDataPlaneStores } from './data-plane-store-memory.ts'
-import { createPgDataPlaneStores } from './data-plane-store-pg.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
+import { createInMemoryDataPlaneStores } from './data-plane/data-plane-store-memory.ts'
+import { createPgDataPlaneStores } from './data-plane/data-plane-store-pg.ts'
+import type { DataPlaneStores } from './data-plane/data-plane-store-types.ts'
 import {
   createEventPublisher,
   createLogWriters,
@@ -24,18 +24,18 @@ import {
 import {
   createInMemoryGlobalDefaultsStore,
   type GlobalDefaultsStore
-} from './global-defaults-store.ts'
-import { createPgGlobalDefaultsStore } from './global-defaults-store-pg.ts'
+} from './profile/global-defaults-store.ts'
+import { createPgGlobalDefaultsStore } from './profile/global-defaults-store-pg.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
   createPgProfileDisablePolicyStore,
   type ProfileDisablePolicyStore
-} from './profile-disable-policy.ts'
+} from './profile/profile-disable-policy.ts'
 import {
   createInMemoryProfileStore,
   createPgProfileStore,
   type ProfileStore
-} from './profile-store.ts'
+} from './profile/profile-store.ts'
 import {
   createInMemorySuspendedOperationStore,
   createPgSuspendedOperationStore,
@@ -43,10 +43,9 @@ import {
 } from './suspended-operations.ts'
 import type { MNetDb, MNetSqlClient } from './types.ts'
 
-export type { MNetDb, MNetSqlClient } from './types.ts'
-
 export type { ProfileEvents, ProfileLog } from './event-log-factories.ts'
 export type { ApprovalClient, PolicyAuthorize } from './external-client-factories.ts'
+export type { MNetDb, MNetSqlClient } from './types.ts'
 
 export type MNetInfrastructure = {
   db: MNetDb

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { createInMemoryGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
-import { createMigrationEngine } from '../../services/m-net/src/migration-engine.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { createMigrationEngine } from '@m-net/migration/migration-engine.ts'
+import { createInMemoryGlobalDefaultsStore } from '@m-net/profile/global-defaults-store.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 
 describe('migration engine branch coverage', () => {
   it('marks missing networks as skipped and store failures as failed', async () => {

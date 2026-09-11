@@ -15,19 +15,19 @@ import type {
   NodeControlResponse
 } from '../../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
-import type { GlobalDefaultsStore } from './global-defaults-store.ts'
-import type { MigrationEngine } from './migration-engine-contract.ts'
-import type { NetBirdResolvedControlPlaneConfig } from './netbird-adapter.ts'
-import type { ProfileDisablePolicyStore } from './profile-disable-policy.ts'
-import type { ProfileStore } from './profile-store.ts'
+import type { MNetClosedLoopService } from './closed-loop/closed-loop-workflow.ts'
+import type { DataPlaneStores } from './data-plane/data-plane-store-types.ts'
+import type { NetBirdResolvedControlPlaneConfig } from './data-plane/netbird-adapter.ts'
+import type { MigrationEngine } from './migration/migration-engine-contract.ts'
+import type { GlobalDefaultsStore } from './profile/global-defaults-store.ts'
+import type { ProfileDisablePolicyStore } from './profile/profile-disable-policy.ts'
+import type { ProfileStore } from './profile/profile-store.ts'
 import type {
   ForcedRelayNodeContext,
   MNetDb,
   MNetServiceResult,
   NodeKeyRegistrationSuccess
 } from './types.ts'
-import type { MNetClosedLoopService } from './closed-loop-workflow.ts'
 
 export type MNetAppDeps = {
   auth: {

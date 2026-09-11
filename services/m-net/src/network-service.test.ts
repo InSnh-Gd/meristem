@@ -4,7 +4,7 @@ import { fromPartial } from '@total-typescript/shoehorn'
 import { type networkMemberships, networks } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
 import { createNetworkService } from './network-service.ts'
-import { createInMemoryProfileStore } from './profile-store.ts'
+import { createInMemoryProfileStore } from './profile/profile-store.ts'
 
 function createFakeDb(
   networkRows: Array<typeof networks.$inferSelect>,
