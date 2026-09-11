@@ -460,6 +460,7 @@ Rules:
 - enabling M-Net CN requires M-Policy approval: M-Policy returns `require_manual_review`, M-Net creates a suspended operation, and the request returns `202` with `approvalId` and `operationId`.
 - disabling M-Net CN is immediate with M-Policy allow + Audit, no approval required.
 - disable is allowed as a recovery path from `failed` state.
+- enabling a data-plane profile fails closed with `409 network.no_runtime_keys` when no member holds a registered runtime key: a signed map with zero members would report `enabled` while no node could establish a tunnel. Nodes register their runtime key before fetching the map, so recovery is "nodes register keys, then retry enable".
 - M-Net exposes OpenAPI for these external routes.
 - Core exposes read-only facade routes for list/detail at the same `/api/v0/network-profiles*` paths on the Core service. The facade must call only M-Net public HTTP routes and must not call `/internal/v0/*` or M-Net private stores. Mutating profile lifecycle routes remain owned by M-Net.
 

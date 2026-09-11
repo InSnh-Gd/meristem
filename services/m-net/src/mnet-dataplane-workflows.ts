@@ -212,74 +212,79 @@ export async function enableDataPlaneProfile(
     }
     await deps.dataPlane.operationLocks.upsert(lockResult.lock)
 
-    const materialized = await materializeMembers(
-      deps,
-      input.networkId,
-      profileVersion,
-      correlationId
-    )
-    if (isProfileWorkflowFailure(materialized)) return materialized
+    // 获取锁之后的全部退出路径（成功、typed 失败、以及任何抛出的异常）都必须释放锁：
+    // 否则一次失败会在 15 分钟 TTL 内持续以 409 拒绝该网络的后续 enable 与 migration。
+    // 用 try/finally 统一覆盖，避免只处理 return 而漏掉 thrown 路径（store/networkUpdater 抖动）。
+    try {
+      const materialized = await materializeMembers(
+        deps,
+        input.networkId,
+        profileVersion,
+        correlationId
+      )
+      if (isProfileWorkflowFailure(materialized)) return materialized
 
-    const adapter = isV03ProfileVersion(profileVersion)
-      ? await selectAdapterForEnable(deps, { networkId: input.networkId, profileVersion })
-      : createDataPlaneAdapter({ enabled: false, mode: 'disabled' })
-    const adapterPersisted = await persistAdapterDesiredState(deps, {
-      networkId: input.networkId,
-      profileVersion,
-      adapter,
-      desiredAt: new Date().toISOString()
-    })
-    if (adapterPersisted !== true) return adapterPersisted
+      const adapter = isV03ProfileVersion(profileVersion)
+        ? await selectAdapterForEnable(deps, { networkId: input.networkId, profileVersion })
+        : createDataPlaneAdapter({ enabled: false, mode: 'disabled' })
+      const adapterPersisted = await persistAdapterDesiredState(deps, {
+        networkId: input.networkId,
+        profileVersion,
+        adapter,
+        desiredAt: new Date().toISOString()
+      })
+      if (adapterPersisted !== true) return adapterPersisted
 
-    // 目标状态 enabled 由状态机表 enable_success 行决定；状态事实与迁移记录统一走 applyProfileTransition。
-    await applyProfileTransition(deps.profileStore, {
-      networkId: input.networkId,
-      fromState: { profileVersion: DEFAULT_PROFILE_VERSION, status: 'enabling' },
-      actions: ['enable_success'],
-      stateProfileVersion: profileVersion,
-      transitionToVersion: profileVersion,
-      actor: input.actor,
-      reason: input.reason,
-      correlationId
-    })
-    await deps.networkUpdater?.setProfileVersion(input.networkId, profileVersion)
-    await deps.dataPlane.profileMigrations.upsert({
-      networkId: input.networkId,
-      operationId: request.operationId,
-      fromVersion: DEFAULT_PROFILE_VERSION,
-      toVersion: profileVersion,
-      status: 'applied',
-      idempotencyKey: request.idempotencyKey ?? request.operationId,
-      startedAt: request.requestedAt,
-      completedAt: new Date().toISOString(),
-      auditMetadata: { reason: input.reason }
-    })
+      // 目标状态 enabled 由状态机表 enable_success 行决定；状态事实与迁移记录统一走 applyProfileTransition。
+      await applyProfileTransition(deps.profileStore, {
+        networkId: input.networkId,
+        fromState: { profileVersion: DEFAULT_PROFILE_VERSION, status: 'enabling' },
+        actions: ['enable_success'],
+        stateProfileVersion: profileVersion,
+        transitionToVersion: profileVersion,
+        actor: input.actor,
+        reason: input.reason,
+        correlationId
+      })
+      await deps.networkUpdater?.setProfileVersion(input.networkId, profileVersion)
+      await deps.dataPlane.profileMigrations.upsert({
+        networkId: input.networkId,
+        operationId: request.operationId,
+        fromVersion: DEFAULT_PROFILE_VERSION,
+        toVersion: profileVersion,
+        status: 'applied',
+        idempotencyKey: request.idempotencyKey ?? request.operationId,
+        startedAt: request.requestedAt,
+        completedAt: new Date().toISOString(),
+        auditMetadata: { reason: input.reason }
+      })
 
-    const artifactsWritten = await writeOptionalArtifacts(deps, {
-      correlationId,
-      networkId: input.networkId,
-      mapVersion: materialized.mapVersion,
-      relayAssignment: materialized.relayAssignment,
-      profileVersion,
-      operationId: request.operationId
-    })
-    if (artifactsWritten !== true) return artifactsWritten
+      const artifactsWritten = await writeOptionalArtifacts(deps, {
+        correlationId,
+        networkId: input.networkId,
+        mapVersion: materialized.mapVersion,
+        relayAssignment: materialized.relayAssignment,
+        profileVersion,
+        operationId: request.operationId
+      })
+      if (artifactsWritten !== true) return artifactsWritten
 
-    const released = releaseOperationLock(lockResult.lock, {
-      completedAt: new Date().toISOString(),
-      reason: { code: 'operation.completed', detail: 'data-plane profile enabled' }
-    })
-    if (released.kind === 'released') {
-      await deps.dataPlane.operationLocks.upsert(released.lock)
-    }
-
-    return {
-      status: 'enabled',
-      profileVersion,
-      correlationId,
-      operationId: request.operationId,
-      mapVersion: materialized.mapVersion,
-      relayAssignment: materialized.relayAssignment
+      return {
+        status: 'enabled',
+        profileVersion,
+        correlationId,
+        operationId: request.operationId,
+        mapVersion: materialized.mapVersion,
+        relayAssignment: materialized.relayAssignment
+      }
+    } finally {
+      const released = releaseOperationLock(lockResult.lock, {
+        completedAt: new Date().toISOString(),
+        reason: { code: 'operation.completed', detail: 'data-plane profile enable finished' }
+      })
+      if (released.kind === 'released') {
+        await deps.dataPlane.operationLocks.upsert(released.lock)
+      }
     }
   } catch (error) {
     return asFailure(error)

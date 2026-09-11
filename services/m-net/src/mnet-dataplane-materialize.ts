@@ -1,8 +1,6 @@
 import type { MNetProfileVersionFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import { validatePublicKeyMetadata } from './key-lifecycle.ts'
 import {
   asFailure,
-  bootstrapNodePublicKey,
   buildRequestedAclRules,
   type DataPlaneDeps,
   type LatestNetworkMapSuccess,
@@ -37,12 +35,45 @@ export async function materializeMembers(
       return profileWorkflowFailure(409, 'network.members_missing', 'network has no joined members')
     }
 
+    // 先只读地解析每个成员的真实运行时密钥，再做任何分配/期望态写入。这样「无成员持有密钥」
+    // 的 fail-closed 完全不产生副作用（不会为被隔离成员写 tunnel allocation 或 sidecar 期望态）。
+    // 只认可真实注册的运行时密钥：`bootstrap-<nodeId>` 前缀是历史占位值，其公钥由 nodeId 派生、
+    // 不是合法 X25519 点，会让 wg setconf 拒绝整份 peer 配置。无真实密钥的成员从 peer 集合隔离
+    // （quarantine）：既不进 map，也不持久化占位密钥——长期死亡、密钥已回收的幽灵成员因此自动
+    // 退出 map，无需额外按存活状态排除。成员注册密钥后会触发重渲染并自动进入 map。
+    const keyedMembers: Array<{
+      member: (typeof members)[number]
+      publicKey: string
+      endpoint?: string
+    }> = []
+    for (const member of members) {
+      const runtimeKey = (await deps.dataPlane.nodePublicKeys.listByNode(member.nodeId)).find(
+        key => key.keyId !== `bootstrap-${member.nodeId}` && key.status === 'active'
+      )
+      if (runtimeKey) {
+        keyedMembers.push({
+          member,
+          publicKey: runtimeKey.publicKey,
+          ...(runtimeKey.endpoint ? { endpoint: runtimeKey.endpoint } : {})
+        })
+      }
+    }
+
+    // 全部成员都无真实运行时密钥时 fail closed：发布一份 0 成员的签名 map 会让控制面报
+    // enabled 而任何节点都无法建立隧道（agent 拿到 map 后在 wg.local_member_missing 失败），
+    // 属 false success。节点注册密钥不依赖 map（agent 先注册密钥再取 map），故不会死锁首次 enable。
+    if (keyedMembers.length === 0) {
+      return profileWorkflowFailure(
+        409,
+        'network.no_runtime_keys',
+        'no member holds a registered runtime key; register node keys before enabling'
+      )
+    }
+
     const existingAllocations = [
       ...(await deps.dataPlane.tunnelAllocations.listByNetwork(networkId))
     ]
     const latestMap = await deps.dataPlane.networkMaps.getLatest(networkId)
-    const relayAssignment = selectRelayForMembers(members)
-    const relayNodeIds = members.map(member => member.nodeId)
     const renderedMembers: Array<{
       nodeId: string
       nodeKind: 'stem' | 'leaf'
@@ -51,7 +82,7 @@ export async function materializeMembers(
       endpoint?: string
     }> = []
 
-    for (const member of members) {
+    for (const { member, publicKey, endpoint } of keyedMembers) {
       const existing = existingAllocations.find(item => item.nodeId === member.nodeId)
       let resolved: { subnetCidr: string; tunnelIp: string }
       if (existing) {
@@ -84,26 +115,6 @@ export async function materializeMembers(
         existingAllocations.push(allocationRecord)
       }
 
-      const existingKeys = await deps.dataPlane.nodePublicKeys.listByNode(member.nodeId)
-      const existingKey = existingKeys.at(-1)
-      let publicKey = existingKey?.publicKey
-      if (existingKey === undefined) {
-        const bootstrappedKey = validatePublicKeyMetadata({
-          nodeId: member.nodeId,
-          keyId: `bootstrap-${member.nodeId}`,
-          publicKey: bootstrapNodePublicKey(member.nodeId),
-          createdAt: new Date().toISOString()
-        })
-        if (!bootstrappedKey.ok) {
-          return profileWorkflowFailure(503, 'key.bootstrap_failed', 'failed to derive node key')
-        }
-        await deps.dataPlane.nodePublicKeys.upsert({
-          ...bootstrappedKey.value,
-          status: 'active'
-        })
-        publicKey = bootstrappedKey.value.publicKey
-      }
-
       await deps.dataPlane.sidecarDesiredConfigs.upsert({
         nodeId: member.nodeId,
         configHash: `${networkId}:${profileVersion}:${resolved.tunnelIp}`,
@@ -114,10 +125,19 @@ export async function materializeMembers(
         nodeId: member.nodeId,
         nodeKind: member.nodeKind,
         tunnelIp: resolved.tunnelIp,
-        publicKey: publicKey ?? bootstrapNodePublicKey(member.nodeId),
-        ...(existingKey?.endpoint ? { endpoint: existingKey.endpoint } : {})
+        publicKey,
+        ...(endpoint ? { endpoint } : {})
       })
     }
+
+    // relay 必须取自**隔离后**的成员：否则无密钥的成员可能被选为 relay，并被写进持久化行、
+    // enable 响应与 mnet.relay.assigned 事件，而它并不在 map 里。
+    // selectRelayForMembers 优先 stem；若网络中没有持密钥的 stem（stem 未注册密钥，或拓扑本无
+    // stem），会降级回退到另一个持密钥成员——该降级语义记录在 docs/services/m-net.md。
+    // 此处不硬失败：registerNodePublicKey 也走本函数，硬失败会让「leaf 注册密钥」被兄弟 stem 的
+    // 注册顺序阻塞。
+    const relayAssignment = selectRelayForMembers(renderedMembers)
+    const relayNodeIds = renderedMembers.map(member => member.nodeId)
 
     await deps.dataPlane.relayAssignments.upsert({
       networkId,

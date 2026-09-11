@@ -79,6 +79,7 @@ export function statusCodeForMNetError(code: string): 404 | 409 | 503 {
     case 'network_map.stale':
     case 'network_map.expired':
     case 'network.stem_required':
+    case 'network.no_runtime_keys':
     case 'key.invalid':
     case 'key.duplicate':
     case 'node.invalid_kind':

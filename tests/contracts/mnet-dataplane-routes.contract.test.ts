@@ -60,6 +60,26 @@ function validKey(seed: string): string {
     .slice(0, 43)}=`
 }
 
+/**
+ * 为节点注册一个真实运行时公钥。keyId 不是 `bootstrap-<nodeId>` 前缀且 status 为 active，
+ * 才会计入 map 渲染——这正是 DFW-032 隔离语义的判据。
+ */
+async function registerRuntimeKey(
+  dataPlane: ReturnType<typeof createInMemoryDataPlaneStores>,
+  nodeId: string
+): Promise<void> {
+  await dataPlane.nodePublicKeys.upsert({
+    nodeId,
+    keyId: `${nodeId}-runtime`,
+    publicKey: validKey(`${nodeId}-runtime`),
+    fingerprint: `fp-${nodeId}`,
+    algorithm: 'wireguard-x25519',
+    createdAt: new Date().toISOString(),
+    rotationCounter: 0,
+    status: 'active'
+  })
+}
+
 function internalHeaders(): Record<string, string> {
   return {
     [internalTokenHeaderName]: internalToken,
@@ -276,6 +296,11 @@ describe('M-Net dataplane route contracts', () => {
       status: 'enabling'
     })
 
+    // 成员须先注册真实运行时密钥才会进入 map（DFW-032：无真实密钥的成员被隔离，
+    // 不再持久化会被 wg setconf 拒绝的占位公钥）。
+    await registerRuntimeKey(fixture.dataPlane, 'stem-cn-1')
+    await registerRuntimeKey(fixture.dataPlane, 'leaf-cn-1')
+
     const body = await enableDataPlaneProfile(dataPlaneDeps, {
       actor: 'admin',
       networkId: 'network-dataplane-test',
@@ -368,6 +393,10 @@ describe('M-Net dataplane route contracts', () => {
       profileVersion: 'm-net-default@0.1.0',
       status: 'enabling'
     })
+
+    // 见上：成员须先注册真实运行时密钥才会进入 map（DFW-032 隔离语义）。
+    await registerRuntimeKey(fixture.dataPlane, 'stem-cn-1')
+    await registerRuntimeKey(fixture.dataPlane, 'leaf-cn-1')
 
     const enabled = await enableDataPlaneProfile(dataPlaneDeps, {
       actor: 'admin',
@@ -632,5 +661,190 @@ describe('M-Net dataplane route contracts', () => {
     expect(body.error.migration.targetProfileVersion).toBe('m-net-cn@0.3.0')
     expect(body.error.migration.rebuildGuidanceKey).toBe('rebuild_node_with_netbird_sidecar')
     expect(body.error.migration.affectedNodeIds).toEqual(['fixture-node-legacy-agent-capability'])
+  })
+
+  it('quarantines members without a real runtime key instead of emitting an invalid placeholder key (DFW-032)', async () => {
+    const fixture = createRouteFixture()
+    const dataPlaneDeps = requireDataPlaneDeps({
+      profileStore: fixture.profileStore,
+      policyAuthorize: {
+        async authorize() {
+          return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
+        }
+      },
+      listMembers: async input => ({
+        ok: true as const,
+        value: members.filter(member => member.networkId === input.networkId)
+      }),
+      dataPlane: fixture.dataPlane,
+      events: {
+        async publish() {
+          /* noop */
+        }
+      },
+      log: {
+        async writeTimeline() {
+          /* noop */
+        },
+        async writeFull() {
+          /* noop */
+        },
+        async writeAudit() {
+          /* noop */
+        }
+      },
+      networkUpdater: {
+        async setProfileVersion() {
+          /* noop */
+        }
+      },
+      resolveNetBirdControlPlane
+    })
+    if ('kind' in dataPlaneDeps) throw new Error('expected dataplane deps in test fixture')
+
+    await fixture.profileStore.setNetworkState('network-dataplane-test', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'enabling'
+    })
+    // 仅 stem 注册真实密钥；leaf 保持未注册。
+    await registerRuntimeKey(fixture.dataPlane, 'stem-cn-1')
+
+    const result = await enableDataPlaneProfile(dataPlaneDeps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-test',
+      reason: 'enable with one keyless member'
+    })
+    if ('kind' in result) throw new Error(`expected enable success, got ${result.error.code}`)
+
+    const latestMap = await fixture.dataPlane.networkMaps.getLatest('network-dataplane-test')
+    // 无真实密钥的 leaf 被隔离出 peer 集合，而不是以占位公钥进入 map。
+    expect(latestMap?.map.members.map(member => member.nodeId)).toEqual(['stem-cn-1'])
+
+    // 未注册成员不得被写入任何 bootstrap 占位密钥（占位公钥会让 wg setconf 拒绝整份配置）。
+    const leafKeys = await fixture.dataPlane.nodePublicKeys.listByNode('leaf-cn-1')
+    expect(leafKeys).toHaveLength(0)
+  })
+
+  it('fails closed when NO member holds a runtime key, instead of publishing an empty signed map (DFW-032)', async () => {
+    const fixture = createRouteFixture()
+    const dataPlaneDeps = requireDataPlaneDeps({
+      profileStore: fixture.profileStore,
+      policyAuthorize: {
+        async authorize() {
+          return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
+        }
+      },
+      listMembers: async input => ({
+        ok: true as const,
+        value: members.filter(member => member.networkId === input.networkId)
+      }),
+      dataPlane: fixture.dataPlane,
+      events: {
+        async publish() {
+          /* noop */
+        }
+      },
+      log: {
+        async writeTimeline() {
+          /* noop */
+        },
+        async writeFull() {
+          /* noop */
+        },
+        async writeAudit() {
+          /* noop */
+        }
+      },
+      networkUpdater: {
+        async setProfileVersion() {
+          /* noop */
+        }
+      },
+      resolveNetBirdControlPlane
+    })
+    if ('kind' in dataPlaneDeps) throw new Error('expected dataplane deps in test fixture')
+
+    await fixture.profileStore.setNetworkState('network-dataplane-test', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'enabling'
+    })
+    // 两个成员都不注册密钥。此前的占位键逻辑会发布 0 成员的签名 map 并报 enable 成功，
+    // 导致控制面 enabled 但任何节点都无法建立隧道（agent 在 wg.local_member_missing 失败）。
+    const result = await enableDataPlaneProfile(dataPlaneDeps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-test',
+      reason: 'enable with no runtime keys'
+    })
+
+    expect('kind' in result).toBe(true)
+    if (!('kind' in result)) throw new Error('expected typed failure')
+    expect(result.error.code).toBe('network.no_runtime_keys')
+    // 不得持久化任何 map。
+    expect(await fixture.dataPlane.networkMaps.getLatest('network-dataplane-test')).toBeNull()
+  })
+
+  it('selects the relay from rendered members, never a quarantined keyless node (DFW-032)', async () => {
+    const fixture = createRouteFixture()
+    const dataPlaneDeps = requireDataPlaneDeps({
+      profileStore: fixture.profileStore,
+      policyAuthorize: {
+        async authorize() {
+          return { result: 'allow' as const, id: crypto.randomUUID(), reasons: [] }
+        }
+      },
+      listMembers: async input => ({
+        ok: true as const,
+        value: members.filter(member => member.networkId === input.networkId)
+      }),
+      dataPlane: fixture.dataPlane,
+      events: {
+        async publish() {
+          /* noop */
+        }
+      },
+      log: {
+        async writeTimeline() {
+          /* noop */
+        },
+        async writeFull() {
+          /* noop */
+        },
+        async writeAudit() {
+          /* noop */
+        }
+      },
+      networkUpdater: {
+        async setProfileVersion() {
+          /* noop */
+        }
+      },
+      resolveNetBirdControlPlane
+    })
+    if ('kind' in dataPlaneDeps) throw new Error('expected dataplane deps in test fixture')
+
+    await fixture.profileStore.setNetworkState('network-dataplane-test', {
+      profileVersion: 'm-net-default@0.1.0',
+      status: 'enabling'
+    })
+    // stem（默认 relay 候选）无密钥被隔离；leaf 有密钥。relay 必须回退到仍被渲染的 leaf，
+    // 而不是把被隔离的 stem 写成 relay 端点与事件内容。
+    await registerRuntimeKey(fixture.dataPlane, 'leaf-cn-1')
+
+    const result = await enableDataPlaneProfile(dataPlaneDeps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-test',
+      reason: 'enable with keyless stem'
+    })
+    if ('kind' in result) throw new Error(`expected enable success, got ${result.error.code}`)
+
+    const mapNodeIds = (
+      await fixture.dataPlane.networkMaps.getLatest('network-dataplane-test')
+    )?.map.members.map(member => member.nodeId)
+    expect(mapNodeIds).toEqual(['leaf-cn-1'])
+    expect(result.relayAssignment.nodeId).toBe('leaf-cn-1')
+
+    const relayRows =
+      await fixture.dataPlane.relayAssignments.listByNetwork('network-dataplane-test')
+    expect(relayRows.map(row => row.relayId)).toEqual(['leaf-cn-1'])
   })
 })

@@ -43,25 +43,13 @@ export type LatestNetworkMapSuccess = {
   map: import('../../../packages/contracts/src/schemas/mnet-profile.ts').NetworkMapFromSchema
 }
 
-export type NodeKeyRegistrationSuccess = {
-  nodeId: string
-  keyId: string
-  fingerprint: string
-  mapVersion: number
-  correlationId: string
-}
+// 单一定义源在 types.ts 叶模块（deps.ts 需要引用它且不得反向依赖本文件）；
+// 此处 re-export 保持既有 `from './mnet-dataplane-support.ts'` 消费点兼容。
+export type { NodeKeyRegistrationSuccess } from './types.ts'
 
 export type MaterializedMembers = {
   relayAssignment: RelayAssignment
   mapVersion: number
-}
-
-function bootstrapPublicKey(nodeId: string): string {
-  const seed = nodeId
-    .replace(/[^A-Za-z0-9]/g, 'A')
-    .padEnd(43, 'B')
-    .slice(0, 43)
-  return `${seed}=`
 }
 
 function requestedAclRules(
@@ -79,7 +67,14 @@ function requestedAclRules(
   )
 }
 
-function relayForMembers(members: readonly MNetworkMember[]): RelayAssignment {
+/**
+ * 从成员中挑选 relay。入参放宽为结构化的 `{ nodeId, nodeKind }`：调用方可能在渲染阶段
+ * 已按「是否持有真实运行时密钥」隔离掉部分成员，必须能只把**隔离后**的成员交给本函数，
+ * 否则被隔离的节点仍会被选为 relay 并写进持久化行、enable 响应与事件。
+ */
+function relayForMembers(
+  members: readonly { nodeId: string; nodeKind: 'stem' | 'leaf' }[]
+): RelayAssignment {
   const preferred = members.find(member => member.nodeKind === 'stem') ?? members[0]
   return {
     nodeId: preferred?.nodeId ?? 'relay-missing',
@@ -228,11 +223,6 @@ export async function writeOptionalArtifacts(
   }
 }
 
-/** 返回节点 bootstrap 公钥，占位生成只用于控制面编排测试与默认初始化。 */
-export function bootstrapNodePublicKey(nodeId: string): string {
-  return bootstrapPublicKey(nodeId)
-}
-
 /** 为 network-map 渲染构建默认 ACL 规则。 */
 export function buildRequestedAclRules(
   members: readonly MNetworkMember[]
@@ -241,7 +231,10 @@ export function buildRequestedAclRules(
 }
 
 /** 选择当前网络的 relay 分配。 */
-export function selectRelayForMembers(members: readonly MNetworkMember[]): RelayAssignment {
+/** 选择网络 relay；入参须为**隔离后**的成员集合，避免把无运行时密钥的节点选为 relay。 */
+export function selectRelayForMembers(
+  members: readonly { nodeId: string; nodeKind: 'stem' | 'leaf' }[]
+): RelayAssignment {
   return relayForMembers(members)
 }
 

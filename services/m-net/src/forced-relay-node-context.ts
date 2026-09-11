@@ -5,16 +5,11 @@ import {
   nodes
 } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
+import type { ForcedRelayNodeContext } from './types.ts'
 
-export type ForcedRelayNodeContext = {
-  nodeId: string
-  nodeKind: 'stem' | 'leaf'
-  status: string
-  reachability: string
-  capabilities: string[]
-  networkId: string | null
-  networkProfileVersion: string | null
-}
+// 单一定义源在 types.ts 叶模块（deps.ts 需要引用它且不得反向依赖本文件）；
+// 此处 re-export 保持既有 `from './forced-relay-node-context.ts'` 消费点兼容。
+export type { ForcedRelayNodeContext } from './types.ts'
 
 function asCapabilities(value: unknown): string[] {
   return Array.isArray(value)

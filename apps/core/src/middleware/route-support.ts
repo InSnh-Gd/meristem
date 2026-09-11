@@ -31,6 +31,7 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'network.conflict':
     case 'network.stem_required':
     case 'network.members_present':
+    case 'network.no_runtime_keys':
     case 'network.profile_not_disabled':
     case 'network.closed_loop_facts_present':
     case 'network.switch_membership_present':

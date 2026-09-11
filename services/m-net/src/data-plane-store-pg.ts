@@ -219,10 +219,13 @@ export function createPgDataPlaneStores(db: MeristemDb): DataPlaneStores {
         return hydrateStoredKey(row)
       },
       async listByNode(nodeId) {
+        // 确定性排序：调用方（materializeMembers）取最新一条密钥，无 ORDER BY 时
+        // 行序不确定，可能让无效的 bootstrap 占位 key 压过已注册的真实 key。
         const rows = await db
           .select()
           .from(mnetNodePublicKeys)
           .where(eq(mnetNodePublicKeys.nodeId, nodeId))
+          .orderBy(desc(mnetNodePublicKeys.createdAt))
         return rows.flatMap(row => {
           const key = hydrateStoredKey(row)
           return key ? [key] : []

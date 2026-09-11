@@ -39,6 +39,67 @@ type NetworkServiceDeps = {
 }
 
 /**
+ * 列出网络成员（db-only）。抽为独立函数以便启动装配在构造 network service 之前
+ * 就能把它交给数据面依赖与 map refresher，从而消除
+ * 「refreshNetworkMap 需要 dataPlane → 需要 listMembers → 需要 networkService」的构造环。
+ */
+export async function listNetworkMembers(
+  db: MNetDb,
+  input: { networkId: string }
+): Promise<MNetServiceResult<MNetworkMember[]>> {
+  const [networkRow] = await db
+    .select()
+    .from(networks)
+    .where(eq(networks.id, input.networkId))
+    .limit(1)
+  if (!networkRow) return err('network.not_found', 'network not found')
+
+  const rows = await db
+    .select({
+      networkId: networkMemberships.networkId,
+      nodeId: networkMemberships.nodeId,
+      membershipMode: networkMemberships.membershipMode,
+      status: networkMemberships.status,
+      joinedAt: networkMemberships.joinedAt,
+      nodeKind: nodes.kind,
+      nodeStatus: nodes.status
+    })
+    .from(networkMemberships)
+    .innerJoin(nodes, eq(networkMemberships.nodeId, nodes.id))
+    .where(eq(networkMemberships.networkId, input.networkId))
+
+  return ok(
+    rows.flatMap(row => {
+      const nodeKind = asNodeKind(row.nodeKind)
+      const nodeStatus = asNodeStatus(row.nodeStatus)
+      if (!nodeKind || !nodeStatus || isNodeExcludedFromPeerPaths(nodeStatus)) return []
+      return [
+        {
+          networkId: row.networkId,
+          nodeId: row.nodeId,
+          nodeKind,
+          membershipMode: membershipModeFor(nodeKind),
+          status: row.status as MNetworkMember['status'],
+          joinedAt: row.joinedAt.toISOString()
+        }
+      ]
+    })
+  )
+}
+
+/** 更新网络 profile 版本的 db-only 端口；抽为独立工厂以便启动装配在构造 service 之前获得它。 */
+export function createNetworkUpdater(db: MNetDb) {
+  return {
+    async setProfileVersion(networkId: string, profileVersion: string) {
+      await db
+        .update(networks)
+        .set({ profileVersion, updatedAt: new Date() })
+        .where(eq(networks.id, networkId))
+    }
+  }
+}
+
+/**
  * 逻辑网络的创建、加入与成员查询保持在独立模块中，避免入口文件同时承载网络模型和 session 运行态。
  */
 export function createNetworkService({
@@ -177,44 +238,7 @@ export function createNetworkService({
   async function listMembers(input: {
     networkId: string
   }): Promise<MNetServiceResult<MNetworkMember[]>> {
-    const [networkRow] = await db
-      .select()
-      .from(networks)
-      .where(eq(networks.id, input.networkId))
-      .limit(1)
-    if (!networkRow) return err('network.not_found', 'network not found')
-
-    const rows = await db
-      .select({
-        networkId: networkMemberships.networkId,
-        nodeId: networkMemberships.nodeId,
-        membershipMode: networkMemberships.membershipMode,
-        status: networkMemberships.status,
-        joinedAt: networkMemberships.joinedAt,
-        nodeKind: nodes.kind,
-        nodeStatus: nodes.status
-      })
-      .from(networkMemberships)
-      .innerJoin(nodes, eq(networkMemberships.nodeId, nodes.id))
-      .where(eq(networkMemberships.networkId, input.networkId))
-
-    return ok(
-      rows.flatMap(row => {
-        const nodeKind = asNodeKind(row.nodeKind)
-        const nodeStatus = asNodeStatus(row.nodeStatus)
-        if (!nodeKind || !nodeStatus || isNodeExcludedFromPeerPaths(nodeStatus)) return []
-        return [
-          {
-            networkId: row.networkId,
-            nodeId: row.nodeId,
-            nodeKind,
-            membershipMode: membershipModeFor(nodeKind),
-            status: row.status as MNetworkMember['status'],
-            joinedAt: row.joinedAt.toISOString()
-          }
-        ]
-      })
-    )
+    return listNetworkMembers(db, input)
   }
 
   /**
@@ -377,7 +401,6 @@ export function createNetworkService({
       .limit(1)
     if (!membershipRow) return err('network.member_not_found', 'node is not a network member')
 
-    // 公钥按节点维度复用（可加入多个网络），仅当节点退出所有网络时才回收
     await db
       .delete(mnetTunnelAddressAllocations)
       .where(
@@ -387,9 +410,6 @@ export function createNetworkService({
         )
       )
     await db
-      .delete(mnetSidecarDesiredConfigs)
-      .where(eq(mnetSidecarDesiredConfigs.nodeId, input.nodeId))
-    await db
       .delete(networkMemberships)
       .where(
         and(
@@ -398,14 +418,23 @@ export function createNetworkService({
         )
       )
 
+    // 公钥与 sidecar 期望态都按节点维度存储（sidecar 表主键只有 node_id），
+    // 仅当该节点已不隶属任何网络时才回收；否则会误删它在其它网络/期望态的记录。
     const remainingMemberships = await db
       .select()
       .from(networkMemberships)
       .where(eq(networkMemberships.nodeId, input.nodeId))
     if (remainingMemberships.length === 0) {
+      await db
+        .delete(mnetSidecarDesiredConfigs)
+        .where(eq(mnetSidecarDesiredConfigs.nodeId, input.nodeId))
       await db.delete(mnetNodePublicKeys).where(eq(mnetNodePublicKeys.nodeId, input.nodeId))
     }
 
+    // 成员变更后刷新签名 map。网络已无成员时 refresher 自身按 no-op 处理
+    // （materializeMembers 空成员会返回 409 network.members_missing）。
+    // FIXME: 此处 correlationId 为本地生成——M-Net 网络变更端口目前未承载调用方 correlationId，
+    // 与其他网络变更一致；如需端到端 trace 串联，应统一为该端口族补 correlationId（另开契约变更）。
     if (refreshNetworkMap) {
       await refreshNetworkMap(input.networkId, crypto.randomUUID())
     }
@@ -441,14 +470,7 @@ export function createNetworkService({
     return ok(mapNetwork(updated))
   }
 
-  const networkUpdater = {
-    async setProfileVersion(networkId: string, profileVersion: string) {
-      await db
-        .update(networks)
-        .set({ profileVersion, updatedAt: new Date() })
-        .where(eq(networks.id, networkId))
-    }
-  }
+  const networkUpdater = createNetworkUpdater(db)
 
   return {
     createNetwork,

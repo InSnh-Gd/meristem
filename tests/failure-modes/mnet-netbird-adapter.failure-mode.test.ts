@@ -57,6 +57,22 @@ describe('failure mode: M-Net NetBird adapter activation', () => {
       status: 'disabled'
     })
 
+    // DFW-032：成员须持有真实运行时密钥才会进入渲染 map，否则 materialize fail closed
+    // （network.no_runtime_keys）。本用例关注 adapter 降级，故先注册密钥。
+    await dataPlane.nodePublicKeys.upsert({
+      nodeId,
+      keyId: `${nodeId}-runtime`,
+      publicKey: `${nodeId
+        .replace(/[^A-Za-z0-9]/g, 'A')
+        .padEnd(43, 'B')
+        .slice(0, 43)}=`,
+      fingerprint: `fp-${nodeId}`,
+      algorithm: 'wireguard-x25519',
+      createdAt: new Date().toISOString(),
+      rotationCounter: 0,
+      status: 'active'
+    })
+
     const result = await enableDataPlaneProfile(deps, {
       actor: 'operator',
       networkId,

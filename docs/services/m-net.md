@@ -95,6 +95,10 @@ M-Net owns the node administrative lifecycle: **disable**, **isolate**, **recove
 - Disabled, isolated, and recovering nodes are excluded from the member list in rendered network maps.
 - ACL rules referencing a disabled, isolated, or recovering node are omitted from the rendered ACL set.
 - Relay assignments that only serve disabled/isolated/recovering nodes are pruned before map publication.
+- **Key-holding is a separate, orthogonal gate (DFW-032)**: a member is rendered into peer sets only when it holds a real registered runtime public key (`keyId` not `bootstrap-<nodeId>` and `status = active`). Members without one are quarantined out of the rendered peer set — they are never emitted with a derived placeholder key, which `wg setconf` rejects. The network map is rendered once per network and persisted shared, so membership-of-record stays liveness-independent here; the quarantine is key-based, not offline-based. `offline` is deliberately **not** added to the `isNodeExcludedFromPeerPaths` seam: it is a runtime-derived reachability fact, not an administrative exclusion, and `listMembers` also feeds operator member listings, topology snapshots, and migration offline assessment. A member whose runtime key was purged (long-dead node, or after membership removal) therefore drops out of the map automatically; its membership row remains until an operator removes it or an approved lifecycle sweep does.
+- Operator-facing member listings and topology views continue to show members of record regardless of key or liveness; exclusion happens at map-render time only.
+- **All-keyless fails closed**: if no member holds a registered runtime key, materialization returns typed `409 network.no_runtime_keys` and publishes no map. A signed map with zero members would let the control plane report `enabled` while no node could establish a tunnel (the agent fails at `wg.local_member_missing`). This is not a first-enable deadlock: the node-agent registers its runtime key **before** fetching the map, and key registration does not require an enabled profile, so the recovery path is "join nodes -> nodes register keys -> retry enable".
+- **Relay selection degradation**: the relay is chosen only among members that hold a real runtime key, preferring a keyed `stem`. If no keyed stem exists (the stem has not registered a key yet, or the topology has none), selection falls back to another keyed member. This is a deliberate, non-fatal degradation rather than a hard failure, because `registerNodePublicKey` re-materializes the map too and failing here would block a leaf's key registration on a sibling stem's registration order. The relay endpoint is a member-derived name (`https://relay.<nodeId>.meristem.internal:443`) and the fallback is documented so operators are not surprised by a non-stem relay id.
 
 **Recovery semantics**:
 - Recover is the sole implemented control action from `disabled` or `isolated` into `recovering`.
@@ -194,7 +198,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 |-----|------|----------|------------|-------|
 | `MERISTEM_MNET_BIND` | string | yes | no | loopback control-plane bind |
 | `MERISTEM_MNET_PUBLIC_JOIN_BIND` | string | yes | no | public join ingress bind on `8443` |
-| `MERISTEM_MNET_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | heartbeat timeout for offline transition |
+| `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | heartbeat timeout for offline transition |
 | `MERISTEM_MNET_PUBLIC_DERP_FALLBACK` | boolean | no | yes | fallback remains configurable and disableable |
 
 ---

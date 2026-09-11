@@ -127,4 +127,12 @@ export async function migrateMNetDataPlane(tx: postgres.TransactionSql) {
       previous_state text
     )
   `
+  // DFW-032：清理历史 bootstrap 占位公钥行。占位 key 由 nodeId 派生、不是合法 X25519 点，
+  // 一旦进入渲染 map 会让 wg setconf 拒绝整份 peer 配置。渲染层已不再读取/写入占位 key，
+  // 此清理移除既有部署中残留的行。幂等且不误删：谓词精确限定
+  // key_id = 'bootstrap-' || node_id，真实运行时密钥使用其它 key_id，不会被触及。
+  await tx`
+    delete from mnet_node_public_keys
+    where key_id = 'bootstrap-' || node_id
+  `
 }

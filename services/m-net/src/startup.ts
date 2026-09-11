@@ -8,7 +8,13 @@ import { createMNetInfrastructure } from './clients.ts'
 import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
 import { createWiredMigrationEngine } from './migration-engine-factory.ts'
 import { requireDataPlaneDeps } from './mnet-dataplane-support.ts'
-import { createNetworkService } from './network-service.ts'
+import { materializeMembers } from './mnet-dataplane-materialize.ts'
+import {
+  createNetworkService,
+  createNetworkUpdater,
+  listNetworkMembers
+} from './network-service.ts'
+import { createNetworkMapRefresher } from './network-map-refresh.ts'
 import { createDbNodeControlStore } from './node-control-store.ts'
 import { executeNodeControl } from './node-control-workflow.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
@@ -33,19 +39,29 @@ export async function startMNetService(): Promise<void> {
       : { auth: runtimeConfig.auth }
   )
   const infrastructure = createMNetInfrastructure()
-  const networkService = createNetworkService({
-    db: infrastructure.db,
-    profileStore: infrastructure.profileStore,
-    globalDefaultsStore: infrastructure.globalDefaultsStore
-  })
+  // db-only 端口先构造：数据面依赖与 map refresher 只需要 listMembers/networkUpdater，
+  // 不必等待 network service 实例，从而消除 refreshNetworkMap 的构造环。
+  const listMembers = (input: { networkId: string }) => listNetworkMembers(infrastructure.db, input)
+  const networkUpdater = createNetworkUpdater(infrastructure.db)
   const nodeRuntimeDataPlaneDeps = requireDataPlaneDeps({
     profileStore: infrastructure.profileStore,
     policyAuthorize: infrastructure.policyAuthorize,
-    listMembers: networkService.listMembers,
+    listMembers,
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents,
     log: infrastructure.profileLog,
-    networkUpdater: networkService.networkUpdater
+    networkUpdater
+  })
+  const networkService = createNetworkService({
+    db: infrastructure.db,
+    profileStore: infrastructure.profileStore,
+    globalDefaultsStore: infrastructure.globalDefaultsStore,
+    // 成员变更后重新物化并发布签名 map；仅当数据面依赖齐备时注入。
+    ...('kind' in nodeRuntimeDataPlaneDeps
+      ? {}
+      : {
+          refreshNetworkMap: createNetworkMapRefresher(nodeRuntimeDataPlaneDeps, materializeMembers)
+        })
   })
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const nodeControlStore = createDbNodeControlStore(infrastructure.db)
@@ -55,11 +71,11 @@ export async function startMNetService(): Promise<void> {
     profileStore: infrastructure.profileStore,
     dataPlaneStores: infrastructure.dataPlaneStores,
     log: infrastructure.profileLog,
-    listMembers: networkService.listMembers
+    listMembers
   })
   const operationalReadModel = createOperationalReadModel({
     profileStore: infrastructure.profileStore,
-    listMembers: networkService.listMembers,
+    listMembers,
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents
   })
@@ -68,7 +84,7 @@ export async function startMNetService(): Promise<void> {
     runtimeConfig,
     network: {
       listNetworks: networkService.listNetworks,
-      listMembers: networkService.listMembers
+      listMembers
     },
     migrationEngine
   })
@@ -119,6 +135,10 @@ export async function startMNetService(): Promise<void> {
     listNetworks: networkService.listNetworks,
     joinNetwork: networkService.joinNetwork,
     listMembers: networkService.listMembers,
+    // 网络生命周期变更端口：此前未注入，导致内部路由恒返 503 feature.unavailable。
+    deleteNetwork: networkService.deleteNetwork,
+    removeMember: networkService.removeMember,
+    updateNetworkMetadata: networkService.updateNetworkMetadata,
     executeNoop: agentRuntime.executeNoop,
     describeForcedRelayNode,
     controlNode(input) {
