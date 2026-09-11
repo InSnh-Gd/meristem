@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'bun:test'
 import { readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'bun:test'
 
 /**
  * 单文件行数硬上限，对应 MERISTEM-DEV §8.2 的文件模块化规则。
@@ -50,11 +50,6 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
   {
     filePath: 'services/m-net/src/node-runtime-routes.ts',
     reason: '已排期拆分：上游合并新增 tunnel-status 路由，将按 map / key / tunnel 路由族拆分'
-  },
-  {
-    filePath: 'services/node-agent/src/index.ts',
-    reason:
-      '已排期拆分：上游合并新增 sidecar supervisor 装配，入口组装逻辑将下沉到 lifecycle 组合层'
   },
   {
     filePath: 'scripts/v02-deploy-proof.ts',

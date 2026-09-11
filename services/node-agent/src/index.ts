@@ -1,3 +1,4 @@
+import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import type {
   JoinAcceptedMessage,
   SessionResumedMessage,
@@ -9,33 +10,32 @@ import {
   shutdownTelemetry
 } from '../../../packages/telemetry/src/index.ts'
 import {
-  applySidecarDesiredState,
-  createNodeAgentSecretManager,
-  stopSidecarLifecycle,
-  type NodeAgentLifecycleState
-} from './node-agent-sidecar-lifecycle.ts'
-import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
-import {
   createInitialEnforcementState,
   type LocalOverlayEnv,
   loadLocalOverlayEnv,
   reconcileLocalOverlay,
   teardownLocalOverlay
 } from './node-agent-local-apply.ts'
+import { createNodeAgentLoops } from './node-agent-loops.ts'
 import {
-  decodeMessage,
   heartbeatIntervalMs,
-  parseServerMessage,
   requiredOneOf,
   resolveAgentReportedStatus
 } from './node-agent-runtime.ts'
+import { fetchLatestNodeRuntimeNetworkMap, leaveNetwork } from './node-agent-runtime-client.ts'
 import {
   DEFAULT_NODE_AGENT_RUNTIME_STATE_PATH,
   loadRuntimeCredentials,
   saveRuntimeCredentials
 } from './node-agent-runtime-state.ts'
 import { deriveControlUrl, registerNodeRuntimeKey } from './node-agent-session.ts'
-import { fetchLatestNodeRuntimeNetworkMap, leaveNetwork } from './node-agent-runtime-client.ts'
+import { createSessionTransport } from './node-agent-session-transport.ts'
+import {
+  applySidecarDesiredState,
+  createNodeAgentSecretManager,
+  type NodeAgentLifecycleState,
+  stopSidecarLifecycle
+} from './node-agent-sidecar-lifecycle.ts'
 import { createSidecarSupervisor, type SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 import { discoverPublicEndpoint } from './node-agent-stun.ts'
 import { createTunnelStatusReporter } from './node-agent-tunnel-status.ts'
@@ -71,10 +71,6 @@ let currentLifecycleState: NodeAgentLifecycleState = await stopSidecarLifecycle(
   reason: 'profile_disabled'
 })
 const localOverlayEnv: LocalOverlayEnv = loadLocalOverlayEnv()
-let socket: WebSocket | null = null
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null
-let runtimeSyncTimer: ReturnType<typeof setInterval> | null = null
-let runtimeSyncInFlight = false
 let stopping = false
 // 运行时同步应用的最新网络地图事实，供隧道状态上报读取
 let currentNetworkId: string | null = null
@@ -123,8 +119,8 @@ function isPreMembershipRegistrationFailure(reason: string): boolean {
 initTelemetry('node-agent')
 
 function sendFrame(frame: unknown): void {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return
-  socket.send(JSON.stringify(frame))
+  // transport 声明在本行之后，sendFrame 为提升函数且首次调用必然晚于模块初始化，无 TDZ 风险。
+  transport.send(frame)
 }
 
 /**
@@ -151,64 +147,45 @@ function forwardLog(
 }
 
 /**
- * join.accepted / session.resumed 之后才开始发心跳，避免未认证连接提前污染节点运行态。
+ * join.accepted / session.resumed 之后才开始发心跳；心跳帧事实每次即时读取。
  */
+const loops = createNodeAgentLoops({
+  sendFrame,
+  hasSession: () => currentSessionId !== null,
+  heartbeatFrame: () => ({
+    type: 'heartbeat',
+    sessionId: currentSessionId,
+    agentVersion,
+    reportedStatus: resolveAgentReportedStatus(
+      currentEnforcementState.partition.networkId,
+      currentLifecycleState.runtimeStatus.kind
+    ),
+    timestamp: new Date().toISOString(),
+    runtimeStatus: currentLifecycleState.runtimeStatus
+  }),
+  reconcile: mode => reconcileNodeRuntimeState(mode),
+  heartbeatIntervalMs
+})
+
 function startHeartbeat(): void {
-  if (heartbeatTimer) clearInterval(heartbeatTimer)
-  heartbeatTimer = setInterval(() => {
-    if (!currentSessionId) return
-    sendFrame({
-      type: 'heartbeat',
-      sessionId: currentSessionId,
-      agentVersion,
-      reportedStatus: resolveAgentReportedStatus(
-        currentEnforcementState.partition.networkId,
-        currentLifecycleState.runtimeStatus.kind
-      ),
-      timestamp: new Date().toISOString(),
-      runtimeStatus: currentLifecycleState.runtimeStatus
-    })
-  }, heartbeatIntervalMs())
+  loops.startHeartbeat()
 }
 
 function stopHeartbeat(): void {
-  if (!heartbeatTimer) return
-  clearInterval(heartbeatTimer)
-  heartbeatTimer = null
-}
-
-function runtimeSyncIntervalMs(): number {
-  const value = Number(
-    process.env.MERISTEM_NODE_RUNTIME_SYNC_INTERVAL_MS ??
-      process.env.MERISTEM_NODE_AGENT_POLL_INTERVAL_MS ??
-      '5000'
-  )
-  return Number.isFinite(value) && value >= 1000 ? value : 5000
+  loops.stopHeartbeat()
 }
 
 function stopRuntimeSyncLoop(): void {
-  if (!runtimeSyncTimer) return
-  clearInterval(runtimeSyncTimer)
-  runtimeSyncTimer = null
+  loops.stopRuntimeSyncLoop()
 }
 
 function triggerRuntimeSync(mode: 'join' | 'resume' | 'poll'): void {
-  if (runtimeSyncInFlight) return
-  runtimeSyncInFlight = true
-  void reconcileNodeRuntimeState(mode)
-    .catch(error => {
-      process.stderr.write(
-        `node runtime sync failed: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}\n`
-      )
-    })
-    .finally(() => {
-      runtimeSyncInFlight = false
-    })
+  if (!nodeId || !runtimeToken) return
+  loops.triggerRuntimeSync(mode)
 }
 
 function startRuntimeSyncLoop(): void {
-  stopRuntimeSyncLoop()
-  runtimeSyncTimer = setInterval(() => triggerRuntimeSync('poll'), runtimeSyncIntervalMs())
+  loops.startRuntimeSyncLoop()
 }
 
 function exitWithError(message: string): never {
@@ -452,102 +429,52 @@ function handleTaskExecute(message: SessionTaskExecuteMessage): void {
 }
 
 /**
- * 断线重连保持单一退避入口，避免 onerror / onclose 等多个边界各自复制重连时序。
+ * WebSocket 边界统一承载 join.redeem、session.resume、消息分发与重连回收；
+ * transport 细节在 node-agent-session-transport.ts，本文件提供凭据 getter 与事件回收钩子。
  */
-function scheduleReconnect(): void {
-  if (stopping) return
-  setTimeout(() => {
-    if (!stopping) connect()
-  }, 1000)
-}
-
-/**
- * WebSocket 边界统一承载 join.redeem、session.resume、消息分发与重连回收。
- * 这里显式避免把服务端原始错误文本直接打印到 stderr，防止上游 message 意外携带敏感内容。
- */
-function connect(): void {
-  if (!joinTicket && (!nodeId || !runtimeToken)) {
-    exitWithError('MERISTEM_JOIN_TICKET or MERISTEM_NODE_ID + MERISTEM_NODE_TOKEN is required')
-  }
-
-  const ws = new WebSocket(joinUrl)
-  socket = ws
-
-  // 首连优先兑换 Join Ticket；一旦拿到运行 token，后续所有断线重连都改走 session.resume。
-  ws.onopen = () => {
-    if (nodeId && runtimeToken) {
-      sendFrame({
-        type: 'session.resume',
-        nodeId,
-        token: runtimeToken
-      })
-      return
+const transport = createSessionTransport(joinUrl, {
+  credentials: () => ({
+    ...(joinTicket ? { joinTicket } : {}),
+    ...(nodeId ? { nodeId } : {}),
+    ...(runtimeToken ? { runtimeToken } : {})
+  }),
+  onCredentialsMissing: () => exitWithError('MERISTEM_JOIN_TICKET is required for the first join'),
+  onAccepted: message => handleAccepted(message),
+  onTaskExecute: message => handleTaskExecute(message),
+  onServerError: message => {
+    // Join Ticket 首连失败和 resume token 失效都属于“凭据已无效”的终态，继续自动重连只会制造噪音。
+    if (
+      message.code === 'nodeagent.invalid_token' ||
+      (!runtimeToken && message.code.startsWith('node.join_ticket_'))
+    ) {
+      stopLifecycle('profile_disabled')
+      stopping = true
+      transport.close()
     }
-
-    if (!joinTicket) {
-      exitWithError('MERISTEM_JOIN_TICKET is required for the first join')
-    }
-
-    sendFrame({
-      type: 'join.redeem',
-      ticket: joinTicket
-    })
-  }
-
-  // 消息处理集中在这一段，避免 join/session/task 三类服务器消息各自散落独立状态机。
-  ws.onmessage = event => {
-    void Promise.resolve(decodeMessage(event.data))
-      .then(raw => {
-        const message = parseServerMessage(raw)
-        if (!message) {
-          process.stderr.write('invalid session message received\n')
-          return
-        }
-
-        if (message.type === 'join.accepted' || message.type === 'session.resumed') {
-          handleAccepted(message)
-          return
-        }
-
-        if (message.type === 'task.execute') {
-          handleTaskExecute(message)
-          return
-        }
-
-        if (message.type === 'error') {
-          process.stderr.write(`join session rejected with code ${message.code}\n`)
-          // Join Ticket 首连失败和 resume token 失效都属于“凭据已无效”的终态，继续自动重连只会制造噪音。
-          if (
-            message.code === 'nodeagent.invalid_token' ||
-            (!runtimeToken && message.code.startsWith('node.join_ticket_'))
-          ) {
-            stopLifecycle('profile_disabled')
-            stopping = true
-            ws.close()
-          }
-        }
-      })
-      .catch(error => {
-        process.stderr.write(
-          `failed to process join session message: ${error instanceof Error ? error.name : 'unknown error'}\n`
-        )
-      })
-  }
-
-  // transport error 只作为链路事实输出，不拼接浏览器/WebSocket 栈里的任意原始文本。
-  ws.onerror = () => {
-    if (!stopping) process.stderr.write('join ingress websocket error\n')
-  }
-
-  // close 是唯一重连入口：它同时负责清空当前 session lease，避免旧 sessionId 继续出现在后续帧里。
-  ws.onclose = () => {
+  },
+  sendFrame,
+  onClosed: () => {
     stopHeartbeat()
     stopRuntimeSyncLoop()
     tunnelStatusReporter.stop()
     stopLifecycle('break_glass_stop')
     currentSessionId = null
-    if (!stopping) scheduleReconnect()
+  },
+  scheduleReconnect: () => {
+    if (stopping) return
+    setTimeout(() => {
+      // 统一走 index 的 connect()：凭据异常经 exitWithError 受控退出，而不是在定时器回调里裸抛。
+      if (!stopping) connect()
+    }, 1000)
   }
+})
+
+/** 断线重连保持单一退避入口，避免 onerror / onclose 等多个边界各自复制重连时序。 */
+function connect(): void {
+  if (!joinTicket && (!nodeId || !runtimeToken)) {
+    exitWithError('MERISTEM_JOIN_TICKET or MERISTEM_NODE_ID + MERISTEM_NODE_TOKEN is required')
+  }
+  transport.connect()
 }
 
 if (!joinTicket && (!nodeId || !runtimeToken)) {
@@ -562,7 +489,7 @@ process.on('SIGINT', () => {
   stopRuntimeSyncLoop()
   tunnelStatusReporter.stop()
   forwardLog('warn', 'node agent stopping')
-  socket?.close()
+  transport.close()
   // sidecar 进程必须优雅回收，避免 NetBird 客户端残留持有隧道接口
   const sidecarStop = sidecarSupervisor ? sidecarSupervisor.stop() : Promise.resolve()
   void Promise.all([sidecarStop, shutdownTelemetry()]).then(() => process.exit(0))

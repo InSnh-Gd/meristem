@@ -12,11 +12,11 @@
  * Meristem 是唯一授权与审计根：监督器不向 NetBird Management 注册，也不落任何凭证。
  */
 import {
-  transitionSidecarLifecycle,
-  validateSidecarConfigPath,
   type SidecarCrash,
   type SidecarHealthProbe,
-  type SidecarLifecycleState
+  type SidecarLifecycleState,
+  transitionSidecarLifecycle,
+  validateSidecarConfigPath
 } from './node-agent-sidecar.ts'
 
 export type SpawnedSidecarProcess = {
@@ -157,7 +157,7 @@ export function createSidecarSupervisor(options: SidecarSupervisorOptions) {
       }
       return
     }
-    const delayMs = backoff[restartAttempt] ?? backoff[backoff.length - 1]!
+    const delayMs = backoff[restartAttempt] ?? backoff[backoff.length - 1] ?? 0
     restartAttempt += 1
     restartTimer = setTimeout(() => {
       void restart()
