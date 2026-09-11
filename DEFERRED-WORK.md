@@ -38,7 +38,8 @@ States:
 | feature-scope (gated on owning doc) | DFW-001–010, DFW-012, DFW-017–026, DFW-029 (22) |
 
 (DFW-031 does not exist — the register's numbering skips it. New entries DFW-043–048 are
-registered below and do not count toward the original 41.)
+registered below and do not count toward the original 41; DFW-049 is registered on
+2026-09-12 by the PR review follow-up and likewise does not count toward the 41.)
 
 Measured evidence (re-run on 2026-09-11, not carried over from prior prose):
 
@@ -55,6 +56,45 @@ not implemented), **DFW-045** (dependency-cruiser false-green history — **fixe
 regression guard), **DFW-046** (orphan test roots not typechecked — **runtime gate added**,
 typecheck inclusion still deferred), **DFW-047** (node-agent deep-imports m-net data-plane
 constants — debt), **DFW-048** (local IAM production persistence/wiring gate — debt).
+
+---
+
+### DFW-049: `network:update` Permission And Audit Action For Metadata Updates
+
+Status: deferred — registered 2026-09-12 by PR review follow-up.
+
+Owner: Core / M-Policy.
+
+Source: `packages/contracts/src/literals.ts`, `packages/policy/src/index.ts`,
+`packages/db/src/seed.ts`, `apps/core/src/routes/network/networks.ts`,
+`docs/security/SECURITY-MODEL.md`, `docs/contracts/REST-API.md`.
+
+问题描述:
+
+- `PATCH /api/v0/networks/:id`（元数据更新）复用 `network:create` 作为 policy action 与
+  audit action：审计事实把元数据更新记成 `network:create`，按 action 过滤审计日志的读者
+  看到的语义失真；仓库中不存在 `network:update` 权限字面量。
+- 复用现状已在 `SECURITY-MODEL.md` §2.1 与 `REST-API.md` PATCH 段显式登记（2026-09-12），
+  属已声明的过渡态，不是隐性越权。
+
+Reason deferred:
+
+- 引入新权限字面量是跨包契约变更：`basePermissions`、RBAC 默认值、PostgreSQL seed、
+  `SECURITY-MODEL` 矩阵、`m-net.md` §4、REST `Protected by` 行、审计动作语义需同批变更，
+  并需确认 seed 幂等升级路径；不属于审查修复的最小正确性批。
+
+Required before implementation:
+
+- 新增 `network:update` 字面量 + seed 权限/授予 + RBAC 默认值（admin / security-admin）。
+- `PATCH /networks/:id` 切换 policy 与 audit action 为 `network:update`；`m-cli network
+  update` 同步。
+- `SECURITY-MODEL.md` §2.1 矩阵、`docs/services/m-net.md` §4、`REST-API.md` 同批更新；
+  移除 §2.1 的复用注记。
+
+Reopen trigger:
+
+- 任一网络元数据写路径需要独立于 `network:create` 的授权或审计区分时（含审计检索要求
+  按真实动作过滤的场景）。
 
 ---
 

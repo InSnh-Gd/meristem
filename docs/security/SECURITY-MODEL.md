@@ -46,6 +46,7 @@ MVP uses a narrower permission set than the long-term baseline:
 | `network:read` | yes | yes | yes | yes |
 | `network:create` | no | yes | yes | yes |
 | `network:join` | no | yes | yes | yes |
+| `network:delete` | no | no | yes | yes |
 | `task:submit` | no | yes | yes | yes |
 | `timeline:read` | yes | yes | yes | yes |
 | `log:read-full` | no | yes | yes | yes |
@@ -91,6 +92,14 @@ MVP uses a narrower permission set than the long-term baseline:
 | `node:disable` | no | no | yes | yes |
 | `node:isolate` | no | no | yes | yes |
 | `node:recover` | no | no | yes | yes |
+
+`network:delete` authorizes deleting an empty, profile-disabled logical network and
+removing members from a network; it is granted to admin and security-admin in the RBAC
+defaults and the PostgreSQL seed, and both `DELETE /api/v0/networks/:id` and
+`DELETE /api/v0/networks/:id/members/:nodeId` are protected by it. `PATCH
+/api/v0/networks/:id` (metadata update) currently reuses `network:create` as its policy
+and audit action — no `network:update` permission exists yet; introducing it (with the
+matching audit action) is registered as DFW-049.
 
 MVP actor selection still supports locally signed JWT bearer tokens for local development. This remains a local-only provider and is not a production identity provider model.
 
@@ -345,7 +354,7 @@ Rules:
 - node-agent sidecar crash, stale signed map, invalid signature, or control-channel partition must drive degraded or `fail_closed` state and prepare tunnel teardown rather than claiming healthy forwarding.
 - Signed map TTL expiry must surface `network_map.stale` first and then move to fail-closed enforcement if refresh does not recover.
 - Audit unavailability blocks high-risk CN operations before state mutation. Policy denial blocks the operation with no state change.
-- Event-bus publish failure must surface a typed unavailable outcome and must not create false success in state, UI, or audit trails.
+- Event-bus publish failure must surface a typed unavailable outcome and must not create false success in state, UI, or audit trails. Exception (m-net internal derived events only): the signed network-map refresh after an already-committed membership change degrades to a no-op with a warning log when the publish fails — the map is already materialized and persisted, member removal is non-idempotent (a retry would 404), and signed-map TTL resync is the backstop; the replay gap is registered as DFW-043. This exception does not apply to Core network lifecycle events (`mnet.network.*`, `mnet.membership.*`), which keep the typed-unavailable rule.
 - Relay outage may fall back to a direct path only when a direct path is already available and policy allows it; otherwise the data plane must fail closed.
 - Overlay CIDR exhaustion must return typed `address.exhausted` results rather than reusing an existing address or inventing an out-of-range address.
 - Offline leaf migration must remain `pending` until all required leaf members are reachable; partial progress must not be reported as complete.

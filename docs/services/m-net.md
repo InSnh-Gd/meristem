@@ -161,6 +161,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 |------------|--------------|------|
 | `network:create` | create logical networks | high |
 | `network:join` | add a node to a logical network or approve/reject a pending join request | high |
+| `network:delete` | delete logical networks and remove members | high |
 | `network:read` | read the closed-loop topology view | medium |
 | `network-profile:read` | list or show profile definitions and state | medium |
 | `network-profile:apply` | enable a profile on a network | high |
