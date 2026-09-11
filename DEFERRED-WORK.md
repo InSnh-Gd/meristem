@@ -45,8 +45,9 @@ Measured evidence (re-run on 2026-09-11, not carried over from prior prose):
 
 - `bun run format:check` → exit 0, 1038 files, 0 violations (closes DFW-036, which claimed a
   release blocker).
-- `bun run test:contracts` → 1249 pass / 0 fail across 156 files (DFW-037's recorded 1174
-  baseline was stale; see DFW-037).
+- `bun run test:contracts` → 1252 pass / 0 fail across 156 files (re-measured 2026-09-12 after
+  the review-fix batch added regression tests; the 2026-09-11 audit measured 1249, and
+  DFW-037's recorded 1174 baseline was stale; see DFW-037).
 - `bun run depcruise` → 0 violations, 0 cycles (DFW-040 4→0, DFW-041 14→0; rules promoted to
   `error` for `apps/core` and `services/m-net`).
 
@@ -102,7 +103,7 @@ Reopen trigger:
 
 ### DFW-001: LLM-Assisted Approval Review
 
-Status: partially resolved (internal context contract + redaction + tests). Still deferred: LLM provider execution, prompts, user-visible summaries.
+Status: partially resolved (internal context contract + redaction + tests). Still deferred: LLM provider execution, prompts, user-visible summaries. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-Policy with M-Log / M-UI / BFF integration.
 
@@ -147,7 +148,7 @@ Required before implementation:
 
 ### DFW-002: Formal Approval Queue UI
 
-Status: partially resolved (approve/reject CommandWell execution implemented). Still deferred: LLM-assisted review, Control Room Ledger integration.
+Status: partially resolved (approve/reject CommandWell execution implemented). Still deferred: LLM-assisted review, Control Room Ledger integration. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-UI / M-UI BFF.
 
@@ -413,7 +414,7 @@ Required before implementation:
 
 ### DFW-010: Production Historical Task Migration Compatibility
 
-Status: deferred from M-Task cutover / canonical task service. Partially resolved as of v0.1.
+Status: deferred from M-Task cutover / canonical task service. Partially resolved as of v0.1. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-Task / Core.
 
@@ -498,7 +499,7 @@ Required before implementation:
 
 ### DFW-012: Generic Config Lifecycle Subsystem
 
-Status: deferred from M-Net profile lifecycle / regional network profile. Partially resolved as of v0.1.
+Status: deferred from M-Net profile lifecycle / regional network profile. Partially resolved as of v0.1. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: Core / config subsystem, with M-Net as a consumer.
 
@@ -689,7 +690,7 @@ Reopen trigger: Formal M-UI route set / SDUI v0.2 work complete. Real data-plane
 
 ### DFW-017: Broad Event Mesh Or Projection Expansion For Deferred Flows
 
-Status: partially resolved (vote-level events, profile/behavior-analysis projections). Still deferred: approval comment events.
+Status: partially resolved (vote-level events, profile/behavior-analysis projections). Still deferred: approval comment events. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-EventBus / M-Log / projection platform.
 
@@ -1193,6 +1194,13 @@ Required before implementation:
 
 Status: deferred from v0.1 closure / acceptance closure.
 
+Audit note (2026-09-12, review alignment): the §1a index adjudicates this entry as
+`re-scoped-with-trigger`. The corrected reopen precondition is the conjunction of both
+bullets under "Reopen trigger": a deferred subject reopens only when it has gained a real
+publisher in its owning service AND the owning service definition/ADR explicitly accepts
+the new runtime capability. Catalog parity work itself remains deferred — it is not a
+v0.1-closure obligation and carries no separate schedule.
+
 Owner: Core / M-Task / M-Net / M-Policy / M-Log (per subject).
 
 Source: `docs/events/EVENT-CATALOG.md`, `tests/contracts/schema-coverage.md`, `docs/events/DEFERRED-EVENT-GAP-MAP.md`.
@@ -1454,9 +1462,10 @@ Source: `bun run test:contracts`。
 - 清理通过中再次出现：`packet forwarding architecture guard` 测试 1158 pass / 2 fail → re-run 即 1160 / 0。
 - 无代码变更即恢复通过，确认为 flake 而非回归。
 
-基线更新（2026-09-11 实测，替代原记录的 1174）:
+基线更新（2026-09-12 复测，替代原记录的 1174 与 09-11 审计的 1249）:
 
-- **1249 pass / 0 fail across 156 files**（`bun run test:contracts`）。原 1174 记录已过期。
+- **1252 pass / 0 fail across 156 files**（`bun run test:contracts`）。审查修复批次新增回归
+  测试后刷新。原 1174 记录已过期。
 - 本项已无可执行的工程动作，故标记 obsolete；仅保留以下操作建议。
 
 处理建议:
@@ -1497,7 +1506,8 @@ Source: `services/m-net/src/`（搬迁前 123 个平铺 `.ts` 文件，实测；
 Resolution evidence（2026-09-11 实测）:
 
 - `typecheck` 通过；`depcruise` 0 违规（774 模块 / 2727 依赖边，`no-circular-*` 保持 error）；
-  `test:contracts` 1249 / 0；`test:failure-modes` 335 / 0；`test:integration` 98 / 0。
+  `test:contracts` 1252 / 0（2026-09-12 复测，09-11 实测为 1249）；`test:failure-modes` 335 / 0；
+  `test:integration` 98 / 0。
 - 新增 `tests/contracts/m-net-path-alias.contract.test.ts` 锁定别名在三个消费方
   （Bun / tsc / depcruise）与边界守卫中的解析。
 
@@ -1730,6 +1740,11 @@ Required before implementation:
 - 新 REST 契约 + `network:*` 权限族声明 + Audit 事实定义。
 - `docs/security/SECURITY-MODEL.md` 与 `docs/contracts/REST-API.md` 同步更新。
 - 明确 prune 的留存语义（哪些台账可销毁、是否需要双人审批）。
+- prune 必须**三表同清**：`mnet_profile_switch_batch_members` /
+  `mnet_profile_switch_results` / `mnet_profile_switch_snapshots`。deleteNetwork 的留存台账
+  门禁依赖「batch_members 行永不删除」的不变式（`network-service.test.ts` FK coverage guard
+  注释）；若 prune 只清 batch_members 而保留 results/snapshots，门禁会静默失效，后续
+  deleteNetwork 将以 FK 违例 500 收场（2026-09-12 审查注记）。
 
 Reopen trigger:
 
@@ -1775,7 +1790,7 @@ Status: deferred — registered 2026-09-11 by batch B acceptance review.
 
 Owner: test infrastructure。
 
-Source: `tests/apps`, `tests/services`, `tests/packages`（共约 380 个测试）。
+Source: `tests/apps`, `tests/services`, `tests/packages`, `tests/playwright`（共约 380 个测试 + 3 个 Playwright smoke 文件）。
 
 问题描述:
 
@@ -1790,6 +1805,9 @@ Source: `tests/apps`, `tests/services`, `tests/packages`（共约 380 个测试�
 - 2026-09-11 的 B 验收已把它们纳入**运行时** test gate（`test` 与 `test:v02-gates` 现包含
   `tests/apps` / `tests/services` / `tests/packages` / `tests/guards`），堵住「测试不被运行」
   的假绿；但仍未纳入类型门禁。
+- `tests/playwright`（Playwright browser smoke）同样不在任何 tsconfig include 内。
+  `tests/e2e` 则由独立的 `tsconfig.e2e.json`（`typecheck:e2e` 门禁）覆盖，**不属本条范围**
+  （2026-09-12 审查核实补登，避免按错误清单清债后门禁仍不绿）。
 
 Reason deferred:
 
@@ -1798,7 +1816,8 @@ Reason deferred:
 
 Reopen trigger:
 
-- 一次专门测试类型债清理排期到达时：逐个修正类型错误并把三个根目录加入 `tsconfig.json`。
+- 一次专门测试类型债清理排期到达时：逐个修正类型错误并把孤儿根目录（`tests/apps` /
+  `tests/services` / `tests/packages` / `tests/playwright`）加入类型门禁。
 
 ---
 
