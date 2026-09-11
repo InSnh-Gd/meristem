@@ -129,4 +129,15 @@ describe('DB ownership check fixture', () => {
     expect(tableOwners.nodes).toBe('core')
     expect(tableOwners.taskRequests).toBe('m-task')
   })
+
+  it('registers every cross-owner exception against a file that still exists', async () => {
+    // 陈旧守卫（DFW-038/B 验收条件）：allowlist 的 source 是精确路径，文件被移动/重命名后
+    // 若不更新，异常会静默失效——即「本应放行的读」变成未被批准的违规，或反之失去豁免。
+    // 与 file-size 的「条目必须仍存在」守卫同构。
+    const { existsSync } = await import('node:fs')
+    const stale = approvedCrossOwnerReads
+      .map(entry => entry.source)
+      .filter(source => !existsSync(`${repoRoot}/${source}`))
+    expect(stale).toEqual([])
+  })
 })

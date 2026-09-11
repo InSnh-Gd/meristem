@@ -828,7 +828,7 @@ Returns logical network members or `404` if the network does not exist.
 
 ### 6.1 M-Net Closed-Loop Management (M-Net External)
 
-M-Net exposes the following bearer-authenticated management routes under `/api/v0/mnet/closed-loop`. The canonical Effect contracts live in `packages/contracts/src/schemas/mnet-closed-loop.ts`; the executable HTTP adapters live in `services/m-net/src/closed-loop-route-schemas.ts` and are validated for every successful response.
+M-Net exposes the following bearer-authenticated management routes under `/api/v0/mnet/closed-loop`. The canonical Effect contracts live in `packages/contracts/src/schemas/mnet-closed-loop.ts`; the executable HTTP adapters live in `services/m-net/src/closed-loop/closed-loop-route-schemas.ts` and are validated for every successful response.
 
 | Route | Permission / Trust Boundary | Request |
 |-------|-----------------------------|---------|
