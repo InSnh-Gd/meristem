@@ -199,6 +199,26 @@ module.exports = {
       }
     },
     {
+      name: 'no-cross-service-mnet-internals',
+      comment:
+        '跨服务不得深层导入 services/m-net/src 的内部模块（DFW-038 验收条件）。@m-net/* 别名是路径书写机制，' +
+        '不是接口 seam：它让内部 reach-in 看起来像官方用法。除 node-agent（依 ADR-N04 共享数据面协议常量：' +
+        'key-lifecycle / network-map-* / partition-state）外，其它服务应只经 m-net 的公开入口 ' +
+        '（app.ts / index.ts / public-types.ts / startup.ts）交互。新增合法用例时应显式加入 from.pathNot 并说明原因，' +
+        '或把共享常量上提到 packages/。',
+      severity: 'error',
+      from: {
+        // 覆盖 apps 与 services（packages 当前不依赖 m-net；若未来依赖，应经 m-net 公开入口）。
+        path: '^(apps|services)/(?!m-net/)[^/]+/src/',
+        pathNot: '^services/node-agent/src/'
+      },
+      to: {
+        // 锚定到精确文件名 + .ts 后缀，避免 `app-internal.ts` / `index-secret.ts` 这类
+        // 前缀同名文件绕过豁免列表（负向 lookahead 只做前缀匹配时会被它们逃逸）。
+        path: '^services/m-net/src/(?!app\\.ts$|index\\.ts$|public-types\\.ts$|startup\\.ts$|serve(-local)?\\.ts$)'
+      }
+    },
+    {
       name: 'no-services-to-apps',
       comment:
         'Services and shared packages must not depend on apps. ' +

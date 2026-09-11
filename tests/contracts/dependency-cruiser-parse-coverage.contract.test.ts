@@ -111,4 +111,93 @@ describe('dependency-cruiser parse coverage contract', () => {
       await Bun.spawn(['rm', '-rf', fixtureRoot]).exited
     }
   }, 60_000)
+
+  it('blocks cross-service m-net internal reach-in, including prefix-named evasion (positive control)', async () => {
+    // 用**真实** .dependency-cruiser.cjs 跑 fixture：`no-cross-service-mnet-internals` 的正则
+    // 若被放宽为前缀匹配，`app-internal.ts` 这类文件与 apps/ 目录会静默逃逸。本用例锁定两类
+    // 逃逸均被拦截、且真正的公开入口不被误伤。
+    const fixtureRoot = `/tmp/meristem-mnet-boundary-${crypto.randomUUID()}`
+    const mk = async (rel: string, content: string) => {
+      const path = `${fixtureRoot}/${rel}`
+      await Bun.spawn(['mkdir', '-p', path.split('/').slice(0, -1).join('/')]).exited
+      await Bun.write(path, content)
+    }
+    try {
+      // 真实 config 引用 tsconfig.base.json（相对仓库根），fixture 必须提供同名的 base
+      // 并带上 alias 映射，否则 depcruise 报 ENOENT 且别名无法解析。
+      await Bun.write(
+        `${fixtureRoot}/tsconfig.base.json`,
+        JSON.stringify({
+          compilerOptions: {
+            moduleResolution: 'Bundler',
+            allowImportingTsExtensions: true,
+            paths: { '@m-net/*': ['./services/m-net/src/*'] }
+          }
+        })
+      )
+      // m-net 内部模块（含与前缀同名但不属公开入口的文件：app-internal.ts / server.ts）
+      await mk('services/m-net/src/app.ts', 'export const pub = 1\n')
+      await mk('services/m-net/src/app-internal.ts', 'export const internal = 1\n')
+      await mk('services/m-net/src/server.ts', 'export const srv = 1\n')
+      await mk('services/m-net/src/serve-local.ts', 'export const serveLocal = 1\n')
+      await mk('services/m-net/src/data-plane/secret-const.ts', 'export const c = 1\n')
+      // 违规：其它服务深层导入内部（含前缀逃逸）
+      await mk(
+        'services/m-task/src/reach.ts',
+        "import { internal } from '@m-net/app-internal.ts'\nimport { srv } from '@m-net/server.ts'\nimport { c } from '@m-net/data-plane/secret-const.ts'\nexport const v = [internal, srv, c]\n"
+      )
+      // 合法：导入 serve-local（m-net 自身 bootstrap 入口，属公开入口）
+      await mk(
+        'services/m-other/src/ok-serve.ts',
+        "import { serveLocal } from '@m-net/serve-local.ts'\nexport const v = serveLocal\n"
+      )
+      // 违规：apps 深层导入内部（规则此前不覆盖 apps/）
+      await mk(
+        'apps/core/src/reach.ts',
+        "import { c } from '@m-net/data-plane/secret-const.ts'\nexport const v = c\n"
+      )
+      // 合法：导入 m-net 公开入口（用 public-types 避开另一条 no-apps-importing-service-app-internals 规则）
+      await mk('services/m-net/src/public-types.ts', 'export const pubType = 1\n')
+      await mk(
+        'services/m-task/src/ok.ts',
+        "import { pubType } from '@m-net/public-types.ts'\nexport const v = pubType\n"
+      )
+      // 合法：node-agent 豁免（ADR-N04 共享数据面常量）
+      await mk(
+        'services/node-agent/src/ok.ts',
+        "import { c } from '@m-net/data-plane/secret-const.ts'\nexport const v = c\n"
+      )
+
+      await Bun.spawn(['ln', '-s', `${repoRoot}/node_modules`, `${fixtureRoot}/node_modules`])
+        .exited
+      const process = Bun.spawn(
+        [
+          `${repoRoot}/node_modules/.bin/depcruise`,
+          '--config',
+          `${repoRoot}/.dependency-cruiser.cjs`,
+          'services',
+          'apps'
+        ],
+        { cwd: fixtureRoot, stdout: 'pipe', stderr: 'pipe' }
+      )
+      const [stdout, , exitCode] = await Promise.all([
+        new Response(process.stdout).text(),
+        new Response(process.stderr).text(),
+        process.exited
+      ])
+      const hits = stdout
+        .split('\n')
+        .filter(line => line.includes('no-cross-service-mnet-internals'))
+      // 违规的 3 条边（task 的 2 处 + core 的 1 处）都必须被检出。
+      expect(hits.length).toBeGreaterThanOrEqual(3)
+      expect(stdout).toContain('services/m-task/src/reach.ts')
+      expect(stdout).toContain('apps/core/src/reach.ts')
+      // 公开入口与 node-agent 豁免不得被误伤。
+      expect(stdout).not.toContain('services/m-task/src/ok.ts')
+      expect(stdout).not.toContain('services/node-agent/src/ok.ts')
+      expect(exitCode).not.toBe(0)
+    } finally {
+      await Bun.spawn(['rm', '-rf', fixtureRoot]).exited
+    }
+  }, 60_000)
 })
