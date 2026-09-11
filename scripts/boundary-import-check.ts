@@ -41,7 +41,9 @@ function toRelativePath(root: string, absolutePath: string): string {
  * 说明符直接跳过，导致跨服务 app.ts 边界守卫被静默绕过。
  * 新增别名时，此处与 tsconfig.base.json 需同步。
  */
-const aliasTargets: ReadonlyArray<readonly [string, string]> = [['@m-net/', 'services/m-net/src/']]
+export const aliasTargets: ReadonlyArray<readonly [string, string]> = [
+  ['@m-net/', 'services/m-net/src/']
+]
 
 function resolveImportTarget(rootUrl: URL, file: string, specifier: string): string | null {
   for (const [prefix, target] of aliasTargets) {

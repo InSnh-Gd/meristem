@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
 import type { MNetServiceResult } from '@m-net/types.ts'
-import { collectBoundaryViolations } from '../../scripts/boundary-import-check.ts'
+import { collectBoundaryViolations, aliasTargets } from '../../scripts/boundary-import-check.ts'
 
 /**
  * `@m-net/*` path alias 的落地守卫（DFW-038 硬前置条件 3）。
@@ -35,6 +35,13 @@ describe('@m-net path alias contract', () => {
     }
     const mapped = tsconfig.compilerOptions?.paths?.['@m-net/*']
     expect(mapped).toEqual(['./services/m-net/src/*'])
+
+    // 真正读取守卫脚本的映射表并断言二者一致：否则 tsconfig 或 aliasTargets 单侧被改
+    // 都不会被发现（此前只断言了 tsconfig）。
+    const [prefix, target] = aliasTargets[0] ?? []
+    expect(prefix).toBe('@m-net/')
+    // tsconfig 目标形如 './services/m-net/src/*'；守卫映射形如 ['@m-net/', 'services/m-net/src/']。
+    expect(mapped?.[0]).toBe(`./${target}*`)
   })
 
   it('teaches boundary-import-check to see alias imports across service boundaries', async () => {

@@ -375,7 +375,9 @@ export function createNetworkService({
   }
 
   /**
-   * 移除单个成员：清理该节点在本网络的隧道分配与 sidecar 期望态，并触发网络地图重渲染。
+   * 移除单个成员：清理该节点在本网络的隧道分配与成员关系，并触发网络地图重渲染。
+   * sidecar 期望态与公钥按节点维度存储（sidecar 表主键仅 node_id），仅当该节点已退出**所有**
+   * 网络时才回收——否则会误删它在其它网络的期望态。
    * 被移除节点通过下一次网络地图同步（TTL 强制）自动拆除对应 peer 路由。
    */
   async function removeMember(input: {

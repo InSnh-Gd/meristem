@@ -253,6 +253,16 @@ export function networksRoutes(deps: CoreDeps) {
               resource
             })
 
+            // 与本文件其它网络变更（create/join/delete）保持一致的审计前置：
+            // metadata 变更同样是权威状态写入，失败必须在变更前 fail closed。
+            await writeNetworkAuditOrThrow(deps, {
+              actor: auth.actor,
+              action: 'network:create',
+              resource,
+              permission: auth.permission,
+              correlationId: auth.correlationId
+            })
+
             const updated = await unwrapNetworkResult(
               await deps.mNet.updateNetworkMetadata({
                 networkId: params.id,

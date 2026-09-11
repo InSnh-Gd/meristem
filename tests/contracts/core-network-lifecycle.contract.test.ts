@@ -16,6 +16,22 @@ function createApp(actor: ActorId): CoreApp {
   return createCoreApp(deps)
 }
 
+/** 构建同时暴露已写审计事实的应用，用于断言「变更前写 Audit」的边界。 */
+function createAppWithAudit(actor: ActorId): {
+  app: CoreApp
+  audits: Array<{ action: string; resource: string }>
+} {
+  const { deps } = createCoreDepsWithWriters({ actor })
+  const audits: Array<{ action: string; resource: string }> = []
+  const originalWriteAudit = deps.log.writeAudit.bind(deps.log)
+  // 包装审计端口以捕获事实；内部实现不变，仅记录调用。
+  deps.log.writeAudit = async input => {
+    audits.push({ action: input.action, resource: input.resource })
+    return originalWriteAudit(input)
+  }
+  return { app: createCoreApp(deps), audits }
+}
+
 function request(path: string, method: string, token: string, body?: unknown): Request {
   return new Request(`http://localhost${path}`, {
     method,
@@ -159,7 +175,7 @@ describe('Core network lifecycle facade', () => {
   })
 
   it('admin updates network metadata through the facade', async () => {
-    const app = createApp('admin')
+    const { app, audits } = createAppWithAudit('admin')
     await app.handle(
       request('/api/v0/networks', 'POST', 'admin-token', { name: 'metadata-network' })
     )
@@ -176,6 +192,11 @@ describe('Core network lifecycle facade', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { network: { displayName?: string } }
     expect(body.network.displayName).toBe('运维主网络')
+    // metadata 变更同样是权威状态写入，必须与 create/join/delete 一样在变更前写 Audit。
+    expect(audits).toContainEqual({
+      action: 'network:create',
+      resource: `network:${target.id}`
+    })
   })
 
   it('facade routes require a bearer token', async () => {

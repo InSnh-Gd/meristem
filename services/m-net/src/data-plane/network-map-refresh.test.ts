@@ -102,4 +102,20 @@ describe('refreshNetworkMap', () => {
     expect(refreshed).toBe(false)
     expect(calls.materialize).toBe(0)
   })
+
+  it('is a no-op (not a throw) when event publish fails after materialization', async () => {
+    // 回归：事件发布失败此前会外抛，使已提交的成员移除被翻成 500/503 且无补发路径。
+    // map 已物化并持久化，事件属 at-least-once 语义，应降级为 no-op + 告警。
+    const { deps } = createDeps({
+      events: {
+        async publish() {
+          throw new Error('eventbus offline')
+        }
+      }
+    })
+
+    const refreshed = await refreshNetworkMap(deps, 'network-1', 'corr-1')
+
+    expect(refreshed).toBe(false)
+  })
 })

@@ -74,8 +74,11 @@ export function createInMemoryDataPlaneStores(): DataPlaneStores {
         return record ? { ...record } : null
       },
       async listByNode(nodeId) {
+        // 与 pg 实现同契约：按 createdAt 降序，确保调用方取到「最新一条密钥」。
+        // 若按 Map 插入序返回，调用方的 `.find` 会拿到最旧的 key，与生产 pg 行为分叉。
         return [...publicKeys.values()]
           .filter(record => record.nodeId === nodeId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
           .map(record => ({ ...record }))
       },
       async getByFingerprint(fingerprint) {

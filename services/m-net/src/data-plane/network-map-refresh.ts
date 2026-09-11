@@ -49,20 +49,31 @@ export async function refreshNetworkMap(
   if (members.value.length === 0) return false
 
   const materialized = await deps.materialize(profileVersion, correlationId)
-  // 物化失败（如成员在两次读之间被移除）按 no-op 处理，不把成员变更翻成错误。
+  // 物化失败的原因有二：成员在两次读之间被移除；或全部成员均无运行时密钥
+  // （materialize 返回 409 network.no_runtime_keys）。两者都按 no-op 处理，不把成员变更翻成错误。
   if (!materialized) return false
-  await deps.events?.publish(
-    'mnet.network_map.published.v0',
-    'mnet.network_map.published',
-    {
-      networkId,
-      mapVersion: materialized.mapVersion,
-      profileVersion,
-      relayAssignment: materialized.relayAssignment,
+  try {
+    await deps.events?.publish(
+      'mnet.network_map.published.v0',
+      'mnet.network_map.published',
+      {
+        networkId,
+        mapVersion: materialized.mapVersion,
+        profileVersion,
+        relayAssignment: materialized.relayAssignment,
+        correlationId
+      },
       correlationId
-    },
-    correlationId
-  )
+    )
+  } catch (error) {
+    // 发布失败不阻断：map 已物化并持久化，成员变更本身已成功。事件属 at-least-once 语义，
+    // 与 Core 网络生命周期事件的补发缺口同属 DFW-043 范畴；此处按 no-op + 告警处理，
+    // 避免把已提交的成员移除翻成 500/503 且无补发路径（见 DFW-043）。
+    process.stderr.write(
+      `m-net: network_map.published publish failed for ${networkId}: ${error instanceof Error ? error.message : String(error)} ${correlationId}\n`
+    )
+    return false
+  }
   return true
 }
 
