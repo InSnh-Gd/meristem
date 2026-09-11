@@ -3,6 +3,12 @@ import { readdirSync } from 'node:fs'
 import { fromPartial } from '@total-typescript/shoehorn'
 import { type networkMemberships, networks } from '../../../packages/db/src/schema.ts'
 import type { MNetDb } from './clients.ts'
+import {
+  deleteNetworkTx,
+  type DeleteNetworkFixture,
+  removeMemberTx,
+  type RemoveMemberFixture
+} from './network-service-fakes.ts'
 import { createNetworkService } from './network-service.ts'
 import { createInMemoryProfileStore } from './profile/profile-store.ts'
 
@@ -101,90 +107,16 @@ describe('createNetworkService.listNetworks', () => {
 })
 
 describe('createNetworkService.deleteNetwork', () => {
-  /** drizzle table 对象带 description 为 drizzle:Name 的 symbol；测试用它比对级联覆盖面。 */
-  function tableName(table: unknown): string {
-    const symbol = Object.getOwnPropertySymbols(table as object).find(
-      candidate => candidate.description === 'drizzle:Name'
-    )
-    return String(Reflect.get(table as object, symbol as symbol))
-  }
-
-  type DeleteNetworkFixture = {
-    networkExists: boolean
-    membershipRows?: unknown[]
-    /** 事务内权威 profile 状态行；缺省空集 = 从未启用，放行。 */
-    profileRows?: Array<{ status: string }>
-    factRows?: unknown[]
-    switchMemberRows?: unknown[]
-    suspendedRows?: unknown[]
-    /** 模拟级联中途某条 DELETE 失败（连接断开等），验证错误原样外抛而不是被吞。 */
-    deleteThrowsOn?: string
-  }
-
   function createTransactionDb(
     fixture: DeleteNetworkFixture,
     counter: { transaction: number; deletedTables: string[]; locks?: string[] }
   ): MNetDb {
-    const tx = {
-      select: () => ({
-        from: (table: unknown): ReturnType<typeof queryBuilderFor> => {
-          const name = tableName(table)
-          const rows: unknown[] =
-            name === 'networks'
-              ? fixture.networkExists
-                ? [{ id: 'network-a' }]
-                : []
-              : name === 'network_memberships'
-                ? (fixture.membershipRows ?? [])
-                : name === 'mnet_network_profile_states'
-                  ? (fixture.profileRows ?? [])
-                  : name === 'mnet_closed_loop_facts'
-                    ? (fixture.factRows ?? [])
-                    : name === 'mnet_profile_switch_batch_members'
-                      ? (fixture.switchMemberRows ?? [])
-                      : name === 'mnet_suspended_operations'
-                        ? (fixture.suspendedRows ?? [])
-                        : []
-          // 只记录 networks 行的锁请求：成员门禁的 TOCTOU 防护依赖 FOR UPDATE。
-          return queryBuilderFor(
-            rows,
-            name === 'networks' && counter.locks ? mode => counter.locks?.push(mode) : undefined
-          )
-        }
-      }),
-      delete: (table: unknown) => {
-        const name = tableName(table)
-        if (fixture.deleteThrowsOn === name) {
-          return queryBuilderFor(Promise.reject(new Error(`boom:${name}`)))
-        }
-        counter.deletedTables.push(name)
-        return queryBuilderFor([])
-      }
-    }
     return fromPartial<MNetDb>({
       transaction: (fn: (value: unknown) => Promise<unknown>) => {
         counter.transaction += 1
-        return fn(tx)
+        return fn(deleteNetworkTx(fixture, counter))
       }
     })
-  }
-
-  /**
-   * drizzle 查询 builder 的最小替身：真 Promise（then 在原型上，合法可 await）挂链式方法；
-   * 链尾 await 得本节点行集（或错误）。
-   */
-  function queryBuilderFor(rows: unknown[] | Promise<unknown[]>, onFor?: (mode: string) => void) {
-    const chain = (target: unknown[] | Promise<unknown[]>) =>
-      Object.assign(Promise.resolve(target), {
-        where: () => chain(target),
-        limit: () => chain(target),
-        returning: () => chain(target),
-        for: (mode: string) => {
-          onFor?.(mode)
-          return chain(target)
-        }
-      })
-    return chain(rows)
   }
 
   function serviceFor(db: MNetDb) {
@@ -315,6 +247,167 @@ describe('createNetworkService.deleteNetwork', () => {
       expect(result).toEqual({ ok: false, error: { code, message } })
       expect(counter.deletedTables).toEqual([])
     }
+  })
+})
+
+describe('createNetworkService.removeMember', () => {
+  /**
+   * 与 deleteNetwork 的 fake 同型：network_memberships 的读数在删除后切换到
+   * remainingMembershipRows，建模同事务「删后读」的可见性。
+   */
+  function createTransactionDb(
+    fixture: RemoveMemberFixture,
+    counter: { transaction: number; deletedTables: string[]; locks?: string[]; order: string[] }
+  ): MNetDb {
+    return fromPartial<MNetDb>({
+      transaction: (fn: (value: unknown) => Promise<unknown>) => {
+        counter.transaction += 1
+        counter.order.push('transaction')
+        return fn(removeMemberTx(fixture, counter))
+      }
+    })
+  }
+
+  function serviceFor(db: MNetDb, refreshNetworkMap?: () => Promise<void>) {
+    return createNetworkService({
+      db,
+      profileStore: createInMemoryProfileStore(),
+      ...(refreshNetworkMap ? { refreshNetworkMap: async () => refreshNetworkMap() } : {})
+    })
+  }
+
+  it('runs the cleanup inside a single transaction on success', async () => {
+    const counter = { transaction: 0, deletedTables: [] as string[], order: [] as string[] }
+    const service = serviceFor(
+      createTransactionDb({ networkExists: true, membershipRows: [{ nodeId: 'leaf-1' }] }, counter)
+    )
+
+    const result = await service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+
+    expect(result).toEqual({ ok: true, value: { networkId: 'network-a', nodeId: 'leaf-1' } })
+    expect(counter.transaction).toBe(1)
+    // 隧道分配与成员行按网络+节点删除；节点已退出所有网络，sidecar 期望态与公钥一并回收。
+    expect(counter.deletedTables).toEqual([
+      'mnet_tunnel_address_allocations',
+      'network_memberships',
+      'mnet_sidecar_desired_configs',
+      'mnet_node_public_keys'
+    ])
+  })
+
+  it('locks the networks row FOR UPDATE so concurrent joins cannot slip past the reclaim read', async () => {
+    const counter = {
+      transaction: 0,
+      deletedTables: [] as string[],
+      locks: [] as string[],
+      order: [] as string[]
+    }
+    const service = serviceFor(
+      createTransactionDb({ networkExists: true, membershipRows: [{ nodeId: 'leaf-1' }] }, counter)
+    )
+
+    await service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+
+    expect(counter.locks).toEqual(['update'])
+  })
+
+  it('propagates a mid-cleanup failure instead of swallowing it (transaction rolls back)', async () => {
+    const counter = { transaction: 0, deletedTables: [] as string[], order: [] as string[] }
+    const service = serviceFor(
+      createTransactionDb(
+        {
+          networkExists: true,
+          membershipRows: [{ nodeId: 'leaf-1' }],
+          deleteThrowsOn: 'network_memberships'
+        },
+        counter
+      )
+    )
+
+    await expect(
+      service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+    ).rejects.toThrow('boom:network_memberships')
+  })
+
+  it('returns typed errors before any delete when network or membership is missing', async () => {
+    const cases = [
+      {
+        fixture: { networkExists: false },
+        code: 'network.not_found',
+        message: 'network not found'
+      },
+      {
+        fixture: { networkExists: true },
+        code: 'network.member_not_found',
+        message: 'node is not a network member'
+      }
+    ] satisfies Array<{ fixture: RemoveMemberFixture; code: string; message: string }>
+
+    for (const { fixture, code, message } of cases) {
+      const counter = { transaction: 0, deletedTables: [] as string[], order: [] as string[] }
+      const refreshCalls: string[] = []
+      const service = serviceFor(createTransactionDb(fixture, counter), async () => {
+        refreshCalls.push('refresh')
+      })
+
+      const result = await service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+
+      expect(result).toEqual({ ok: false, error: { code, message } })
+      expect(counter.deletedTables).toEqual([])
+      // 失败路径不触发地图刷新。
+      expect(refreshCalls).toEqual([])
+    }
+  })
+
+  it('keeps node-scoped sidecar config and keys while the node retains other memberships', async () => {
+    const counter = { transaction: 0, deletedTables: [] as string[], order: [] as string[] }
+    const service = serviceFor(
+      createTransactionDb(
+        {
+          networkExists: true,
+          membershipRows: [{ nodeId: 'leaf-1' }],
+          remainingMembershipRows: [{ networkId: 'network-b', nodeId: 'leaf-1' }]
+        },
+        counter
+      )
+    )
+
+    const result = await service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+
+    expect(result).toEqual({ ok: true, value: { networkId: 'network-a', nodeId: 'leaf-1' } })
+    expect(counter.deletedTables).toEqual([
+      'mnet_tunnel_address_allocations',
+      'network_memberships'
+    ])
+  })
+
+  it('reclaims sidecar desired config and keys after the last membership, refreshing after commit', async () => {
+    const counter = { transaction: 0, deletedTables: [] as string[], order: [] as string[] }
+    const service = serviceFor(
+      createTransactionDb(
+        {
+          networkExists: true,
+          membershipRows: [{ nodeId: 'leaf-1' }],
+          remainingMembershipRows: []
+        },
+        counter
+      ),
+      async () => {
+        counter.order.push('refresh')
+      }
+    )
+
+    const result = await service.removeMember({ networkId: 'network-a', nodeId: 'leaf-1' })
+
+    expect(result).toEqual({ ok: true, value: { networkId: 'network-a', nodeId: 'leaf-1' } })
+    expect(counter.deletedTables).toEqual([
+      'mnet_tunnel_address_allocations',
+      'network_memberships',
+      'mnet_sidecar_desired_configs',
+      'mnet_node_public_keys'
+    ])
+    // refresher 走 materialize/HTTP/eventbus，必须在事务提交之后调用，不能持锁等待外部服务。
+    expect(counter.order).toEqual(['transaction', 'refresh'])
   })
 })
 

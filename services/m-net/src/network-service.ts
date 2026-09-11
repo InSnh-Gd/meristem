@@ -376,6 +376,8 @@ export function createNetworkService({
 
   /**
    * 移除单个成员：清理该节点在本网络的隧道分配与成员关系，并触发网络地图重渲染。
+   * 前置检查与清理在同一事务内：中途失败整体回滚，不留「旧隧道分配已删、成员行还在」
+   * 的重渲染分叉（成员会被重新分配 IP）或永不回收的 sidecar/公钥残留。
    * sidecar 期望态与公钥按节点维度存储（sidecar 表主键仅 node_id），仅当该节点已退出**所有**
    * 网络时才回收——否则会误删它在其它网络的期望态。
    * 被移除节点通过下一次网络地图同步（TTL 强制）自动拆除对应 peer 路由。
@@ -384,64 +386,73 @@ export function createNetworkService({
     networkId: string
     nodeId: string
   }): Promise<MNetServiceResult<{ networkId: string; nodeId: string }>> {
-    const [networkRow] = await db
-      .select()
-      .from(networks)
-      .where(eq(networks.id, input.networkId))
-      .limit(1)
-    if (!networkRow) return err('network.not_found', 'network not found')
+    const result = await db.transaction(async tx => {
+      // 与 deleteNetwork 同锁序：对 networks 行加 FOR UPDATE，与并发 joinNetwork 插入
+      // membership 为满足外键取的 KEY SHARE 互斥，保证「存在性检查 → 剩余成员读数 →
+      // 条件回收」在同一快照内完成，不与并发加网交错。
+      const [networkRow] = await tx
+        .select()
+        .from(networks)
+        .where(eq(networks.id, input.networkId))
+        .limit(1)
+        .for('update')
+      if (!networkRow) return err('network.not_found', 'network not found')
 
-    const [membershipRow] = await db
-      .select()
-      .from(networkMemberships)
-      .where(
-        and(
-          eq(networkMemberships.networkId, input.networkId),
-          eq(networkMemberships.nodeId, input.nodeId)
+      const [membershipRow] = await tx
+        .select()
+        .from(networkMemberships)
+        .where(
+          and(
+            eq(networkMemberships.networkId, input.networkId),
+            eq(networkMemberships.nodeId, input.nodeId)
+          )
         )
-      )
-      .limit(1)
-    if (!membershipRow) return err('network.member_not_found', 'node is not a network member')
+        .limit(1)
+      if (!membershipRow) return err('network.member_not_found', 'node is not a network member')
 
-    await db
-      .delete(mnetTunnelAddressAllocations)
-      .where(
-        and(
-          eq(mnetTunnelAddressAllocations.networkId, input.networkId),
-          eq(mnetTunnelAddressAllocations.nodeId, input.nodeId)
+      await tx
+        .delete(mnetTunnelAddressAllocations)
+        .where(
+          and(
+            eq(mnetTunnelAddressAllocations.networkId, input.networkId),
+            eq(mnetTunnelAddressAllocations.nodeId, input.nodeId)
+          )
         )
-      )
-    await db
-      .delete(networkMemberships)
-      .where(
-        and(
-          eq(networkMemberships.networkId, input.networkId),
-          eq(networkMemberships.nodeId, input.nodeId)
+      await tx
+        .delete(networkMemberships)
+        .where(
+          and(
+            eq(networkMemberships.networkId, input.networkId),
+            eq(networkMemberships.nodeId, input.nodeId)
+          )
         )
-      )
 
-    // 公钥与 sidecar 期望态都按节点维度存储（sidecar 表主键只有 node_id），
-    // 仅当该节点已不隶属任何网络时才回收；否则会误删它在其它网络/期望态的记录。
-    const remainingMemberships = await db
-      .select()
-      .from(networkMemberships)
-      .where(eq(networkMemberships.nodeId, input.nodeId))
-    if (remainingMemberships.length === 0) {
-      await db
-        .delete(mnetSidecarDesiredConfigs)
-        .where(eq(mnetSidecarDesiredConfigs.nodeId, input.nodeId))
-      await db.delete(mnetNodePublicKeys).where(eq(mnetNodePublicKeys.nodeId, input.nodeId))
-    }
+      // 公钥与 sidecar 期望态都按节点维度存储（sidecar 表主键只有 node_id），
+      // 仅当该节点已不隶属任何网络时才回收；否则会误删它在其它网络/期望态的记录。
+      const remainingMemberships = await tx
+        .select()
+        .from(networkMemberships)
+        .where(eq(networkMemberships.nodeId, input.nodeId))
+      if (remainingMemberships.length === 0) {
+        await tx
+          .delete(mnetSidecarDesiredConfigs)
+          .where(eq(mnetSidecarDesiredConfigs.nodeId, input.nodeId))
+        await tx.delete(mnetNodePublicKeys).where(eq(mnetNodePublicKeys.nodeId, input.nodeId))
+      }
 
-    // 成员变更后刷新签名 map。网络已无成员时 refresher 自身按 no-op 处理
-    // （materializeMembers 空成员会返回 409 network.members_missing）。
+      return ok({ networkId: input.networkId, nodeId: input.nodeId })
+    })
+
+    // refresher 走 materialize/HTTP/eventbus，必须在事务提交之后调用，不能持锁等待外部服务。
+    // 网络已无成员时 refresher 自身按 no-op 处理（materializeMembers 空成员会返回
+    // 409 network.members_missing）。
     // FIXME: 此处 correlationId 为本地生成——M-Net 网络变更端口目前未承载调用方 correlationId，
     // 与其他网络变更一致；如需端到端 trace 串联，应统一为该端口族补 correlationId（另开契约变更）。
-    if (refreshNetworkMap) {
+    if (result.ok && refreshNetworkMap) {
       await refreshNetworkMap(input.networkId, crypto.randomUUID())
     }
 
-    return ok({ networkId: input.networkId, nodeId: input.nodeId })
+    return result
   }
 
   /** 更新网络展示名等元数据；name 是身份键不可变更。 */
