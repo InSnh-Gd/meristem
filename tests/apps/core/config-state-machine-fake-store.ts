@@ -1,4 +1,4 @@
-import type { createConfigStore } from '../../../apps/core/src/storage-adapter.ts'
+import type { createConfigStore } from '../../../apps/core/src/storage/storage-adapter.ts'
 import type {
   ConfigAckRecord,
   ConfigRecord,
@@ -8,7 +8,7 @@ import type {
   RecordConfigAckInput,
   RecordConfigTransitionInput,
   UpdateConfigStatusExtra
-} from '../../../apps/core/src/storage-adapter-records-config.ts'
+} from '../../../apps/core/src/storage/storage-adapter-records-config.ts'
 
 type ConfigStore = ReturnType<typeof createConfigStore>
 
