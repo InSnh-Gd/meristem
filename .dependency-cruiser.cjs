@@ -167,21 +167,6 @@ module.exports = {
       }
     },
     {
-      name: 'no-duplicate-dep-types',
-      comment:
-        "Likely this module depends on an external ('npm') package that occurs more than once " +
-        "in your package.json i.e. bot as a devDependencies and in dependencies. This will cause " +
-        "maintenance problems later on.",
-      severity: 'warn',
-      from: {},
-      to: {
-        moreThanOneDependencyType: true,
-        // as it's common to use a devDependency for type-only imports: don't
-        // consider type-only dependencyTypes for this rule
-        dependencyTypesNot: ["type-only"]
-      }
-    },
-    {
       name: 'no-services-to-apps',
       comment:
         'Services and shared packages must not depend on apps. ' +
@@ -255,6 +240,16 @@ module.exports = {
     }
   ],
   options: {
+    // 显式选用 swc 解析器解析 TypeScript。
+    // 背景：本仓同时安装了 typescript@6.0.3 与别名 typescript7(npm:typescript@7.0.2)；
+    // Bun 把真实的 `typescript` 包名提升到 .bun/node_modules，指向 7.0.2，超出
+    // dependency-cruiser 声明的 >=2.0.0 <7.0.0，导致 tsc 转译器不可用（isAvailable()===false），
+    // 进而 .ts/.tsx/.d.ts 全部不被解析、退化为 acorn-loose 解析原始 TS，门禁假绿。
+    // swc 解析器使用独立的 @swc/core（>=1 <2），不受该提升冲突影响。
+    // 已知代价：swc 提取器不产出 `type-only` 依赖类型标记（tsc 提取器 extract-typescript-deps.mjs:82,106 才有），
+    // 会使 not-to-dev-dep / no-duplicate-dep-types 的 type-only 豁免失效；实测当前无此类误报。
+    parser: 'swc',
+
     // Which modules not to follow further when encountered
     doNotFollow: {
       // path: an array of regular expressions in strings to match against
