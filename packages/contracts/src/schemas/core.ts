@@ -299,6 +299,18 @@ export const NetworkMembersResponseSchema = Schema.Struct({
 })
 export type NetworkMembersResponseFromSchema = typeof NetworkMembersResponseSchema.Type
 
+export const MNetNetworkDeleteResponseSchema = Schema.Struct({
+  deleted: Schema.Literal(true),
+  networkId: Schema.String
+})
+export type MNetNetworkDeleteResponseFromSchema = typeof MNetNetworkDeleteResponseSchema.Type
+
+export const MNetMemberRemoveResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  nodeId: Schema.String
+})
+export type MNetMemberRemoveResponseFromSchema = typeof MNetMemberRemoveResponseSchema.Type
+
 export const PolicyResultSchema = Schema.Literals([
   'allow',
   'deny',
@@ -488,7 +500,9 @@ export const MNetNetworkCreatedPayloadSchema = Schema.Struct({
 export type MNetNetworkCreatedPayloadFromSchema = typeof MNetNetworkCreatedPayloadSchema.Type
 
 export const MNetNetworkDeletedPayloadSchema = Schema.Struct({
-  networkId: Schema.String
+  networkId: Schema.String,
+  // 幂等重放标记：Core 在「行已不存在」的补发路径上置 true，消费者可据此区分首次删除与补发。
+  replayed: Schema.optional(Schema.Boolean)
 })
 export type MNetNetworkDeletedPayloadFromSchema = typeof MNetNetworkDeletedPayloadSchema.Type
 

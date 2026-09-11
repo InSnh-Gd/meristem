@@ -126,7 +126,7 @@ async function insertPolicyDecision(): Promise<void> {
 function createFixture(listedMembers: Record<string, ListedMember[]>) {
   const { db, client } = createDb()
   const profileStore = createPgProfileStore(db)
-  const globalDefaultsStore = createPgGlobalDefaultsStore(db, profileStore)
+  const globalDefaultsStore = createPgGlobalDefaultsStore(db)
   const dataPlaneStores = createPgDataPlaneStores(db)
   const logs: LogRecord[] = []
   const events: PublishedEvent[] = []

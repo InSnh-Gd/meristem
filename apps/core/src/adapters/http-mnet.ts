@@ -3,7 +3,6 @@ import { Effect } from 'effect'
 import type {
   CreateNetworkRequest,
   MNetwork,
-  MNetworkMember,
   MNode,
   NetworkSummary,
   NodeControlAction,
@@ -22,8 +21,11 @@ import {
 import {
   decodeMNetCreateNetworkResponse as decodeCreateNetworkResponse,
   decodeMNetJoinNetworkResponse as decodeJoinNetworkResponse,
+  decodeMNetMemberRemoveResponse as decodeMemberRemoveResponse,
+  decodeMNetNetworkDeleteResponse as decodeNetworkDeleteResponse,
   decodeMNetNetworkListResponse as decodeNetworkListResponse,
   decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse,
+  decodeMNetNetworkUpdateResponse as decodeNetworkUpdateResponse,
   decodeMNetNodeControlResponse as decodeNodeControlResponse
 } from './mnet-response-decode.ts'
 
@@ -63,24 +65,23 @@ export function createHttpMNetPort() {
     error: { value: unknown; status: number } | null
     status: number
   }
+  // Eden 的类型路由映射是静态对象，无法用运行时 networkId 建立索引；此处双重断言只放宽
+  // 路由查找形状，响应体仍逐一经 mnet-response-decode.ts 的契约 schema 解码后才进入控制面。
   const networkRoutes = client.internal.v0.networks as unknown as Record<
     string,
     {
       members: {
-        post(params: { nodeId: string }): Promise<EdenEnvelope<{ member: MNetworkMember }>>
-        get(params: Record<string, never>): Promise<EdenEnvelope<{ members: MNetworkMember[] }>>
+        post(params: { nodeId: string }): Promise<EdenEnvelope<unknown>>
+        get(params: Record<string, never>): Promise<EdenEnvelope<unknown>>
       }
-      delete(): Promise<EdenEnvelope<{ deleted: boolean; networkId: string }>>
-      patch(params: { displayName?: string }): Promise<EdenEnvelope<{ network: MNetwork }>>
+      delete(): Promise<EdenEnvelope<unknown>>
+      patch(params: { displayName?: string }): Promise<EdenEnvelope<unknown>>
     }
   >
   const memberDeleteRoutes = client.internal.v0.networks as unknown as Record<
     string,
     {
-      members: Record<
-        string,
-        { delete(): Promise<EdenEnvelope<{ networkId: string; nodeId: string }>> }
-      >
+      members: Record<string, { delete(): Promise<EdenEnvelope<unknown>> }>
     }
   >
 
@@ -242,8 +243,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed({ networkId: response.data.networkId })
-          )
+              : decodeNetworkDeleteResponse(response.data)
+          ),
+          Effect.map(response => ({ networkId: response.networkId }))
         )
       )
     },
@@ -275,10 +277,7 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed({
-                  networkId: response.data.networkId,
-                  nodeId: response.data.nodeId
-                })
+              : decodeMemberRemoveResponse(response.data)
           )
         )
       )
@@ -310,8 +309,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(toMNetwork(response.data.network))
-          )
+              : decodeNetworkUpdateResponse(response.data)
+          ),
+          Effect.map(response => toMNetwork(response.network))
         )
       )
     },

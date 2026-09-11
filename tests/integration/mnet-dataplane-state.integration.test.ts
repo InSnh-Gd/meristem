@@ -108,7 +108,7 @@ describe('M-Net PostgreSQL state persistence', () => {
 
     const first = createDb()
     const firstProfileStore = createPgProfileStore(first.db)
-    const firstGlobalDefaultsStore = createPgGlobalDefaultsStore(first.db, firstProfileStore)
+    const firstGlobalDefaultsStore = createPgGlobalDefaultsStore(first.db)
     const firstSuspendedStore = createPgSuspendedOperationStore(first.db)
     const firstDisablePolicyStore = createPgProfileDisablePolicyStore(first.db)
     const firstDataPlaneStores = createPgDataPlaneStores(first.db)
@@ -239,7 +239,7 @@ describe('M-Net PostgreSQL state persistence', () => {
 
     const second = createDb()
     const secondProfileStore = createPgProfileStore(second.db)
-    const secondGlobalDefaultsStore = createPgGlobalDefaultsStore(second.db, secondProfileStore)
+    const secondGlobalDefaultsStore = createPgGlobalDefaultsStore(second.db)
     const secondSuspendedStore = createPgSuspendedOperationStore(second.db)
     const secondDisablePolicyStore = createPgProfileDisablePolicyStore(second.db)
     const secondDataPlaneStores = createPgDataPlaneStores(second.db)

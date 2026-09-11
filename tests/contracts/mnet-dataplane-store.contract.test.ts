@@ -363,7 +363,7 @@ describe('M-Net persistent store contract (postgres)', () => {
     if (!pgAvailable) return
     const { db, client } = createDb()
     const profileStore = createPgProfileStore(db)
-    const globalDefaultsStore = createPgGlobalDefaultsStore(db, profileStore)
+    const globalDefaultsStore = createPgGlobalDefaultsStore(db)
     const suspendedStore = createPgSuspendedOperationStore(db)
     const disablePolicyStore = createPgProfileDisablePolicyStore(db)
     const dataPlaneStores = createPgDataPlaneStores(db)

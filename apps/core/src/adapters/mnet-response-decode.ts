@@ -1,6 +1,10 @@
 import { Effect, Result } from 'effect'
 import * as Schema from 'effect/Schema'
 import {
+  type MNetMemberRemoveResponseFromSchema,
+  MNetMemberRemoveResponseSchema,
+  type MNetNetworkDeleteResponseFromSchema,
+  MNetNetworkDeleteResponseSchema,
   type NetworkListResponseFromSchema,
   NetworkListResponseSchema,
   type NetworkMemberRecordResponseFromSchema,
@@ -79,6 +83,33 @@ export function decodeMNetNetworkMembersResponse(
   value: unknown
 ): Effect.Effect<NetworkMembersResponseFromSchema, DecodeFailure> {
   return decodeBoundaryPayload(NetworkMembersResponseSchema, value, invalidMNetResponseFailure)
+}
+
+/**
+ * 解码 Core -> M-Net 删除网络响应。
+ */
+export function decodeMNetNetworkDeleteResponse(
+  value: unknown
+): Effect.Effect<MNetNetworkDeleteResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(MNetNetworkDeleteResponseSchema, value, invalidMNetResponseFailure)
+}
+
+/**
+ * 解码 Core -> M-Net 移除成员响应。
+ */
+export function decodeMNetMemberRemoveResponse(
+  value: unknown
+): Effect.Effect<MNetMemberRemoveResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(MNetMemberRemoveResponseSchema, value, invalidMNetResponseFailure)
+}
+
+/**
+ * 解码 Core -> M-Net 网络元数据更新响应（与创建路径同信封）。
+ */
+export function decodeMNetNetworkUpdateResponse(
+  value: unknown
+): Effect.Effect<NetworkRecordResponseFromSchema, DecodeFailure> {
+  return decodeBoundaryPayload(NetworkRecordResponseSchema, value, invalidMNetResponseFailure)
 }
 
 /**

@@ -105,7 +105,7 @@ export function createMNetInfrastructure(): MNetInfrastructure {
 
   const profileStore = requireDatabase ? createPgProfileStore(db) : createInMemoryProfileStore()
   const globalDefaultsStore = requireDatabase
-    ? createPgGlobalDefaultsStore(db, profileStore)
+    ? createPgGlobalDefaultsStore(db)
     : createInMemoryGlobalDefaultsStore(profileStore)
   const suspendedOps = requireDatabase
     ? createPgSuspendedOperationStore(db)

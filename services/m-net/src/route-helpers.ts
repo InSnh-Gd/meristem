@@ -73,6 +73,9 @@ export function statusCodeForMNetError(code: string): 404 | 409 | 503 {
     case 'network.conflict':
     case 'network.members_present':
     case 'network.profile_not_disabled':
+    case 'network.closed_loop_facts_present':
+    case 'network.switch_membership_present':
+    case 'network.operation_suspended':
     case 'network_map.stale':
     case 'network_map.expired':
     case 'network.stem_required':

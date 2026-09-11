@@ -874,9 +874,30 @@ Rules:
 
 - the network must have no members (`409 network.members_present`).
 - the network profile state must be `disabled` (`409 network.profile_not_disabled`).
-- deletion cleans tunnel allocations, network map renders, relay assignments,
-  sidecar desired configs, partition states and profile state.
+- the network must not be referenced by retained ledgers: closed-loop facts
+  (`409 network.closed_loop_facts_present`), profile-switch batch membership
+  (`409 network.switch_membership_present`), or a non-terminal suspended
+  policy operation — only `resumed` counts as terminal; `suspended`, `rejected`,
+  `expired` and `resume_failed` all block deletion
+  (`409 network.operation_suspended`).
+- deletion is transactional: operational rows (tunnel allocations, relay
+  assignments, network map renders, partition states, data-plane operation
+  locks, profile migrations, profile transitions, resolved suspended
+  operations, memberships, profile state) are cleaned atomically with the
+  network row; retained-ledger tables are never cascade-deleted.
+- by-design consequence: once a network has accumulated closed-loop facts or
+  profile-switch membership, or leaves behind a non-terminal suspended
+  operation, it is permanently undeletable in v0.2 — there is no operator-facing
+  ledger-prune endpoint. These conflicts are terminal until such a route exists.
 - successful deletion publishes `mnet.network.deleted.v0` and writes Timeline + Audit.
+  `DELETE` is idempotent: an unknown or already-deleted network id returns `200`
+  and (re)publishes the deletion event with `payload.replayed=true` (the Timeline
+  entry is marked `already absent`), so re-issuing `DELETE` after a failed publish
+  repairs the gap. A publish failure is surfaced as a typed `503` — never a false
+  2xx — so the client retry loop is always reachable. Network ids are random
+  UUIDs and never recycled, so a replayed tombstone can never alias a new network.
+  Downstream consumers must treat the event as a tombstone and tolerate duplicate
+  or never-created network ids.
 
 ### `DELETE /api/v0/networks/:id/members/:nodeId`
 

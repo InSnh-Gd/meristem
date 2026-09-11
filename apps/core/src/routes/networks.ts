@@ -16,6 +16,7 @@ import {
   publishNetworkMemberRemovedArtifacts,
   requireNetworkMutationAccess,
   requireNetworkReadAccess,
+  unwrapNetworkDeleteResult,
   unwrapNetworkResult,
   writeNetworkAuditOrThrow
 } from './networks-support.ts'
@@ -173,20 +174,21 @@ export function networksRoutes(deps: CoreDeps) {
             correlationId: auth.correlationId
           })
 
-          const deleted = await unwrapNetworkResult(
+          const deleted = unwrapNetworkDeleteResult(
             await deps.mNet.deleteNetwork({ networkId: params.id }),
+            params.id,
             auth.correlationId
           )
 
-          await publishNetworkDeletedArtifacts(deps, deleted, auth.correlationId)
+          await publishNetworkDeletedArtifacts(deps, deleted, auth.correlationId, deleted.absent)
 
-          return deleted
+          return { networkId: deleted.networkId }
         })
       },
       {
         params: t.Object({ id: t.String({ minLength: 1 }) }),
+        // 幂等 DELETE（吸收 network.not_found）：本路由公开面不再产生 404。
         response: protectedResponse(t.Object({ networkId: t.String() }), {
-          404: apiErrorSchema,
           409: apiErrorSchema,
           503: apiErrorSchema
         }),

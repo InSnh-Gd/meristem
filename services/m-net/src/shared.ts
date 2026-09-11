@@ -10,7 +10,7 @@ import type {
   NodeKind,
   NodeStatus
 } from '../../../packages/contracts/src/index.ts'
-import type { networks, nodes } from '../../../packages/db/src/schema.ts'
+import type { nodes } from '../../../packages/db/src/schema.ts'
 import type { RuntimeNodeSnapshot } from './runtime.ts'
 import type { MNetServiceError, MNetServiceResult } from './types.ts'
 

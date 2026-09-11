@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
 import {
   mnetGlobalDefaults,
+  mnetNetworkProfileStates,
   mnetProfileDefaultSetResults,
   mnetProfileSwitchBatches,
   mnetProfileSwitchBatchMembers,
@@ -16,7 +17,6 @@ import type {
   SwitchOperation,
   SwitchOperationStatus
 } from './global-defaults-store.ts'
-import type { ProfileStore } from './profile-store.ts'
 
 const defaultsRowId = 'singleton'
 
@@ -130,10 +130,7 @@ async function loadSwitchOperation(
 /**
  * 创建 PostgreSQL 全局默认值存储适配器，保证全局默认 profile 与批量切换状态跨重启持久化。
  */
-export function createPgGlobalDefaultsStore(
-  db: MeristemDb,
-  profileStore: ProfileStore
-): GlobalDefaultsStore {
+export function createPgGlobalDefaultsStore(db: MeristemDb): GlobalDefaultsStore {
   return {
     async getDefaultProfileVersion() {
       await ensureGlobalDefaultsRow(db)
@@ -194,6 +191,22 @@ export function createPgGlobalDefaultsStore(
             )
           )
         }
+        // 单次事务内批量读 profile 版本：逐网络调用 profileStore 会从同一个
+        // max=5 的池里再保留连接，事务已占一个，批次 >4 即池死锁（postgres.js 无队列超时）。
+        const batchNetworkIds = [...new Set(input.batches.flatMap(batch => batch.networkIds))]
+        const profileVersionByNetwork = new Map<string, string>()
+        if (batchNetworkIds.length > 0) {
+          const stateRows = await tx
+            .select({
+              networkId: mnetNetworkProfileStates.networkId,
+              profileVersion: mnetNetworkProfileStates.profileVersion
+            })
+            .from(mnetNetworkProfileStates)
+            .where(inArray(mnetNetworkProfileStates.networkId, batchNetworkIds))
+          for (const row of stateRows) {
+            profileVersionByNetwork.set(row.networkId, row.profileVersion)
+          }
+        }
         const snapshotRows: Array<{
           operationId: string
           networkId: string
@@ -201,11 +214,10 @@ export function createPgGlobalDefaultsStore(
         }> = []
         for (const batch of input.batches) {
           for (const networkId of batch.networkIds) {
-            const state = await profileStore.getNetworkState(networkId)
             snapshotRows.push({
               operationId,
               networkId,
-              previousProfileVersion: state?.profileVersion ?? 'm-net@0.3.0'
+              previousProfileVersion: profileVersionByNetwork.get(networkId) ?? 'm-net@0.3.0'
             })
           }
         }
