@@ -1641,6 +1641,8 @@ Source: `apps/core/src/routes/network/networks-support.ts`, `apps/core/src/route
   「变更 + event-intent 同事务提交」的持久 outbox，只有 Core 的网络生命周期没有。
 - 现状缓解：会重试的客户端可经 `unwrapNetworkDeleteResult` 把 `network.not_found` 收敛为幂等
   成功并补发 `payload.replayed=true`；该路径**只覆盖 DELETE**，且不覆盖「客户端不重试」。
+  `replayed=true` 同时覆盖「补发」与「从未存在」，消费方不可区分——区分语义以本条
+  tombstone 台账为前置（2026-09-12 审查注记）。
 
 Reason deferred:
 

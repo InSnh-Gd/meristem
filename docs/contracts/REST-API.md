@@ -897,8 +897,10 @@ Rules:
   repairs the gap. A publish failure is surfaced as a typed `503` — never a false
   2xx — so the client retry loop is always reachable. Network ids are random
   UUIDs and never recycled, so a replayed tombstone can never alias a new network.
-  Downstream consumers must treat the event as a tombstone and tolerate duplicate
-  or never-created network ids.
+  `replayed=true` marks any absent-at-delete-time id: a repair replay and a
+  never-created id are indistinguishable to consumers (m-net keeps no deletion
+  ledger; see DFW-043). Downstream consumers must treat the event as a tombstone
+  and tolerate duplicate or never-created network ids.
 
 ### `DELETE /api/v0/networks/:id/members/:nodeId`
 
@@ -909,8 +911,9 @@ Removes a single member from a logical network.
 Rules:
 
 - the network and membership must exist (`404 network.not_found` / `404 network.member_not_found`).
-- the member's tunnel allocation and sidecar desired config are removed;
-  node public keys are reclaimed once the node has no remaining memberships.
+- the member's tunnel allocation is removed; the node-scoped sidecar desired
+  config and node public keys are reclaimed once the node has no remaining
+  memberships (they are stored per node id, not per network).
 - the signed network map is re-rendered so the removed peer disappears on the
   node's next map sync (TTL enforcement tears the peer route down locally).
 - successful removal publishes `mnet.membership.removed.v0`.
