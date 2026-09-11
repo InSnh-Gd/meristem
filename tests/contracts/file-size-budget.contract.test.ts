@@ -52,14 +52,6 @@ const OVERSIZE_ALLOWLIST: readonly OversizeAllowlistEntry[] = [
     reason: '已排期拆分：上游合并新增 tunnel-status 路由，将按 map / key / tunnel 路由族拆分'
   },
   {
-    filePath: 'scripts/v02-deploy-proof.ts',
-    reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
-  },
-  {
-    filePath: 'services/m-deploy/src/testing.ts',
-    reason: 'WIP-BLOCKED：属于未提交的 M-Deploy facade WIP，本轮不可重构'
-  },
-  {
     filePath: 'services/m-deploy/src/postgres-store.ts',
     reason: 'M-Deploy PostgreSQL 存储适配层，待按聚合根拆分查询与写入'
   },
