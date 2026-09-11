@@ -188,8 +188,10 @@ describe('dependency-cruiser parse coverage contract', () => {
       const hits = stdout
         .split('\n')
         .filter(line => line.includes('no-cross-service-mnet-internals'))
-      // 违规的 3 条边（task 的 2 处 + core 的 1 处）都必须被检出。
-      expect(hits.length).toBeGreaterThanOrEqual(3)
+      // 违规的 4 条边（task/reach.ts 的 3 条 import + core/reach.ts 的 1 条）必须逐条被检出：
+      // 用 toBe 而非 toBeGreaterThanOrEqual——部分放宽（如 app\.ts$ 退化为前缀匹配、仅
+      // app-internal.ts 逃逸）会让 hits 4→3，>=3 断言测不到这种单边回退。
+      expect(hits.length).toBe(4)
       expect(stdout).toContain('services/m-task/src/reach.ts')
       expect(stdout).toContain('apps/core/src/reach.ts')
       // 公开入口与 node-agent 豁免不得被误伤。
@@ -199,5 +201,67 @@ describe('dependency-cruiser parse coverage contract', () => {
     } finally {
       await Bun.spawn(['rm', '-rf', fixtureRoot]).exited
     }
+  }, 60_000)
+
+  /**
+   * 在 /tmp fixture 中种入真实两文件循环，用**真实** .dependency-cruiser.cjs 巡检。
+   * 钉住属性：no-circular-core / no-circular-mnet 若被删除，stdout 不含规则名；
+   * 若被降级为 warn，默认 reporter 的退出码不再计入 → 两条断言都会失败。
+   * 全局 warn 版 no-circular 已用 from.pathNot 排除这两棵树，规则被删后连 warn 都没有，
+   * 因此必须各用一条正控钉住。
+   */
+  async function cruiseSeededCycle(
+    cycleDir: 'apps/core/src' | 'services/m-net/src',
+    target: 'apps' | 'services'
+  ): Promise<{ stdout: string; exitCode: number }> {
+    const fixtureRoot = `/tmp/meristem-depcruise-pin-${crypto.randomUUID()}`
+    const mk = async (rel: string, content: string) => {
+      const path = `${fixtureRoot}/${rel}`
+      await Bun.spawn(['mkdir', '-p', path.split('/').slice(0, -1).join('/')]).exited
+      await Bun.write(path, content)
+    }
+    try {
+      // 真实 config 引用 tsconfig.base.json（相对 cwd 解析），fixture 必须提供同名文件。
+      await mk(
+        'tsconfig.base.json',
+        JSON.stringify({
+          compilerOptions: { moduleResolution: 'Bundler', allowImportingTsExtensions: true }
+        })
+      )
+      await mk(`${cycleDir}/cycle-a.ts`, "import { b } from './cycle-b.ts'\nexport const a = b\n")
+      await mk(`${cycleDir}/cycle-b.ts`, "import { a } from './cycle-a.ts'\nexport const b = a\n")
+      await Bun.spawn(['ln', '-s', `${repoRoot}/node_modules`, `${fixtureRoot}/node_modules`])
+        .exited
+      const process = Bun.spawn(
+        [
+          `${repoRoot}/node_modules/.bin/depcruise`,
+          '--config',
+          `${repoRoot}/.dependency-cruiser.cjs`,
+          target
+        ],
+        { cwd: fixtureRoot, stdout: 'pipe', stderr: 'pipe' }
+      )
+      const [stdout, , exitCode] = await Promise.all([
+        new Response(process.stdout).text(),
+        new Response(process.stderr).text(),
+        process.exited
+      ])
+      return { stdout, exitCode }
+    } finally {
+      await Bun.spawn(['rm', '-rf', fixtureRoot]).exited
+    }
+  }
+
+  it('pins no-circular-core as an error rule in the real config (positive control)', async () => {
+    const { stdout, exitCode } = await cruiseSeededCycle('apps/core/src', 'apps')
+    expect(stdout).toContain('no-circular-core')
+    // error 级违规必须导致非零退出码（降级为 warn 时本断言失败）。
+    expect(exitCode).not.toBe(0)
+  }, 60_000)
+
+  it('pins no-circular-mnet as an error rule in the real config (positive control)', async () => {
+    const { stdout, exitCode } = await cruiseSeededCycle('services/m-net/src', 'services')
+    expect(stdout).toContain('no-circular-mnet')
+    expect(exitCode).not.toBe(0)
   }, 60_000)
 })
