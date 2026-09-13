@@ -794,11 +794,11 @@ NATS subject 滥用
 
 ### 7.2 依赖与许可策略
 
-Meristem Core 计划使用 BSD-3 协议。
+Meristem Core 计划使用 MIT 协议。
 
 依赖治理原则：
 
-- Core 代码使用 BSD-3。
+- Core 代码使用 MIT。
 - 所有依赖必须进行 license review。
 - 可选部署组件不得污染 Core license。
 - 第三方服务必须明确是否为必需依赖。
