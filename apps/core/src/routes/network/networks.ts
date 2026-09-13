@@ -10,15 +10,14 @@ import {
 } from '../../schemas.ts'
 import type { CoreDeps } from '../../types.ts'
 import {
-  publishNetworkCreatedArtifacts,
-  publishNetworkDeletedArtifacts,
-  publishNetworkJoinedArtifacts,
-  publishNetworkMemberRemovedArtifacts,
   requireNetworkMutationAccess,
   requireNetworkReadAccess,
-  unwrapNetworkDeleteResult,
   unwrapNetworkResult,
-  writeNetworkAuditOrThrow
+  writeNetworkAuditOrThrow,
+  writeNetworkCreatedTimeline,
+  writeNetworkDeletedTimeline,
+  writeNetworkJoinedTimeline,
+  writeNetworkMemberRemovedTimeline
 } from './networks-support.ts'
 
 export function networksRoutes(deps: CoreDeps) {
@@ -43,11 +42,12 @@ export function networksRoutes(deps: CoreDeps) {
           })
 
           const created = await unwrapNetworkResult(
-            await deps.mNet.createNetwork(body),
+            await deps.mNet.createNetwork({ ...body, correlationId: auth.correlationId }),
             auth.correlationId
           )
 
-          await publishNetworkCreatedArtifacts(deps, created, auth.correlationId)
+          // 事件已由 M-Net 在变更事务内以 outbox 发布（ADR-N05）；Core 只写操作者 Timeline。
+          await writeNetworkCreatedTimeline(deps, created, auth.correlationId)
 
           return {
             network: created,
@@ -109,11 +109,15 @@ export function networksRoutes(deps: CoreDeps) {
           })
 
           const member = await unwrapNetworkResult(
-            await deps.mNet.joinNetwork({ networkId: params.id, nodeId: body.nodeId }),
+            await deps.mNet.joinNetwork({
+              networkId: params.id,
+              nodeId: body.nodeId,
+              correlationId: auth.correlationId
+            }),
             auth.correlationId
           )
 
-          await publishNetworkJoinedArtifacts(deps, member, auth.correlationId)
+          await writeNetworkJoinedTimeline(deps, member, auth.correlationId)
 
           return {
             member,
@@ -174,21 +178,25 @@ export function networksRoutes(deps: CoreDeps) {
             correlationId: auth.correlationId
           })
 
-          const deleted = unwrapNetworkDeleteResult(
-            await deps.mNet.deleteNetwork({ networkId: params.id }),
-            params.id,
+          const deleted = await unwrapNetworkResult(
+            await deps.mNet.deleteNetwork({
+              networkId: params.id,
+              correlationId: auth.correlationId
+            }),
             auth.correlationId
           )
 
-          await publishNetworkDeletedArtifacts(deps, deleted, auth.correlationId, deleted.absent)
+          await writeNetworkDeletedTimeline(deps, deleted, auth.correlationId)
 
           return { networkId: deleted.networkId }
         })
       },
       {
         params: t.Object({ id: t.String({ minLength: 1 }) }),
-        // 幂等 DELETE（吸收 network.not_found）：本路由公开面不再产生 404。
+        // ADR-N05：network.not_found 不再收敛为幂等 200——无墓碑即网络从未存在，返回 404。
+        // 「删过」的重试由 M-Net 墓碑判定为幂等成功（仍 200），事件不重复发布。
         response: protectedResponse(t.Object({ networkId: t.String() }), {
+          404: apiErrorSchema,
           409: apiErrorSchema,
           503: apiErrorSchema
         }),
@@ -227,7 +235,7 @@ export function networksRoutes(deps: CoreDeps) {
               auth.correlationId
             )
 
-            await publishNetworkMemberRemovedArtifacts(deps, removed, auth.correlationId)
+            await writeNetworkMemberRemovedTimeline(deps, removed, auth.correlationId)
 
             return removed
           }

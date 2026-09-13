@@ -122,6 +122,8 @@ Public exposure rules:
 | REST | `/api/v0/networks*`, `/api/v0/network-profiles*`, `GET /join/v0/health`, `GET /join/v0/session` | `v0` | external profile API is owned by M-Net |
 | Events | `mnet.*`, `node.*`, `network-profile.*` subjects listed in `docs/events/EVENT-CATALOG.md` | `v0` | event naming stays catalog-driven |
 
+Network lifecycle events are published by M-Net, not Core (ADR-N05). `mnet.network.created.v0`, `mnet.membership.joined.v0`, `mnet.network.deleted.v0`, and `mnet.membership.removed.v0` carry `source: "m-net"`. Each mutation writes the authoritative row change, its event intent (`mnet_network_event_intents`), and — for delete — a tombstone (`mnet_network_tombstones`) in one PostgreSQL transaction; a 30s sweep retries pending intents at-least-once, and EventBus failure never turns a committed mutation into an error. The DELETE tombstone is what makes a repeated `DELETE` idempotent (`200`) while a never-existing id returns `404`.
+
 Current runtime boundary:
 
 - Core → M-Net create/list/join/member uses loopback HTTP + Eden + internal token.
@@ -187,7 +189,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 | M-Task | service | task delivery orchestration degrades; task lifecycle ownership remains external |
 | M-Policy | service | protected profile and membership operations fail closed |
 | M-Log | service | required Timeline / Audit writes block high-risk operations |
-| M-EventBus | service | mutation remains committed with a durable pending publication intent and retries at least once |
+| M-EventBus | service | mutation remains committed with a durable pending publication intent and retries at least once (closed-loop and network lifecycle both use durable outboxes) |
 | SecretProvider | service | credential issue/rotate/revoke fails closed; rotation and revocation persist an explicit M-Net credential operation before the external action, leave pending operations ineligible for tunnels, and resume them during startup and recovery sweeps |
 | PostgreSQL | datastore | authoritative network and profile state writes fail closed |
 

@@ -13,10 +13,8 @@ function tableName(table: unknown): string {
   return String(Reflect.get(table as object, symbol as symbol))
 }
 
-/**
- * drizzle 查询 builder 的最小替身：真 Promise（then 在原型上，合法可 await）挂链式方法；
- * 链尾 await 得本节点行集（或错误）。
- */
+/** drizzle 查询 builder 的最小替身：真 Promise（then 在原型上，合法可 await）挂链式方法；
+ * 链尾 await 得本节点行集（或错误）。 */
 function queryBuilderFor(rows: unknown[] | Promise<unknown[]>, onFor?: (mode: string) => void) {
   const chain = (target: unknown[] | Promise<unknown[]>) =>
     Object.assign(Promise.resolve(target), {
@@ -31,6 +29,27 @@ function queryBuilderFor(rows: unknown[] | Promise<unknown[]>, onFor?: (mode: st
   return chain(rows)
 }
 
+/**
+ * insert 的最小替身：记录写入的表名后返回可 await 的空结果。
+ * 变更事务现在同时写网络表与事件意图/墓碑（ADR-N05），fake 需要覆盖 insert 路径。
+ */
+function insertBuilderFor(onInsert: (table: string) => void) {
+  return (table: unknown) => {
+    const name = tableName(table)
+    const chain = () =>
+      Object.assign(Promise.resolve([]), {
+        values: () => chain(),
+        onConflictDoUpdate: () => chain()
+      })
+    return {
+      values: () => {
+        onInsert(name)
+        return chain()
+      }
+    }
+  }
+}
+
 export type DeleteNetworkFixture = {
   networkExists: boolean
   membershipRows?: unknown[]
@@ -39,6 +58,8 @@ export type DeleteNetworkFixture = {
   factRows?: unknown[]
   switchMemberRows?: unknown[]
   suspendedRows?: unknown[]
+  /** 删除墓碑行；存在 = 删过（幂等成功），缺省空集且无网络行 = 从未存在（not_found）。 */
+  tombstoneRows?: unknown[]
   /** 模拟级联中途某条 DELETE 失败（连接断开等），验证错误原样外抛而不是被吞。 */
   deleteThrowsOn?: string
 }
@@ -59,7 +80,7 @@ export type RemoveMemberFixture = {
  */
 export function deleteNetworkTx(
   fixture: DeleteNetworkFixture,
-  counter: { deletedTables: string[]; locks?: string[] }
+  counter: { deletedTables: string[]; locks?: string[]; insertedTables?: string[] }
 ) {
   return {
     select: () => ({
@@ -80,13 +101,16 @@ export function deleteNetworkTx(
                     ? (fixture.switchMemberRows ?? [])
                     : name === 'mnet_suspended_operations'
                       ? (fixture.suspendedRows ?? [])
-                      : []
+                      : name === 'mnet_network_tombstones'
+                        ? (fixture.tombstoneRows ?? [])
+                        : []
         return queryBuilderFor(
           rows,
           name === 'networks' && counter.locks ? mode => counter.locks?.push(mode) : undefined
         )
       }
     }),
+    insert: insertBuilderFor(name => counter.insertedTables?.push(name)),
     delete: (table: unknown) => {
       const name = tableName(table)
       if (fixture.deleteThrowsOn === name) {
@@ -105,7 +129,7 @@ export function deleteNetworkTx(
  */
 export function removeMemberTx(
   fixture: RemoveMemberFixture,
-  counter: { deletedTables: string[]; locks?: string[] }
+  counter: { deletedTables: string[]; locks?: string[]; insertedTables?: string[] }
 ) {
   let membershipDeleted = false
   return {
@@ -128,6 +152,7 @@ export function removeMemberTx(
         )
       }
     }),
+    insert: insertBuilderFor(name => counter.insertedTables?.push(name)),
     delete: (table: unknown) => {
       const name = tableName(table)
       if (fixture.deleteThrowsOn === name) {

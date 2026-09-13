@@ -890,17 +890,17 @@ Rules:
   profile-switch membership, or leaves behind a non-terminal suspended
   operation, it is permanently undeletable in v0.2 — there is no operator-facing
   ledger-prune endpoint. These conflicts are terminal until such a route exists.
-- successful deletion publishes `mnet.network.deleted.v0` and writes Timeline + Audit.
-  `DELETE` is idempotent: an unknown or already-deleted network id returns `200`
-  and (re)publishes the deletion event with `payload.replayed=true` (the Timeline
-  entry is marked `already absent`), so re-issuing `DELETE` after a failed publish
-  repairs the gap. A publish failure is surfaced as a typed `503` — never a false
-  2xx — so the client retry loop is always reachable. Network ids are random
-  UUIDs and never recycled, so a replayed tombstone can never alias a new network.
-  `replayed=true` marks any absent-at-delete-time id: a repair replay and a
-  never-created id are indistinguishable to consumers (m-net keeps no deletion
-  ledger; see DFW-043). Downstream consumers must treat the event as a tombstone
-  and tolerate duplicate or never-created network ids.
+- successful deletion publishes `mnet.network.deleted.v0` (M-Net, durable outbox) and writes Timeline + Audit.
+  `DELETE` is idempotent **by tombstone**: M-Net writes a `mnet_network_tombstones` row in the
+  deletion transaction, so re-issuing `DELETE` for a network it already deleted returns `200`
+  without re-publishing the event (the outbox owns delivery). A network id that never existed
+  has no row and no tombstone and returns `404 network.not_found` — a genuine not-found is no
+  longer folded into a false `200`. Network ids are random UUIDs and never recycled, so a
+  tombstone can never alias a new network.
+- publication is at-least-once and **decoupled from the response**: the mutation and its event
+  intent commit atomically in M-Net, a 30s sweep retries pending intents, and EventBus
+  unavailability is never surfaced as a failed mutation or a false `2xx` for a failed mutation
+  (ADR-N05). The deletion event payload is `{ networkId }` only.
 
 ### `DELETE /api/v0/networks/:id/members/:nodeId`
 

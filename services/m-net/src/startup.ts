@@ -19,6 +19,11 @@ import {
   createNetworkUpdater,
   listNetworkMembers
 } from './network-service.ts'
+import {
+  createInMemoryMNetNetworkEventOutboxStore,
+  createPgMNetNetworkEventOutboxStore,
+  dispatchPendingNetworkEvents
+} from './data-plane/network-event-outbox.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
 import { createReadinessProbe } from './readiness.ts'
 
@@ -63,6 +68,10 @@ export async function startMNetService(): Promise<void> {
           refreshNetworkMap: createNetworkMapRefresher(nodeRuntimeDataPlaneDeps, materializeMembers)
         })
   })
+  // 网络生命周期事件 outbox：变更与 intent 已同事务提交，这里负责 at-least-once 补发。
+  const networkEventOutbox = infrastructure.requireDatabase
+    ? createPgMNetNetworkEventOutboxStore(infrastructure.db)
+    : createInMemoryMNetNetworkEventOutboxStore()
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const nodeControlStore = createDbNodeControlStore(infrastructure.db)
   const describeForcedRelayNode = createDbForcedRelayNodeContext(infrastructure.db)
@@ -206,12 +215,24 @@ export async function startMNetService(): Promise<void> {
       )
     })
   }, 30_000)
+  // 网络生命周期事件补发：变更事务只写 pending intent，投递失败在此重试（at-least-once）。
+  const networkEventPublicationSweep = setInterval(() => {
+    void dispatchPendingNetworkEvents({
+      store: networkEventOutbox,
+      events: infrastructure.profileEvents
+    }).catch((error: unknown) => {
+      console.warn(
+        `m-net: network event publication sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
+  }, 30_000)
 
   process.on('SIGINT', () => {
     clearInterval(offlineSweep)
     clearInterval(breakGlassExpirySweep)
     clearInterval(closedLoopPublicationSweep)
     clearInterval(credentialRecoverySweep)
+    clearInterval(networkEventPublicationSweep)
     agentRuntime.rejectPendingTasksOnShutdown()
     joinIngress.stop(true)
     void internalServer

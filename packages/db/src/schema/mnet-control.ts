@@ -136,3 +136,34 @@ export const mnetClosedLoopFacts = pgTable(
     index('mnet_closed_loop_facts_network_kind_idx').on(table.networkId, table.factKind)
   ]
 )
+
+/**
+ * 网络生命周期事件 outbox（ADR-N05）：状态变更与 event-intent 在同一事务提交，
+ * 之后由补发 sweep 以 at-least-once 语义投递。
+ * network_id 刻意不设 FK：删除 intent 必须活过 networks 行本身，否则删网络时
+ * 记录删除事件会触发外键违例。行永不 GC（pending 需补发，published 是投递凭据）。
+ */
+export const mnetNetworkEventIntents = pgTable(
+  'mnet_network_event_intents',
+  {
+    intentId: text('intent_id').primaryKey(),
+    subject: text('subject').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: text('status').notNull(),
+    correlationId: text('correlation_id').notNull(),
+    networkId: text('network_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    lastError: text('last_error')
+  },
+  table => [index('mnet_network_event_intents_status_idx').on(table.status, table.createdAt)]
+)
+
+/**
+ * 网络删除墓碑（ADR-N05）：区分「删过」与「从未存在」，是 DELETE 幂等语义的权威判据。
+ * network_id 不设 FK、永不 GC——它必须在 networks 行消失后继续存在。
+ */
+export const mnetNetworkTombstones = pgTable('mnet_network_tombstones', {
+  networkId: text('network_id').primaryKey(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull()
+})

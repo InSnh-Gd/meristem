@@ -52,11 +52,12 @@ Measured evidence (re-run on 2026-09-11, not carried over from prior prose):
   `error` for `apps/core` and `services/m-net`).
 
 New entries registered by this effort: **DFW-043** (Core network-lifecycle event outbox /
-publisher move — not implemented), **DFW-044** (operator-facing M-Net ledger-prune endpoint —
-not implemented), **DFW-045** (dependency-cruiser false-green history — **fixed**, retained as
-regression guard), **DFW-046** (orphan test roots not typechecked — **runtime gate added**,
-typecheck inclusion still deferred), **DFW-047** (node-agent deep-imports m-net data-plane
-constants — debt), **DFW-048** (local IAM production persistence/wiring gate — debt).
+publisher move — **resolved 2026-09-13** via ADR-N05 and MR-N01), **DFW-044** (operator-facing
+M-Net ledger-prune endpoint — not implemented), **DFW-045** (dependency-cruiser false-green
+history — **fixed**, retained as regression guard), **DFW-046** (orphan test roots not
+typechecked — **runtime gate added**, typecheck inclusion still deferred), **DFW-047**
+(node-agent deep-imports m-net data-plane constants — debt), **DFW-048** (local IAM production
+persistence/wiring gate — debt).
 
 ---
 
@@ -1680,44 +1681,57 @@ Reason deferred:
 
 ### DFW-043: Core Network-Lifecycle Event Outbox And Publisher Ownership
 
-Status: deferred — registered 2026-09-11 by the register audit. Not implemented.
+Status: resolved（2026-09-13）——发布者归属迁至 M-Net，durable outbox + tombstone 落地，
+REST 语义变更按 MR-N01 记录。
 
-Owner: Core / M-Net.
+Owner: M-Net（变更与事件）；Core 保留授权、审计、Timeline。
 
 Source: `apps/core/src/routes/network/networks-support.ts`, `apps/core/src/routes/network/networks.ts`,
 `services/m-net/src/network-service.ts`, `docs/events/EVENT-CATALOG.md`,
-`docs/contracts/REST-API.md`, `docs/contracts/CONTRACT-VERSIONING.md`.
+`docs/contracts/REST-API.md`, `docs/contracts/CONTRACT-VERSIONING.md`。
 
-问题描述:
+问题描述（已修复）:
 
 - Core 的 `mnet.network.*` / `mnet.membership.*` 事件发布是「先提交后发布」的双写：变更在
   M-Net 提交，事件在 Core 内联发布。发布失败时 Core 返回 typed 503，但**已提交的变更没有持久
   补发路径**（除 DELETE 的幂等重放外），客户端不重试或 Core 在提交后崩溃时事件永久丢失。
 - 对照：M-Deploy（`event-outbox.ts`）与 M-Net closed-loop（`closed-loop-store-pg.ts`）都有
   「变更 + event-intent 同事务提交」的持久 outbox，只有 Core 的网络生命周期没有。
-- 现状缓解：会重试的客户端可经 `unwrapNetworkDeleteResult` 把 `network.not_found` 收敛为幂等
-  成功并补发 `payload.replayed=true`；该路径**只覆盖 DELETE**，且不覆盖「客户端不重试」。
-  `replayed=true` 同时覆盖「补发」与「从未存在」，消费方不可区分——区分语义以本条
-  tombstone 台账为前置（2026-09-12 审查注记）。
 
-Reason deferred:
+Resolved now（2026-09-13，ADR-N05）:
 
-- 这不是本批最小正确性范围内的机械修复：需要新表 + store + sweep 子系统、把发布者从 Core 迁到
-  M-Net（或让 Core 拥有 outbox）、并重新设计 `replayed` 语义。
-- 发布者迁移本身 wire 不变（subject/payload 相同），但 REST 的 503→pending 响应语义属破坏性
-  公开契约变更，按 `CONTRACT-VERSIONING.md` 需要版本 + 兼容窗口。
-- 登记表 §1 要求先重开 owning service definition / ADR；本项目前没有决定事件发布者归属的 ADR。
+- **发布者归属迁 M-Net**：`mnet.network.created.v0` / `mnet.membership.joined.v0` /
+  `mnet.network.deleted.v0` / `mnet.membership.removed.v0` 由 M-Net 发布，envelope
+  `source: "m-net"`；Core 的 `networks-support.ts` 删除 4 个内联 publish helper，
+  只保留审计（变更前 fail-closed）与 Timeline（变更后写，失败 warn）。
+- **durable outbox**：新表 `mnet_network_event_intents`（`network_id` 不设 FK）与
+  `mnet_network_tombstones`；`createNetwork` / `joinNetwork` / `deleteNetwork` / `removeMember`
+  在各自事务内写网络表 + event-intent（delete 额外写墓碑）。
+  `services/m-net/src/network-event-outbox.ts` 提供 pg/memory store 与
+  `dispatchPendingNetworkEvents`，`startup.ts` 加 30s 补发 sweep（对齐 closedLoop）。
+- **REST 语义变更**（无兼容窗口，v0.2 无外部部署用户，按 MR-N01 记录）：
+  「发布失败 → 503」→「变更成功 → 200，事件 at-least-once 异步补发」；
+  DELETE「`network.not_found` → 幂等 200」→「无行无墓碑 → 404；有墓碑 → 幂等 200」；
+  移除 `MNetNetworkDeletedPayload.replayed`（代码曾相对 EVENT-CATALOG 漂移，现统一为
+  `{ networkId }`）。
+- 文档同步：`EVENT-CATALOG.md`（4 个 publisher 改 M-Net、source 语义）、
+  `docs/services/core.md` §3、`docs/services/m-net.md` §3/§5、
+  `docs/security/SECURITY-MODEL.md`（审计/事件边界）、`docs/data/POSTGRES-SCHEMA.md`、
+  `docs/contracts/REST-API.md`、`docs/contracts/CONTRACT-VERSIONING.md` MR-N01。
 
-Required before implementation:
+Verification:
 
-- 新 ADR 决定事件发布者归属（谁拥有变更 => 谁拥有事件）。
-- 更新 `docs/services/core.md` §3 与 `docs/services/m-net.md` §3/§5。
-- REST `503 -> typed pending publication` 的版本化 + 兼容窗口 + 迁移说明。
-- outbox 表 `network_id` **不得** FK 到 `networks.id`（删除 intent 必须活过网络行）。
+- `tests/contracts/core-network-lifecycle.contract.test.ts`：404 vs 墓碑幂等 200、
+  Core 不再内联发布、EventBus 故障不再把已提交删除翻成 503。
+- `services/m-net/src/network-service-event-intents.test.ts`：变更与 intent/墓碑同事务写入。
+- `services/m-net/src/network-event-outbox.test.ts`：at-least-once 投递、失败保留 pending +
+  lastError、读取/发布故障降级。
+- `tests/contracts/schema-coverage.drift.contract.test.ts`：M-Net 成为 4 个 subject 的
+  发布者（`createMNetNetworkEventIntent` 字面量 subject 扫描）。
 
 Reopen trigger:
 
-- 上述 ADR 与版本化契约落地后，作为独立 PR 实施。
+- 引入外部部署用户需要兼容窗口，或出现除 M-Net 之外的权威网络状态变更所有者时。
 
 ---
 

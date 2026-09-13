@@ -66,6 +66,8 @@ Implementation notes:
 | Eden | `@meristem/contracts/core` | `0.1.0` | internal TS-first contract |
 | Events | `core.lifecycle.*`, `node.registration.*` | `v0` | see `docs/events/EVENT-CATALOG.md` |
 
+Network lifecycle events (`mnet.network.*`, `mnet.membership.*`) are **not** published by Core. Per ADR-N05 the mutation owner publishes its own event, so M-Net commits the authoritative change, the event intent, and (for delete) the tombstone in one transaction. Core's network routes keep authorization, Audit (before the mutation), and Timeline (after it), and return the mutation result without waiting on EventBus — EventBus unavailability no longer turns a committed network mutation into a `503`.
+
 ---
 
 ## 4. Permissions

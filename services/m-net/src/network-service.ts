@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type {
   CreateNetworkRequest,
   MNetwork,
@@ -6,18 +6,9 @@ import type {
   NetworkSummary
 } from '../../../packages/contracts/src/index.ts'
 import {
-  mnetClosedLoopFacts,
-  mnetDataPlaneOperationLocks,
-  mnetNetworkMapRenders,
-  mnetNetworkProfileStates,
+  mnetNetworkEventIntents,
   mnetNodePublicKeys,
-  mnetPartitionStates,
-  mnetProfileMigrations,
-  mnetProfileSwitchBatchMembers,
-  mnetProfileTransitions,
-  mnetRelayAssignments,
   mnetSidecarDesiredConfigs,
-  mnetSuspendedOperations,
   mnetTunnelAddressAllocations,
   networkMemberships,
   networks,
@@ -25,6 +16,15 @@ import {
 } from '../../../packages/db/src/schema.ts'
 import { isNodeExcludedFromPeerPaths } from './agent/node-control-state-machine.ts'
 import type { MNetDb } from './clients.ts'
+import {
+  cascadeDeleteNetworkState,
+  evaluateNetworkDeletion,
+  writeNetworkDeletionArtifacts
+} from './data-plane/network-lifecycle-deletion.ts'
+import {
+  createMNetNetworkEventIntent,
+  networkEventIntentRow
+} from './data-plane/network-event-outbox.ts'
 import type { GlobalDefaultsStore } from './profile/global-defaults-store.ts'
 import type { ProfileStore } from './profile/profile-store.ts'
 import { asNodeKind, asNodeStatus, err, mapNetwork, membershipModeFor, ok } from './shared.ts'
@@ -108,7 +108,9 @@ export function createNetworkService({
   globalDefaultsStore,
   refreshNetworkMap
 }: NetworkServiceDeps) {
-  async function createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>> {
+  async function createNetwork(
+    input: CreateNetworkRequest & { correlationId?: string }
+  ): Promise<MNetServiceResult<MNetwork>> {
     const existing = await db.select().from(networks).where(eq(networks.name, input.name)).limit(1)
     if (existing[0]) return err('network.conflict', 'network name already exists')
 
@@ -126,8 +128,21 @@ export function createNetworkService({
       createdAt: now,
       updatedAt: now
     }
+    const intent = createMNetNetworkEventIntent(
+      network.id,
+      'mnet.network.created.v0',
+      { networkId: network.id, name: network.name, profileVersion: network.profileVersion },
+      input.correlationId ?? crypto.randomUUID(),
+      now.toISOString()
+    )
 
-    await db.insert(networks).values(network)
+    // 权威网络行与事件意图同事务提交：发布失败只留下可补发的 pending intent，
+    // 不会出现「网络已建但事件永久丢失」（ADR-N05）。
+    await db.transaction(async tx => {
+      await tx.insert(networks).values(network)
+      await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
+    })
+    // profile 状态是网络生命周期的从属行，失败不回滚已提交的网络行（既有语义）。
     await profileStore.setNetworkState(network.id, {
       profileVersion: network.profileVersion,
       status: 'disabled'
@@ -166,6 +181,7 @@ export function createNetworkService({
   async function joinNetwork(input: {
     networkId: string
     nodeId: string
+    correlationId?: string
   }): Promise<MNetServiceResult<MNetworkMember>> {
     const [networkRow] = await db
       .select()
@@ -216,20 +232,37 @@ export function createNetworkService({
     }
 
     const now = new Date()
-    await db.insert(networkMemberships).values({
-      networkId: input.networkId,
-      nodeId: input.nodeId,
-      membershipMode: membershipModeFor(nodeKind),
-      status: 'joined',
-      joinedAt: now,
-      updatedAt: now
+    const membershipMode = membershipModeFor(nodeKind)
+    const intent = createMNetNetworkEventIntent(
+      input.networkId,
+      'mnet.membership.joined.v0',
+      {
+        networkId: input.networkId,
+        nodeId: input.nodeId,
+        nodeKind,
+        membershipMode
+      },
+      input.correlationId ?? crypto.randomUUID(),
+      now.toISOString()
+    )
+    // 成员行与加入事件意图同事务提交（ADR-N05）。
+    await db.transaction(async tx => {
+      await tx.insert(networkMemberships).values({
+        networkId: input.networkId,
+        nodeId: input.nodeId,
+        membershipMode,
+        status: 'joined',
+        joinedAt: now,
+        updatedAt: now
+      })
+      await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
     })
 
     return ok({
       networkId: input.networkId,
       nodeId: input.nodeId,
       nodeKind,
-      membershipMode: membershipModeFor(nodeKind),
+      membershipMode,
       status: 'joined',
       joinedAt: now.toISOString()
     })
@@ -243,133 +276,22 @@ export function createNetworkService({
 
   /**
    * 删除逻辑网络：仅允许在无成员、profile 已禁用、且无留存台账引用时执行。
-   * 前置检查与级联清理在同一事务内：中途失败整体回滚，不留半删状态。
-   * 运营态数据（隧道分配/中继/地图渲染/分区/操作锁/迁移/过渡/已终结挂起操作/成员/状态行）级联清理；
-   * closed-loop facts、profile switch 成员关系与未终结挂起操作属于留存台账，存在即 409 拒绝。
-   * network.not_found 只表示「本事务从未见到行」；mnet.network.deleted.v0 是 at-least-once 语义，
-   * 「删除已提交但发布失败」后的补发由 Core DELETE 路由把 network.not_found 收敛为幂等成功完成。
+   * 门禁、级联清理、墓碑与删除事件意图在同一事务内完成（见 network-lifecycle-deletion.ts）：
+   * 中途失败整体回滚，不留半删状态，也不会出现「网络已删但删除事件丢失」。
+   * 墓碑区分「删过」（幂等成功，不重复发事件）与「从未存在」（network.not_found）。
    */
   async function deleteNetwork(input: {
     networkId: string
+    correlationId?: string
   }): Promise<MNetServiceResult<{ networkId: string }>> {
     return db.transaction(async tx => {
-      // 对 networks 行加 FOR UPDATE：它与子表 INSERT 为满足外键而取的 KEY SHARE 互斥，
-      // 因此并发 joinNetwork（插 network_memberships）会阻塞到本事务结束，不会在
-      // 成员门禁读完之后插入成员、又被下面的级联删除静默抹掉并让 join 误报成功。
-      const [networkRow] = await tx
-        .select()
-        .from(networks)
-        .where(eq(networks.id, input.networkId))
-        .limit(1)
-        .for('update')
-      if (!networkRow) return err('network.not_found', 'network not found')
-
-      const memberRows = await tx
-        .select()
-        .from(networkMemberships)
-        .where(eq(networkMemberships.networkId, input.networkId))
-      if (memberRows.length > 0) {
-        return err('network.members_present', 'network still has members; remove them first')
+      const precondition = await evaluateNetworkDeletion(tx, input.networkId)
+      if (precondition.kind === 'idempotent') return ok({ networkId: input.networkId })
+      if (precondition.kind === 'failure') {
+        return err(precondition.error.code, precondition.error.message)
       }
-
-      // 权威 profile 门禁在事务内直读状态表（生产 profileStore 与本事务同库，
-      // 事务外读会留下并发解禁的 TOCTOU 窗口）；行缺失放行：profile 状态行经
-      // FK 挂在 networks 上，网络存在而状态行缺失即从未启用，与旧语义一致。
-      const [profileRow] = await tx
-        .select({ status: mnetNetworkProfileStates.status })
-        .from(mnetNetworkProfileStates)
-        .where(eq(mnetNetworkProfileStates.networkId, input.networkId))
-        .limit(1)
-      if (profileRow && profileRow.status !== 'disabled') {
-        return err(
-          'network.profile_not_disabled',
-          'network profile must be disabled before deletion'
-        )
-      }
-
-      // 留存台账门禁：closed-loop 事实与 profile switch 子表按 network_id 外键挂在
-      // networks 上，但它们是运维/审计账本，不做级联销毁——存在引用即拒绝删除（409），
-      // 由操作者显式处置；这与改前「FK 违例 500」相比是把同一冲突变成 typed 拒绝。
-      const [factRow] = await tx
-        .select({ factId: mnetClosedLoopFacts.factId })
-        .from(mnetClosedLoopFacts)
-        .where(eq(mnetClosedLoopFacts.networkId, input.networkId))
-        .limit(1)
-      if (factRow) {
-        return err(
-          'network.closed_loop_facts_present',
-          'network still has closed-loop facts; prune them before deletion'
-        )
-      }
-      const [batchMemberRow] = await tx
-        .select({ operationId: mnetProfileSwitchBatchMembers.operationId })
-        .from(mnetProfileSwitchBatchMembers)
-        .where(eq(mnetProfileSwitchBatchMembers.networkId, input.networkId))
-        .limit(1)
-      if (batchMemberRow) {
-        return err(
-          'network.switch_membership_present',
-          'network still belongs to a profile switch operation; it cannot be deleted'
-        )
-      }
-
-      // 挂起操作台账（break-glass 恢复路径）只允许清理已终结（resumed）的行；
-      // suspended / rejected / expired / resume_failed 都属于未决或待追账状态，存在即拒绝删除。
-      const [suspendedRow] = await tx
-        .select({ id: mnetSuspendedOperations.id })
-        .from(mnetSuspendedOperations)
-        .where(
-          and(
-            eq(mnetSuspendedOperations.networkId, input.networkId),
-            ne(mnetSuspendedOperations.status, 'resumed')
-          )
-        )
-        .limit(1)
-      if (suspendedRow) {
-        return err(
-          'network.operation_suspended',
-          'network has a non-terminal suspended policy operation; resolve or prune its ledger before deletion'
-        )
-      }
-
-      // 运营态数据按网络生命周期归属，随 networks 行级联清理（含迁移与过渡历史）；
-      // 留存台账（closed-loop facts、switch 成员关系、未终结挂起操作）只门禁不销毁。
-      await tx
-        .delete(mnetTunnelAddressAllocations)
-        .where(eq(mnetTunnelAddressAllocations.networkId, input.networkId))
-      await tx
-        .delete(mnetRelayAssignments)
-        .where(eq(mnetRelayAssignments.networkId, input.networkId))
-      await tx
-        .delete(mnetNetworkMapRenders)
-        .where(eq(mnetNetworkMapRenders.networkId, input.networkId))
-      await tx.delete(mnetPartitionStates).where(eq(mnetPartitionStates.networkId, input.networkId))
-      await tx
-        .delete(mnetDataPlaneOperationLocks)
-        .where(eq(mnetDataPlaneOperationLocks.networkId, input.networkId))
-      await tx
-        .delete(mnetProfileMigrations)
-        .where(eq(mnetProfileMigrations.networkId, input.networkId))
-      await tx
-        .delete(mnetProfileTransitions)
-        .where(eq(mnetProfileTransitions.networkId, input.networkId))
-      // 挂起操作台账只清理已终结（resumed）且门禁已确认存在的行。谓词必须与门禁同界：
-      // 无 status 条件的整表删除会在「并发插入一条非终结挂起操作」时把它一并抹掉，
-      // 违反上面「存在即拒绝」的留存语义；限定 resumed 后该并发行会残留并让
-      // delete(networks) 触发 FK 拒绝，整事务回滚而不销毁台账。
-      await tx
-        .delete(mnetSuspendedOperations)
-        .where(
-          and(
-            eq(mnetSuspendedOperations.networkId, input.networkId),
-            eq(mnetSuspendedOperations.status, 'resumed')
-          )
-        )
-      await tx.delete(networkMemberships).where(eq(networkMemberships.networkId, input.networkId))
-      await tx
-        .delete(mnetNetworkProfileStates)
-        .where(eq(mnetNetworkProfileStates.networkId, input.networkId))
-      await tx.delete(networks).where(eq(networks.id, input.networkId))
+      await cascadeDeleteNetworkState(tx, input.networkId)
+      await writeNetworkDeletionArtifacts(tx, input.networkId, input.correlationId)
       return ok({ networkId: input.networkId })
     })
   }
@@ -441,6 +363,17 @@ export function createNetworkService({
           .where(eq(mnetSidecarDesiredConfigs.nodeId, input.nodeId))
         await tx.delete(mnetNodePublicKeys).where(eq(mnetNodePublicKeys.nodeId, input.nodeId))
       }
+
+      // 成员移除事件意图与清理同事务提交（ADR-N05）。
+      const removedAt = new Date()
+      const intent = createMNetNetworkEventIntent(
+        input.networkId,
+        'mnet.membership.removed.v0',
+        { networkId: input.networkId, nodeId: input.nodeId },
+        input.correlationId ?? crypto.randomUUID(),
+        removedAt.toISOString()
+      )
+      await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
 
       return ok({ networkId: input.networkId, nodeId: input.nodeId })
     })

@@ -71,12 +71,12 @@ describe('Core network lifecycle facade', () => {
     expect(body.networkId).toBe(target.id)
   })
 
-  it('DELETE is idempotent: a retried delete of a gone network republishes the deletion event', async () => {
+  it('DELETE is idempotent for an already-deleted network: M-Net tombstone yields 200 without a Core publish', async () => {
     const { deps } = createCoreDepsWithWriters({ actor: 'admin' })
-    const published: Array<{ subject: string; payload: unknown }> = []
+    const published: Array<{ subject: string }> = []
     const originalPublish = deps.events.publish
     deps.events.publish = async (subject: string, ...rest: unknown[]) => {
-      published.push({ subject, payload: (rest[0] as { payload: unknown }).payload })
+      published.push({ subject })
       return originalPublish(subject as never, rest[0] as never)
     }
     const app = createCoreApp(deps)
@@ -92,7 +92,28 @@ describe('Core network lifecycle facade', () => {
       request(`/api/v0/networks/${target.id}`, 'DELETE', 'admin-token')
     )
     expect(first.status).toBe(200)
-    // 模拟「删除已提交、事件发布失败」后的重试：端口返回 network.not_found。
+    // 模拟「删除已提交（墓碑已写）」后的重试：M-Net 端口按墓碑返回成功。
+    const depsWithTombstone = {
+      ...deps,
+      mNet: {
+        ...deps.mNet,
+        deleteNetwork: async () => ({ ok: true as const, value: { networkId: target.id } })
+      }
+    }
+    const retryApp = createCoreApp(depsWithTombstone)
+    const retry = await retryApp.handle(
+      request(`/api/v0/networks/${target.id}`, 'DELETE', 'admin-token')
+    )
+
+    expect(retry.status).toBe(200)
+    const retryBody = (await retry.json()) as { networkId: string }
+    expect(retryBody.networkId).toBe(target.id)
+    // ADR-N05：Core 不再内联发布网络生命周期事件；事件由 M-Net outbox 负责。
+    expect(published.filter(entry => entry.subject === 'mnet.network.deleted.v0')).toHaveLength(0)
+  })
+
+  it('DELETE maps a never-existing network (no tombstone) to 404 instead of a false success', async () => {
+    const { deps } = createCoreDepsWithWriters({ actor: 'admin' })
     const depsWithGonePort = {
       ...deps,
       mNet: {
@@ -103,27 +124,20 @@ describe('Core network lifecycle facade', () => {
         })
       }
     }
-    const retryApp = createCoreApp(depsWithGonePort)
-    const retry = await retryApp.handle(
-      request(`/api/v0/networks/${target.id}`, 'DELETE', 'admin-token')
-    )
+    const app = createCoreApp(depsWithGonePort)
 
-    expect(retry.status).toBe(200)
-    const retryBody = (await retry.json()) as { networkId: string }
-    expect(retryBody.networkId).toBe(target.id)
-    const deletedEvents = published.filter(entry => entry.subject === 'mnet.network.deleted.v0')
-    expect(deletedEvents).toHaveLength(2)
-    // 首次删除不带 replayed；补发路径带 replayed=true，消费者可区分并对账。
-    expect(deletedEvents[0]?.payload).toEqual({ networkId: target.id })
-    expect(deletedEvents[1]?.payload).toEqual({ networkId: target.id, replayed: true })
+    const res = await app.handle(request('/api/v0/networks/never-existed', 'DELETE', 'admin-token'))
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('network.not_found')
   })
 
-  it('DELETE surfaces event publish failure as typed 503 instead of a false success', async () => {
+  it('DELETE succeeds without an event publish dependency — publication is M-Net-side now', async () => {
+    // ADR-N05：发布失败不再把已提交的删除翻成 503；Core 只写 Timeline（失败降级 warn）。
     const { deps } = createCoreDepsWithWriters({ actor: 'admin' })
-    deps.events.publish = async () => ({
-      ok: false as const,
-      error: { code: 'eventbus.unavailable', message: 'M-EventBus unavailable' }
-    })
+    deps.events.publish = async () => {
+      throw new Error('M-EventBus unavailable')
+    }
     const app = createCoreApp(deps)
     await app.handle(
       request('/api/v0/networks', 'POST', 'admin-token', { name: 'publish-fail-network' })
@@ -134,9 +148,7 @@ describe('Core network lifecycle facade', () => {
     if (!target) throw new Error('publish-fail-network missing from list response')
 
     const res = await app.handle(request(`/api/v0/networks/${target.id}`, 'DELETE', 'admin-token'))
-    expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: { code: string } }
-    expect(body.error.code).toBe('eventbus.unavailable')
+    expect(res.status).toBe(200)
   })
 
   it('DELETE maps typed ledger conflicts to 409', async () => {

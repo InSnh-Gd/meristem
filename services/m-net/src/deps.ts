@@ -37,15 +37,19 @@ export type MNetAppDeps = {
   }
   db?: MNetDb
   readiness(): Promise<{ ready: boolean }>
-  createNetwork(input: CreateNetworkRequest): Promise<MNetServiceResult<MNetwork>>
+  createNetwork(
+    input: CreateNetworkRequest & { correlationId?: string }
+  ): Promise<MNetServiceResult<MNetwork>>
   listNetworks(): Promise<MNetServiceResult<NetworkSummary[]>>
   joinNetwork(input: {
     networkId: string
     nodeId: string
+    correlationId?: string
   }): Promise<MNetServiceResult<MNetworkMember>>
   listMembers(input: { networkId: string }): Promise<MNetServiceResult<MNetworkMember[]>>
   deleteNetwork?: (input: {
     networkId: string
+    correlationId?: string
   }) => Promise<MNetServiceResult<{ networkId: string }>>
   removeMember?: (input: {
     networkId: string

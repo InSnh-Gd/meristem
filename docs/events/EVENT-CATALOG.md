@@ -28,8 +28,10 @@ Rules:
 - `payload` starts as `unknown` and must be narrowed by schema.
 - `version` is required.
 - `correlationId` must propagate across command -> event -> log -> trace when available.
+- `source` is the publishing service, and `Publisher` in the catalog is the owning service of the change (ADR-N05: who owns the mutation owns its event). Network lifecycle events carry `source: "m-net"`.
 - Consumers must be idempotent by `id` or domain-specific key.
 - M-Net closed-loop mutations commit authoritative facts and event intents in one PostgreSQL transaction. If EventBus delivery fails, the service returns `publication.status = pending` and retries the durable intent at least once after startup; consumers must therefore tolerate duplicate delivery.
+- M-Net network lifecycle mutations (create/join/delete/remove-member) follow the same durable-outbox rule: the authoritative row change, the event intent, and (for delete) the tombstone commit in one transaction, and a 30s sweep retries pending intents at least once. The REST mutation still returns `200`; EventBus unavailability is never surfaced as a failed mutation.
 
 ---
 
@@ -70,10 +72,10 @@ Rules:
 | `node.join-ticket.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `NodeJoinTicketCreatedPayload` | at-least-once |
 | `node.role.changed.v0` | event | M-Net | M-Log, M-UI BFF | `NodeRoleChangedPayload` | at-least-once |
 | `node.status.changed.v0` | event | Core / M-Net | M-Log, M-UI BFF | `NodeStatusChangedPayload` | at-least-once |
-| `mnet.network.created.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
-| `mnet.membership.joined.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
-| `mnet.network.deleted.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetNetworkDeletedPayload` | at-least-once |
-| `mnet.membership.removed.v0` | event | Core | M-Net, M-Log, M-UI BFF | `MNetMembershipRemovedPayload` | at-least-once |
+| `mnet.network.created.v0` | event | M-Net | M-Log, M-UI BFF | `MNetNetworkCreatedPayload` | at-least-once |
+| `mnet.membership.joined.v0` | event | M-Net | M-Log, M-UI BFF | `MNetMembershipJoinedPayload` | at-least-once |
+| `mnet.network.deleted.v0` | event | M-Net | M-Log, M-UI BFF | `MNetNetworkDeletedPayload` | at-least-once |
+| `mnet.membership.removed.v0` | event | M-Net | M-Log, M-UI BFF | `MNetMembershipRemovedPayload` | at-least-once |
 | `task.requested.v0` | event | M-Task | M-Log, M-UI BFF | `TaskRequestedPayload` | at-least-once |
 | `task.queued.v0` | event | M-Task | M-Log, M-UI BFF | `TaskQueuedPayload` | at-least-once |
 | `task.dispatched.v0` | event | M-Task | M-Log, M-UI BFF | `TaskDispatchedPayload` | at-least-once |

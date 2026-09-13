@@ -500,11 +500,7 @@ export const MNetNetworkCreatedPayloadSchema = Schema.Struct({
 export type MNetNetworkCreatedPayloadFromSchema = typeof MNetNetworkCreatedPayloadSchema.Type
 
 export const MNetNetworkDeletedPayloadSchema = Schema.Struct({
-  networkId: Schema.String,
-  // 幂等重放标记：Core 在「删除时行已不存在」的路径上置 true。它同时覆盖「删除已提交但
-  // 事件发布失败后的补发」与「从未存在的网络 id」两种情形——M-Net 无删除台账，服务端
-  // 无法区分二者，消费方不可据此对账；引入 tombstone 台账是区分语义的前置（DFW-043）。
-  replayed: Schema.optional(Schema.Boolean)
+  networkId: Schema.String
 })
 export type MNetNetworkDeletedPayloadFromSchema = typeof MNetNetworkDeletedPayloadSchema.Type
 

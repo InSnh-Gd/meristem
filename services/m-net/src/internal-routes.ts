@@ -101,7 +101,10 @@ export function createInternalRoutes(
         const unauthorized = requireInternal(headers, status)
         if (unauthorized) return unauthorized
         return withExtractedSpan('m-net', 'm-net.network.create', headers, async () => {
-          const result = await deps.createNetwork(body)
+          const result = await deps.createNetwork({
+            ...body,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { network: result.value }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)
@@ -139,7 +142,11 @@ export function createInternalRoutes(
         const unauthorized = requireInternal(headers, status)
         if (unauthorized) return unauthorized
         return withExtractedSpan('m-net', 'm-net.network.join', headers, async () => {
-          const result = await deps.joinNetwork({ networkId: params.id, nodeId: body.nodeId })
+          const result = await deps.joinNetwork({
+            networkId: params.id,
+            nodeId: body.nodeId,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { member: result.value }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)
@@ -188,7 +195,10 @@ export function createInternalRoutes(
           })
         }
         return withExtractedSpan('m-net', 'm-net.network.delete', headers, async () => {
-          const result = await deleteNetwork({ networkId: params.id })
+          const result = await deleteNetwork({
+            networkId: params.id,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { deleted: true as const, networkId: result.value.networkId }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)

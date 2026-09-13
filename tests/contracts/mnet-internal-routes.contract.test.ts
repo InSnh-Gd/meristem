@@ -168,8 +168,39 @@ describe('M-Net internal route contracts', () => {
 
     expect(response.status).toBe(200)
     await expectJson(response, { network: networkFixture })
-    expect(calls.createNetwork).toEqual([
-      { name: 'primary network', profileVersion: 'm-net@0.3.0' }
+    // 未携带 x-correlation-id 时入口补一个随机值：调用方语义不变，链路 id 仍存在。
+    expect(calls.createNetwork).toHaveLength(1)
+    expect(calls.createNetwork[0]).toMatchObject({
+      name: 'primary network',
+      profileVersion: 'm-net@0.3.0'
+    })
+    expect(calls.createNetwork[0]?.correlationId).toBeTruthy()
+  })
+
+  it('forwards x-correlation-id on the create and join internal ports', async () => {
+    const { app, calls } = createRouteFixture()
+
+    const headers = { ...internalHeaders(), 'x-correlation-id': 'corr-write-1' }
+    const create = await app.handle(
+      new Request('http://localhost/internal/v0/networks', {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'primary network', profileVersion: 'm-net@0.3.0' })
+      })
+    )
+    expect(create.status).toBe(200)
+    expect(calls.createNetwork[0]?.correlationId).toBe('corr-write-1')
+
+    const join = await app.handle(
+      new Request('http://localhost/internal/v0/networks/network-1/members', {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ nodeId: 'leaf-1' })
+      })
+    )
+    expect(join.status).toBe(200)
+    expect(calls.joinNetwork).toEqual([
+      { networkId: 'network-1', nodeId: 'leaf-1', correlationId: 'corr-write-1' }
     ])
   })
 
@@ -191,7 +222,9 @@ describe('M-Net internal route contracts', () => {
 
     expect(response.status).toBe(200)
     await expectJson(response, { member: memberFixture })
-    expect(calls.joinNetwork).toEqual([{ networkId: 'network-1', nodeId: 'leaf-1' }])
+    expect(calls.joinNetwork).toHaveLength(1)
+    expect(calls.joinNetwork[0]).toMatchObject({ networkId: 'network-1', nodeId: 'leaf-1' })
+    expect(calls.joinNetwork[0]?.correlationId).toBeTruthy()
   })
 
   it('GET /internal/v0/networks/:id/members lists network members', async () => {
@@ -304,7 +337,10 @@ describe('M-Net internal network lifecycle mutations', () => {
 
     expect(response.status).toBe(200)
     await expectJson(response, { deleted: true, networkId: 'network-1' })
-    expect(calls.deleteNetwork).toEqual([{ networkId: 'network-1' }])
+    // 删除同样透传 correlationId：M-Net 用它关联删除事件与 Core 审计。
+    expect(calls.deleteNetwork).toHaveLength(1)
+    expect(calls.deleteNetwork[0]).toMatchObject({ networkId: 'network-1' })
+    expect(calls.deleteNetwork[0]?.correlationId).toBeTruthy()
   })
 
   it('DELETE /internal/v0/networks/:id returns 409 when members are still present', async () => {

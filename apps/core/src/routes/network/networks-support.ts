@@ -1,8 +1,16 @@
 import type { ActorId, PolicyDecision } from '../../../../../packages/contracts/src/index.ts'
 import { CoreError } from '../../core-error.ts'
 import { authorize, requireActor } from '../../middleware/auth.ts'
-import { statusCodeForServiceError, tracedEvent } from '../../middleware/route-support.ts'
+import { statusCodeForServiceError } from '../../middleware/route-support.ts'
 import type { CoreDeps } from '../../types.ts'
+
+/**
+ * Core 网络路由的授权、审计与 Timeline 编排。
+ *
+ * ADR-N05 之后网络生命周期事件由 M-Net 在变更事务内以 outbox 发布，Core 不再内联
+ * `events.publish`：审计仍是授权边界（变更前 fail-closed），Timeline 是操作者视角的投影辅助
+ * 事实（变更后写，失败降级为告警）。
+ */
 
 type NetworkMutationAuth = Awaited<ReturnType<typeof requireActor>> & { permission: PolicyDecision }
 
@@ -78,73 +86,27 @@ export function unwrapNetworkResult<T>(
 }
 
 /**
- * 删除路径专用的幂等解包：mnet.network.deleted.v0 是 at-least-once 语义，
- * 「删除已提交但事件发布失败」后的重试必须仍能补发事件，因此 M-Net 的
- * network.not_found（行从未存在或已被并发/重试删除）在 DELETE 上收敛为
- * 幂等成功，由调用方照常发布删除事件与 Timeline。
+ * 写网络变更的操作者 Timeline。事件发布已移交 M-Net（ADR-N05），Timeline 写失败只降级为
+ * 告警：权威变更已提交，不能把投影辅助事实的失败翻成错误响应。
  */
-export function unwrapNetworkDeleteResult(
-  result:
-    | { ok: true; value: { networkId: string } }
-    | { ok: false; error: { code: string; message: string } },
-  networkId: string,
-  correlationId: string
-): { networkId: string; absent: boolean } {
-  if (result.ok) return { networkId: result.value.networkId, absent: false }
-  if (result.error.code !== 'network.not_found') {
-    throw new CoreError(
-      statusCodeForServiceError(result.error.code),
-      result.error.code,
-      result.error.message,
-      correlationId
-    )
-  }
-  return { networkId, absent: true }
-}
-
-/**
- * 网络写路径的事件发布核验出口：SECURITY-MODEL「Event-bus publish failure must surface a
- * typed unavailable outcome and must not create false success」——发布失败必须显式 503，
- * 让客户端重试（幂等 DELETE 补发）路径可达。发布调用点保持内联字面量 subject，
- * 以满足 schema-coverage 漂移守卫对发布者归属的静态识别。
- * Timeline 是投影辅助事实，写失败降级为告警，不把已提交变更翻成错误。
- */
-async function ensureNetworkEventPublished(
+export async function writeNetworkTimeline(
   deps: CoreDeps,
-  published: Awaited<ReturnType<CoreDeps['events']['publish']>>,
   timeline: Parameters<CoreDeps['log']['writeTimeline']>[0],
   correlationId: string
 ) {
-  if (!published.ok) {
-    throw new CoreError(503, published.error.code, published.error.message, correlationId)
-  }
   const written = await deps.log.writeTimeline(timeline)
   if (!written.ok) {
     process.stderr.write(`core timeline write failed: ${written.error.message} ${correlationId}\n`)
   }
 }
 
-export async function publishNetworkCreatedArtifacts(
+export async function writeNetworkCreatedTimeline(
   deps: CoreDeps,
-  created: { id: string; name: string; profileVersion: string },
+  created: { id: string; name: string },
   correlationId: string
 ) {
-  const published = await deps.events.publish(
-    'mnet.network.created.v0',
-    tracedEvent({
-      type: 'mnet.network.created',
-      source: 'meristem-core',
-      payload: {
-        networkId: created.id,
-        name: created.name,
-        profileVersion: created.profileVersion
-      },
-      correlationId
-    })
-  )
-  await ensureNetworkEventPublished(
+  await writeNetworkTimeline(
     deps,
-    published,
     {
       summary: `created network ${created.name}`,
       subject: created.id,
@@ -154,33 +116,13 @@ export async function publishNetworkCreatedArtifacts(
   )
 }
 
-export async function publishNetworkJoinedArtifacts(
+export async function writeNetworkJoinedTimeline(
   deps: CoreDeps,
-  member: {
-    networkId: string
-    nodeId: string
-    nodeKind: string
-    membershipMode: string
-  },
+  member: { networkId: string; nodeId: string },
   correlationId: string
 ) {
-  const published = await deps.events.publish(
-    'mnet.membership.joined.v0',
-    tracedEvent({
-      type: 'mnet.membership.joined',
-      source: 'meristem-core',
-      payload: {
-        networkId: member.networkId,
-        nodeId: member.nodeId,
-        nodeKind: member.nodeKind,
-        membershipMode: member.membershipMode
-      },
-      correlationId
-    })
-  )
-  await ensureNetworkEventPublished(
+  await writeNetworkTimeline(
     deps,
-    published,
     {
       summary: `joined node ${member.nodeId} to network ${member.networkId}`,
       subject: member.networkId,
@@ -190,33 +132,15 @@ export async function publishNetworkJoinedArtifacts(
   )
 }
 
-/**
- * 网络删除/成员移除后发布对应事件并写 Timeline，保持与创建路径对称的审计链路。
- * absent=true 表示幂等重放（网络已不存在，本次为补发）：事件带 replayed 标记，
- * Timeline 文案显式区分，让操作者的重试有可审计的痕迹。
- */
-export async function publishNetworkDeletedArtifacts(
+export async function writeNetworkDeletedTimeline(
   deps: CoreDeps,
   deleted: { networkId: string },
-  correlationId: string,
-  absent = false
+  correlationId: string
 ) {
-  const published = await deps.events.publish(
-    'mnet.network.deleted.v0',
-    tracedEvent({
-      type: 'mnet.network.deleted',
-      source: 'meristem-core',
-      payload: { networkId: deleted.networkId, ...(absent ? { replayed: true } : {}) },
-      correlationId
-    })
-  )
-  await ensureNetworkEventPublished(
+  await writeNetworkTimeline(
     deps,
-    published,
     {
-      summary: absent
-        ? `deleted network ${deleted.networkId} (already absent, deletion event replayed)`
-        : `deleted network ${deleted.networkId}`,
+      summary: `deleted network ${deleted.networkId}`,
       subject: deleted.networkId,
       correlationId
     },
@@ -224,23 +148,13 @@ export async function publishNetworkDeletedArtifacts(
   )
 }
 
-export async function publishNetworkMemberRemovedArtifacts(
+export async function writeNetworkMemberRemovedTimeline(
   deps: CoreDeps,
   removed: { networkId: string; nodeId: string },
   correlationId: string
 ) {
-  const published = await deps.events.publish(
-    'mnet.membership.removed.v0',
-    tracedEvent({
-      type: 'mnet.membership.removed',
-      source: 'meristem-core',
-      payload: { networkId: removed.networkId, nodeId: removed.nodeId },
-      correlationId
-    })
-  )
-  await ensureNetworkEventPublished(
+  await writeNetworkTimeline(
     deps,
-    published,
     {
       summary: `removed node ${removed.nodeId} from network ${removed.networkId}`,
       subject: removed.networkId,

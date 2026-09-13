@@ -24,10 +24,10 @@ M-Net closed-loop subjects are active through durable event intents committed wi
 | `node.registration.accepted.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeRegistrationAcceptedPayloadSchema` |
 | `node.role.changed.v0` | `services/m-net/src/agent/node-control-workflow.ts` | `NodeRoleChangedPayloadSchema` |
 | `node.status.changed.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeStatusChangedPayloadSchema` |
-| `mnet.network.created.v0` | `apps/core/src/routes/network/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
-| `mnet.membership.joined.v0` | `apps/core/src/routes/network/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
-| `mnet.network.deleted.v0` | `apps/core/src/routes/network/networks.ts` | `MNetNetworkDeletedPayloadSchema` |
-| `mnet.membership.removed.v0` | `apps/core/src/routes/network/networks.ts` | `MNetMembershipRemovedPayloadSchema` |
+| `mnet.network.created.v0` | `services/m-net/src/network-service.ts` | `MNetNetworkCreatedPayloadSchema` |
+| `mnet.membership.joined.v0` | `services/m-net/src/network-service.ts` | `MNetMembershipJoinedPayloadSchema` |
+| `mnet.network.deleted.v0` | `services/m-net/src/data-plane/network-lifecycle-deletion.ts` | `MNetNetworkDeletedPayloadSchema` |
+| `mnet.membership.removed.v0` | `services/m-net/src/network-service.ts` | `MNetMembershipRemovedPayloadSchema` |
 | `mnet.reachability.changed.v0` | `services/m-net/src/agent/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
 | `mnet.path.changed.v0` | contract-activated data-plane subject | `MNetPathChangedEventPayloadSchema` |
 | `mnet.wstunnel.fallback.changed.v0` | contract-activated data-plane subject | `MNetWstunnelFallbackChangedEventPayloadSchema` |

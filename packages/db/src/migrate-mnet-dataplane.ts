@@ -135,4 +135,29 @@ export async function migrateMNetDataPlane(tx: postgres.TransactionSql) {
     delete from mnet_node_public_keys
     where key_id = 'bootstrap-' || node_id
   `
+  // DFW-043 / ADR-N05：网络生命周期事件 outbox 与删除墓碑。
+  // network_id 刻意不设 references networks(id)：删除事件意图与墓碑必须活过网络行本身。
+  await tx`
+    create table if not exists mnet_network_event_intents (
+      intent_id text primary key,
+      subject text not null,
+      payload jsonb not null,
+      status text not null,
+      correlation_id text not null,
+      network_id text not null,
+      created_at timestamptz not null,
+      published_at timestamptz,
+      last_error text
+    )
+  `
+  await tx`
+    create index if not exists mnet_network_event_intents_status_idx
+    on mnet_network_event_intents (status, created_at)
+  `
+  await tx`
+    create table if not exists mnet_network_tombstones (
+      network_id text primary key,
+      deleted_at timestamptz not null
+    )
+  `
 }
