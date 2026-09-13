@@ -385,6 +385,8 @@ export function createNetworkService({
   async function removeMember(input: {
     networkId: string
     nodeId: string
+    /** 调用方经 header 透传的链路 id；缺失时为兼容旧调用方而本地补值。 */
+    correlationId?: string
   }): Promise<MNetServiceResult<{ networkId: string; nodeId: string }>> {
     const result = await db.transaction(async tx => {
       // 与 deleteNetwork 同锁序：对 networks 行加 FOR UPDATE，与并发 joinNetwork 插入
@@ -446,10 +448,10 @@ export function createNetworkService({
     // refresher 走 materialize/HTTP/eventbus，必须在事务提交之后调用，不能持锁等待外部服务。
     // 网络已无成员时 refresher 自身按 no-op 处理（materializeMembers 空成员会返回
     // 409 network.members_missing）。
-    // FIXME: 此处 correlationId 为本地生成——M-Net 网络变更端口目前未承载调用方 correlationId，
-    // 与其他网络变更一致；如需端到端 trace 串联，应统一为该端口族补 correlationId（另开契约变更）。
+    // correlationId 由 Core 经 x-correlation-id header 透传，使 map 刷新与上游审计/事件同链路；
+    // 直接调用该端口（无 header）时回退为本地生成，保持旧调用方可用。
     if (result.ok && refreshNetworkMap) {
-      await refreshNetworkMap(input.networkId, crypto.randomUUID())
+      await refreshNetworkMap(input.networkId, input.correlationId ?? crypto.randomUUID())
     }
 
     return result

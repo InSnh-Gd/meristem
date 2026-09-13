@@ -9,7 +9,7 @@ const materialized: MaterializedMembers = {
 }
 
 function createDeps(overrides: Partial<NetworkMapRefreshDeps> = {}) {
-  const published: Array<{ subject: string; payload: unknown }> = []
+  const published: Array<{ subject: string; payload: unknown; correlationId?: string }> = []
   const calls: { materialize: number } = { materialize: 0 }
   const deps: NetworkMapRefreshDeps = {
     profileStore: {
@@ -40,8 +40,8 @@ function createDeps(overrides: Partial<NetworkMapRefreshDeps> = {}) {
       return materialized
     },
     events: {
-      async publish(subject, _type, payload) {
-        published.push({ subject, payload })
+      async publish(subject, _type, payload, correlationId) {
+        published.push({ subject, payload, ...(correlationId ? { correlationId } : {}) })
       }
     },
     ...overrides
@@ -60,6 +60,18 @@ describe('refreshNetworkMap', () => {
     expect(published).toHaveLength(1)
     expect(published[0]?.subject).toBe('mnet.network_map.published.v0')
     expect(published[0]?.payload).toMatchObject({ networkId: 'network-1', mapVersion: 7 })
+  })
+
+  it('propagates the caller correlationId into the published payload and envelope', async () => {
+    // Core 审计与 M-Net 事件必须共享同一条链路 id：removeMember 透传的 correlationId
+    // 不能被 map 刷新路径丢弃或替换成本地随机值。
+    const { deps, published } = createDeps()
+
+    await refreshNetworkMap(deps, 'network-1', 'corr-from-caller')
+
+    expect(published).toHaveLength(1)
+    expect(published[0]?.payload).toMatchObject({ correlationId: 'corr-from-caller' })
+    expect(published[0]?.correlationId).toBe('corr-from-caller')
   })
 
   it('is a no-op on an empty member set (legal last-member removal must not fail)', async () => {

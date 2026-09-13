@@ -1590,8 +1590,8 @@ Reopen trigger:
 
 ### DFW-032: Same-Host Fleet Operator Tooling And Member Lifecycle Hygiene
 
-Status: partially resolved（2026-09-11）——正确性缺陷（无效占位公钥、生产接线缺失、
-relay/空 map/锁泄漏）已修复；剩余的 heartbeat 驱动自动清理与 correlationId 透传仍 deferred。
+Status: partially resolved（2026-09-11，续 2026-09-13）——正确性缺陷（无效占位公钥、生产接线缺失、
+relay/空 map/锁泄漏）与 correlationId 透传已修复；剩余的 heartbeat 驱动自动清理仍 deferred。
 
 Owner: M-Net / node-agent.
 
@@ -1650,6 +1650,16 @@ Resolved now (2026-09-11, 续批):
 - Member removal no longer deletes the node-scoped sidecar desired config until
   the node has left every network.
 
+Resolved now (2026-09-13):
+
+- End-to-end correlationId propagation for the M-Net network-mutation port family:
+  Core now sends `auth.correlationId` as `x-correlation-id` on the internal
+  member-removal port, M-Net extracts it via `correlationIdFromHeader`, and
+  `removeMember` threads it into the post-commit map refresh, so Core Audit and
+  the resulting `mnet.network_map.published.v0` event share one chain (the local
+  `crypto.randomUUID()` fallback remains for direct callers without a header).
+  The remaining network-mutation routes are covered by PR-B's event-intent rework.
+
 Still deferred:
 
 - Automated re-render/purge driven by heartbeat expiry: ghost membership rows are
@@ -1658,16 +1668,12 @@ Still deferred:
   `network remove-member` or a future approved lifecycle sweep. `offline` is
   deliberately kept out of the map-exclusion seam because `listMembers` also
   feeds operator listings, topology, and migration offline assessment.
-- End-to-end correlationId propagation for the M-Net network-mutation port family:
-  the refresh currently generates a local correlationId (marked `FIXME` in
-  `network-service.ts`); threading it through would be a cross-service contract
-  change.
 
 Reason deferred:
 
-- Both remaining items are operator-policy/lifecycle-hygiene work beyond the
-  smoke scope; the correctness defects (invalid placeholder keys, dead endpoints)
-  are resolved above.
+- The remaining item is operator-policy/lifecycle-hygiene work beyond the smoke
+  scope; the correctness defects (invalid placeholder keys, dead endpoints) are
+  resolved above.
 
 
 ---

@@ -219,7 +219,11 @@ export function networksRoutes(deps: CoreDeps) {
             })
 
             const removed = await unwrapNetworkResult(
-              await deps.mNet.removeMember({ networkId: params.id, nodeId: params.nodeId }),
+              await deps.mNet.removeMember({
+                networkId: params.id,
+                nodeId: params.nodeId,
+                correlationId: auth.correlationId
+              }),
               auth.correlationId
             )
 

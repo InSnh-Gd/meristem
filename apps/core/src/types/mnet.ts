@@ -24,6 +24,7 @@ export type MNetPort = {
   removeMember(input: {
     networkId: string
     nodeId: string
+    correlationId: string
   }): Promise<Result<{ networkId: string; nodeId: string }, ServiceError>>
   updateNetworkMetadata(input: {
     networkId: string

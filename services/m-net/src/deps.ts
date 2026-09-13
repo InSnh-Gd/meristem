@@ -50,6 +50,7 @@ export type MNetAppDeps = {
   removeMember?: (input: {
     networkId: string
     nodeId: string
+    correlationId?: string
   }) => Promise<MNetServiceResult<{ networkId: string; nodeId: string }>>
   updateNetworkMetadata?: (input: {
     networkId: string

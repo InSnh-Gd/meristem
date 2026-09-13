@@ -939,6 +939,64 @@ Rules:
 - `name` is the identity key and cannot be changed.
 - `displayName` is optional network metadata.
 
+### 6.2 M-Net Internal Network Port Family (Core -> M-Net)
+
+M-Net owns the authoritative network state. Core reaches it only over the loopback
+internal HTTP boundary under `/internal/v0/networks*`; Core must not import M-Net
+stores or tables. These routes require `x-meristem-internal-token` (missing or
+invalid returns `401 internal.unauthorized`). They are private: APISIX and the
+public edge must never expose `/internal/v0/*`.
+
+Request/response bodies are the same logical network shapes documented in
+section 6. Error bodies use the common `ApiError` envelope.
+
+| Method | Path | Success shape |
+|--------|------|---------------|
+| `POST` | `/internal/v0/networks` | `{ network: MNetwork }` |
+| `GET` | `/internal/v0/networks` | `{ networks: NetworkSummary[] }` |
+| `POST` | `/internal/v0/networks/:id/members` | `{ member: MNetworkMember }` |
+| `GET` | `/internal/v0/networks/:id/members` | `{ members: MNetworkMember[] }` |
+| `DELETE` | `/internal/v0/networks/:id` | `{ deleted: true, networkId: string }` |
+| `DELETE` | `/internal/v0/networks/:id/members/:nodeId` | `{ networkId: string, nodeId: string }` |
+| `PATCH` | `/internal/v0/networks/:id` | `{ network: MNetwork }` |
+
+Request bodies:
+
+```ts
+type InternalCreateNetworkBody = {
+  name: string;
+  profileVersion?: string;
+};
+type InternalJoinNetworkBody = { nodeId: string };
+type InternalUpdateNetworkMetadataBody = { displayName?: string };
+```
+
+`x-correlation-id` propagation: every mutation route accepts an optional
+`x-correlation-id` header. When present, M-Net uses it as the correlation id for
+the side effects the mutation triggers (signed network-map re-materialization and
+the resulting `mnet.network_map.published.v0` event). When absent, M-Net
+generates one. Core always sends the request's `auth.correlationId`, so Core
+Audit (written before the mutation) and M-Net events (published after it) share
+one chain — the same convention M-Deploy uses.
+
+Error status mapping (`statusCodeForMNetError`):
+
+| M-Net code | HTTP |
+|------------|------|
+| `network.not_found`, `network.member_not_found`, `node.not_found`, `task.not_found` | `404` |
+| `network.conflict`, `network.members_present`, `network.profile_not_disabled`, retained-ledger conflicts (`network.closed_loop_facts_present`, `network.switch_membership_present`, `network.operation_suspended`), `network.stem_required`, `network.no_runtime_keys`, key/node validation codes | `409` |
+| anything else (unavailable dependency, unexpected failure) | `503` |
+
+Rules:
+
+- `DELETE /internal/v0/networks/:id` returns `network.not_found` when the row is
+  absent; the public Core `DELETE` decides whether that surfaces as a `404` or an
+  idempotent success.
+- `DELETE /internal/v0/networks/:id/members/:nodeId` returns the removed
+  `{ networkId, nodeId }`; re-rendering the signed map is a post-commit
+  best-effort side effect and does not change the response.
+- `PATCH` only updates metadata; `name` is immutable.
+
 ### Node runtime: tunnel status and leave
 
 Node-facing runtime routes authenticate with the node runtime token:

@@ -81,7 +81,16 @@ export function createHttpMNetPort() {
   const memberDeleteRoutes = client.internal.v0.networks as unknown as Record<
     string,
     {
-      members: Record<string, { delete(): Promise<EdenEnvelope<unknown>> }>
+      members: Record<
+        string,
+        {
+          // Eden 的 headers 走第二个 options 参数；声明进双重断言类型以透传 correlationId。
+          delete(
+            params?: Record<string, never>,
+            options?: { headers?: Record<string, string> }
+          ): Promise<EdenEnvelope<unknown>>
+        }
+      >
     }
   >
 
@@ -249,7 +258,7 @@ export function createHttpMNetPort() {
         )
       )
     },
-    async removeMember(input: { networkId: string; nodeId: string }) {
+    async removeMember(input: { networkId: string; nodeId: string; correlationId: string }) {
       return runServiceEffect(
         requireServiceRoute(memberDeleteRoutes[input.networkId], {
           code: 'mnet.unavailable',
@@ -263,10 +272,16 @@ export function createHttpMNetPort() {
                 message: 'M-Net member route unavailable'
               } as const)
             }
-            return tryServiceCall(() => memberRoute.delete(), {
-              code: 'mnet.unavailable',
-              message: 'M-Net unavailable'
-            })
+            // 成员移除会触发 M-Net 重新物化签名 map 并发布事件，correlationId 必须经
+            // header 端到端透传，才能与 Core 侧审计/事件同一条链路关联。
+            return tryServiceCall(
+              () =>
+                memberRoute.delete({}, { headers: { 'x-correlation-id': input.correlationId } }),
+              {
+                code: 'mnet.unavailable',
+                message: 'M-Net unavailable'
+              }
+            )
           }),
           Effect.flatMap(response =>
             response.error || !response.data

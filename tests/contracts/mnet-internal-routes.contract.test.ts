@@ -330,7 +330,28 @@ describe('M-Net internal network lifecycle mutations', () => {
 
     expect(response.status).toBe(200)
     await expectJson(response, { networkId: 'network-1', nodeId: 'leaf-1' })
-    expect(calls.removeMember).toEqual([{ networkId: 'network-1', nodeId: 'leaf-1' }])
+    // 未携带 x-correlation-id 时入口补一个随机值：调用方语义不变，链路 id 仍存在。
+    expect(calls.removeMember).toHaveLength(1)
+    expect(calls.removeMember[0]).toMatchObject({ networkId: 'network-1', nodeId: 'leaf-1' })
+    expect(calls.removeMember[0]?.correlationId).toBeTruthy()
+  })
+
+  it('DELETE /internal/v0/networks/:id/members/:nodeId forwards x-correlation-id to the service', async () => {
+    const { app, calls } = createRouteFixture()
+
+    const response = await app.handle(
+      new Request('http://localhost/internal/v0/networks/network-1/members/leaf-1', {
+        method: 'DELETE',
+        headers: { ...internalHeaders(), 'x-correlation-id': 'corr-passthrough-1' }
+      })
+    )
+
+    expect(response.status).toBe(200)
+    await expectJson(response, { networkId: 'network-1', nodeId: 'leaf-1' })
+    // Core 审计（auth.correlationId）与 M-Net map 刷新/事件必须共享同一条链路 id。
+    expect(calls.removeMember).toEqual([
+      { networkId: 'network-1', nodeId: 'leaf-1', correlationId: 'corr-passthrough-1' }
+    ])
   })
 
   it('PATCH /internal/v0/networks/:id updates network metadata', async () => {

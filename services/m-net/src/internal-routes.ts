@@ -1,4 +1,5 @@
 import { Elysia, t } from 'elysia'
+import { correlationIdFromHeader } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
 import {
   fetchLatestNetworkMap,
@@ -217,7 +218,10 @@ export function createInternalRoutes(
         return withExtractedSpan('m-net', 'm-net.network.member.remove', headers, async () => {
           const result = await removeMember({
             networkId: params.id,
-            nodeId: params.nodeId
+            nodeId: params.nodeId,
+            // 调用方（Core）经 x-correlation-id 透传同一条链路；缺失时在此补值，
+            // 保证成员移除触发的 map 刷新与上游审计/事件可关联。
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
           })
           return result.ok
             ? { networkId: result.value.networkId, nodeId: result.value.nodeId }
