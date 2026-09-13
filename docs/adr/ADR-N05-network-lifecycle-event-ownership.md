@@ -43,12 +43,18 @@ M-Net 承担：
 
 - **权威状态变更**（现有事务）；
 - **事件意图与状态变更原子提交**；
-- **事件发布**（outbox + 周期性补发 sweep，at-least-once）。
+- **事件发布**：提交后立即 best-effort 投递一次，失败则留在 durable pending intent；
+  30s sweep 作为兜底重试（at-least-once）。
 
 审计（Core，`auth.correlationId`）与事件（M-Net，透传的 `correlationId`）用同一个
 correlationId 关联——这是 PR-A 的 correlationId 透传成为本次迁移前置的原因。
 
 ### 2. Durable outbox 而非内联发布
+
+采用与 M-Deploy（`event-outbox.ts`）和 M-Net closed-loop（`dispatchPendingEvents`）一致的
+「commit-then-dispatch」序列：先在同一事务里提交权威变更与 event-intent，提交后立即尝试投递，
+投递失败只留 pending，由周期性 sweep 补发。sweep 是兜底，不是唯一投递路径——否则正常路径的
+事件延迟会退化到最多一个 sweep 周期。
 
 新增两张表：
 
@@ -60,6 +66,9 @@ correlationId 关联——这是 PR-A 的 correlationId 透传成为本次迁移
 `network_id` **不得** FK 到 `networks.id`：删除 intent 与 tombstone 必须活过网络行本身，
 否则删除网络时会因外键违例无法记录删除事件。两张表永不 GC（tombstone 用于区分「删过」与
 「从未存在」，是 DELETE 幂等语义的权威判据）。
+
+tombstone 必须是独立表而非复用 intent 台账：DELETE 幂等判据是同步读，其正确性不能依赖
+事件投递状态，也不能被未来 intent 的 GC 策略破坏。
 
 事件 envelope 的 `source` 由 `meristem-core` 改为 `m-net`。已查证无消费方硬编码依赖该字段。
 
@@ -77,8 +86,10 @@ correlationId 关联——这是 PR-A 的 correlationId 透传成为本次迁移
 
 使能：
 
-- 网络生命周期事件不再因 Core 崩溃或客户端不重试而丢失；补发由 30s sweep 保证。
-- 权威状态与事件在同一事务边界内一致提交，消除了「已提交变更无事件」的窗口。
+- 网络生命周期事件不再因 Core 崩溃或客户端不重试而丢失：正常路径提交后立即投递，
+  投递失败由 30s sweep 以 at-least-once 最终补发（延迟上界为一个 sweep 周期）。
+- 权威状态与事件在同一事务边界内一致提交，消除了「变更已提交但无事件记录」的窗口
+  （事件记录随事务落库；投递延迟是另一个问题，见上）。
 - `network_id` 软引用使删除事件与 tombstone 在网络行消失后仍可持久记录。
 
 阻止 / 成本：
@@ -88,10 +99,24 @@ correlationId 关联——这是 PR-A 的 correlationId 透传成为本次迁移
   不设兼容窗口）。
 - 新增一张 outbox 表与一张 tombstone 表的运维成本，以及 30s 补发 sweep 的常驻循环。
 - `replayed` 字段移除属 payload 形状 breaking；按 CONTRACT-VERSIONING 迁移清单登记。
+- 这是本仓第三个同形状的 durable outbox dispatcher（M-Deploy、M-Net closed-loop、网络生命周期）。
+  出现第四个领域 outbox 时应抽取共享 dispatcher，而不是继续复制。
 
 ## 重访条件
 
 - 引入外部部署用户，需要为 REST `503 → 200` 语义变更提供兼容窗口时。
-- 事件量增长到需要按 network 维度限流 / 分区，或 outbox 需要 GC 策略时。
+- 事件量增长到需要按 network 维度限流 / 分区，或 outbox 需要 GC 策略、死信 / 告警时。
+- M-Net 需要多副本运行：当前 sweep 无租约与 `SKIP LOCKED` 声明，多副本会重复投递
+  （在 at-least-once 语义内，但需要显式裁决）。
+- 事件新鲜度成为用户可见 SLA，需要收紧「一个 sweep 周期」的延迟上界时。
 - 出现除 M-Net 之外的权威变更所有者（例如某功能域服务也直接改网络状态），需要重新裁决
   「变更 => 事件」的单一所有者边界时。
+- 出现第四个领域 outbox，需要抽取共享 dispatcher 时。
+
+已知未决项（登记在 DEFERRED-WORK DFW-050，不阻塞本决策）：
+
+- 投递侧无并发声明（无 `FOR UPDATE SKIP LOCKED`、`markEventIntentPublished` 无
+  `status='pending'` 谓词），因此内联投递与 sweep 重叠、或多副本运行时会出现重复投递；
+  在 at-least-once 语义内，但消费方只能按领域键去重（重试会生成新的 envelope id）。
+- 无退避/死信/告警，也无投递 deadline；持续失败的 intent 会被无限重试，
+  EventBus 挂起可能拖住变更响应。

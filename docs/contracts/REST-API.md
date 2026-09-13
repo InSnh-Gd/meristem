@@ -990,8 +990,9 @@ Error status mapping (`statusCodeForMNetError`):
 Rules:
 
 - `DELETE /internal/v0/networks/:id` returns `network.not_found` when the row is
-  absent; the public Core `DELETE` decides whether that surfaces as a `404` or an
-  idempotent success.
+  absent **and** no deletion tombstone exists for that id. A tombstoned id returns
+  success (`{ deleted: true }`) so the public Core `DELETE` can stay idempotent;
+  the public route maps a genuine `network.not_found` to `404`.
 - `DELETE /internal/v0/networks/:id/members/:nodeId` returns the removed
   `{ networkId, nodeId }`; re-rendering the signed map is a post-commit
   best-effort side effect and does not change the response.

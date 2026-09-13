@@ -105,8 +105,7 @@ describe('M-Net network lifecycle EventBus unavailability', () => {
       },
       recordEventIntentFailure: async (_intentId, errorCode) => {
         failures.push(errorCode)
-      },
-      hasTombstone: async () => false
+      }
     }
 
     // EventBus 不可用：不抛错、不伪造成功，intent 保持 pending 并记录 lastError。

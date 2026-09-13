@@ -1,8 +1,5 @@
-import { asc, eq } from 'drizzle-orm'
-import {
-  mnetNetworkEventIntents,
-  mnetNetworkTombstones
-} from '../../../../packages/db/src/schema.ts'
+import { and, asc, eq } from 'drizzle-orm'
+import { mnetNetworkEventIntents } from '../../../../packages/db/src/schema.ts'
 import type { ProfileEvents } from '../event-log-factories.ts'
 import type { MNetDb } from '../types.ts'
 
@@ -87,11 +84,13 @@ export function networkEventIntentRow(intent: MNetNetworkEventIntent): MNetNetwo
 }
 
 export type MNetNetworkEventOutboxStore = {
-  listPendingEventIntents(): Promise<MNetNetworkEventIntent[]>
+  /**
+   * 列出 pending intent。传 intentId 时只取该条：变更提交后的内联投递必须限定到刚写入的
+   * intent，否则请求延迟会被整个 pending 积压（含毒 intent）拖累，见 DFW-050。
+   */
+  listPendingEventIntents(intentId?: string): Promise<MNetNetworkEventIntent[]>
   markEventIntentPublished(intentId: string, publishedAt: string): Promise<void>
   recordEventIntentFailure(intentId: string, errorCode: string): Promise<void>
-  /** 删除墓碑：区分「删过」与「从未存在」，是 DELETE 幂等语义的权威判据。 */
-  hasTombstone(networkId: string): Promise<boolean>
 }
 
 function rowToIntent(row: {
@@ -121,11 +120,17 @@ function rowToIntent(row: {
 /** PostgreSQL 权威 outbox：与网络变更同库，变更事务直接写入本表。 */
 export function createPgMNetNetworkEventOutboxStore(db: MNetDb): MNetNetworkEventOutboxStore {
   return {
-    async listPendingEventIntents() {
+    async listPendingEventIntents(intentId) {
+      const predicate = intentId
+        ? and(
+            eq(mnetNetworkEventIntents.status, 'pending'),
+            eq(mnetNetworkEventIntents.intentId, intentId)
+          )
+        : eq(mnetNetworkEventIntents.status, 'pending')
       const rows = await db
         .select()
         .from(mnetNetworkEventIntents)
-        .where(eq(mnetNetworkEventIntents.status, 'pending'))
+        .where(predicate)
         .orderBy(asc(mnetNetworkEventIntents.createdAt))
       return rows.map(rowToIntent)
     },
@@ -140,41 +145,6 @@ export function createPgMNetNetworkEventOutboxStore(db: MNetDb): MNetNetworkEven
         .update(mnetNetworkEventIntents)
         .set({ lastError: errorCode })
         .where(eq(mnetNetworkEventIntents.intentId, intentId))
-    },
-    async hasTombstone(networkId) {
-      const [row] = await db
-        .select({ networkId: mnetNetworkTombstones.networkId })
-        .from(mnetNetworkTombstones)
-        .where(eq(mnetNetworkTombstones.networkId, networkId))
-        .limit(1)
-      return row !== undefined
-    }
-  }
-}
-
-/** 测试与非数据库组合使用的内存 outbox；语义与 pg 实现一致。 */
-export function createInMemoryMNetNetworkEventOutboxStore(): MNetNetworkEventOutboxStore {
-  const intents = new Map<string, MNetNetworkEventIntent>()
-  const tombstones = new Set<string>()
-  return {
-    async listPendingEventIntents() {
-      return [...intents.values()]
-        .filter(intent => intent.status === 'pending')
-        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-        .map(intent => structuredClone(intent))
-    },
-    async markEventIntentPublished(intentId, publishedAt) {
-      const intent = intents.get(intentId)
-      if (!intent) throw new Error(`network event intent not found: ${intentId}`)
-      intents.set(intentId, { ...intent, status: 'published', publishedAt, lastError: undefined })
-    },
-    async recordEventIntentFailure(intentId, errorCode) {
-      const intent = intents.get(intentId)
-      if (!intent) throw new Error(`network event intent not found: ${intentId}`)
-      intents.set(intentId, { ...intent, lastError: errorCode })
-    },
-    async hasTombstone(networkId) {
-      return tombstones.has(networkId)
     }
   }
 }
@@ -202,16 +172,20 @@ function eventType(subject: string): string {
 }
 
 /**
- * 补发 pending 的网络生命周期事件（at-least-once）。
- * 投递失败保留 pending 并记录 lastError，由 startup 的周期性 sweep 重试；
- * 已提交的权威变更不因投递失败被改写，因此这里只降级为 pending + 告警。
+ * 投递 pending 的网络生命周期事件（at-least-once）。
+ * 传 intentId 时只投递该条：变更提交后的内联投递走这条路径，把请求延迟约束在刚写入的
+ * intent 上，不被整个 pending 积压拖累（对齐 M-Deploy / closed-loop 的按操作范围投递）。
+ * 不传时投递全部 pending，由 startup 的周期性 sweep 作为失败重试兜底。
+ * 投递失败保留 pending 并记录 lastError；已提交的权威变更不因投递失败被改写，
+ * 因此这里只降级为 pending + 告警。
  */
 export async function dispatchPendingNetworkEvents(
-  deps: NetworkEventDispatchDeps
+  deps: NetworkEventDispatchDeps,
+  intentId?: string
 ): Promise<NetworkEventDispatchResult> {
   let pending: MNetNetworkEventIntent[]
   try {
-    pending = await deps.store.listPendingEventIntents()
+    pending = await deps.store.listPendingEventIntents(intentId)
   } catch (error) {
     process.stderr.write(`m-net: network event intent read failed - ${errorMessage(error)}\n`)
     return { status: 'pending', pendingSubjects: [] }

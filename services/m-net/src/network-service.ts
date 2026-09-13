@@ -36,6 +36,13 @@ type NetworkServiceDeps = {
   globalDefaultsStore?: GlobalDefaultsStore
   /** 成员变更后刷新签名网络地图；由启动装配注入，测试可省略。 */
   refreshNetworkMap?: (networkId: string, correlationId: string) => Promise<void>
+  /**
+   * 变更事务提交后立即投递一次该变更的事件意图；由启动装配注入，测试可省略。
+   * sweep 仍是失败重试的兜底，但内联投递把正常路径的事件延迟从「最多一个 sweep 周期」
+   * 拉回即时（对齐 M-Deploy / closed-loop 的 commit-then-dispatch 先例）。
+   * 入参是本次变更刚写入的 intentId，投递范围因此不随 pending 积压扩大。
+   */
+  dispatchEvents?: (intentId: string) => Promise<void>
 }
 
 /**
@@ -106,8 +113,25 @@ export function createNetworkService({
   db,
   profileStore,
   globalDefaultsStore,
-  refreshNetworkMap
+  refreshNetworkMap,
+  dispatchEvents
 }: NetworkServiceDeps) {
+  /**
+   * 变更提交后的 best-effort 内联投递：只投递刚写入的那条 intent，把请求延迟约束在本次变更，
+   * 不被整个 pending 积压拖累。投递失败只留 pending 交给 sweep，绝不能把已提交的变更翻成错误。
+   * dispatchEvents 缺失时（单测/窄装配）静默跳过。
+   */
+  async function dispatchCommittedEvent(intentId: string): Promise<void> {
+    if (!dispatchEvents) return
+    try {
+      await dispatchEvents(intentId)
+    } catch (error) {
+      process.stderr.write(
+        `m-net: network event inline dispatch degraded - ${error instanceof Error ? error.message : String(error)}\n`
+      )
+    }
+  }
+
   async function createNetwork(
     input: CreateNetworkRequest & { correlationId?: string }
   ): Promise<MNetServiceResult<MNetwork>> {
@@ -143,10 +167,13 @@ export function createNetworkService({
       await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
     })
     // profile 状态是网络生命周期的从属行，失败不回滚已提交的网络行（既有语义）。
+    // 先写状态再投递：消费方对 mnet.network.created.v0 的即时反应不应观察到状态行缺失。
     await profileStore.setNetworkState(network.id, {
       profileVersion: network.profileVersion,
       status: 'disabled'
     })
+    // 提交后只内联投递本次变更的 intent，避免正常路径的事件延迟到下个 sweep。
+    await dispatchCommittedEvent(intent.intentId)
     return ok(
       mapNetwork({
         ...network,
@@ -257,6 +284,8 @@ export function createNetworkService({
       })
       await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
     })
+    // 提交后只内联投递本次变更的 intent，避免正常路径的事件延迟到下个 sweep。
+    await dispatchCommittedEvent(intent.intentId)
 
     return ok({
       networkId: input.networkId,
@@ -284,16 +313,26 @@ export function createNetworkService({
     networkId: string
     correlationId?: string
   }): Promise<MNetServiceResult<{ networkId: string }>> {
-    return db.transaction(async tx => {
+    const outcome = await db.transaction(async tx => {
       const precondition = await evaluateNetworkDeletion(tx, input.networkId)
-      if (precondition.kind === 'idempotent') return ok({ networkId: input.networkId })
+      // 幂等重放（墓碑已存在）不写新 intent：删除事件已由 outbox 负责，不需要也不应再投递。
+      if (precondition.kind === 'idempotent') {
+        return { result: ok({ networkId: input.networkId }), intentId: null }
+      }
       if (precondition.kind === 'failure') {
-        return err(precondition.error.code, precondition.error.message)
+        return {
+          result: err(precondition.error.code, precondition.error.message),
+          intentId: null
+        }
       }
       await cascadeDeleteNetworkState(tx, input.networkId)
-      await writeNetworkDeletionArtifacts(tx, input.networkId, input.correlationId)
-      return ok({ networkId: input.networkId })
+      const intentId = await writeNetworkDeletionArtifacts(tx, input.networkId, input.correlationId)
+      return { result: ok({ networkId: input.networkId }), intentId }
     })
+    // 仅在真正提交了删除时投递，且只投递本次变更的 intent：
+    // 失败/门禁拒绝路径不应触发任何投递（否则反复的 409 DELETE 会反复扫描 outbox）。
+    if (outcome.intentId) await dispatchCommittedEvent(outcome.intentId)
+    return outcome.result
   }
 
   /**
@@ -310,6 +349,8 @@ export function createNetworkService({
     /** 调用方经 header 透传的链路 id；缺失时为兼容旧调用方而本地补值。 */
     correlationId?: string
   }): Promise<MNetServiceResult<{ networkId: string; nodeId: string }>> {
+    // 事务内写入的移除事件意图 id；事务成功提交后据此只投递这一条。
+    let removedIntentId: string | undefined
     const result = await db.transaction(async tx => {
       // 与 deleteNetwork 同锁序：对 networks 行加 FOR UPDATE，与并发 joinNetwork 插入
       // membership 为满足外键取的 KEY SHARE 互斥，保证「存在性检查 → 剩余成员读数 →
@@ -374,6 +415,7 @@ export function createNetworkService({
         removedAt.toISOString()
       )
       await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
+      removedIntentId = intent.intentId
 
       return ok({ networkId: input.networkId, nodeId: input.nodeId })
     })
@@ -386,6 +428,8 @@ export function createNetworkService({
     if (result.ok && refreshNetworkMap) {
       await refreshNetworkMap(input.networkId, input.correlationId ?? crypto.randomUUID())
     }
+    // 成员移除事件已随事务提交；提交后只内联投递本次变更的 intent，sweep 作为失败兜底。
+    if (result.ok && removedIntentId) await dispatchCommittedEvent(removedIntentId)
 
     return result
   }

@@ -39,7 +39,8 @@ States:
 
 (DFW-031 does not exist — the register's numbering skips it. New entries DFW-043–048 are
 registered below and do not count toward the original 41; DFW-049 is registered on
-2026-09-12 by the PR review follow-up and likewise does not count toward the 41.)
+2026-09-12 by the PR review follow-up, and DFW-050 on 2026-09-13 by the ADR-N05 review
+follow-up; both likewise do not count toward the 41.)
 
 Measured evidence (re-run on 2026-09-11, not carried over from prior prose):
 
@@ -1903,3 +1904,54 @@ Required before implementation:
 Reopen trigger:
 
 - 启用生产 OIDC 登录（`authMode: 'oidc'`）之前必须满足。
+
+---
+
+### DFW-050: Network Event Outbox Delivery Concurrency, Retention, And Poison Intents
+
+Status: deferred — registered 2026-09-13 by ADR-N05 review follow-up.
+
+Owner: M-Net.
+
+Source: `services/m-net/src/data-plane/network-event-outbox.ts`,
+`services/m-net/src/startup.ts`, `docs/adr/ADR-N05-network-lifecycle-event-ownership.md`,
+`docs/data/POSTGRES-SCHEMA.md`。
+
+问题描述:
+
+- `mnet_network_event_intents` 与 `mnet_network_tombstones` 永不 GC（ADR-N05 有意为之：
+  tombstone 是 DELETE 幂等判据，intent 是 at-least-once 投递凭据）。当前无保留策略、
+  无归档、无容量上界。
+- 无死信路径：某条 intent 若永久投递失败（subject 拼写漂移、payload 无法被消费方解码），
+  会被永久重试，只有 `last_error` 与一行 stderr，无尝试计数、无退避、无告警。
+  变更提交后的内联投递已按 intentId 限定范围，因此毒 intent 不再拖累正常变更的请求延迟；
+  但 sweep 仍会对它每 30s 重试一次。
+- 投递无并发声明：`listPendingEventIntents` 不带 `SELECT ... FOR UPDATE SKIP LOCKED`，
+  `markEventIntentPublished` 也不带 `status = 'pending'` 守卫。因此**即使单副本**，内联投递
+  与其自身的 30s sweep 也可以在时间上重叠，对同一条 intent 各投递一次；多副本时每个副本
+  再各自叠加。重复投递在 at-least-once 语义内，但每次重试都会生成新的 envelope `id`
+  （`createEventEnvelope` 每次调用生成随机 id），消费方无法靠事件 id 去重，只能依赖领域键。
+- 无超时：dispatch 调用的 EventBus HTTP 边界（`packages/internal-http/src/index.ts`）只加
+  header，不设 deadline；EventBus 挂起时内联投递会拖住变更响应，直到该请求超时/放弃。
+
+Reason deferred:
+
+- 单实例 v0.2 下这些都不构成正确性缺陷：intent 量小、投递正常即出 pending 集、重复投递在
+  at-least-once 语义内，且内联投递已限定到本次变更的 intent，不再被积压放大。
+- 上线多副本（ADR-P04 Full-HA 拓扑）前必须处置并发声明，否则重复投递随副本数放大。
+
+Required before implementation:
+
+- 为投递增加 pending 声明（`FOR UPDATE SKIP LOCKED` 或 `status='pending'` 条件更新），使内联
+  投递与 sweep、以及多副本之间协作而非重复投递；`markEventIntentPublished` 以
+  `status='pending'` 为谓词。
+- 为 EventBus 投递设置 deadline/`AbortSignal`，避免上游挂起拖住变更响应。
+- 为持续失败的 intent 定义死信/告警路径（尝试计数 + 退避 + 上限后转死信并告警），
+  而不是无限重试。
+- 为 `published` intent 与 tombstone 定义保留策略（分区/归档），或显式记录「不 GC」的
+  容量假设与监控阈值。
+
+Reopen trigger:
+
+- M-Net 以多副本运行；或出现持续投递失败的 intent；或 outbox/tombstone 行数达到需运维
+  干预的量级。

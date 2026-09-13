@@ -185,12 +185,13 @@ export async function cascadeDeleteNetworkState(
 /**
  * 墓碑与删除事件意图在网络行删除之后、同一事务内写入；两者都软引用 network_id，
  * 不设外键，因此活过它们描述的网络行（ADR-N05）。
+ * @returns 刚写入的 event intent id，供调用方在提交后只投递这一条。
  */
 export async function writeNetworkDeletionArtifacts(
   tx: MNetTransaction,
   networkId: string,
   correlationId: string | undefined
-): Promise<void> {
+): Promise<string> {
   const now = new Date()
   await tx.insert(mnetNetworkTombstones).values({ networkId, deletedAt: now })
   const intent = createMNetNetworkEventIntent(
@@ -201,6 +202,7 @@ export async function writeNetworkDeletionArtifacts(
     now.toISOString()
   )
   await tx.insert(mnetNetworkEventIntents).values(networkEventIntentRow(intent))
+  return intent.intentId
 }
 
 function notFound(): MNetServiceError {

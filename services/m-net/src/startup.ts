@@ -20,7 +20,6 @@ import {
   listNetworkMembers
 } from './network-service.ts'
 import {
-  createInMemoryMNetNetworkEventOutboxStore,
   createPgMNetNetworkEventOutboxStore,
   dispatchPendingNetworkEvents
 } from './data-plane/network-event-outbox.ts'
@@ -57,10 +56,24 @@ export async function startMNetService(): Promise<void> {
     log: infrastructure.profileLog,
     networkUpdater
   })
+  // 网络生命周期事件 outbox：变更与 intent 已同事务提交，这里负责 at-least-once 投递与补发。
+  // 网络权威状态始终在 PostgreSQL（createDb 恒为 pg client），因此始终用 pg outbox；
+  // 内存实现仅供单测，若在此使用会与事务内写入的 intent 脱节、导致 sweep 永远看不到 pending。
+  const networkEventOutbox = createPgMNetNetworkEventOutboxStore(infrastructure.db)
   const networkService = createNetworkService({
     db: infrastructure.db,
     profileStore: infrastructure.profileStore,
     globalDefaultsStore: infrastructure.globalDefaultsStore,
+    // 变更事务提交后只内联投递本次写入的 intent；sweep 仍是失败重试兜底。
+    dispatchEvents: async intentId => {
+      await dispatchPendingNetworkEvents(
+        {
+          store: networkEventOutbox,
+          events: infrastructure.profileEvents
+        },
+        intentId
+      )
+    },
     // 成员变更后重新物化并发布签名 map；仅当数据面依赖齐备时注入。
     ...('kind' in nodeRuntimeDataPlaneDeps
       ? {}
@@ -68,10 +81,6 @@ export async function startMNetService(): Promise<void> {
           refreshNetworkMap: createNetworkMapRefresher(nodeRuntimeDataPlaneDeps, materializeMembers)
         })
   })
-  // 网络生命周期事件 outbox：变更与 intent 已同事务提交，这里负责 at-least-once 补发。
-  const networkEventOutbox = infrastructure.requireDatabase
-    ? createPgMNetNetworkEventOutboxStore(infrastructure.db)
-    : createInMemoryMNetNetworkEventOutboxStore()
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const nodeControlStore = createDbNodeControlStore(infrastructure.db)
   const describeForcedRelayNode = createDbForcedRelayNodeContext(infrastructure.db)

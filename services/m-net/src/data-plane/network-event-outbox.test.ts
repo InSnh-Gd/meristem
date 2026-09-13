@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  createInMemoryMNetNetworkEventOutboxStore,
   createMNetNetworkEventIntent,
   dispatchPendingNetworkEvents,
   type MNetNetworkEventIntent,
@@ -32,23 +31,24 @@ function intentFixture(overrides: IntentOverrides = {}): MNetNetworkEventIntent 
 type RecordingStore = MNetNetworkEventOutboxStore & {
   published: Array<{ intentId: string; publishedAt: string }>
   failures: Array<{ intentId: string; errorCode: string }>
+  /** 记录每次 listPendingEventIntents 收到的 intentId 过滤参数。 */
+  listedIntentIds: Array<string | undefined>
 }
 
 function recordingStore(seed: MNetNetworkEventIntent[]): RecordingStore {
   const store: RecordingStore = {
     published: [],
     failures: [],
-    async listPendingEventIntents() {
-      return seed
+    listedIntentIds: [],
+    async listPendingEventIntents(intentId) {
+      store.listedIntentIds.push(intentId)
+      return intentId ? seed.filter(intent => intent.intentId === intentId) : seed
     },
     async markEventIntentPublished(intentId, publishedAt) {
       store.published.push({ intentId, publishedAt })
     },
     async recordEventIntentFailure(intentId, errorCode) {
       store.failures.push({ intentId, errorCode })
-    },
-    async hasTombstone() {
-      return false
     }
   }
   return store
@@ -124,13 +124,30 @@ describe('network lifecycle event outbox dispatch', () => {
     expect(store.published).toEqual([])
   })
 
-  it('only dispatches pending intents from the memory store, publishing via its own state', async () => {
-    const store = createInMemoryMNetNetworkEventOutboxStore()
-    const intent = intentFixture()
-    // 内存 store 没有 commit 接口，这里通过 mark 前的失败路径验证 pending 过滤语义。
-    await expect(
-      store.markEventIntentPublished(intent.intentId, '2026-09-13T00:00:00.000Z')
-    ).rejects.toThrow('network event intent not found')
-    expect(await store.hasTombstone(intent.networkId)).toBe(false)
+  it('scopes the dispatch to a single intent id when one is supplied', async () => {
+    // 内联投递只应触碰本次变更的 intent，不能扫描整个 pending 积压（DFW-050）。
+    const created = intentFixture()
+    const deleted = intentFixture({ subject: 'mnet.network.deleted.v0', networkId: 'network-2' })
+    const store = recordingStore([created, deleted])
+    const published: string[] = []
+
+    const result = await dispatchPendingNetworkEvents(
+      {
+        store,
+        events: {
+          async publish(subject) {
+            published.push(subject)
+          }
+        }
+      },
+      deleted.intentId
+    )
+
+    expect(store.listedIntentIds).toEqual([deleted.intentId])
+    expect(result).toEqual({ status: 'published', pendingSubjects: [] })
+    expect(published).toEqual(['mnet.network.deleted.v0'])
+    expect(store.published).toEqual([
+      { intentId: deleted.intentId, publishedAt: expect.any(String) }
+    ])
   })
 })
