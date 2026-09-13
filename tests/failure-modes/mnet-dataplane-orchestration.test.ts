@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'bun:test'
-import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import type { DataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import type { DataPlaneDeps } from '@m-net/data-plane/mnet-dataplane-support.ts'
 import {
   breakGlassFailClosed,
   enableDataPlaneProfile
-} from '../../services/m-net/src/mnet-dataplane-workflows.ts'
-import { requestNetworkProfileChange } from '../../services/m-net/src/profile-enable-disable-workflows.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { CHINA_DATA_PLANE_PROFILE_VERSION } from '../../services/m-net/src/profile-workflow-types.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+} from '@m-net/data-plane/mnet-dataplane-workflows.ts'
+import { requestNetworkProfileChange } from '@m-net/profile/profile-enable-disable-workflows.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { CHINA_DATA_PLANE_PROFILE_VERSION } from '@m-net/profile/profile-workflow-types.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
+import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
 
 const members: MNetworkMember[] = [
   {
@@ -30,9 +30,27 @@ const members: MNetworkMember[] = [
   }
 ]
 
-function createDeps(overrides?: Partial<DataPlaneDeps>): DataPlaneDeps {
+async function createDeps(overrides?: Partial<DataPlaneDeps>): Promise<DataPlaneDeps> {
   const dataPlane = createInMemoryDataPlaneStores()
   const profileStore = createInMemoryProfileStore()
+
+  // DFW-032：成员必须持有真实运行时密钥才会进入渲染 map，否则 materialize 会 fail closed
+  // （network.no_runtime_keys）。这些用例关注的是其他编排行为，故先为测试成员注册密钥。
+  for (const member of members) {
+    await dataPlane.nodePublicKeys.upsert({
+      nodeId: member.nodeId,
+      keyId: `${member.nodeId}-runtime`,
+      publicKey: `${member.nodeId
+        .replace(/[^A-Za-z0-9]/g, 'A')
+        .padEnd(43, 'B')
+        .slice(0, 43)}=`,
+      fingerprint: `fp-${member.nodeId}`,
+      algorithm: 'wireguard-x25519',
+      createdAt: new Date().toISOString(),
+      rotationCounter: 0,
+      status: 'active'
+    })
+  }
 
   return {
     profileStore,
@@ -128,7 +146,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   })
 
   it('audit write failure blocks high-risk enable and leaves state unchanged', async () => {
-    const deps = createDeps({
+    const deps = await createDeps({
       log: {
         async writeTimeline() {
           /* noop */
@@ -171,7 +189,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   })
 
   it('event bus failure returns typed outcome after persistence work', async () => {
-    const deps = createDeps({
+    const deps = await createDeps({
       events: {
         async publish() {
           throw new Error('event bus offline')
@@ -202,7 +220,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   })
 
   it('writes ISO tunnel allocation timestamps during enable orchestration', async () => {
-    const base = createDeps()
+    const base = await createDeps()
     await base.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
       profileVersion: 'm-net@0.3.0',
       status: 'disabled'
@@ -242,7 +260,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   })
 
   it('assigns distinct tunnel IPs to multiple members in one enable pass', async () => {
-    const deps = createDeps()
+    const deps = await createDeps()
     await deps.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
       profileVersion: 'm-net-default@0.1.0',
       status: 'disabled'
@@ -267,7 +285,7 @@ describe('M-Net dataplane orchestration failure modes', () => {
   })
 
   it('store failure returns typed PG-like outcome', async () => {
-    const base = createDeps()
+    const base = await createDeps()
     await base.profileStore.setNetworkState('network-dataplane-orchestration-failure', {
       profileVersion: 'm-net-default@0.1.0',
       status: 'disabled'
@@ -306,8 +324,40 @@ describe('M-Net dataplane orchestration failure modes', () => {
     })
   })
 
+  it('releases the operation lock when enable fails after materialization (thrown store failure)', async () => {
+    // 回归：锁泄漏缺陷。此前只有 return 路径释放锁，materialize 之后的抛异常（如
+    // profileMigrations.upsert 抖动）会让锁在 15 分钟 TTL 内持续以 409 拒绝重试。
+    const base = await createDeps()
+    const deps: DataPlaneDeps = {
+      ...base,
+      dataPlane: {
+        ...base.dataPlane,
+        profileMigrations: {
+          ...base.dataPlane.profileMigrations,
+          async upsert() {
+            throw new Error('pg write failed after materialize')
+          }
+        }
+      }
+    }
+
+    const result = await enableDataPlaneProfile(deps, {
+      actor: 'admin',
+      networkId: 'network-dataplane-orchestration-failure',
+      reason: 'post-materialize throw',
+      profileVersion: CHINA_DATA_PLANE_PROFILE_VERSION
+    })
+
+    expect('kind' in result).toBe(true)
+    // 关键断言：失败后不得残留 active 锁。
+    const activeLock = await deps.dataPlane.operationLocks.getActiveByNetwork(
+      'network-dataplane-orchestration-failure'
+    )
+    expect(activeLock).toBeNull()
+  })
+
   it('break-glass preempts ongoing migration and forces fail-closed partition state', async () => {
-    const deps = createDeps()
+    const deps = await createDeps()
     await deps.dataPlane.operationLocks.upsert({
       networkId: 'network-dataplane-orchestration-failure',
       operationType: 'migration',

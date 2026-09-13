@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { createNodeRuntimeRoutes } from '../../services/m-net/src/node-runtime-routes.ts'
+import { createNodeRuntimeRoutes } from '@m-net/agent/node-runtime-routes.ts'
 
 const nodeId = 'leaf-tunnel-reporter'
 const checkedAt = '2026-07-24T12:00:00.000Z'

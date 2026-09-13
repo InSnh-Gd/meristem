@@ -1,13 +1,45 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
+    // 循环依赖门禁分三条规则：dependency-cruiser 不会跨规则去重匹配，因此全局 warn 规则
+    // 必须用 from.pathNot 排除 apps/core 与 services/m-net，否则同一 worker 会被双报
+    // （warn + error）并可能翻转退出码。这两个树的循环已清零（DFW-040/041），故设为 error；
+    // 其余目录保持 warn，避免把未清理的预存循环一次性变成阻塞。
     {
       name: 'no-circular',
       severity: 'warn',
       comment:
         "This dependency is part of a circular relationship. You might want to revise " +
         "your solution (i.e. use dependency inversion, make sure the modules have a single responsibility) ",
-      from: {},
+      from: {
+        pathNot: ['^apps/core/src/', '^services/m-net/src/']
+      },
+      to: {
+        circular: true
+      }
+    },
+    {
+      name: 'no-circular-core',
+      severity: 'error',
+      comment:
+        'apps/core 不允许循环依赖（DFW-040 已清零）。新增循环会让本规则以 error 失败，' +
+        '请用依赖反转或抽叶模块断开，而不是放宽规则。',
+      from: {
+        path: '^apps/core/src/'
+      },
+      to: {
+        circular: true
+      }
+    },
+    {
+      name: 'no-circular-mnet',
+      severity: 'error',
+      comment:
+        'services/m-net 不允许循环依赖（DFW-041 已清零）。新增循环会让本规则以 error 失败，' +
+        '请用依赖反转或抽叶模块断开，而不是放宽规则。',
+      from: {
+        path: '^services/m-net/src/'
+      },
       to: {
         circular: true
       }
@@ -167,18 +199,23 @@ module.exports = {
       }
     },
     {
-      name: 'no-duplicate-dep-types',
+      name: 'no-cross-service-mnet-internals',
       comment:
-        "Likely this module depends on an external ('npm') package that occurs more than once " +
-        "in your package.json i.e. bot as a devDependencies and in dependencies. This will cause " +
-        "maintenance problems later on.",
-      severity: 'warn',
-      from: {},
+        '跨服务不得深层导入 services/m-net/src 的内部模块（DFW-038 验收条件）。@m-net/* 别名是路径书写机制，' +
+        '不是接口 seam：它让内部 reach-in 看起来像官方用法。除 node-agent（依 ADR-N04 共享数据面协议常量：' +
+        'key-lifecycle / network-map-* / partition-state）外，其它服务应只经 m-net 的公开入口 ' +
+        '（app.ts / index.ts / public-types.ts / startup.ts）交互。新增合法用例时应显式加入 from.pathNot 并说明原因，' +
+        '或把共享常量上提到 packages/。',
+      severity: 'error',
+      from: {
+        // 覆盖 apps 与 services（packages 当前不依赖 m-net；若未来依赖，应经 m-net 公开入口）。
+        path: '^(apps|services)/(?!m-net/)[^/]+/src/',
+        pathNot: '^services/node-agent/src/'
+      },
       to: {
-        moreThanOneDependencyType: true,
-        // as it's common to use a devDependency for type-only imports: don't
-        // consider type-only dependencyTypes for this rule
-        dependencyTypesNot: ["type-only"]
+        // 锚定到精确文件名 + .ts 后缀，避免 `app-internal.ts` / `index-secret.ts` 这类
+        // 前缀同名文件绕过豁免列表（负向 lookahead 只做前缀匹配时会被它们逃逸）。
+        path: '^services/m-net/src/(?!app\\.ts$|index\\.ts$|public-types\\.ts$|startup\\.ts$|serve(-local)?\\.ts$)'
       }
     },
     {
@@ -255,6 +292,16 @@ module.exports = {
     }
   ],
   options: {
+    // 显式选用 swc 解析器解析 TypeScript。
+    // 背景：本仓同时安装了 typescript@6.0.3 与别名 typescript7(npm:typescript@7.0.2)；
+    // Bun 把真实的 `typescript` 包名提升到 .bun/node_modules，指向 7.0.2，超出
+    // dependency-cruiser 声明的 >=2.0.0 <7.0.0，导致 tsc 转译器不可用（isAvailable()===false），
+    // 进而 .ts/.tsx/.d.ts 全部不被解析、退化为 acorn-loose 解析原始 TS，门禁假绿。
+    // swc 解析器使用独立的 @swc/core（>=1 <2），不受该提升冲突影响。
+    // 已知代价：swc 提取器不产出 `type-only` 依赖类型标记（tsc 提取器 extract-typescript-deps.mjs:82,106 才有），
+    // 会使 not-to-dev-dep / no-duplicate-dep-types 的 type-only 豁免失效；实测当前无此类误报。
+    parser: 'swc',
+
     // Which modules not to follow further when encountered
     doNotFollow: {
       // path: an array of regular expressions in strings to match against

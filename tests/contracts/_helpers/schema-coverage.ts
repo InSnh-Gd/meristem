@@ -42,6 +42,11 @@ const objectFormPublishSubjectPattern = /publish\.post\(\{\s*subject:\s*['"`]([^
 const workflowSubjectOptionPattern = /requestedSubject:\s*['"`]([^'"`]+\.v\d+)['"`]/g
 // M-Deploy durable outbox intents carry the literal subject as the second argument of createMDeployEventIntent.
 const mDeployEventIntentPattern = /createMDeployEventIntent\([^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
+// M-Net network-lifecycle outbox intents (ADR-N05) carry the literal subject as the second
+// argument of createMNetNetworkEventIntent; this is the publisher-ownership signal after the
+// move from Core inline publish to M-Net durable event intents.
+const mnetNetworkEventIntentPattern =
+  /createMNetNetworkEventIntent\([^,]+,\s*['"`]([^'"`]+\.v\d+)['"`]/g
 const extensionSubjectReferencePattern = /mExtensionEventSubjects\.(\w+)/g
 
 const policyApprovalDynamicSubjects = [
@@ -166,6 +171,10 @@ export async function getActivePublisherSubjects(): Promise<Set<string>> {
         }
 
         for (const match of source.matchAll(mDeployEventIntentPattern)) {
+          subjects.add(definedMatchGroup(match))
+        }
+
+        for (const match of source.matchAll(mnetNetworkEventIntentPattern)) {
           subjects.add(definedMatchGroup(match))
         }
 

@@ -14,6 +14,7 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'approval.not_found':
     case 'profile.not_found':
     case 'network.not_found':
+    case 'network.member_not_found':
     case 'node.not_found':
     case 'task.not_found':
     case 'deploy.not_found':
@@ -29,6 +30,12 @@ export function statusCodeForServiceError(code: string): 403 | 404 | 409 | 503 {
     case 'profile.not_enabled':
     case 'network.conflict':
     case 'network.stem_required':
+    case 'network.members_present':
+    case 'network.no_runtime_keys':
+    case 'network.profile_not_disabled':
+    case 'network.closed_loop_facts_present':
+    case 'network.switch_membership_present':
+    case 'network.operation_suspended':
     case 'node.invalid_kind':
     case 'node.invalid_status':
     case 'node.unreachable':

@@ -455,4 +455,35 @@ describe('OIDC local IAM BFF failure modes', () => {
     })
     expect(environment.auditFacts.map(fact => fact.action)).toContain('session.logout')
   })
+
+  test('concurrent first logins for the same issuer/subject collapse into one pending principal', async () => {
+    const environment = createEnvironment()
+    const identity = {
+      oidcIssuer: issuer,
+      oidcSubject: 'concurrent-first-login-subject',
+      display: { name: 'Concurrent First Login' }
+    }
+
+    // 两次并发 resolveLogin 都会先读到「绑定不存在」再各自 await 审计写；若没有去重，
+    // 两条路径都会落一条 pending principal 和一条审计事实。
+    const [first, second] = await Promise.all([
+      environment.iam.resolveLogin({ identity, correlationId: 'corr-concurrent-a' }),
+      environment.iam.resolveLogin({ identity, correlationId: 'corr-concurrent-b' })
+    ])
+
+    expect(first.ok).toBe(true)
+    expect(second.ok).toBe(true)
+    if (!first.ok || !second.ok) throw new Error('concurrent resolution failed')
+    expect(first.value.kind).toBe('pending_principal_created')
+    expect(second.value.kind).toBe('pending_principal_created')
+    const firstPrincipalId =
+      first.value.kind === 'pending_principal_created' ? first.value.principal.principalId : ''
+    const secondPrincipalId =
+      second.value.kind === 'pending_principal_created' ? second.value.principal.principalId : ''
+    expect(firstPrincipalId).not.toBe('')
+    expect(secondPrincipalId).toBe(firstPrincipalId)
+    expect(
+      environment.auditFacts.filter(fact => fact.action === 'principal.pending_created')
+    ).toHaveLength(1)
+  })
 })

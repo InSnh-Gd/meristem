@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
+import { DEFAULT_CLOCK_SKEW_MS } from '@m-net/data-plane/key-lifecycle.ts'
+import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '@m-net/data-plane/network-map-renderer.ts'
+import {
+  buildNetworkMapSignatureMetadata,
+  resolveNetworkMapSigningKeyMaterial
+} from '@m-net/data-plane/network-map-signing.ts'
 import type {
   AclRuleFromSchema as AclRule,
   NetworkMapFromSchema as NetworkMap
 } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import { DEFAULT_CLOCK_SKEW_MS } from '../../services/m-net/src/key-lifecycle.ts'
-import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../services/m-net/src/network-map-renderer.ts'
-import {
-  buildNetworkMapSignatureMetadata,
-  resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
 import {
   type AgentEnforcementState,
   applyEnforcementDecision,

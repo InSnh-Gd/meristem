@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import {
-  DEFAULT_MNET_OVERLAY_CIDR,
-  parseOverlayCidr
-} from '../../services/m-net/src/overlay-cidr.ts'
+import { DEFAULT_MNET_OVERLAY_CIDR, parseOverlayCidr } from '@m-net/data-plane/overlay-cidr.ts'
 
 type PureModule = Readonly<Record<string, unknown>>
 type PureExport = (...args: unknown[]) => unknown
@@ -147,7 +144,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('allocates non-overlapping per-network subnets inside the overlay CIDR', async () => {
-    const addressModule = await loadModule('../../services/m-net/src/overlay-cidr.ts')
+    const addressModule = await loadModule('../../services/m-net/src/data-plane/overlay-cidr.ts')
     const first = callExport<Result<AllocatedSubnet, AddressExhaustedError>>(
       addressModule,
       'allocateNetworkSubnet',
@@ -180,7 +177,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('assigns unique tunnel IPs inside one network subnet', async () => {
-    const addressModule = await loadModule('../../services/m-net/src/overlay-cidr.ts')
+    const addressModule = await loadModule('../../services/m-net/src/data-plane/overlay-cidr.ts')
     const first = assignTunnelIp(addressModule, {
       networkId: 'network-a',
       nodeId: 'node-a',
@@ -204,7 +201,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('rejects an explicitly reused tunnel IP with a typed conflict failure', async () => {
-    const addressModule = await loadModule('../../services/m-net/src/overlay-cidr.ts')
+    const addressModule = await loadModule('../../services/m-net/src/data-plane/overlay-cidr.ts')
     const existing: TunnelAssignment = {
       networkId: 'network-a',
       nodeId: 'node-a',
@@ -232,7 +229,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('returns an operator-visible exhausted failure when no tunnel IP remains', async () => {
-    const addressModule = await loadModule('../../services/m-net/src/overlay-cidr.ts')
+    const addressModule = await loadModule('../../services/m-net/src/data-plane/overlay-cidr.ts')
     const first: TunnelAssignment = {
       networkId: 'network-small',
       nodeId: 'node-a',
@@ -264,7 +261,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('validates WireGuard public key metadata and rejects malformed base64 text', async () => {
-    const keyModule = await loadModule('../../services/m-net/src/key-lifecycle.ts')
+    const keyModule = await loadModule('../../services/m-net/src/data-plane/key-lifecycle.ts')
     const valid = validateKeyMetadata(keyModule, {
       nodeId: 'node-a',
       keyId: 'key-a',
@@ -289,7 +286,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('rejects duplicate public keys with audit metadata', async () => {
-    const keyModule = await loadModule('../../services/m-net/src/key-lifecycle.ts')
+    const keyModule = await loadModule('../../services/m-net/src/data-plane/key-lifecycle.ts')
     const existing = expectValidKey(
       validateKeyMetadata(keyModule, {
         nodeId: 'node-a',
@@ -326,7 +323,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('marks keys older than the default 30-day window as rotation_due', async () => {
-    const keyModule = await loadModule('../../services/m-net/src/key-lifecycle.ts')
+    const keyModule = await loadModule('../../services/m-net/src/data-plane/key-lifecycle.ts')
     const metadata = expectValidKey(
       validateKeyMetadata(keyModule, {
         nodeId: 'node-a',
@@ -347,7 +344,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('plans a forced key rotation command with key metadata only', async () => {
-    const keyModule = await loadModule('../../services/m-net/src/key-lifecycle.ts')
+    const keyModule = await loadModule('../../services/m-net/src/data-plane/key-lifecycle.ts')
     const metadata = expectValidKey(
       validateKeyMetadata(keyModule, {
         nodeId: 'node-c',
@@ -372,7 +369,7 @@ describe('M-Net address and key lifecycle contract', () => {
   })
 
   it('rejects join and key operations when reported time exceeds five minutes of skew', async () => {
-    const keyModule = await loadModule('../../services/m-net/src/key-lifecycle.ts')
+    const keyModule = await loadModule('../../services/m-net/src/data-plane/key-lifecycle.ts')
     const result = callExport<Result<{ readonly status: 'accepted' }, ClockSkewError>>(
       keyModule,
       'gateClockSkew',

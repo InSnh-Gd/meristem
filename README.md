@@ -57,19 +57,27 @@ meristem/
 │   ├── m-cli/                 # 官方运维 CLI
 │   └── m-ui/                  # SvelteKit UI
 ├── services/
-│   ├── m-net/                 # 网络和配置文件生命周期服务
+│   ├── m-net/                 # 网络和配置文件生命周期服务（src/ 按领域分层：profile/ closed-loop/ migration/ agent/ forced-relay/ data-plane/）
 │   ├── m-eventbus/            # 事件总线接口与消息辅助库
 │   ├── m-log/                 # Timeline / Full / Audit 日志服务
 │   ├── m-policy/              # 授权与审批决策服务
 │   ├── m-task/                # 任务服务边界与任务生命周期
 │   ├── m-extension/           # 受控扩展接口
+│   ├── m-deploy/              # GitOps 部署控制与 agent 协同
 │   ├── m-ui-bff/              # 面向 UI 的后端代理
 │   └── node-agent/            # 托管节点代理运行时
 ├── packages/
+│   ├── auth/                  # JWT / OIDC / actor token 签发与校验
+│   ├── common/                # 跨包共享纯函数（Result、脱敏等）
+│   ├── config/                # 配置 schema、生命周期、版本/hash helpers
 │   ├── contracts/             # 共享 REST / Eden / Schema 契约
+│   ├── db/                    # PostgreSQL 客户端、迁移与数据库 schema
 │   ├── events/                # 事件信封与模式定义
-│   ├── config/                # 配置生命周期辅助模块与 Schema
+│   ├── internal-http/         # 内部 HTTP 客户端工厂与动态路由辅助
+│   ├── nats-rpc/              # NATS RPC 通信原语
 │   ├── policy/                # RBAC 与策略基元
+│   ├── secrets/               # 密钥管理（provider / consumer / 脱敏 / manager）
+│   ├── telemetry/             # OpenTelemetry helpers
 │   └── testing/               # 共享测试辅助与测试夹具
 ├── docs/
 │   ├── adr/                   # 架构决策记录
@@ -78,9 +86,17 @@ meristem/
 │   ├── data/                  # 状态模型与 PostgreSQL 模式文档
 │   ├── events/                # 事件目录与延迟事件差距图
 │   ├── security/              # 安全模型
-│   ├── operations/            # 运行手册与部署指南
+│   ├── operations/            # 运行手册、部署指南与生产就绪度评估
+│   ├── releases/              # 版本发布说明与操作清单
 │   ├── testing/               # 测试策略与准则
-│   └── ui/                    # SDUI 与 UI 契约文档
+│   ├── config/                # 配置生命周期与热重载
+│   ├── references/            # 上游技术快照
+│   ├── agents/                # Agent 协作说明（issue tracker / triage / domain）
+│   ├── ui/                    # SDUI 与 UI 契约文档
+│   └── archive/               # 历史文档存档（非权威）
+├── ops/                       # 部署物：compose / NixOS 模块 / 配置
+├── config/                    # 运行时部署配置（dev / compose / 生产模板）
+├── tests/                     # 契约 / 失败模式 / 集成 / e2e / perf 测试
 └── scripts/                   # 开发、部署与仓库规范脚本
 ```
 

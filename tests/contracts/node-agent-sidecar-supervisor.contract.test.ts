@@ -1,7 +1,7 @@
+import { describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'bun:test'
 import {
   createSidecarSupervisor,
   type SpawnedSidecarProcess
@@ -14,7 +14,7 @@ type FakeProcess = {
 
 function createFakeSpawn(overrides?: Partial<SpawnedSidecarProcess>) {
   const spawnedProcesses: FakeProcess[] = []
-  const spawn = (argv: string[]): SpawnedSidecarProcess => {
+  const spawn = (_argv: string[]): SpawnedSidecarProcess => {
     let exitFn: (code: number) => void = () => {}
     const exited = new Promise<number>(resolve => {
       exitFn = resolve

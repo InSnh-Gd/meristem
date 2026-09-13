@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryMNetClosedLoopStore } from '@m-net/closed-loop/closed-loop-store-memory.ts'
+import { createMNetClosedLoopService } from '@m-net/closed-loop/closed-loop-workflow.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
 import { createCoreApp } from '../../apps/core/src/app.ts'
 import { createInMemoryCoreDeps } from '../../apps/core/src/testing.ts'
 import { createLocalIamService, type LocalIamAuditFact } from '../../packages/auth/src/index.ts'
@@ -12,9 +15,6 @@ import {
   createSecretManager,
   createVaultKvV2SecretProvider
 } from '../../packages/secrets/src/index.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { createInMemoryMNetClosedLoopStore } from '../../services/m-net/src/closed-loop-store-memory.ts'
-import { createMNetClosedLoopService } from '../../services/m-net/src/closed-loop-workflow.ts'
 import {
   createInMemoryMDeployDeps,
   createMDeployApp,

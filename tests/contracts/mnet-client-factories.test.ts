@@ -4,11 +4,11 @@ import {
   createLogWriters,
   createProfileEventsClient,
   createProfileLogClient
-} from '../../services/m-net/src/event-log-factories.ts'
+} from '@m-net/event-log-factories.ts'
 import {
   createApprovalClient,
   createPolicyAuthorizeClient
-} from '../../services/m-net/src/external-client-factories.ts'
+} from '@m-net/external-client-factories.ts'
 
 function makeFetcher(handler: () => Promise<Response>): typeof fetch {
   return Object.assign(handler, { preconnect: fetch.preconnect })

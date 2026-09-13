@@ -223,7 +223,11 @@ export function handleKey(state: TuiState, key: TuiKey): { state: TuiState; comm
 
 // ── 渲染 ─────────────────────────────────────────────────────────────────
 
-/** 行内 SGR 转义（\x1b[...m），用于渲染前剥离外来颜色码。 */
+/**
+ * 行内 SGR 转义（ESC + `[`...m），用于渲染前剥离外来颜色码。
+ * 用 RegExp 构造器 + `\\u001b` 源码转义（非字面控制字符）：与 /\x1b.../g 等价，
+ * 但避开 biome 对正则字面量内控制字符的硬拦截。
+ */
 const ANSI_PATTERN = new RegExp('\\u001b\\[[0-9;?]*[A-Za-z]', 'g')
 
 const GREEN = '\x1b[32m'

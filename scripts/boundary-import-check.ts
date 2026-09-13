@@ -35,7 +35,22 @@ function toRelativePath(root: string, absolutePath: string): string {
     : absolutePath
 }
 
+/**
+ * path alias 解析：`@m-net/*` 映射到 `services/m-net/src/*`，必须与 tsconfig.base.json 的
+ * compilerOptions.paths 保持一致。若不解析别名，`@m-net/app.ts` 这类导入会被当成非相对
+ * 说明符直接跳过，导致跨服务 app.ts 边界守卫被静默绕过。
+ * 新增别名时，此处与 tsconfig.base.json 需同步。
+ */
+export const aliasTargets: ReadonlyArray<readonly [string, string]> = [
+  ['@m-net/', 'services/m-net/src/']
+]
+
 function resolveImportTarget(rootUrl: URL, file: string, specifier: string): string | null {
+  for (const [prefix, target] of aliasTargets) {
+    if (specifier.startsWith(prefix)) {
+      return `${target}${specifier.slice(prefix.length)}`
+    }
+  }
   if (!specifier.startsWith('.')) return null
   return toRelativePath(
     rootUrl.pathname.replace(/\/$/, ''),

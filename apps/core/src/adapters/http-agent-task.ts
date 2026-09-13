@@ -1,7 +1,7 @@
 import { edenTreaty } from '@elysiajs/eden'
+import type { MNetApp } from '@m-net/public-types.ts'
 import { Effect } from 'effect'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
-import type { MNetApp } from '../../../../services/m-net/src/public-types.ts'
 import {
   createInternalFetcher,
   runServiceEffect,

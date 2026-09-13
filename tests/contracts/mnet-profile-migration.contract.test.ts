@@ -176,7 +176,7 @@ type MigrationModule = {
   readonly checkMigrationEligibility: (input: EligibilityInput) => EligibilityResult
 }
 
-const migrationModulePath = '../../services/m-net/src/profile-migration.ts'
+const migrationModulePath = '../../services/m-net/src/profile/profile-migration.ts'
 
 async function loadMigrationModule(): Promise<MigrationModule> {
   try {

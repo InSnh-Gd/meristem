@@ -299,6 +299,18 @@ export const NetworkMembersResponseSchema = Schema.Struct({
 })
 export type NetworkMembersResponseFromSchema = typeof NetworkMembersResponseSchema.Type
 
+export const MNetNetworkDeleteResponseSchema = Schema.Struct({
+  deleted: Schema.Literal(true),
+  networkId: Schema.String
+})
+export type MNetNetworkDeleteResponseFromSchema = typeof MNetNetworkDeleteResponseSchema.Type
+
+export const MNetMemberRemoveResponseSchema = Schema.Struct({
+  networkId: Schema.String,
+  nodeId: Schema.String
+})
+export type MNetMemberRemoveResponseFromSchema = typeof MNetMemberRemoveResponseSchema.Type
+
 export const PolicyResultSchema = Schema.Literals([
   'allow',
   'deny',

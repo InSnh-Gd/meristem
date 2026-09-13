@@ -1,32 +1,32 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { createPgDataPlaneStores } from '@m-net/data-plane/data-plane-store-pg.ts'
+import type { DataPlaneStores } from '@m-net/data-plane/data-plane-store-types.ts'
+import {
+  createInMemoryGlobalDefaultsStore,
+  type GlobalDefaultsStore
+} from '@m-net/profile/global-defaults-store.ts'
+import { createPgGlobalDefaultsStore } from '@m-net/profile/global-defaults-store-pg.ts'
+import {
+  createInMemoryProfileDisablePolicyStore,
+  createPgProfileDisablePolicyStore,
+  type ProfileDisablePolicyStore
+} from '@m-net/profile/profile-disable-policy.ts'
+import {
+  createInMemoryProfileStore,
+  createPgProfileStore,
+  type ProfileStore
+} from '@m-net/profile/profile-store.ts'
+import {
+  createInMemorySuspendedOperationStore,
+  createPgSuspendedOperationStore,
+  type SuspendedOperationStore
+} from '@m-net/suspended-operations.ts'
 import { fromAny, fromPartial } from '@total-typescript/shoehorn'
 import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
 import { migrateFoundation } from '../../packages/db/src/migrate-foundation.ts'
 import { migrateMNetDataPlane } from '../../packages/db/src/migrate-mnet-dataplane.ts'
 import { migrateServices } from '../../packages/db/src/migrate-services.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { createPgDataPlaneStores } from '../../services/m-net/src/data-plane-store-pg.ts'
-import type { DataPlaneStores } from '../../services/m-net/src/data-plane-store-types.ts'
-import {
-  createInMemoryGlobalDefaultsStore,
-  type GlobalDefaultsStore
-} from '../../services/m-net/src/global-defaults-store.ts'
-import { createPgGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store-pg.ts'
-import {
-  createInMemoryProfileDisablePolicyStore,
-  createPgProfileDisablePolicyStore,
-  type ProfileDisablePolicyStore
-} from '../../services/m-net/src/profile-disable-policy.ts'
-import {
-  createInMemoryProfileStore,
-  createPgProfileStore,
-  type ProfileStore
-} from '../../services/m-net/src/profile-store.ts'
-import {
-  createInMemorySuspendedOperationStore,
-  createPgSuspendedOperationStore,
-  type SuspendedOperationStore
-} from '../../services/m-net/src/suspended-operations.ts'
 
 const pgAvailable = await (async () => {
   try {
@@ -363,7 +363,7 @@ describe('M-Net persistent store contract (postgres)', () => {
     if (!pgAvailable) return
     const { db, client } = createDb()
     const profileStore = createPgProfileStore(db)
-    const globalDefaultsStore = createPgGlobalDefaultsStore(db, profileStore)
+    const globalDefaultsStore = createPgGlobalDefaultsStore(db)
     const suspendedStore = createPgSuspendedOperationStore(db)
     const disablePolicyStore = createPgProfileDisablePolicyStore(db)
     const dataPlaneStores = createPgDataPlaneStores(db)

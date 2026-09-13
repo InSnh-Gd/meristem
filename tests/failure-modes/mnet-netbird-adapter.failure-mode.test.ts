@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { requireDataPlaneDeps } from '@m-net/data-plane/mnet-dataplane-support.ts'
+import { enableDataPlaneProfile } from '@m-net/data-plane/mnet-dataplane-workflows.ts'
+import { createOperationalReadModel } from '@m-net/operational-read-model.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import type { MNetworkMember } from '../../packages/contracts/src/index.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import { enableDataPlaneProfile } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
-import { requireDataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
-import { createOperationalReadModel } from '../../services/m-net/src/operational-read-model.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 
 const networkId = 'mnet-netbird-missing-secret-provider'
 const nodeId = 'stem-missing-secret-provider'
@@ -55,6 +55,22 @@ describe('failure mode: M-Net NetBird adapter activation', () => {
     await profileStore.setNetworkState(networkId, {
       profileVersion: 'm-net@0.3.0',
       status: 'disabled'
+    })
+
+    // DFW-032：成员须持有真实运行时密钥才会进入渲染 map，否则 materialize fail closed
+    // （network.no_runtime_keys）。本用例关注 adapter 降级，故先注册密钥。
+    await dataPlane.nodePublicKeys.upsert({
+      nodeId,
+      keyId: `${nodeId}-runtime`,
+      publicKey: `${nodeId
+        .replace(/[^A-Za-z0-9]/g, 'A')
+        .padEnd(43, 'B')
+        .slice(0, 43)}=`,
+      fingerprint: `fp-${nodeId}`,
+      algorithm: 'wireguard-x25519',
+      createdAt: new Date().toISOString(),
+      rotationCounter: 0,
+      status: 'active'
     })
 
     const result = await enableDataPlaneProfile(deps, {

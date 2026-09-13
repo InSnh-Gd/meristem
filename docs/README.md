@@ -28,12 +28,13 @@
 | `security/` | RBAC、策略、审计、密钥、LLM 与 Webhook 安全 | `security/SECURITY-MODEL.md` |
 | `data/` | 权威状态、事件状态、缓存、读模型与 schema 边界 | `data/STATE-MODEL.md` |
 | `config/` | 配置生命周期状态机与回滚规则 | `config/CONFIG-LIFECYCLE.md` |
-| `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md` |
+| `operations/` | 本地运行手册、部署选项、依赖、端口与故障响应 | `operations/RUNBOOK.md`、`operations/READINESS-SUMMARY.md` |
 | `releases/` | 版本发布说明与操作者清单 | `releases/MERISTEM-V02-RELEASE-NOTES.md`、`releases/MERISTEM-V02-OPERATOR-CHECKLIST.md` |
 | `testing/` | 测试策略与 CI 门禁 | `testing/TESTING.md` |
 | `ui/` | M-UI / SDUI 契约 | `ui/SDUI-SCHEMA.md` |
 | `references/` | 上游技术快照 | `references/elysiajs-latest.md`、`references/effect-latest.md`、`references/svelte-latest.md`、`references/drizzle-orm-latest.md`、`references/wasm3-latest.md` |
 | `agents/` | Agent issue tracker、分类标签与领域上下文说明 | `agents/domain.md` |
+| `archive/` | 历史文档存档：**非权威**，不属当前活跃文档集，仅供溯源参考 | `archive/README.md` |
 
 ---
 

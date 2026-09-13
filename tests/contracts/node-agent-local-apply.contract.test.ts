@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import { mkdtemp, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   buildNetworkMapSignatureMetadata,
   resolveNetworkMapSigningKeyMaterial
-} from '../../services/m-net/src/network-map-signing.ts'
+} from '@m-net/data-plane/network-map-signing.ts'
+import type { NetworkMapFromSchema as NetworkMap } from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   createInitialEnforcementState,
   type LocalOverlayEnv,

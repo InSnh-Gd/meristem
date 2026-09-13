@@ -21,6 +21,9 @@ doc-driven-ai/
 .agent-sources/
 .omo/
 .opencode
+.commandcode/
+# 内部编排目录（plan/draft 状态），不得进入源码与提交
+.zcode/
 
 # 代码图与架构分析工具
 .codegraph/

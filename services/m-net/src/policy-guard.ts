@@ -1,4 +1,4 @@
-import type { PolicyAuthorize } from './profile-workflow-types.ts'
+import type { PolicyAuthorize } from './profile/profile-workflow-types.ts'
 
 /**
  * M-Policy 授权的统一 403 收敛点。

@@ -3,7 +3,7 @@ import {
   deriveHeartbeatTransition,
   shouldTransitionOffline,
   shouldTransitionOfflineOnDisconnect
-} from '../../services/m-net/src/runtime.ts'
+} from '@m-net/runtime.ts'
 
 describe('M-Net runtime state machine', () => {
   it('does not emit extra status or reachability noise for repeated healthy heartbeats', () => {

@@ -16,7 +16,9 @@ jobs:
           - lint
           - format:check
           - typecheck
+          - depcruise
           - test
+          - test:m-ui
           - typecheck:e2e
           - typecheck:m-ui
           - oci:preflight

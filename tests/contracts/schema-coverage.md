@@ -16,19 +16,19 @@ M-Net closed-loop subjects are active through durable event intents committed wi
 | Subject | Publisher path(s) | Effect Schema |
 | --- | --- | --- |
 | `core.lifecycle.started.v0` | `apps/core/src/index.ts` | `CoreLifecycleStartedPayloadSchema` |
-| `core.lifecycle.degraded.v0` | `apps/core/src/routes/health.ts` | `CoreLifecycleDegradedPayloadSchema` |
-| `service.lifecycle.registered.v0` | `apps/core/src/routes/services.ts` | `ServiceLifecycleRegisteredPayloadSchema` |
-| `service.lifecycle.reload.requested.v0` | `apps/core/src/routes/services.ts` | `ServiceLifecycleReloadRequestedPayloadSchema` |
-| `node.registration.requested.v0` | `apps/core/src/routes/nodes.ts` | `NodeRegistrationRequestedPayloadSchema` |
-| `node.join-ticket.created.v0` | `apps/core/src/routes/nodes.ts` | `NodeJoinTicketCreatedPayloadSchema` |
-| `node.registration.accepted.v0` | `apps/core/src/routes/nodes.ts` | `NodeRegistrationAcceptedPayloadSchema` |
-| `node.role.changed.v0` | `services/m-net/src/node-control-workflow.ts` | `NodeRoleChangedPayloadSchema` |
-| `node.status.changed.v0` | `apps/core/src/routes/nodes.ts` | `NodeStatusChangedPayloadSchema` |
-| `mnet.network.created.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkCreatedPayloadSchema` |
-| `mnet.membership.joined.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipJoinedPayloadSchema` |
-| `mnet.network.deleted.v0` | `apps/core/src/routes/networks.ts` | `MNetNetworkDeletedPayloadSchema` |
-| `mnet.membership.removed.v0` | `apps/core/src/routes/networks.ts` | `MNetMembershipRemovedPayloadSchema` |
-| `mnet.reachability.changed.v0` | `services/m-net/src/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
+| `core.lifecycle.degraded.v0` | `apps/core/src/routes/health/health.ts` | `CoreLifecycleDegradedPayloadSchema` |
+| `service.lifecycle.registered.v0` | `apps/core/src/routes/service/services.ts` | `ServiceLifecycleRegisteredPayloadSchema` |
+| `service.lifecycle.reload.requested.v0` | `apps/core/src/routes/service/services.ts` | `ServiceLifecycleReloadRequestedPayloadSchema` |
+| `node.registration.requested.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeRegistrationRequestedPayloadSchema` |
+| `node.join-ticket.created.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeJoinTicketCreatedPayloadSchema` |
+| `node.registration.accepted.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeRegistrationAcceptedPayloadSchema` |
+| `node.role.changed.v0` | `services/m-net/src/agent/node-control-workflow.ts` | `NodeRoleChangedPayloadSchema` |
+| `node.status.changed.v0` | `apps/core/src/routes/node/nodes.ts` | `NodeStatusChangedPayloadSchema` |
+| `mnet.network.created.v0` | `services/m-net/src/network-service.ts` | `MNetNetworkCreatedPayloadSchema` |
+| `mnet.membership.joined.v0` | `services/m-net/src/network-service.ts` | `MNetMembershipJoinedPayloadSchema` |
+| `mnet.network.deleted.v0` | `services/m-net/src/data-plane/network-lifecycle-deletion.ts` | `MNetNetworkDeletedPayloadSchema` |
+| `mnet.membership.removed.v0` | `services/m-net/src/network-service.ts` | `MNetMembershipRemovedPayloadSchema` |
+| `mnet.reachability.changed.v0` | `services/m-net/src/agent/agent-runtime-session-lifecycle.ts` | `MNetReachabilityChangedEventPayloadSchema` |
 | `mnet.path.changed.v0` | contract-activated data-plane subject | `MNetPathChangedEventPayloadSchema` |
 | `mnet.wstunnel.fallback.changed.v0` | contract-activated data-plane subject | `MNetWstunnelFallbackChangedEventPayloadSchema` |
 | `mnet.network_map.published.v0` | contract-activated data-plane subject | `MNetNetworkMapPublishedEventPayloadSchema` |
@@ -60,7 +60,7 @@ M-Net closed-loop subjects are active through durable event intents committed wi
 | `mnet.profile.disabled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.apply_failed.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
 | `mnet.profile.enable.canceled.v0` | `services/m-net/src/app.ts` | `MNetProfileEventPayloadSchema` |
-| `mnet.profile.defaults.updated.v0` | `services/m-net/src/global-defaults-routes.ts` | `MNetProfileDefaultsUpdatedEventPayloadSchema` |
+| `mnet.profile.defaults.updated.v0` | `services/m-net/src/profile/global-defaults-routes.ts` | `MNetProfileDefaultsUpdatedEventPayloadSchema` |
 | `task.requested.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |
 | `task.queued.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |
 | `task.dispatched.v0` | `services/m-task/src/app.ts` | `TaskLifecycleEventPayloadSchema` |

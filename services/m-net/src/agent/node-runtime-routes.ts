@@ -1,0 +1,564 @@
+import { Value } from '@sinclair/typebox/value'
+import { Elysia, t } from 'elysia'
+import { extractBearerToken } from '../../../../packages/auth/src/index.ts'
+import type {
+  NetworkMapFromSchema,
+  NodeAgentRuntimeDesiredSidecar
+} from '../../../../packages/contracts/src/index.ts'
+import { tunnelHealthMutationResponseSchema } from '../closed-loop/closed-loop-route-schemas.ts'
+import type { MNetAppDeps } from '../deps.ts'
+import {
+  externalMigrationRequiredApiError,
+  isMigrationRequiredFailure
+} from '../migration/migration-required-support.ts'
+import { isProfileWorkflowFailure } from '../profile/profile-workflow-types.ts'
+import { externalApiError, statusCodeForMNetError } from '../route-helpers.ts'
+import {
+  externalWriteErrorResponses,
+  nodeIdParamsSchema,
+  nodeKeyRegistrationBodySchema,
+  nodeKeyRegistrationResponseSchema,
+  nodeTunnelStatusBodySchema,
+  nodeTunnelStatusResponseSchema
+} from '../route-schemas.ts'
+
+type NodeRuntimeContext = {
+  nodeRuntime: NonNullable<MNetAppDeps['nodeRuntime']>
+}
+
+const dependencyStateSchema = t.Union([t.Literal('ready'), t.Literal('unavailable')])
+
+const healthStatusSchema = t.Union([
+  t.Literal('unknown'),
+  t.Literal('healthy'),
+  t.Literal('degraded'),
+  t.Literal('unhealthy')
+])
+
+const runtimeStateSchema = t.Union([
+  t.Literal('install'),
+  t.Literal('configure'),
+  t.Literal('start'),
+  t.Literal('drain'),
+  t.Literal('stop')
+])
+
+const credentialStatusSchema = t.Union([
+  t.Literal('missing'),
+  t.Literal('pending'),
+  t.Literal('ready'),
+  t.Literal('expired'),
+  t.Literal('rotation_required')
+])
+
+const degradedReasonCodeSchema = t.Union([
+  t.Literal('expired_credentials'),
+  t.Literal('missing_signal'),
+  t.Literal('missing_relay'),
+  t.Literal('missing_stun'),
+  t.Literal('secret.missing'),
+  t.Literal('secret.denied'),
+  t.Literal('secret.provider_unavailable'),
+  t.Literal('secret.unsupported_backend'),
+  t.Literal('secret.stale'),
+  t.Literal('sidecar_crash'),
+  t.Literal('config_drift'),
+  t.Literal('secret_resolution_failed'),
+  t.Literal('break_glass_stop'),
+  t.Literal('profile_disabled'),
+  t.Literal('netbird.binary.invalid'),
+  t.Literal('netbird.setup_key.missing'),
+  t.Literal('netbird.start_failed'),
+  t.Literal('netbird.process.not_running'),
+  t.Literal('netbird.config_drift_repaired'),
+  t.Literal('netbird.process_restarted'),
+  t.Literal('netbird.probe.timeout'),
+  t.Literal('netbird.probe.failed'),
+  t.Literal('netbird.endpoint.unreachable')
+])
+
+const degradedReasonSchema = t.Object({
+  code: degradedReasonCodeSchema,
+  message: t.String(),
+  detail: t.Optional(t.String())
+})
+
+const nodeRuntimeStatusBodySchema = t.Object({
+  kind: t.Union([
+    t.Literal('starting'),
+    t.Literal('healthy'),
+    t.Literal('degraded'),
+    t.Literal('stopped'),
+    t.Literal('failed')
+  ]),
+  desiredState: runtimeStateSchema,
+  credentialStatus: credentialStatusSchema,
+  healthStatus: healthStatusSchema,
+  configHash: t.Optional(t.String()),
+  sidecarConfigPath: t.Optional(t.String()),
+  processRef: t.Optional(t.String()),
+  processPid: t.Optional(t.Number()),
+  processStartedAt: t.Optional(t.String()),
+  lastProbeAt: t.Optional(t.String()),
+  observedHealth: t.Optional(
+    t.Union([t.Literal('healthy'), t.Literal('degraded'), t.Literal('unknown')])
+  ),
+  degradedReason: t.Optional(degradedReasonSchema),
+  correlationId: t.String(),
+  observedAt: t.String(),
+  dependencies: t.Object({
+    signal: dependencyStateSchema,
+    relay: dependencyStateSchema,
+    stun: dependencyStateSchema
+  }),
+  degradedReasons: t.Array(degradedReasonSchema),
+  credentialRef: t.Optional(
+    t.Object({
+      provider: t.String(),
+      keyPath: t.String(),
+      version: t.Optional(t.Number())
+    })
+  )
+})
+
+const nodeTunnelHealthBodySchema = t.Object({
+  peerNodeId: t.String({ minLength: 1 }),
+  status: t.Union([t.Literal('up'), t.Literal('degraded'), t.Literal('down')]),
+  mode: t.Union([
+    t.Literal('direct'),
+    t.Literal('relay'),
+    t.Literal('forced-relay'),
+    t.Literal('none')
+  ]),
+  latencyMs: t.Optional(t.Number({ minimum: 0 })),
+  packetLossPct: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
+  relayStatus: t.Union([
+    t.Literal('not-required'),
+    t.Literal('available'),
+    t.Literal('forced'),
+    t.Literal('unavailable')
+  ]),
+  checkedAt: t.String({ minLength: 1 })
+})
+
+const latestNetworkMapResponseSchema = t.Object({
+  map: t.Object({
+    profileVersion: t.Union([t.Literal('m-net@0.3.0'), t.Literal('m-net-cn@0.3.0')]),
+    networkId: t.String(),
+    members: t.Array(
+      t.Object({
+        nodeId: t.String(),
+        tunnelIp: t.String(),
+        publicKey: t.String(),
+        endpoint: t.Optional(t.String())
+      })
+    ),
+    aclRules: t.Array(
+      t.Object({
+        ruleId: t.String(),
+        action: t.Union([t.Literal('allow'), t.Literal('deny')]),
+        sourceNodeId: t.String(),
+        targetNodeId: t.String(),
+        protocol: t.Union([t.Literal('any'), t.Literal('tcp'), t.Literal('udp'), t.Literal('icmp')])
+      })
+    ),
+    relayAssignment: t.Optional(
+      t.Object({
+        relayType: t.Union([t.Literal('wstunnel'), t.Literal('direct')]),
+        relayEndpoint: t.String(),
+        nodeIds: t.Array(t.String())
+      })
+    ),
+    expiresAt: t.Number(),
+    mapVersion: t.Number(),
+    signatureMetadata: t.Object({
+      algorithm: t.Literal('ed25519'),
+      keyId: t.String(),
+      publicKey: t.String(),
+      value: t.String()
+    })
+  }),
+  sidecar: t.Object({
+    signalConfigRef: t.Object({ configRef: t.String() }),
+    relayConfigRef: t.Object({ configRef: t.String() }),
+    stunConfigRef: t.Object({ configRef: t.String() }),
+    sidecarCredentialRef: t.Object({
+      provider: t.String(),
+      keyPath: t.String(),
+      version: t.Optional(t.Number()),
+      metadata: t.Optional(t.Record(t.String(), t.String()))
+    }),
+    desiredState: t.String(),
+    credentialStatus: t.String(),
+    healthStatus: t.String(),
+    managementUrl: t.Optional(t.String()),
+    setupKey: t.Optional(t.String()),
+    configHash: t.Optional(t.String())
+  })
+})
+
+function toLatestNetworkMapResponse(input: {
+  map: NetworkMapFromSchema
+  sidecar: NodeAgentRuntimeDesiredSidecar
+}) {
+  const { map, sidecar } = input
+  return {
+    map: {
+      profileVersion: map.profileVersion,
+      networkId: map.networkId,
+      members: map.members.map(member => ({
+        nodeId: member.nodeId,
+        tunnelIp: member.tunnelIp,
+        publicKey: member.publicKey,
+        ...(member.endpoint ? { endpoint: member.endpoint } : {})
+      })),
+      aclRules: map.aclRules.map(rule => ({
+        ruleId: rule.ruleId,
+        action: rule.action,
+        sourceNodeId: rule.sourceNodeId,
+        targetNodeId: rule.targetNodeId,
+        protocol: rule.protocol
+      })),
+      ...(map.relayAssignment
+        ? {
+            relayAssignment: {
+              relayType: map.relayAssignment.relayType,
+              relayEndpoint: map.relayAssignment.relayEndpoint,
+              nodeIds: [...map.relayAssignment.nodeIds]
+            }
+          }
+        : {}),
+      expiresAt: map.expiresAt,
+      mapVersion: map.mapVersion,
+      signatureMetadata: {
+        algorithm: map.signatureMetadata.algorithm,
+        keyId: map.signatureMetadata.keyId,
+        publicKey: map.signatureMetadata.publicKey,
+        value: map.signatureMetadata.value
+      }
+    },
+    sidecar: {
+      signalConfigRef: { configRef: sidecar.signalConfigRef.configRef },
+      relayConfigRef: { configRef: sidecar.relayConfigRef.configRef },
+      stunConfigRef: { configRef: sidecar.stunConfigRef.configRef },
+      sidecarCredentialRef: {
+        provider: sidecar.sidecarCredentialRef.provider,
+        keyPath: sidecar.sidecarCredentialRef.keyPath,
+        ...(typeof sidecar.sidecarCredentialRef.version === 'number'
+          ? { version: sidecar.sidecarCredentialRef.version }
+          : {}),
+        ...(sidecar.sidecarCredentialRef.metadata
+          ? { metadata: { ...sidecar.sidecarCredentialRef.metadata } }
+          : {})
+      },
+      desiredState: sidecar.desiredState,
+      credentialStatus: sidecar.credentialStatus,
+      healthStatus: sidecar.healthStatus,
+      ...(sidecar.managementUrl ? { managementUrl: sidecar.managementUrl } : {}),
+      ...(sidecar.setupKey ? { setupKey: sidecar.setupKey } : {}),
+      ...(sidecar.configHash ? { configHash: sidecar.configHash } : {})
+    }
+  }
+}
+
+async function requireAuthorizedNodeRuntimeContext(
+  deps: Pick<MNetAppDeps, 'nodeRuntime'>,
+  input: { headers: Record<string, string | undefined>; nodeId: string }
+): Promise<NodeRuntimeContext | { status: 401 | 503; code: string; message: string }> {
+  if (!deps.nodeRuntime) {
+    return {
+      status: 503,
+      code: 'feature.unavailable',
+      message: 'node runtime features are not available'
+    }
+  }
+
+  const token = extractBearerToken(input.headers.authorization)
+  if (!token) {
+    return {
+      status: 401,
+      code: 'nodeagent.invalid_token',
+      message: 'invalid or missing node runtime token'
+    }
+  }
+
+  const authorized = await deps.nodeRuntime.authorize(input.nodeId, token)
+  if (!authorized) {
+    return {
+      status: 401,
+      code: 'nodeagent.invalid_token',
+      message: 'invalid or missing node runtime token'
+    }
+  }
+
+  return { nodeRuntime: deps.nodeRuntime }
+}
+
+export function createNodeRuntimeRoutes(
+  deps: Pick<MNetAppDeps, 'nodeRuntime' | 'ingestOperationalEvent' | 'removeMember'>
+) {
+  return new Elysia({ prefix: '/api/v0/node-runtime' })
+    .get(
+      '/nodes/:nodeId/network-map',
+      async ({ params, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+
+        const result = await context.nodeRuntime.fetchLatestNetworkMap(params.nodeId)
+        if ('kind' in result) {
+          if (isProfileWorkflowFailure(result) && isMigrationRequiredFailure(result)) {
+            return externalMigrationRequiredApiError(set, result.status, result.error.migration)
+          }
+          return externalApiError(set, result.status, result.error.code, result.error.message)
+        }
+
+        return Value.Parse(latestNetworkMapResponseSchema, toLatestNetworkMapResponse(result))
+      },
+      {
+        params: nodeIdParamsSchema,
+        response: {
+          200: latestNetworkMapResponseSchema,
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/status',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+        if (!context.nodeRuntime.reportStatus) {
+          return externalApiError(
+            set,
+            503,
+            'feature.unavailable',
+            'node runtime status reporting is not available'
+          )
+        }
+
+        await context.nodeRuntime.reportStatus({
+          nodeId: params.nodeId,
+          runtimeStatus: body
+        })
+        return { accepted: true as const, nodeId: params.nodeId }
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: nodeRuntimeStatusBodySchema,
+        response: {
+          200: t.Object({ accepted: t.Literal(true), nodeId: t.String() }),
+          401: externalWriteErrorResponses[401],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/tunnel-health',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+        if (!context.nodeRuntime.reportTunnelHealth) {
+          return externalApiError(
+            set,
+            503,
+            'feature.unavailable',
+            'node tunnel health reporting is not available'
+          )
+        }
+        const result = await context.nodeRuntime.reportTunnelHealth({
+          nodeId: params.nodeId,
+          health: body
+        })
+        if (result.kind === 'failure') {
+          return externalApiError(set, result.status, result.error.code, result.error.message)
+        }
+        return Value.Parse(tunnelHealthMutationResponseSchema, result)
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: nodeTunnelHealthBodySchema,
+        response: {
+          200: tunnelHealthMutationResponseSchema,
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/key',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+
+        const result = await context.nodeRuntime.registerNodePublicKey({
+          nodeId: params.nodeId,
+          keyId: body.keyId,
+          publicKey: body.publicKey,
+          createdAt: body.createdAt,
+          ...(body.endpoint ? { endpoint: body.endpoint } : {})
+        })
+        if ('kind' in result) {
+          if (isProfileWorkflowFailure(result) && isMigrationRequiredFailure(result)) {
+            return externalMigrationRequiredApiError(set, result.status, result.error.migration)
+          }
+          return externalApiError(set, result.status, result.error.code, result.error.message)
+        }
+
+        return result
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: nodeKeyRegistrationBodySchema,
+        response: {
+          200: nodeKeyRegistrationResponseSchema,
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/tunnel-status',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+        if (!deps.ingestOperationalEvent) {
+          return externalApiError(
+            set,
+            503,
+            'feature.unavailable',
+            'operational event ingestion is not available'
+          )
+        }
+
+        // 节点上报统一走运营事件读模型：M-Net 不为节点状态另立事实源
+        const correlationId = crypto.randomUUID()
+        const result = await deps.ingestOperationalEvent({
+          networkId: body.networkId,
+          eventId: `tunnel-status:${params.nodeId}:${body.checkedAt}`,
+          event: {
+            subject: 'mnet.sidecar.health.v0',
+            payload: {
+              networkId: body.networkId,
+              nodeId: params.nodeId,
+              profileVersion: body.profileVersion,
+              healthStatus: body.healthStatus,
+              previousHealthStatus: body.previousHealthStatus,
+              signalReachable: body.signalReachable,
+              relayReachable: body.relayReachable,
+              stunReachable: body.stunReachable,
+              checkedAt: body.checkedAt,
+              correlationId
+            }
+          }
+        })
+        if ('kind' in result) {
+          return externalApiError(set, result.status, result.error.code, result.error.message)
+        }
+
+        return {
+          accepted: true as const,
+          nodeId: params.nodeId,
+          publishStatus: result.publishStatus,
+          correlationId
+        }
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: nodeTunnelStatusBodySchema,
+        response: {
+          200: nodeTunnelStatusResponseSchema,
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+    .post(
+      '/nodes/:nodeId/leave',
+      async ({ params, body, headers, set }) => {
+        const context = await requireAuthorizedNodeRuntimeContext(deps, {
+          headers,
+          nodeId: params.nodeId
+        })
+        if ('status' in context) {
+          return externalApiError(set, context.status, context.code, context.message)
+        }
+        const { removeMember } = deps
+        if (!removeMember) {
+          return externalApiError(
+            set,
+            503,
+            'feature.unavailable',
+            'node membership removal is not available'
+          )
+        }
+
+        // 节点主动退出：M-Net 侧移除成员并重渲染地图；本地隧道由 agent 先行拆除
+        const result = await removeMember({
+          networkId: body.networkId,
+          nodeId: params.nodeId
+        })
+        if (!result.ok) {
+          return externalApiError(
+            set,
+            statusCodeForMNetError(result.error.code),
+            result.error.code,
+            result.error.message
+          )
+        }
+        return {
+          left: true as const,
+          networkId: result.value.networkId,
+          nodeId: result.value.nodeId
+        }
+      },
+      {
+        params: nodeIdParamsSchema,
+        body: t.Object({ networkId: t.String({ minLength: 1 }) }),
+        response: {
+          200: t.Object({
+            left: t.Literal(true),
+            networkId: t.String(),
+            nodeId: t.String()
+          }),
+          401: externalWriteErrorResponses[401],
+          404: externalWriteErrorResponses[404],
+          409: externalWriteErrorResponses[409],
+          503: externalWriteErrorResponses[503]
+        }
+      }
+    )
+}

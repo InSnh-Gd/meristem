@@ -1,0 +1,59 @@
+import type { ServerWebSocket } from 'bun'
+import type {
+  MNetTunnelHealthFromSchema,
+  NodeAgentRuntimeStatus
+} from '../../../../packages/contracts/src/index.ts'
+import type { MNetDb } from '../clients.ts'
+import type {
+  ClosedLoopFailure,
+  ClosedLoopMutationOutcome
+} from '../closed-loop/closed-loop-workflow-types.ts'
+import type { DataPlaneDeps } from '../data-plane/mnet-dataplane-support.ts'
+import type { JoinSessionData, PendingTask } from '../shared.ts'
+
+export type CredentialStore = Pick<MNetDb, 'insert' | 'update'>
+
+export type AgentRuntimeDeps = {
+  db: MNetDb
+  publishEvent(
+    subject: string,
+    type: string,
+    payload: unknown,
+    correlationId?: string,
+    traceId?: string
+  ): Promise<void>
+  writeTimeline(summary: string, subject?: string, correlationId?: string): Promise<void>
+  writeFull(
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    correlationId?: string,
+    traceId?: string,
+    payload?: unknown
+  ): Promise<void>
+  writeAudit(
+    resource: string,
+    action: string,
+    correlationId?: string,
+    traceId?: string,
+    payload?: unknown
+  ): Promise<void>
+  dataPlaneDeps?: DataPlaneDeps | null
+  reportRuntimeStatus?: (input: {
+    networkId: string
+    nodeId: string
+    runtimeStatus: NodeAgentRuntimeStatus
+  }) => Promise<void>
+  reportTunnelHealth?: (input: {
+    networkId: string
+    nodeId: string
+    health: Omit<MNetTunnelHealthFromSchema, 'nodeId' | 'stateSource'>
+  }) => Promise<ClosedLoopMutationOutcome<MNetTunnelHealthFromSchema> | ClosedLoopFailure>
+}
+
+export type AgentRuntimeState = {
+  activeSessions: Map<string, ServerWebSocket<JoinSessionData>>
+  activeSessionIds: Map<string, string>
+  pendingTasks: Map<string, PendingTask>
+}
+
+export type AgentRuntimeContext = AgentRuntimeDeps & AgentRuntimeState

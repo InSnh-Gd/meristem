@@ -125,3 +125,30 @@ When an Effect Schema backs an internal contract, the migration must also includ
 - Do not assume Core, Stem, Leaf, M-CLI, and M-UI are always the same version.
 - Do not make OpenSearch projection shape the canonical authority.
 - Do not remove old event consumers before the compatibility window is closed.
+
+---
+
+## 8. Migration Records
+
+### MR-N01: Network-Lifecycle Event Ownership And DELETE Semantics (ADR-N05)
+
+Decided by `docs/adr/ADR-N05-network-lifecycle-event-ownership.md`.
+
+| Item | Value |
+|------|-------|
+| Old contract | Core publishes `mnet.network.created.v0` / `mnet.membership.joined.v0` / `mnet.network.deleted.v0` / `mnet.membership.removed.v0` inline after the M-Net mutation; `DELETE /api/v0/networks/:id` folds `network.not_found` into an idempotent `200`; `MNetNetworkDeletedPayload` carries optional `replayed` |
+| New contract | M-Net publishes the same subjects from a durable outbox with `source: "m-net"`; `DELETE` returns `404 network.not_found` when no row and no tombstone exist, and idempotent `200` when a tombstone exists; `MNetNetworkDeletedPayload` is `{ networkId }` only |
+| Compatibility window | none — v0.2 has no external deployment consumers, so this is a direct cutover |
+| Migration script | none required for data; `migrateMNetDataPlane` creates `mnet_network_event_intents` and `mnet_network_tombstones` (both `if not exists`). Networks deleted **before** this deploy have no tombstone: a client retrying such a deletion across the deploy boundary now gets `404` where the old code returned an idempotent `200`. The replay guarantee starts at the first post-deploy deletion |
+| Rollback | revert the PR; the new tables are additive and can be left in place. Tombstones written during the new semantics are retained |
+| Affected versions | Core `v0`, M-Net `v0`, M-CLI `v0` (DELETE client error handling), M-UI BFF `v0` (deletion event `source`/payload) |
+| New-version tests | `tests/contracts/core-network-lifecycle.contract.test.ts` (404 vs tombstone-200, no Core publish), `services/m-net/src/network-service-event-intents.test.ts` (transactional intent/tombstone + post-commit inline dispatch), `services/m-net/src/data-plane/network-event-outbox.test.ts` (at-least-once dispatch), `tests/failure-modes/mnet-network-event-outbox.failure-mode.test.ts` (EventBus unavailable → durable pending → retry) |
+| Old-version tests | the pre-change idempotent-`200`/`replayed` assertions were replaced in the same PR; no old consumer remains to test |
+
+Breaking-change classification:
+
+- `replayed` removal from `MNetNetworkDeletedPayload` — removing a field.
+- `DELETE` `200` → `404` for a never-existing network — changing authorization/response behavior of a public route.
+- publish failure `503` → committed `200` with durable pending publication — changing error semantics of a public route.
+
+Effect Schema round-trip coverage lives in `tests/contracts/schema-coverage.mnet.contract.test.ts` (`MNetNetworkDeletedPayloadSchema` fixture is `{ networkId }`).

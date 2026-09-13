@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import * as Schema from 'effect/Schema'
 import {
   MNetHistoricalProfileVersionSchema,
@@ -10,7 +11,6 @@ import {
   createDataPlaneAdapter,
   DATA_PLANE_FEATURE_GATE_DEFAULT
 } from '../../services/m-net/src/data-plane/noop-adapter.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 
 describe('M-Net data-plane skeleton contract', () => {
   it('legacy m-net-cn@0.1.0 profile is rejected through migration guidance', async () => {

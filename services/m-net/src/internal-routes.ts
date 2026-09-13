@@ -1,12 +1,13 @@
 import { Elysia, t } from 'elysia'
+import { correlationIdFromHeader } from '../../../packages/internal-http/src/index.ts'
 import { withExtractedSpan } from '../../../packages/telemetry/src/index.ts'
-import type { MNetAppDeps } from './deps.ts'
 import {
   fetchLatestNetworkMap,
   registerNodePublicKey,
   requireDataPlaneDeps
-} from './mnet-dataplane-workflows.ts'
-import { isProfileWorkflowFailure } from './profile-workflow-types.ts'
+} from './data-plane/mnet-dataplane-workflows.ts'
+import type { MNetAppDeps } from './deps.ts'
+import { isProfileWorkflowFailure } from './profile/profile-workflow-types.ts'
 import { internalError, requireInternal, statusCodeForMNetError } from './route-helpers.ts'
 import {
   createNetworkBodySchema,
@@ -100,7 +101,10 @@ export function createInternalRoutes(
         const unauthorized = requireInternal(headers, status)
         if (unauthorized) return unauthorized
         return withExtractedSpan('m-net', 'm-net.network.create', headers, async () => {
-          const result = await deps.createNetwork(body)
+          const result = await deps.createNetwork({
+            ...body,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { network: result.value }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)
@@ -138,7 +142,11 @@ export function createInternalRoutes(
         const unauthorized = requireInternal(headers, status)
         if (unauthorized) return unauthorized
         return withExtractedSpan('m-net', 'm-net.network.join', headers, async () => {
-          const result = await deps.joinNetwork({ networkId: params.id, nodeId: body.nodeId })
+          const result = await deps.joinNetwork({
+            networkId: params.id,
+            nodeId: body.nodeId,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { member: result.value }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)
@@ -187,7 +195,10 @@ export function createInternalRoutes(
           })
         }
         return withExtractedSpan('m-net', 'm-net.network.delete', headers, async () => {
-          const result = await deleteNetwork({ networkId: params.id })
+          const result = await deleteNetwork({
+            networkId: params.id,
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
+          })
           return result.ok
             ? { deleted: true as const, networkId: result.value.networkId }
             : internalError(status, statusCodeForMNetError(result.error.code), result.error)
@@ -217,7 +228,10 @@ export function createInternalRoutes(
         return withExtractedSpan('m-net', 'm-net.network.member.remove', headers, async () => {
           const result = await removeMember({
             networkId: params.id,
-            nodeId: params.nodeId
+            nodeId: params.nodeId,
+            // 调用方（Core）经 x-correlation-id 透传同一条链路；缺失时在此补值，
+            // 保证成员移除触发的 map 刷新与上游审计/事件可关联。
+            correlationId: correlationIdFromHeader(headers['x-correlation-id'])
           })
           return result.ok
             ? { networkId: result.value.networkId, nodeId: result.value.nodeId }

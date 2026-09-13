@@ -13,17 +13,24 @@ import type { ServiceError } from './common.ts'
  * MNetPort 暴露逻辑组网的最小能力，真实传输能力仍由后续阶段单独扩展。
  */
 export type MNetPort = {
-  createNetwork(input: CreateNetworkRequest): Promise<Result<MNetwork, ServiceError>>
+  createNetwork(
+    input: CreateNetworkRequest & { correlationId?: string }
+  ): Promise<Result<MNetwork, ServiceError>>
   listNetworks(): Promise<Result<NetworkSummary[], ServiceError>>
   joinNetwork(input: {
     networkId: string
     nodeId: string
+    correlationId?: string
   }): Promise<Result<MNetworkMember, ServiceError>>
   listNetworkMembers(networkId: string): Promise<Result<MNetworkMember[], ServiceError>>
-  deleteNetwork(input: { networkId: string }): Promise<Result<{ networkId: string }, ServiceError>>
+  deleteNetwork(input: {
+    networkId: string
+    correlationId?: string
+  }): Promise<Result<{ networkId: string }, ServiceError>>
   removeMember(input: {
     networkId: string
     nodeId: string
+    correlationId: string
   }): Promise<Result<{ networkId: string; nodeId: string }, ServiceError>>
   updateNetworkMetadata(input: {
     networkId: string

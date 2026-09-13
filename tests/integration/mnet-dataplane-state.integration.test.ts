@@ -1,13 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { createPgDataPlaneStores } from '@m-net/data-plane/data-plane-store-pg.ts'
+import { createPgGlobalDefaultsStore } from '@m-net/profile/global-defaults-store-pg.ts'
+import { createPgProfileDisablePolicyStore } from '@m-net/profile/profile-disable-policy.ts'
+import { createPgProfileStore } from '@m-net/profile/profile-store.ts'
+import { createPgSuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import { createDb, createSqlClient } from '../../packages/db/src/client.ts'
 import { migrateFoundation } from '../../packages/db/src/migrate-foundation.ts'
 import { migrateMNetDataPlane } from '../../packages/db/src/migrate-mnet-dataplane.ts'
 import { migrateServices } from '../../packages/db/src/migrate-services.ts'
-import { createPgDataPlaneStores } from '../../services/m-net/src/data-plane-store-pg.ts'
-import { createPgGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store-pg.ts'
-import { createPgProfileDisablePolicyStore } from '../../services/m-net/src/profile-disable-policy.ts'
-import { createPgProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createPgSuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
 const pgAvailable = await (async () => {
   try {
@@ -108,7 +108,7 @@ describe('M-Net PostgreSQL state persistence', () => {
 
     const first = createDb()
     const firstProfileStore = createPgProfileStore(first.db)
-    const firstGlobalDefaultsStore = createPgGlobalDefaultsStore(first.db, firstProfileStore)
+    const firstGlobalDefaultsStore = createPgGlobalDefaultsStore(first.db)
     const firstSuspendedStore = createPgSuspendedOperationStore(first.db)
     const firstDisablePolicyStore = createPgProfileDisablePolicyStore(first.db)
     const firstDataPlaneStores = createPgDataPlaneStores(first.db)
@@ -239,7 +239,7 @@ describe('M-Net PostgreSQL state persistence', () => {
 
     const second = createDb()
     const secondProfileStore = createPgProfileStore(second.db)
-    const secondGlobalDefaultsStore = createPgGlobalDefaultsStore(second.db, secondProfileStore)
+    const secondGlobalDefaultsStore = createPgGlobalDefaultsStore(second.db)
     const secondSuspendedStore = createPgSuspendedOperationStore(second.db)
     const secondDisablePolicyStore = createPgProfileDisablePolicyStore(second.db)
     const secondDataPlaneStores = createPgDataPlaneStores(second.db)

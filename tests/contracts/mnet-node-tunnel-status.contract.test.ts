@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'bun:test'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
+import { createMNetApp } from '@m-net/app.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
 import type { MNetOperationalEventIngestRequestFromSchema } from '../../packages/contracts/src/index.ts'
 import type { ActorId } from '../../packages/contracts/src/literals.ts'
 import {
+  createTunnelStatusReporter,
   deriveSidecarHealthStatus,
-  parseEndpointHostPort,
-  createTunnelStatusReporter
+  parseEndpointHostPort
 } from '../../services/node-agent/src/node-agent-tunnel-status.ts'
 
 const nodeRuntimeToken = 'node-runtime-token'

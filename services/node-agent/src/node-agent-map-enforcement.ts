@@ -1,20 +1,20 @@
-import type {
-  AclRuleFromSchema as AclRule,
-  NetworkMapFromSchema as NetworkMap
-} from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import { DEFAULT_CLOCK_SKEW_MS } from '../../m-net/src/key-lifecycle.ts'
-import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '../../m-net/src/network-map-renderer.ts'
+import { DEFAULT_CLOCK_SKEW_MS } from '@m-net/data-plane/key-lifecycle.ts'
+import { DEFAULT_NETWORK_MAP_STALE_TTL_MS } from '@m-net/data-plane/network-map-renderer.ts'
 import {
   resolveExpectedNetworkMapSigningPublicKey,
   verifyNetworkMapSignature
-} from '../../m-net/src/network-map-signing.ts'
-import type { EnforcementDecision } from '../../m-net/src/network-map-types.ts'
+} from '@m-net/data-plane/network-map-signing.ts'
+import type { EnforcementDecision } from '@m-net/data-plane/network-map-types.ts'
 import {
   type NetworkPartitionState,
   type PartitionTransitionReason,
   type PartitionTransitionRequest,
   transitionPartitionState as transitionNetworkPartitionState
-} from '../../m-net/src/partition-state.ts'
+} from '@m-net/data-plane/partition-state.ts'
+import type {
+  AclRuleFromSchema as AclRule,
+  NetworkMapFromSchema as NetworkMap
+} from '../../../packages/contracts/src/schemas/mnet-profile.ts'
 
 type NetworkMapMember = NetworkMap['members'][number]
 type NetworkMapRelayAssignment = NonNullable<NetworkMap['relayAssignment']>
