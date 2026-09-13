@@ -460,6 +460,7 @@ Rules:
 - enabling M-Net CN requires M-Policy approval: M-Policy returns `require_manual_review`, M-Net creates a suspended operation, and the request returns `202` with `approvalId` and `operationId`.
 - disabling M-Net CN is immediate with M-Policy allow + Audit, no approval required.
 - disable is allowed as a recovery path from `failed` state.
+- enabling a data-plane profile fails closed with `409 network.no_runtime_keys` when no member holds a registered runtime key: a signed map with zero members would report `enabled` while no node could establish a tunnel. Nodes register their runtime key before fetching the map, so recovery is "nodes register keys, then retry enable".
 - M-Net exposes OpenAPI for these external routes.
 - Core exposes read-only facade routes for list/detail at the same `/api/v0/network-profiles*` paths on the Core service. The facade must call only M-Net public HTTP routes and must not call `/internal/v0/*` or M-Net private stores. Mutating profile lifecycle routes remain owned by M-Net.
 
@@ -827,7 +828,7 @@ Returns logical network members or `404` if the network does not exist.
 
 ### 6.1 M-Net Closed-Loop Management (M-Net External)
 
-M-Net exposes the following bearer-authenticated management routes under `/api/v0/mnet/closed-loop`. The canonical Effect contracts live in `packages/contracts/src/schemas/mnet-closed-loop.ts`; the executable HTTP adapters live in `services/m-net/src/closed-loop-route-schemas.ts` and are validated for every successful response.
+M-Net exposes the following bearer-authenticated management routes under `/api/v0/mnet/closed-loop`. The canonical Effect contracts live in `packages/contracts/src/schemas/mnet-closed-loop.ts`; the executable HTTP adapters live in `services/m-net/src/closed-loop/closed-loop-route-schemas.ts` and are validated for every successful response.
 
 | Route | Permission / Trust Boundary | Request |
 |-------|-----------------------------|---------|
@@ -874,9 +875,32 @@ Rules:
 
 - the network must have no members (`409 network.members_present`).
 - the network profile state must be `disabled` (`409 network.profile_not_disabled`).
-- deletion cleans tunnel allocations, network map renders, relay assignments,
-  sidecar desired configs, partition states and profile state.
-- successful deletion publishes `mnet.network.deleted.v0` and writes Timeline + Audit.
+- the network must not be referenced by retained ledgers: closed-loop facts
+  (`409 network.closed_loop_facts_present`), profile-switch batch membership
+  (`409 network.switch_membership_present`), or a non-terminal suspended
+  policy operation — only `resumed` counts as terminal; `suspended`, `rejected`,
+  `expired` and `resume_failed` all block deletion
+  (`409 network.operation_suspended`).
+- deletion is transactional: operational rows (tunnel allocations, relay
+  assignments, network map renders, partition states, data-plane operation
+  locks, profile migrations, profile transitions, resolved suspended
+  operations, memberships, profile state) are cleaned atomically with the
+  network row; retained-ledger tables are never cascade-deleted.
+- by-design consequence: once a network has accumulated closed-loop facts or
+  profile-switch membership, or leaves behind a non-terminal suspended
+  operation, it is permanently undeletable in v0.2 — there is no operator-facing
+  ledger-prune endpoint. These conflicts are terminal until such a route exists.
+- successful deletion publishes `mnet.network.deleted.v0` (M-Net, durable outbox) and writes Timeline + Audit.
+  `DELETE` is idempotent **by tombstone**: M-Net writes a `mnet_network_tombstones` row in the
+  deletion transaction, so re-issuing `DELETE` for a network it already deleted returns `200`
+  without re-publishing the event (the outbox owns delivery). A network id that never existed
+  has no row and no tombstone and returns `404 network.not_found` — a genuine not-found is no
+  longer folded into a false `200`. Network ids are random UUIDs and never recycled, so a
+  tombstone can never alias a new network.
+- publication is at-least-once and **decoupled from the response**: the mutation and its event
+  intent commit atomically in M-Net, a 30s sweep retries pending intents, and EventBus
+  unavailability is never surfaced as a failed mutation or a false `2xx` for a failed mutation
+  (ADR-N05). The deletion event payload is `{ networkId }` only.
 
 ### `DELETE /api/v0/networks/:id/members/:nodeId`
 
@@ -887,8 +911,9 @@ Removes a single member from a logical network.
 Rules:
 
 - the network and membership must exist (`404 network.not_found` / `404 network.member_not_found`).
-- the member's tunnel allocation and sidecar desired config are removed;
-  node public keys are reclaimed once the node has no remaining memberships.
+- the member's tunnel allocation is removed; the node-scoped sidecar desired
+  config and node public keys are reclaimed once the node has no remaining
+  memberships (they are stored per node id, not per network).
 - the signed network map is re-rendered so the removed peer disappears on the
   node's next map sync (TTL enforcement tears the peer route down locally).
 - successful removal publishes `mnet.membership.removed.v0`.
@@ -913,6 +938,65 @@ Rules:
 
 - `name` is the identity key and cannot be changed.
 - `displayName` is optional network metadata.
+
+### 6.2 M-Net Internal Network Port Family (Core -> M-Net)
+
+M-Net owns the authoritative network state. Core reaches it only over the loopback
+internal HTTP boundary under `/internal/v0/networks*`; Core must not import M-Net
+stores or tables. These routes require `x-meristem-internal-token` (missing or
+invalid returns `401 internal.unauthorized`). They are private: APISIX and the
+public edge must never expose `/internal/v0/*`.
+
+Request/response bodies are the same logical network shapes documented in
+section 6. Error bodies use the common `ApiError` envelope.
+
+| Method | Path | Success shape |
+|--------|------|---------------|
+| `POST` | `/internal/v0/networks` | `{ network: MNetwork }` |
+| `GET` | `/internal/v0/networks` | `{ networks: NetworkSummary[] }` |
+| `POST` | `/internal/v0/networks/:id/members` | `{ member: MNetworkMember }` |
+| `GET` | `/internal/v0/networks/:id/members` | `{ members: MNetworkMember[] }` |
+| `DELETE` | `/internal/v0/networks/:id` | `{ deleted: true, networkId: string }` |
+| `DELETE` | `/internal/v0/networks/:id/members/:nodeId` | `{ networkId: string, nodeId: string }` |
+| `PATCH` | `/internal/v0/networks/:id` | `{ network: MNetwork }` |
+
+Request bodies:
+
+```ts
+type InternalCreateNetworkBody = {
+  name: string;
+  profileVersion?: string;
+};
+type InternalJoinNetworkBody = { nodeId: string };
+type InternalUpdateNetworkMetadataBody = { displayName?: string };
+```
+
+`x-correlation-id` propagation: every mutation route accepts an optional
+`x-correlation-id` header. When present, M-Net uses it as the correlation id for
+the side effects the mutation triggers (signed network-map re-materialization and
+the resulting `mnet.network_map.published.v0` event). When absent, M-Net
+generates one. Core always sends the request's `auth.correlationId`, so Core
+Audit (written before the mutation) and M-Net events (published after it) share
+one chain — the same convention M-Deploy uses.
+
+Error status mapping (`statusCodeForMNetError`):
+
+| M-Net code | HTTP |
+|------------|------|
+| `network.not_found`, `network.member_not_found`, `node.not_found`, `task.not_found` | `404` |
+| `network.conflict`, `network.members_present`, `network.profile_not_disabled`, retained-ledger conflicts (`network.closed_loop_facts_present`, `network.switch_membership_present`, `network.operation_suspended`), `network.stem_required`, `network.no_runtime_keys`, key/node validation codes | `409` |
+| anything else (unavailable dependency, unexpected failure) | `503` |
+
+Rules:
+
+- `DELETE /internal/v0/networks/:id` returns `network.not_found` when the row is
+  absent **and** no deletion tombstone exists for that id. A tombstoned id returns
+  success (`{ deleted: true }`) so the public Core `DELETE` can stay idempotent;
+  the public route maps a genuine `network.not_found` to `404`.
+- `DELETE /internal/v0/networks/:id/members/:nodeId` returns the removed
+  `{ networkId, nodeId }`; re-rendering the signed map is a post-commit
+  best-effort side effect and does not change the response.
+- `PATCH` only updates metadata; `name` is immutable.
 
 ### Node runtime: tunnel status and leave
 

@@ -28,8 +28,8 @@ describe('SecretRef v0.1 export existence gates', () => {
     expect(perms).toContain('secret:reference')
   })
 
-  it('apps/core/src/routes/secrets.ts module exists', () => {
-    return expect(import('../../apps/core/src/routes/secrets.ts')).resolves.toBeDefined()
+  it('apps/core/src/routes/secrets/secrets.ts module exists', () => {
+    return expect(import('../../apps/core/src/routes/secrets/secrets.ts')).resolves.toBeDefined()
   })
 
   it('apps/core/src/app.ts mounts secrets routes', async () => {

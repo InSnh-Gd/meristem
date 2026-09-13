@@ -2,14 +2,14 @@ import { describe, it } from 'bun:test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { redactSecrets } from '../../packages/common/src/secret-redaction.ts'
-import { createEventEnvelope, validateEventEnvelope } from '../../packages/events/src/index.ts'
-import { decidePermission } from '../../packages/policy/src/index.ts'
 import {
   nextProfileState,
   type ProfileAction,
   type ProfileState
-} from '../../services/m-net/src/profile-state-machine.ts'
+} from '@m-net/profile/profile-state-machine.ts'
+import { redactSecrets } from '../../packages/common/src/secret-redaction.ts'
+import { createEventEnvelope, validateEventEnvelope } from '../../packages/events/src/index.ts'
+import { decidePermission } from '../../packages/policy/src/index.ts'
 
 type TraceSample = {
   ts: number

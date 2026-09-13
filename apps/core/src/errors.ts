@@ -1,6 +1,3 @@
-/**
- * 相关链路没有显式传入 correlationId 时，在入口层补一个随机值，保证日志与事件可串联。
- */
-export function correlationIdFromHeader(header: string | undefined): string {
-  return header && header.length > 0 ? header : crypto.randomUUID()
-}
+// correlationId 补值语义由 internal-http 统一承载，Core 入口保持同一导出路径，
+// 避免 Core 与 M-Net 对同一 header 出现两份实现。
+export { correlationIdFromHeader } from '../../../packages/internal-http/src/index.ts'

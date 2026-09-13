@@ -1,13 +1,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { internalServicePorts } from '../packages/internal-http/src/index.ts'
 import {
   NETWORK_MAP_SIGNING_KEY_ID_ENV_KEY,
   NETWORK_MAP_SIGNING_PRIVATE_KEY_ENV_KEY,
   NETWORK_MAP_SIGNING_PUBLIC_KEY_ENV_KEY,
   resolveNetworkMapSigningKeyMaterial
-} from '../services/m-net/src/network-map-signing.ts'
+} from '@m-net/data-plane/network-map-signing.ts'
+import { internalServicePorts } from '../packages/internal-http/src/index.ts'
 import { rootDir } from './local-stack-runtime.ts'
 import type { HarnessState } from './mnet-multihost-harness-contract.ts'
 

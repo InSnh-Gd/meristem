@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryNodeControlStore } from '@m-net/agent/node-control-store.ts'
+import { executeNodeRoleSwitch } from '@m-net/agent/node-role-switch-workflow.ts'
 import type { MNode } from '../../packages/contracts/src/index.ts'
-import { createInMemoryNodeControlStore } from '../../services/m-net/src/node-control-store.ts'
-import { executeNodeRoleSwitch } from '../../services/m-net/src/node-role-switch-workflow.ts'
 
 const baseNode: MNode = {
   id: 'role-switch-test',

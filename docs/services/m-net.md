@@ -95,6 +95,10 @@ M-Net owns the node administrative lifecycle: **disable**, **isolate**, **recove
 - Disabled, isolated, and recovering nodes are excluded from the member list in rendered network maps.
 - ACL rules referencing a disabled, isolated, or recovering node are omitted from the rendered ACL set.
 - Relay assignments that only serve disabled/isolated/recovering nodes are pruned before map publication.
+- **Key-holding is a separate, orthogonal gate (DFW-032)**: a member is rendered into peer sets only when it holds a real registered runtime public key (`keyId` not `bootstrap-<nodeId>` and `status = active`). Members without one are quarantined out of the rendered peer set — they are never emitted with a derived placeholder key, which `wg setconf` rejects. The network map is rendered once per network and persisted shared, so membership-of-record stays liveness-independent here; the quarantine is key-based, not offline-based. `offline` is deliberately **not** added to the `isNodeExcludedFromPeerPaths` seam: it is a runtime-derived reachability fact, not an administrative exclusion, and `listMembers` also feeds operator member listings, topology snapshots, and migration offline assessment. A member whose runtime key was purged (long-dead node, or after membership removal) therefore drops out of the map automatically; its membership row remains until an operator removes it or an approved lifecycle sweep does.
+- Operator-facing member listings and topology views continue to show members of record regardless of key or liveness; exclusion happens at map-render time only.
+- **All-keyless fails closed**: if no member holds a registered runtime key, materialization returns typed `409 network.no_runtime_keys` and publishes no map. A signed map with zero members would let the control plane report `enabled` while no node could establish a tunnel (the agent fails at `wg.local_member_missing`). This is not a first-enable deadlock: the node-agent registers its runtime key **before** fetching the map, and key registration does not require an enabled profile, so the recovery path is "join nodes -> nodes register keys -> retry enable".
+- **Relay selection degradation**: the relay is chosen only among members that hold a real runtime key, preferring a keyed `stem`. If no keyed stem exists (the stem has not registered a key yet, or the topology has none), selection falls back to another keyed member. This is a deliberate, non-fatal degradation rather than a hard failure, because `registerNodePublicKey` re-materializes the map too and failing here would block a leaf's key registration on a sibling stem's registration order. The relay endpoint is a member-derived name (`https://relay.<nodeId>.meristem.internal:443`) and the fallback is documented so operators are not surprised by a non-stem relay id.
 
 **Recovery semantics**:
 - Recover is the sole implemented control action from `disabled` or `isolated` into `recovering`.
@@ -117,6 +121,8 @@ Public exposure rules:
 | Eden | `@meristem/contracts/mnet` | `0.1.0` | Core uses loopback HTTP + Eden for control-plane calls |
 | REST | `/api/v0/networks*`, `/api/v0/network-profiles*`, `GET /join/v0/health`, `GET /join/v0/session` | `v0` | external profile API is owned by M-Net |
 | Events | `mnet.*`, `node.*`, `network-profile.*` subjects listed in `docs/events/EVENT-CATALOG.md` | `v0` | event naming stays catalog-driven |
+
+Network lifecycle events are published by M-Net, not Core (ADR-N05). `mnet.network.created.v0`, `mnet.membership.joined.v0`, `mnet.network.deleted.v0`, and `mnet.membership.removed.v0` carry `source: "m-net"`. Each mutation writes the authoritative row change, its event intent (`mnet_network_event_intents`), and — for delete — a tombstone (`mnet_network_tombstones`) in one PostgreSQL transaction; a 30s sweep retries pending intents at-least-once, and EventBus failure never turns a committed mutation into an error. The DELETE tombstone is what makes a repeated `DELETE` idempotent (`200`) while a never-existing id returns `404`.
 
 Current runtime boundary:
 
@@ -157,6 +163,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 |------------|--------------|------|
 | `network:create` | create logical networks | high |
 | `network:join` | add a node to a logical network or approve/reject a pending join request | high |
+| `network:delete` | delete logical networks and remove members | high |
 | `network:read` | read the closed-loop topology view | medium |
 | `network-profile:read` | list or show profile definitions and state | medium |
 | `network-profile:apply` | enable a profile on a network | high |
@@ -182,7 +189,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 | M-Task | service | task delivery orchestration degrades; task lifecycle ownership remains external |
 | M-Policy | service | protected profile and membership operations fail closed |
 | M-Log | service | required Timeline / Audit writes block high-risk operations |
-| M-EventBus | service | mutation remains committed with a durable pending publication intent and retries at least once |
+| M-EventBus | service | mutation remains committed with a durable pending publication intent and retries at least once (closed-loop and network lifecycle both use durable outboxes) |
 | SecretProvider | service | credential issue/rotate/revoke fails closed; rotation and revocation persist an explicit M-Net credential operation before the external action, leave pending operations ineligible for tunnels, and resume them during startup and recovery sweeps |
 | PostgreSQL | datastore | authoritative network and profile state writes fail closed |
 
@@ -194,7 +201,7 @@ Closed-loop high-risk operations require both M-Policy evidence and M-Log Audit 
 |-----|------|----------|------------|-------|
 | `MERISTEM_MNET_BIND` | string | yes | no | loopback control-plane bind |
 | `MERISTEM_MNET_PUBLIC_JOIN_BIND` | string | yes | no | public join ingress bind on `8443` |
-| `MERISTEM_MNET_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | heartbeat timeout for offline transition |
+| `MERISTEM_AGENT_HEARTBEAT_TIMEOUT_MS` | number | yes | yes | heartbeat timeout for offline transition |
 | `MERISTEM_MNET_PUBLIC_DERP_FALLBACK` | boolean | no | yes | fallback remains configurable and disableable |
 
 ---
@@ -295,7 +302,7 @@ Data-plane orchestration adapter:
 
 - `m-net-cn@0.1.x` profiles use a noop adapter (`services/m-net/src/data-plane/noop-adapter.ts`) since they are `controlPlaneOnly: true`.
 - `m-net-cn@0.2.0` profiles use the WireGuard+wstunnel data-plane adapter (ADR-N03 legacy path; superseded by ADR-N04 for v0.2 NetBird direction).
-- `m-net@0.3.0` and `m-net-cn@0.3.0` profiles use the NetBird data-plane adapter boundary in `services/m-net/src/netbird-adapter.ts`. The viability gate is `bun run mnet:v02:sidecar-proof`; it may succeed only after sidecar start, config acquisition, peer/session establishment, and clean stop all complete. If the client path requires excluded NetBird Management behavior, the command exits nonzero with `unsupported_management_dependency` and the ADR-N04 fallback decision: Meristem-owned WireGuard rendering plus NetBird Signal/Relay/STUN infrastructure. The fallback transport is the typed literal `wireguard-rendered` in `MNetNodeRuntimeProfileSchema.transport` (`packages/contracts/src/schemas/mnet-profile-v03.ts`), which sits alongside `netbird-sidecar` and `wstunnel` as a valid data-plane transport. See ADR-N04 §6 for the full fallback contract.
+- `m-net@0.3.0` and `m-net-cn@0.3.0` profiles use the NetBird data-plane adapter boundary in `services/m-net/src/data-plane/netbird-adapter.ts`. The viability gate is `bun run mnet:v02:sidecar-proof`; it may succeed only after sidecar start, config acquisition, peer/session establishment, and clean stop all complete. If the client path requires excluded NetBird Management behavior, the command exits nonzero with `unsupported_management_dependency` and the ADR-N04 fallback decision: Meristem-owned WireGuard rendering plus NetBird Signal/Relay/STUN infrastructure. The fallback transport is the typed literal `wireguard-rendered` in `MNetNodeRuntimeProfileSchema.transport` (`packages/contracts/src/schemas/mnet-profile-v03.ts`), which sits alongside `netbird-sidecar` and `wstunnel` as a valid data-plane transport. See ADR-N04 §6 for the full fallback contract.
 - The `netbird-adapter.ts` runtime guard rejects any NetBird control-plane config that carries `management`, `dashboard`, `acl`, or `acls` fields with `netbird.config.forbidden_management_plane` (ADR-N04 §2).
 
 Profile definition `m-net-cn@0.1.x`:

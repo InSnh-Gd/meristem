@@ -6,13 +6,10 @@ import {
   nextProfileState,
   type ProfileAction,
   type ProfileState
-} from '../../services/m-net/src/profile-state-machine.ts'
-import type { ProfileTransitionRecord } from '../../services/m-net/src/profile-store.ts'
-import {
-  applyProfileTransition,
-  foldProfileTransition
-} from '../../services/m-net/src/profile-transition.ts'
-import type { ProfileStore } from '../../services/m-net/src/profile-workflow-types.ts'
+} from '@m-net/profile/profile-state-machine.ts'
+import type { ProfileTransitionRecord } from '@m-net/profile/profile-store.ts'
+import { applyProfileTransition, foldProfileTransition } from '@m-net/profile/profile-transition.ts'
+import type { ProfileStore } from '@m-net/profile/profile-workflow-types.ts'
 
 /** 捕获 store 写入的假实现，用于断言 chokepoint 发出的状态事实。 */
 function createRecordingProfileStore(initial: { profileVersion: string; status: ProfileState }): {

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
 import { mintLocalToken } from '../../packages/auth/src/index.ts'
 import type { ActorId, MNode } from '../../packages/contracts/src/index.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 
 const jwtSecret = 'mnet-node-control-jwt-secret'
 

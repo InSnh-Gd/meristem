@@ -52,7 +52,7 @@ bun run typecheck
 bun run typecheck:e2e
 bun run typecheck:m-ui
 bun run test
-cd apps/m-ui && bun run test
+bun run test:m-ui
 bun run test:agent-submit
 bun run test:contracts
 bun run test:failure-modes
@@ -66,7 +66,7 @@ bun run test:e2e
 Runner ownership matters here:
 
 - root `bun run test` owns only Bun-compatible `*.test.ts` suites
-- `cd apps/m-ui && bun run test` owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts`)
+- `bun run test:m-ui` (the CI gate leg; wraps `cd apps/m-ui && bun run test`) owns the M-UI Vitest / `happy-dom` runtime and component suites (`*.vitest.ts` and the in-app `*.contract.test.ts` files)
 - `bun run test:playwright` owns Playwright-only browser smoke coverage (`*.playwright.ts`)
 
 Do not collapse those layers back into a single filename pattern. The split prevents bare root `bun test` from trying to execute Vitest `vi.mock` suites or Playwright `test()` files under Bun's runner.

@@ -319,17 +319,18 @@ For `m-net-cn@0.2.0`, `controlPlaneOnly` is false. This enables the incremental 
 
 ### v0.2 NetBird Direction (`m-net@0.3.0`, `m-net-cn@0.3.0`, ADR-N04)
 
-v0.2 data-plane direction (ADR-N04): NetBird client sidecar + NetBird Signal + NetBird Relay/STUN. NetBird Management excluded. Viability gate: `bun run mnet:v02:sidecar-proof`. No wstunnel mixed/fallback mode in v0.2. Legacy wstunnel path retained for migration window only.
+v0.2 data-plane direction (ADR-N04): NetBird client sidecar + NetBird Signal + NetBird Relay/STUN. NetBird Management excluded. Viability gate: `bun run mnet:v02:sidecar-proof`. No wstunnel mixed/fallback mode in v0.2. Legacy wstunnel path retained for migration window only. The authoritative per-failure behavior and recovery steps live in [`MNET-V02-RUNBOOK.md`](./MNET-V02-RUNBOOK.md) §2 (runtime failure matrix), with consolidated diagnostic commands in its §3 — this runbook intentionally does not restate that matrix.
 
 ### Closed-Loop Failure and Recovery Semantics
 
-- Join approval and explicit rejection, credential issue/rotate/revoke, relay policy, profile migration/rollback, and break-glass operations require service-side M-Policy plus M-Log Audit before authoritative mutation. UI command eligibility never substitutes for these checks.
-- A policy denial returns a typed denied outcome with no authoritative state change. Explicit join rejection is a separately authorized action and leaves no credential.
-- Successful mutation responses include `publication.status`. `pending` means PostgreSQL committed the fact and durable event intent but M-EventBus delivery is waiting for the startup retry sweep; do not repeat the control command solely because publication is pending.
-- If PostgreSQL fact decoding fails, treat M-Net as degraded and repair the corrupt row from a trusted backup or replay source. The service does not silently treat corrupt payloads as missing.
-- Credential and profile-migration failures report whether compensation completed or manual intervention is required. When manual intervention is required, inspect SecretProvider/profile runtime state before retrying; never paste secret material into logs or commands.
-- Break-glass activation requires `security-admin` initiation and an independent `break-glass-reviewer`. The grant is effective only until the exact `expiresAt = initiatedAt + 30 minutes`; access checks fail closed at that instant, and the background sweep persists `auto-revoked` state.
-- Tunnel health can be reported only through the node runtime-token route. Bearer-authenticated operator routes are read-only for this fact, and NetBird Management/Dashboard must not be introduced as an alternate authority.
+Authoritative source: [`../security/SECURITY-MODEL.md`](../security/SECURITY-MODEL.md) and [`../services/m-net.md`](../services/m-net.md). Operationally, for any high-risk M-Net closed-loop operation (join approval/rejection, credential issue/rotate/revoke, relay policy, profile migration/rollback, break-glass):
+
+- M-Policy authorization plus M-Log Audit precede authoritative mutation; UI eligibility never substitutes for them.
+- Successful mutation responses include `publication.status`; `pending` means the fact and durable event intent are committed and the startup retry sweep will deliver the event — do not repeat the control command solely because publication is pending.
+- Break-glass requires `security-admin` initiation plus an independent `break-glass-reviewer`, and fails closed at exactly `expiresAt = initiatedAt + 30 minutes`.
+- Tunnel health can be reported only through the node runtime-token route; operator bearer routes are read-only for this fact, and NetBird Management/Dashboard must not be introduced as an alternate authority.
+- If PostgreSQL fact decoding fails, treat M-Net as degraded and repair the corrupt row from a trusted backup or replay source; the service does not silently treat corrupt payloads as missing.
+- Never paste secret material into logs or commands; on credential/migration compensation failure, inspect SecretProvider/profile runtime state before retrying.
 
 ---
 
@@ -381,7 +382,8 @@ Local limitation summary:
 - the relay uses local port `18443` instead of privileged `443` so the harness can run without `CAP_NET_BIND_SERVICE`.
 - the harness refuses to start unless the host already exposes `wg`, `CAP_NET_ADMIN`, the visible WireGuard kernel module, `wstunnel`, Docker, and the cached `oven/bun:1` image.
 
-Exact commands:
+Exact commands (canonical form; the capability-wrapper variant and the full step-by-step
+validation flow live in [`M-NET-THREE-NODE-VALIDATION.md`](./M-NET-THREE-NODE-VALIDATION.md) §4–§5):
 
 ```bash
 bun run mnet:harness:preflight
@@ -399,20 +401,8 @@ Expected preflight checks:
 - `wstunnel --version` succeeds.
 - Docker can start a bridge-networked Bun container that reaches `host.docker.internal`.
 
-Commands for this topology:
-
-```bash
-mnet-harness preflight
-mnet-harness start
-mnet-harness status
-mnet-harness stop
-mnet-harness reset
-```
-
-The harness writes live logs under `.local/mnet-multihost/logs/` and returns those paths through `mnet-harness status`.
+The harness writes live logs under `.local/mnet-multihost/logs/` and returns those paths through `bun run mnet:harness:status` (the `mnet-harness status` shell wrapper is equivalent; see `M-NET-THREE-NODE-VALIDATION.md` §4).
 `reset` now performs strong orphan cleanup, so a failed `start` should no longer require manual port cleanup before the next run.
-
-For a Chinese operator-oriented step-by-step validation guide, see [`M-NET-THREE-NODE-VALIDATION.md`](./M-NET-THREE-NODE-VALIDATION.md).
 
 Leaf host runtime shape:
 

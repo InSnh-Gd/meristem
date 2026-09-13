@@ -2,19 +2,29 @@ import { createSharedAuthVerifier } from '../../../packages/auth/src/index.ts'
 import { loadRuntimeDeploymentConfigOrThrow } from '../../../packages/config/src/index.ts'
 import { internalServicePorts, serveHttpApp } from '../../../packages/internal-http/src/index.ts'
 import { shutdownTelemetry } from '../../../packages/telemetry/src/index.ts'
-import { createAgentRuntime } from './agent-runtime.ts'
+import { createAgentRuntime } from './agent/agent-runtime.ts'
+import { createDbNodeControlStore } from './agent/node-control-store.ts'
+import { executeNodeControl } from './agent/node-control-workflow.ts'
 import { createMNetApp } from './app.ts'
 import { createMNetInfrastructure } from './clients.ts'
+import { createClosedLoopProduction } from './closed-loop/closed-loop-production.ts'
 import { heartbeatTimeoutMs, joinIngressPort } from './config.ts'
-import { createWiredMigrationEngine } from './migration-engine-factory.ts'
-import { requireDataPlaneDeps } from './mnet-dataplane-support.ts'
-import { createNetworkService } from './network-service.ts'
-import { createDbNodeControlStore } from './node-control-store.ts'
-import { executeNodeControl } from './node-control-workflow.ts'
+import { materializeMembers } from './data-plane/mnet-dataplane-materialize.ts'
+import { requireDataPlaneDeps } from './data-plane/mnet-dataplane-support.ts'
+import { createNetworkMapRefresher } from './data-plane/network-map-refresh.ts'
+import { createDbForcedRelayNodeContext } from './forced-relay/forced-relay-node-context.ts'
+import { createWiredMigrationEngine } from './migration/migration-engine-factory.ts'
+import {
+  createNetworkService,
+  createNetworkUpdater,
+  listNetworkMembers
+} from './network-service.ts'
+import {
+  createPgMNetNetworkEventOutboxStore,
+  dispatchPendingNetworkEvents
+} from './data-plane/network-event-outbox.ts'
 import { createOperationalReadModel } from './operational-read-model.ts'
 import { createReadinessProbe } from './readiness.ts'
-import { createDbForcedRelayNodeContext } from './forced-relay-node-context.ts'
-import { createClosedLoopProduction } from './closed-loop-production.ts'
 
 /**
  * M-Net 启动装配统一放在这里：入口文件只触发启动，不再直接持有依赖接线与关闭序列。
@@ -33,19 +43,43 @@ export async function startMNetService(): Promise<void> {
       : { auth: runtimeConfig.auth }
   )
   const infrastructure = createMNetInfrastructure()
-  const networkService = createNetworkService({
-    db: infrastructure.db,
-    profileStore: infrastructure.profileStore,
-    globalDefaultsStore: infrastructure.globalDefaultsStore
-  })
+  // db-only 端口先构造：数据面依赖与 map refresher 只需要 listMembers/networkUpdater，
+  // 不必等待 network service 实例，从而消除 refreshNetworkMap 的构造环。
+  const listMembers = (input: { networkId: string }) => listNetworkMembers(infrastructure.db, input)
+  const networkUpdater = createNetworkUpdater(infrastructure.db)
   const nodeRuntimeDataPlaneDeps = requireDataPlaneDeps({
     profileStore: infrastructure.profileStore,
     policyAuthorize: infrastructure.policyAuthorize,
-    listMembers: networkService.listMembers,
+    listMembers,
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents,
     log: infrastructure.profileLog,
-    networkUpdater: networkService.networkUpdater
+    networkUpdater
+  })
+  // 网络生命周期事件 outbox：变更与 intent 已同事务提交，这里负责 at-least-once 投递与补发。
+  // 网络权威状态始终在 PostgreSQL（createDb 恒为 pg client），因此始终用 pg outbox；
+  // 内存实现仅供单测，若在此使用会与事务内写入的 intent 脱节、导致 sweep 永远看不到 pending。
+  const networkEventOutbox = createPgMNetNetworkEventOutboxStore(infrastructure.db)
+  const networkService = createNetworkService({
+    db: infrastructure.db,
+    profileStore: infrastructure.profileStore,
+    globalDefaultsStore: infrastructure.globalDefaultsStore,
+    // 变更事务提交后只内联投递本次写入的 intent；sweep 仍是失败重试兜底。
+    dispatchEvents: async intentId => {
+      await dispatchPendingNetworkEvents(
+        {
+          store: networkEventOutbox,
+          events: infrastructure.profileEvents
+        },
+        intentId
+      )
+    },
+    // 成员变更后重新物化并发布签名 map；仅当数据面依赖齐备时注入。
+    ...('kind' in nodeRuntimeDataPlaneDeps
+      ? {}
+      : {
+          refreshNetworkMap: createNetworkMapRefresher(nodeRuntimeDataPlaneDeps, materializeMembers)
+        })
   })
   const readiness = createReadinessProbe(infrastructure.client, infrastructure.checkStoreHealth)
   const nodeControlStore = createDbNodeControlStore(infrastructure.db)
@@ -55,11 +89,11 @@ export async function startMNetService(): Promise<void> {
     profileStore: infrastructure.profileStore,
     dataPlaneStores: infrastructure.dataPlaneStores,
     log: infrastructure.profileLog,
-    listMembers: networkService.listMembers
+    listMembers
   })
   const operationalReadModel = createOperationalReadModel({
     profileStore: infrastructure.profileStore,
-    listMembers: networkService.listMembers,
+    listMembers,
     dataPlane: infrastructure.dataPlaneStores,
     events: infrastructure.profileEvents
   })
@@ -68,7 +102,7 @@ export async function startMNetService(): Promise<void> {
     runtimeConfig,
     network: {
       listNetworks: networkService.listNetworks,
-      listMembers: networkService.listMembers
+      listMembers
     },
     migrationEngine
   })
@@ -119,6 +153,10 @@ export async function startMNetService(): Promise<void> {
     listNetworks: networkService.listNetworks,
     joinNetwork: networkService.joinNetwork,
     listMembers: networkService.listMembers,
+    // 网络生命周期变更端口：此前未注入，导致内部路由恒返 503 feature.unavailable。
+    deleteNetwork: networkService.deleteNetwork,
+    removeMember: networkService.removeMember,
+    updateNetworkMetadata: networkService.updateNetworkMetadata,
     executeNoop: agentRuntime.executeNoop,
     describeForcedRelayNode,
     controlNode(input) {
@@ -186,12 +224,24 @@ export async function startMNetService(): Promise<void> {
       )
     })
   }, 30_000)
+  // 网络生命周期事件补发：变更事务只写 pending intent，投递失败在此重试（at-least-once）。
+  const networkEventPublicationSweep = setInterval(() => {
+    void dispatchPendingNetworkEvents({
+      store: networkEventOutbox,
+      events: infrastructure.profileEvents
+    }).catch((error: unknown) => {
+      console.warn(
+        `m-net: network event publication sweep degraded - ${error instanceof Error ? error.message : String(error)}`
+      )
+    })
+  }, 30_000)
 
   process.on('SIGINT', () => {
     clearInterval(offlineSweep)
     clearInterval(breakGlassExpirySweep)
     clearInterval(closedLoopPublicationSweep)
     clearInterval(credentialRecoverySweep)
+    clearInterval(networkEventPublicationSweep)
     agentRuntime.rejectPendingTasksOnShutdown()
     joinIngress.stop(true)
     void internalServer

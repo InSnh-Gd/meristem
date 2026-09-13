@@ -5,7 +5,7 @@ import {
   type MNetOperationalEventIngestResponseFromSchema,
   type MNetOperationalSnapshotFromSchema
 } from '../../../packages/contracts/src/index.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
+import type { DataPlaneStores } from './data-plane/data-plane-store-types.ts'
 import type { MNetAppDeps } from './deps.ts'
 import {
   buildReadinessReasons,

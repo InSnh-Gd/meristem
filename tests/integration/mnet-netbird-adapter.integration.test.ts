@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import { fetchLatestNetworkMap } from '@m-net/data-plane/mnet-dataplane-materialize.ts'
+import { requireDataPlaneDeps } from '@m-net/data-plane/mnet-dataplane-support.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import { createOperationalReadModel } from '@m-net/operational-read-model.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import type {
   ActorId,
   MNetworkMember,
   NodeAgentRuntimeStatus
 } from '../../packages/contracts/src/index.ts'
 import type { NetworkMapFromSchema } from '../../packages/contracts/src/schemas/mnet-profile.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
-import { fetchLatestNetworkMap } from '../../services/m-net/src/mnet-dataplane-materialize.ts'
-import { requireDataPlaneDeps } from '../../services/m-net/src/mnet-dataplane-support.ts'
-import { createOperationalReadModel } from '../../services/m-net/src/operational-read-model.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 
 const bearerHeaders = {
   authorization: 'Bearer operator-token',
@@ -78,7 +78,7 @@ function requireString(value: unknown, label: string): string {
   return value
 }
 
-function createHarness(input?: {
+async function createHarness(input?: {
   resolveNetBirdControlPlane?: MNetAppDeps['resolveNetBirdControlPlane']
 }) {
   const networkId = `mnet-netbird-runtime-${crypto.randomUUID()}`
@@ -88,6 +88,24 @@ function createHarness(input?: {
   ]
   const profileStore = createInMemoryProfileStore()
   const dataPlane = createInMemoryDataPlaneStores()
+  // DFW-032：成员须持有真实运行时密钥才会进入渲染 map，否则 materialize fail closed
+  // （network.no_runtime_keys）。本文件各用例均验证 enable 后的 map/sidecar 行为，
+  // 故在 harness 内为所有成员注册密钥。
+  for (const member of members) {
+    await dataPlane.nodePublicKeys.upsert({
+      nodeId: member.nodeId,
+      keyId: `${member.nodeId}-runtime`,
+      publicKey: `${member.nodeId
+        .replace(/[^A-Za-z0-9]/g, 'A')
+        .padEnd(43, 'B')
+        .slice(0, 43)}=`,
+      fingerprint: `fp-${member.nodeId}`,
+      algorithm: 'wireguard-x25519',
+      createdAt: observedAt,
+      rotationCounter: 0,
+      status: 'active'
+    })
+  }
   const listMembers: MNetAppDeps['listMembers'] = async request => ({
     ok: true,
     value: members.filter(member => member.networkId === request.networkId)
@@ -205,7 +223,7 @@ describe('integration: M-Net NetBird runtime adapter', () => {
   })
 
   it('enables m-net-cn@0.3.0 with NetBird desired state and observed read-model facts', async () => {
-    const { app, dataPlane, networkId, profileStore } = createHarness({
+    const { app, dataPlane, networkId, profileStore } = await createHarness({
       async resolveNetBirdControlPlane() {
         return {
           managementUrl: 'https://netbird.example.internal',

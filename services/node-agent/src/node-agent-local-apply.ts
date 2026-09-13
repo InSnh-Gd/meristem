@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { DEFAULT_NETWORK_MAP_SIGNING_KEY_ID } from '@m-net/data-plane/network-map-signing.ts'
 import type { NetworkMapFromSchema } from '../../../packages/contracts/src/schemas/mnet-profile.ts'
-import { DEFAULT_NETWORK_MAP_SIGNING_KEY_ID } from '../../m-net/src/network-map-signing.ts'
 import {
   type AgentEnforcementState,
   applyEnforcementDecision,

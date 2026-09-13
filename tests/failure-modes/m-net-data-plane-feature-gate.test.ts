@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import {
   createDataPlaneAdapter,
   DATA_PLANE_FEATURE_GATE_DEFAULT
 } from '../../services/m-net/src/data-plane/noop-adapter.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
 
 describe('M-Net data-plane feature gate failure modes', () => {
   it('feature flag default denies runtime path changes', () => {

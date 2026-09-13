@@ -1,4 +1,3 @@
-import type { SidecarSupervisor } from './node-agent-sidecar-supervisor.ts'
 import * as Schema from 'effect/Schema'
 import type {
   DeploymentConfigV02FromSchema,

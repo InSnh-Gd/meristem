@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
 import type { ActorId } from '../../packages/contracts/src/index.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
 import {
   bearerHeaders,
   createInMemoryTestLog,
@@ -150,17 +150,17 @@ describe('M-Net global defaults route guards', () => {
       createDeps({
         policyAuthorize: denyPolicy,
         globalDefaultsStore: (
-          await import('../../services/m-net/src/global-defaults-store.ts')
+          await import('../../services/m-net/src/profile/global-defaults-store.ts')
         ).createInMemoryGlobalDefaultsStore(profileStore),
         migrationEngine: (
-          await import('../../services/m-net/src/migration-engine.ts')
+          await import('../../services/m-net/src/migration/migration-engine.ts')
         ).createMigrationEngine({
           globalDefaultsStore: (
-            await import('../../services/m-net/src/global-defaults-store.ts')
+            await import('../../services/m-net/src/profile/global-defaults-store.ts')
           ).createInMemoryGlobalDefaultsStore(profileStore),
           profileStore,
           dataPlane: (
-            await import('../../services/m-net/src/data-plane-store-memory.ts')
+            await import('../../services/m-net/src/data-plane/data-plane-store-memory.ts')
           ).createInMemoryDataPlaneStores(),
           async writeAudit() {
             return 'audit-1'
@@ -248,7 +248,7 @@ describe('M-Net global defaults route guards', () => {
       }
     }
     const globalDefaultsStore = (
-      await import('../../services/m-net/src/global-defaults-store.ts')
+      await import('../../services/m-net/src/profile/global-defaults-store.ts')
     ).createInMemoryGlobalDefaultsStore(profileStore)
     await globalDefaultsStore.recordDefaultSetResult('idem-replay', {
       operationId: 'op-replay-1',
@@ -262,12 +262,12 @@ describe('M-Net global defaults route guards', () => {
         policyAuthorize: denyPolicy,
         globalDefaultsStore,
         migrationEngine: (
-          await import('../../services/m-net/src/migration-engine.ts')
+          await import('../../services/m-net/src/migration/migration-engine.ts')
         ).createMigrationEngine({
           globalDefaultsStore,
           profileStore,
           dataPlane: (
-            await import('../../services/m-net/src/data-plane-store-memory.ts')
+            await import('../../services/m-net/src/data-plane/data-plane-store-memory.ts')
           ).createInMemoryDataPlaneStores(),
           async writeAudit() {
             return 'audit-1'
@@ -313,7 +313,7 @@ describe('M-Net global defaults route guards', () => {
       createDeps({
         policyAuthorize: denyPolicy,
         globalDefaultsStore: (
-          await import('../../services/m-net/src/global-defaults-store.ts')
+          await import('../../services/m-net/src/profile/global-defaults-store.ts')
         ).createInMemoryGlobalDefaultsStore(profileStore),
         profileStore
       })

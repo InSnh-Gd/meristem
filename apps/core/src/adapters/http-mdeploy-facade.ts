@@ -13,7 +13,7 @@ import {
 } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
 import { serviceErrorFromHttpResponse } from '../effect-helpers.ts'
-import type { FacadeServiceResult } from '../routes/facade-support.ts'
+import type { FacadeServiceResult } from '../routes/facade/facade-support.ts'
 import type { MDeployFacadeContext, MDeployFacadePort } from '../types/mdeploy-facade.ts'
 
 type MDeployFacadeAdapterOptions = {

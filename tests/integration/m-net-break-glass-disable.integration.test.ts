@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
+import { createMNetApp } from '@m-net/app.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
   type ProfileDisablePolicyStore
-} from '../../services/m-net/src/profile-disable-policy.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import { createInMemorySuspendedOperationStore } from '../../services/m-net/src/suspended-operations.ts'
+} from '@m-net/profile/profile-disable-policy.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
+import { createInMemorySuspendedOperationStore } from '@m-net/suspended-operations.ts'
+import { createSharedAuthVerifier, mintLocalToken } from '../../packages/auth/src/index.ts'
 
 const jwtSecret = 'test-jwt-secret'
 const sharedAuthVerifier = createSharedAuthVerifier({

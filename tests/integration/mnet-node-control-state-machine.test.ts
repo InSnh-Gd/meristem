@@ -4,7 +4,7 @@ import {
   isHeartbeatSuppressedByNodeControl,
   isNodeExcludedFromPeerPaths,
   isOfflineTransitionSuppressedByNodeControl
-} from '../../services/m-net/src/node-control-state-machine.ts'
+} from '@m-net/agent/node-control-state-machine.ts'
 
 describe('M-Net node control state machine', () => {
   it('allows active runtime states to enter disabled or isolated', () => {

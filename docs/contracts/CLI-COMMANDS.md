@@ -210,7 +210,9 @@ network map renders, relay assignments, sidecar desired configs and profile stat
 Permission: `network:delete`.
 
 Removes a single member from a network and re-renders the signed network map;
-the removed node tears its peer routes down on the next map sync.
+the removed node tears its peer routes down on the next map sync. When the last
+member is removed, the map refresh is a no-op (there are no members to render)
+and the removal still succeeds.
 
 ### `meristem network update --network <network-id> --display-name <name>`
 

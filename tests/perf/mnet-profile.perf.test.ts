@@ -6,8 +6,8 @@ import {
   nextProfileState,
   type ProfileAction,
   type ProfileState
-} from '../../services/m-net/src/profile-state-machine.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
+} from '@m-net/profile/profile-state-machine.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import { aggregateRounds, type BenchmarkResult, runBenchmark } from './helpers/perf-utils.ts'
 
 function logBenchmark(name: string, aggregated: BenchmarkResult): void {

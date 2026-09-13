@@ -1,9 +1,9 @@
 import { edenTreaty } from '@elysiajs/eden'
+import type { MNetApp } from '@m-net/public-types.ts'
 import { Effect } from 'effect'
 import type {
   CreateNetworkRequest,
   MNetwork,
-  MNetworkMember,
   MNode,
   NetworkSummary,
   NodeControlAction,
@@ -11,7 +11,6 @@ import type {
   NodeControlResponseFromSchema
 } from '../../../../packages/contracts/src/index.ts'
 import { serviceUrl } from '../../../../packages/internal-http/src/index.ts'
-import type { MNetApp } from '../../../../services/m-net/src/public-types.ts'
 import {
   createInternalFetcher,
   requireServiceRoute,
@@ -22,8 +21,11 @@ import {
 import {
   decodeMNetCreateNetworkResponse as decodeCreateNetworkResponse,
   decodeMNetJoinNetworkResponse as decodeJoinNetworkResponse,
+  decodeMNetMemberRemoveResponse as decodeMemberRemoveResponse,
+  decodeMNetNetworkDeleteResponse as decodeNetworkDeleteResponse,
   decodeMNetNetworkListResponse as decodeNetworkListResponse,
   decodeMNetNetworkMembersResponse as decodeNetworkMembersResponse,
+  decodeMNetNetworkUpdateResponse as decodeNetworkUpdateResponse,
   decodeMNetNodeControlResponse as decodeNodeControlResponse
 } from './mnet-response-decode.ts'
 
@@ -63,15 +65,22 @@ export function createHttpMNetPort() {
     error: { value: unknown; status: number } | null
     status: number
   }
+  // Eden 的类型路由映射是静态对象，无法用运行时 networkId 建立索引；此处双重断言只放宽
+  // 路由查找形状，响应体仍逐一经 mnet-response-decode.ts 的契约 schema 解码后才进入控制面。
+  // Eden 的 headers 走第二个 options 参数；声明进双重断言类型以透传 correlationId。
+  type EdenHeaderOptions = { headers?: Record<string, string> }
   const networkRoutes = client.internal.v0.networks as unknown as Record<
     string,
     {
       members: {
-        post(params: { nodeId: string }): Promise<EdenEnvelope<{ member: MNetworkMember }>>
-        get(params: Record<string, never>): Promise<EdenEnvelope<{ members: MNetworkMember[] }>>
+        post(
+          params: { nodeId: string },
+          options?: EdenHeaderOptions
+        ): Promise<EdenEnvelope<unknown>>
+        get(params: Record<string, never>): Promise<EdenEnvelope<unknown>>
       }
-      delete(): Promise<EdenEnvelope<{ deleted: boolean; networkId: string }>>
-      patch(params: { displayName?: string }): Promise<EdenEnvelope<{ network: MNetwork }>>
+      delete(options?: EdenHeaderOptions): Promise<EdenEnvelope<unknown>>
+      patch(params: { displayName?: string }): Promise<EdenEnvelope<unknown>>
     }
   >
   const memberDeleteRoutes = client.internal.v0.networks as unknown as Record<
@@ -79,7 +88,13 @@ export function createHttpMNetPort() {
     {
       members: Record<
         string,
-        { delete(): Promise<EdenEnvelope<{ networkId: string; nodeId: string }>> }
+        {
+          // Eden 的 headers 走第二个 options 参数；声明进双重断言类型以透传 correlationId。
+          delete(
+            params?: Record<string, never>,
+            options?: EdenHeaderOptions
+          ): Promise<EdenEnvelope<unknown>>
+        }
       >
     }
   >
@@ -125,12 +140,21 @@ export function createHttpMNetPort() {
   }
 
   return {
-    async createNetwork(input: CreateNetworkRequest) {
+    async createNetwork(input: CreateNetworkRequest & { correlationId?: string }) {
+      const { correlationId, ...body } = input
       return runServiceEffect(
-        tryServiceCall(() => client.internal.v0.networks.post(input), {
-          code: 'mnet.unavailable',
-          message: 'M-Net unavailable'
-        }).pipe(
+        tryServiceCall(
+          () =>
+            client.internal.v0.networks.post(
+              body,
+              // correlationId 经 header 透传，不进请求体；M-Net 用它关联事件与 Core 审计。
+              correlationId ? { headers: { 'x-correlation-id': correlationId } } : undefined
+            ),
+          {
+            code: 'mnet.unavailable',
+            message: 'M-Net unavailable'
+          }
+        ).pipe(
           Effect.flatMap(response =>
             response.error || !response.data
               ? Effect.fail(
@@ -167,17 +191,26 @@ export function createHttpMNetPort() {
         )
       )
     },
-    async joinNetwork(input: { networkId: string; nodeId: string }) {
+    async joinNetwork(input: { networkId: string; nodeId: string; correlationId?: string }) {
       return runServiceEffect(
         requireServiceRoute(networkRoutes[input.networkId], {
           code: 'mnet.unavailable',
           message: 'M-Net unavailable'
         }).pipe(
           Effect.flatMap(route =>
-            tryServiceCall(() => route.members.post({ nodeId: input.nodeId }), {
-              code: 'mnet.unavailable',
-              message: 'M-Net unavailable'
-            })
+            tryServiceCall(
+              () =>
+                route.members.post(
+                  { nodeId: input.nodeId },
+                  input.correlationId
+                    ? { headers: { 'x-correlation-id': input.correlationId } }
+                    : undefined
+                ),
+              {
+                code: 'mnet.unavailable',
+                message: 'M-Net unavailable'
+              }
+            )
           ),
           Effect.flatMap(response =>
             response.error || !response.data
@@ -221,17 +254,25 @@ export function createHttpMNetPort() {
         )
       )
     },
-    async deleteNetwork(input: { networkId: string }) {
+    async deleteNetwork(input: { networkId: string; correlationId?: string }) {
       return runServiceEffect(
         requireServiceRoute(networkRoutes[input.networkId], {
           code: 'mnet.unavailable',
           message: 'M-Net unavailable'
         }).pipe(
           Effect.flatMap(route =>
-            tryServiceCall(() => route.delete(), {
-              code: 'mnet.unavailable',
-              message: 'M-Net unavailable'
-            })
+            tryServiceCall(
+              () =>
+                route.delete(
+                  input.correlationId
+                    ? { headers: { 'x-correlation-id': input.correlationId } }
+                    : undefined
+                ),
+              {
+                code: 'mnet.unavailable',
+                message: 'M-Net unavailable'
+              }
+            )
           ),
           Effect.flatMap(response =>
             response.error || !response.data
@@ -242,12 +283,13 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed({ networkId: response.data.networkId })
-          )
+              : decodeNetworkDeleteResponse(response.data)
+          ),
+          Effect.map(response => ({ networkId: response.networkId }))
         )
       )
     },
-    async removeMember(input: { networkId: string; nodeId: string }) {
+    async removeMember(input: { networkId: string; nodeId: string; correlationId: string }) {
       return runServiceEffect(
         requireServiceRoute(memberDeleteRoutes[input.networkId], {
           code: 'mnet.unavailable',
@@ -261,10 +303,16 @@ export function createHttpMNetPort() {
                 message: 'M-Net member route unavailable'
               } as const)
             }
-            return tryServiceCall(() => memberRoute.delete(), {
-              code: 'mnet.unavailable',
-              message: 'M-Net unavailable'
-            })
+            // 成员移除会触发 M-Net 重新物化签名 map 并发布事件，correlationId 必须经
+            // header 端到端透传，才能与 Core 侧审计/事件同一条链路关联。
+            return tryServiceCall(
+              () =>
+                memberRoute.delete({}, { headers: { 'x-correlation-id': input.correlationId } }),
+              {
+                code: 'mnet.unavailable',
+                message: 'M-Net unavailable'
+              }
+            )
           }),
           Effect.flatMap(response =>
             response.error || !response.data
@@ -275,10 +323,7 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed({
-                  networkId: response.data.networkId,
-                  nodeId: response.data.nodeId
-                })
+              : decodeMemberRemoveResponse(response.data)
           )
         )
       )
@@ -310,8 +355,9 @@ export function createHttpMNetPort() {
                     'M-Net unavailable'
                   )
                 )
-              : Effect.succeed(toMNetwork(response.data.network))
-          )
+              : decodeNetworkUpdateResponse(response.data)
+          ),
+          Effect.map(response => toMNetwork(response.network))
         )
       )
     },

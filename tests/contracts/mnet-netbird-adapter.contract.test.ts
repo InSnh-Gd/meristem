@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  NETBIRD_UNSUPPORTED_MANAGEMENT_DEPENDENCY,
   createNetbirdAdapter,
+  NETBIRD_UNSUPPORTED_MANAGEMENT_DEPENDENCY,
   parseNetbirdStatusOutput
-} from '../../services/m-net/src/netbird-adapter.ts'
+} from '@m-net/data-plane/netbird-adapter.ts'
 
 const STATUS_JSON = JSON.stringify({
   ManagementState: { Connected: false },

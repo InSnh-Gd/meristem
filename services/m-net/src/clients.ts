@@ -4,9 +4,9 @@ import { createInternalFetcher, serviceUrl } from '../../../packages/internal-ht
 import { initTelemetry } from '../../../packages/telemetry/src/index.ts'
 import type { EventBusApp } from '../../m-eventbus/src/public-types.ts'
 import type { LogApp } from '../../m-log/src/public-types.ts'
-import { createInMemoryDataPlaneStores } from './data-plane-store-memory.ts'
-import { createPgDataPlaneStores } from './data-plane-store-pg.ts'
-import type { DataPlaneStores } from './data-plane-store-types.ts'
+import { createInMemoryDataPlaneStores } from './data-plane/data-plane-store-memory.ts'
+import { createPgDataPlaneStores } from './data-plane/data-plane-store-pg.ts'
+import type { DataPlaneStores } from './data-plane/data-plane-store-types.ts'
 import {
   createEventPublisher,
   createLogWriters,
@@ -24,32 +24,28 @@ import {
 import {
   createInMemoryGlobalDefaultsStore,
   type GlobalDefaultsStore
-} from './global-defaults-store.ts'
-import { createPgGlobalDefaultsStore } from './global-defaults-store-pg.ts'
-import type { MigrationEngine } from './migration-engine.ts'
-import { createWiredMigrationEngine } from './migration-engine-factory.ts'
+} from './profile/global-defaults-store.ts'
+import { createPgGlobalDefaultsStore } from './profile/global-defaults-store-pg.ts'
 import {
   createInMemoryProfileDisablePolicyStore,
   createPgProfileDisablePolicyStore,
   type ProfileDisablePolicyStore
-} from './profile-disable-policy.ts'
+} from './profile/profile-disable-policy.ts'
 import {
   createInMemoryProfileStore,
   createPgProfileStore,
   type ProfileStore
-} from './profile-store.ts'
-import { asActorId } from './store-codecs.ts'
+} from './profile/profile-store.ts'
 import {
   createInMemorySuspendedOperationStore,
   createPgSuspendedOperationStore,
   type SuspendedOperationStore
 } from './suspended-operations.ts'
-
-export type MNetDb = ReturnType<typeof createDb>['db']
-export type MNetSqlClient = ReturnType<typeof createDb>['client']
+import type { MNetDb, MNetSqlClient } from './types.ts'
 
 export type { ProfileEvents, ProfileLog } from './event-log-factories.ts'
 export type { ApprovalClient, PolicyAuthorize } from './external-client-factories.ts'
+export type { MNetDb, MNetSqlClient } from './types.ts'
 
 export type MNetInfrastructure = {
   db: MNetDb
@@ -58,7 +54,6 @@ export type MNetInfrastructure = {
   globalDefaultsStore: GlobalDefaultsStore
   suspendedOps: SuspendedOperationStore
   profileDisablePolicy: ProfileDisablePolicyStore
-  migrationEngine: MigrationEngine
   dataPlaneStores: DataPlaneStores
   requireDatabase: boolean
   checkStoreHealth(): Promise<boolean>
@@ -105,7 +100,7 @@ export function createMNetInfrastructure(): MNetInfrastructure {
 
   const profileStore = requireDatabase ? createPgProfileStore(db) : createInMemoryProfileStore()
   const globalDefaultsStore = requireDatabase
-    ? createPgGlobalDefaultsStore(db, profileStore)
+    ? createPgGlobalDefaultsStore(db)
     : createInMemoryGlobalDefaultsStore(profileStore)
   const suspendedOps = requireDatabase
     ? createPgSuspendedOperationStore(db)
@@ -123,32 +118,6 @@ export function createMNetInfrastructure(): MNetInfrastructure {
   const profileEvents = createProfileEventsClient(eventBus)
   const profileLog = createProfileLogClient(logService)
   const policyAuthorize = createPolicyAuthorizeClient(fetcher)
-
-  const migrationEngine = createWiredMigrationEngine({
-    globalDefaultsStore,
-    profileStore,
-    dataPlaneStores,
-    log: {
-      async writeTimeline(summary, subject, correlationId) {
-        await profileLog.writeTimeline(summary, subject, correlationId)
-      },
-      async writeFull(level, message, correlationId, payload) {
-        await profileLog.writeFull(level, message, correlationId, payload)
-      },
-      async writeAudit(actor, action, resource, result, correlationId, payload) {
-        const normalizedActor = asActorId(actor)
-        if (!normalizedActor) throw new Error('invalid audit actor for migration engine')
-        await profileLog.writeAudit(
-          normalizedActor,
-          action,
-          resource,
-          result,
-          correlationId,
-          payload
-        )
-      }
-    }
-  })
 
   async function checkStoreHealth(): Promise<boolean> {
     try {
@@ -173,7 +142,6 @@ export function createMNetInfrastructure(): MNetInfrastructure {
     globalDefaultsStore,
     suspendedOps,
     profileDisablePolicy,
-    migrationEngine,
     dataPlaneStores,
     requireDatabase,
     checkStoreHealth,

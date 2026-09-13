@@ -5,7 +5,7 @@ import { BASE_TIME, FakeConfigStore, versionKey } from './config-state-machine-f
 type ResultLike<T, E> = { ok: true; value: T } | { ok: false; error: E }
 type ConfigError = { code: string; message: string }
 
-const STORE_MODULE = '../../../apps/core/src/storage-adapter.ts'
+const STORE_MODULE = '../../../apps/core/src/storage/storage-adapter.ts'
 
 function unwrapOk<T, E>(result: ResultLike<T, E>): T {
   expect(result.ok).toBe(true)

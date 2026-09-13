@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { createHttpMDeployFacadePort } from '../../apps/core/src/adapters/http-mdeploy-facade.ts'
 import type { MDeployFacadeContext } from '../../apps/core/src/types/mdeploy-facade.ts'
-import type { FacadeServiceResult } from '../../apps/core/src/routes/facade-support.ts'
+import type { FacadeServiceResult } from '../../apps/core/src/routes/facade/facade-support.ts'
 
 const context: MDeployFacadeContext = {
   actor: 'admin',

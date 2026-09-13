@@ -1,3 +1,17 @@
+import type { HeartbeatRuntimeContext } from '@m-net/agent/agent-runtime-session-lifecycle.ts'
+import { createInMemoryMNetClosedLoopStore } from '@m-net/closed-loop/closed-loop-store-memory.ts'
+import {
+  createMNetClosedLoopService,
+  type MNetClosedLoopDeps
+} from '@m-net/closed-loop/closed-loop-workflow.ts'
+import { createInMemoryDataPlaneStores } from '@m-net/data-plane/data-plane-store-memory.ts'
+import type {
+  BreakGlassDataPlaneDeps,
+  DataPlaneDeps
+} from '@m-net/data-plane/mnet-dataplane-support.ts'
+import { createMigrationEngine } from '@m-net/migration/migration-engine.ts'
+import { createInMemoryGlobalDefaultsStore } from '@m-net/profile/global-defaults-store.ts'
+import { createInMemoryProfileStore } from '@m-net/profile/profile-store.ts'
 import type {
   DeploymentConfigV02FromSchema,
   MNetworkMember,
@@ -5,20 +19,6 @@ import type {
 } from '../../packages/contracts/src/index.ts'
 import type { nodes } from '../../packages/db/src/schema.ts'
 import type { SecretManager } from '../../packages/secrets/src/index.ts'
-import { createInMemoryDataPlaneStores } from '../../services/m-net/src/data-plane-store-memory.ts'
-import type {
-  BreakGlassDataPlaneDeps,
-  DataPlaneDeps
-} from '../../services/m-net/src/mnet-dataplane-support.ts'
-import { createInMemoryGlobalDefaultsStore } from '../../services/m-net/src/global-defaults-store.ts'
-import { createMigrationEngine } from '../../services/m-net/src/migration-engine.ts'
-import { createInMemoryProfileStore } from '../../services/m-net/src/profile-store.ts'
-import type { HeartbeatRuntimeContext } from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
-import {
-  type MNetClosedLoopDeps,
-  createMNetClosedLoopService
-} from '../../services/m-net/src/closed-loop-workflow.ts'
-import { createInMemoryMNetClosedLoopStore } from '../../services/m-net/src/closed-loop-store-memory.ts'
 
 export const lifecycleNetworkId = 'network-mnet-lifecycle-proof'
 export const lifecycleNodeId = 'leaf-mnet-lifecycle-proof'

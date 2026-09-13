@@ -33,7 +33,7 @@ describe('workspace hygiene scanner', () => {
 
   it('allows normal tracked source, docs, and tests', () => {
     const violations = findWorkspaceHygieneViolations([
-      'apps/core/src/routes/projection.ts',
+      'apps/core/src/routes/projection/projection.ts',
       'services/m-log/src/projection/engine.ts',
       'docs/contracts/CONTRACT-VERSIONING.md',
       'tests/contracts/workspace-hygiene.test.ts'

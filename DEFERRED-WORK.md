@@ -13,11 +13,99 @@
 
 ---
 
+## 1a. Audit Index (2026-09-11)
+
+This register is a **ledger**, not a to-do list. All 41 `DFW-*` entries were adjudicated on
+2026-09-11 into one terminal state each. "Terminal" means the entry has a defensible status
+with evidence, not that the underlying capability was built.
+
+States:
+
+- `resolved` — the concern no longer exists; evidence is a command or `file:line`.
+- `obsolete` — superseded by other work; the entry no longer applies.
+- `re-scoped-with-trigger` — still relevant, but its reopen trigger/precondition was corrected.
+- `active` — reopened or in-progress work tracked elsewhere.
+- `feature-scope` — a real future capability, gated on its owning ADR/service doc; not actionable
+  without first reopening that doc (register §1).
+
+| State | Entries (41 total) |
+|---|---|
+| resolved | DFW-014, DFW-015, DFW-033, DFW-034, DFW-035, DFW-036, DFW-038, DFW-040, DFW-041 (9) |
+| resolved (correctness defects only; lifecycle sweep still deferred) | DFW-032 (1) |
+| obsolete | DFW-037 (1) |
+| active / in-progress | DFW-011, DFW-013, DFW-016, DFW-027, DFW-028, DFW-030 (6) |
+| re-scoped-with-trigger | DFW-039, DFW-042 (2) |
+| feature-scope (gated on owning doc) | DFW-001–010, DFW-012, DFW-017–026, DFW-029 (22) |
+
+(DFW-031 does not exist — the register's numbering skips it. New entries DFW-043–048 are
+registered below and do not count toward the original 41; DFW-049 is registered on
+2026-09-12 by the PR review follow-up, and DFW-050 on 2026-09-13 by the ADR-N05 review
+follow-up; both likewise do not count toward the 41.)
+
+Measured evidence (re-run on 2026-09-11, not carried over from prior prose):
+
+- `bun run format:check` → exit 0, 1038 files, 0 violations (closes DFW-036, which claimed a
+  release blocker).
+- `bun run test:contracts` → 1252 pass / 0 fail across 156 files (re-measured 2026-09-12 after
+  the review-fix batch added regression tests; the 2026-09-11 audit measured 1249, and
+  DFW-037's recorded 1174 baseline was stale; see DFW-037).
+- `bun run depcruise` → 0 violations, 0 cycles (DFW-040 4→0, DFW-041 14→0; rules promoted to
+  `error` for `apps/core` and `services/m-net`).
+
+New entries registered by this effort: **DFW-043** (Core network-lifecycle event outbox /
+publisher move — **resolved 2026-09-13** via ADR-N05 and MR-N01), **DFW-044** (operator-facing
+M-Net ledger-prune endpoint — not implemented), **DFW-045** (dependency-cruiser false-green
+history — **fixed**, retained as regression guard), **DFW-046** (orphan test roots not
+typechecked — **runtime gate added**, typecheck inclusion still deferred), **DFW-047**
+(node-agent deep-imports m-net data-plane constants — debt), **DFW-048** (local IAM production
+persistence/wiring gate — debt).
+
+---
+
+### DFW-049: `network:update` Permission And Audit Action For Metadata Updates
+
+Status: deferred — registered 2026-09-12 by PR review follow-up.
+
+Owner: Core / M-Policy.
+
+Source: `packages/contracts/src/literals.ts`, `packages/policy/src/index.ts`,
+`packages/db/src/seed.ts`, `apps/core/src/routes/network/networks.ts`,
+`docs/security/SECURITY-MODEL.md`, `docs/contracts/REST-API.md`.
+
+问题描述:
+
+- `PATCH /api/v0/networks/:id`（元数据更新）复用 `network:create` 作为 policy action 与
+  audit action：审计事实把元数据更新记成 `network:create`，按 action 过滤审计日志的读者
+  看到的语义失真；仓库中不存在 `network:update` 权限字面量。
+- 复用现状已在 `SECURITY-MODEL.md` §2.1 与 `REST-API.md` PATCH 段显式登记（2026-09-12），
+  属已声明的过渡态，不是隐性越权。
+
+Reason deferred:
+
+- 引入新权限字面量是跨包契约变更：`basePermissions`、RBAC 默认值、PostgreSQL seed、
+  `SECURITY-MODEL` 矩阵、`m-net.md` §4、REST `Protected by` 行、审计动作语义需同批变更，
+  并需确认 seed 幂等升级路径；不属于审查修复的最小正确性批。
+
+Required before implementation:
+
+- 新增 `network:update` 字面量 + seed 权限/授予 + RBAC 默认值（admin / security-admin）。
+- `PATCH /networks/:id` 切换 policy 与 audit action 为 `network:update`；`m-cli network
+  update` 同步。
+- `SECURITY-MODEL.md` §2.1 矩阵、`docs/services/m-net.md` §4、`REST-API.md` 同批更新；
+  移除 §2.1 的复用注记。
+
+Reopen trigger:
+
+- 任一网络元数据写路径需要独立于 `network:create` 的授权或审计区分时（含审计检索要求
+  按真实动作过滤的场景）。
+
+---
+
 ## 2. Deferred Items
 
 ### DFW-001: LLM-Assisted Approval Review
 
-Status: partially resolved (internal context contract + redaction + tests). Still deferred: LLM provider execution, prompts, user-visible summaries.
+Status: partially resolved (internal context contract + redaction + tests). Still deferred: LLM provider execution, prompts, user-visible summaries. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-Policy with M-Log / M-UI / BFF integration.
 
@@ -62,7 +150,7 @@ Required before implementation:
 
 ### DFW-002: Formal Approval Queue UI
 
-Status: partially resolved (approve/reject CommandWell execution implemented). Still deferred: LLM-assisted review, Control Room Ledger integration.
+Status: partially resolved (approve/reject CommandWell execution implemented). Still deferred: LLM-assisted review, Control Room Ledger integration. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-UI / M-UI BFF.
 
@@ -328,7 +416,7 @@ Required before implementation:
 
 ### DFW-010: Production Historical Task Migration Compatibility
 
-Status: deferred from M-Task cutover / canonical task service. Partially resolved as of v0.1.
+Status: deferred from M-Task cutover / canonical task service. Partially resolved as of v0.1. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-Task / Core.
 
@@ -413,7 +501,7 @@ Required before implementation:
 
 ### DFW-012: Generic Config Lifecycle Subsystem
 
-Status: deferred from M-Net profile lifecycle / regional network profile. Partially resolved as of v0.1.
+Status: deferred from M-Net profile lifecycle / regional network profile. Partially resolved as of v0.1. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: Core / config subsystem, with M-Net as a consumer.
 
@@ -604,7 +692,7 @@ Reopen trigger: Formal M-UI route set / SDUI v0.2 work complete. Real data-plane
 
 ### DFW-017: Broad Event Mesh Or Projection Expansion For Deferred Flows
 
-Status: partially resolved (vote-level events, profile/behavior-analysis projections). Still deferred: approval comment events.
+Status: partially resolved (vote-level events, profile/behavior-analysis projections). Still deferred: approval comment events. §1a terminal adjudication (2026-09-11): feature-scope — the remainder is a future capability gated on its owning ADR/service doc, not an outstanding fix.
 
 Owner: M-EventBus / M-Log / projection platform.
 
@@ -1108,6 +1196,13 @@ Required before implementation:
 
 Status: deferred from v0.1 closure / acceptance closure.
 
+Audit note (2026-09-12, review alignment): the §1a index adjudicates this entry as
+`re-scoped-with-trigger`. The corrected reopen precondition is the conjunction of both
+bullets under "Reopen trigger": a deferred subject reopens only when it has gained a real
+publisher in its owning service AND the owning service definition/ADR explicitly accepts
+the new runtime capability. Catalog parity work itself remains deferred — it is not a
+v0.1-closure obligation and carries no separate schedule.
+
 Owner: Core / M-Task / M-Net / M-Policy / M-Log (per subject).
 
 Source: `docs/events/EVENT-CATALOG.md`, `tests/contracts/schema-coverage.md`, `docs/events/DEFERRED-EVENT-GAP-MAP.md`.
@@ -1191,41 +1286,38 @@ Resolved in this tranche:
 
 ### DFW-040: apps/core 四条循环依赖
 
-Status: deferred — `warn` severity, `depcruise` exit code 仍为 0。
+Status: **resolved（2026-09-11）**——apps/core 循环 4 → 0，规则已提为 `error`。
 
 Owner: Core。
 
-Source: `apps/core/src/types.ts`, `apps/core/src/types/shared.ts`, `apps/core/src/types/mdeploy-facade.ts`, `apps/core/src/routes/facade-support.ts`, `apps/core/src/middleware/auth.ts`。
+Source: `apps/core/src/types.ts`, `apps/core/src/types/shared.ts`, `apps/core/src/types/mdeploy-facade.ts`, `apps/core/src/routes/facade/facade-support.ts`, `apps/core/src/middleware/auth.ts`。
 
 问题描述:
 
 - `apps/core/src/types/mdeploy-facade.ts:14` 从 `../routes/facade-support.ts` 导入 `FacadeServiceResult`，形成 `types/ → routes/` 反向边，引发四条循环依赖。
-- `FacadeServiceResult<T>`（声明于 `facade-support.ts:10`）结构上等价于 `Result<T, ServiceErrorLike>`（来自 `packages/common/src/result.ts`）。
+- `FacadeServiceResult<T>` 结构上等价于 `Result<T, ServiceErrorLike>`。
 
-精确修复方案:
+已实施修复:
 
-1. 新建 `apps/core/src/types/facade-result.ts`，定义 `FacadeServiceResult<T>` 为 `Result<T, ServiceErrorLike>`，复用 `packages/common/src/result.ts`。
-2. `apps/core/src/routes/facade-support.ts` 改为从 `../types/facade-result.ts` re-export `FacadeServiceResult`（保持兼容）。
+1. 新建 `apps/core/src/types/facade-result.ts`，定义 `ServiceErrorLike` 与 `FacadeServiceResult<T> = Result<T, ServiceErrorLike>`。
+2. `apps/core/src/routes/facade/facade-support.ts` 改为从 `../types/facade-result.ts` re-export（保持兼容）。
 3. `apps/core/src/types/mdeploy-facade.ts:14` 改为从 `./facade-result.ts` 导入。
-4. 该单次移动即可断开全部四条循环。
+4. `no-circular` 对 `apps/core` 提为 `error`（`no-circular-core`）。
 
-Reason deferred:
+Resolution evidence（2026-09-11 实测）:
 
-- 循环涉及的全部文件均为 M-Deploy facade WIP 未提交文件；修复需 stage 另一 agent 的未完成 feature。
-
-Reopen trigger:
-
-- M-Deploy facade WIP 落地后。
+- `bun run depcruise` → apps/core 循环 4 → **0**；`no-circular-core` 为 error 后仍 exit 0。
 
 ---
 
 ### DFW-041: services/m-net 六条预存循环依赖
 
-Status: deferred — `warn` severity, 不影响 gate。
+Status: **resolved（2026-09-11）**——`warn` 期间实测的 SCC 是 **13 文件 / 14 条循环边**（原记录的
+「6 条」不准确），依赖反转后 0；规则已提为 `error`。
 
 Owner: M-Net。
 
-Source: `services/m-net/src/deps.ts`, `services/m-net/src/clients.ts`, `services/m-net/src/migration-engine.ts`, `services/m-net/src/migration-engine-rollback.ts`, `services/m-net/src/profile-workflow-types.ts`, `services/m-net/src/mnet-dataplane-support.ts`, `services/m-net/src/data-plane-security-support.ts`。
+Source: `services/m-net/src/deps.ts`, `services/m-net/src/clients.ts`, `services/m-net/src/migration/migration-engine.ts`, `services/m-net/src/migration/migration-engine-rollback.ts`, `services/m-net/src/profile/profile-workflow-types.ts`, `services/m-net/src/data-plane/mnet-dataplane-support.ts`, `services/m-net/src/data-plane/data-plane-security-support.ts`。
 
 问题描述:
 
@@ -1244,106 +1336,123 @@ Reopen trigger:
 
 ### DFW-033: 文档内容去重与目录移动
 
-Status: deferred — WIP 文件阻塞。
+Status: **resolved（2026-09-11）**——去重、目录移动与结构树对齐均已完成。
 
 Owner: docs / operations。
 
-Source: `docs/operations/RUNBOOK.md`, `docs/operations/MNET-V02-RUNBOOK.md`, `docs/operations/M-NET-THREE-NODE-VALIDATION.md`, `docs/production-readiness/READINESS-SUMMARY.md`, `docs/releases/`, root `README.md`。
+Source: `docs/operations/RUNBOOK.md`, `docs/operations/MNET-V02-RUNBOOK.md`, `docs/operations/M-NET-THREE-NODE-VALIDATION.md`, `docs/operations/READINESS-SUMMARY.md`, `docs/releases/`, root `README.md`。
 
-Deferred work:
+已实施（2026-09-11）:
 
-- `docs/operations/RUNBOOK.md` §5.1 + §6.1 与 `docs/operations/MNET-V02-RUNBOOK.md`（M-Net 故障矩阵 / 诊断）内容重叠。
-- `docs/operations/RUNBOOK.md` §6.1 与 `docs/operations/M-NET-THREE-NODE-VALIDATION.md`（同一 3-node harness 流程）内容重叠。
-- `docs/production-readiness/READINESS-SUMMARY.md` 应考虑并入 `docs/operations/`，但移动会断开 root `README.md:249` 的链接。
-- `docs/releases/` 只含 2 个文件，但其中 1 个被 `tests/contracts/v02-gate-split.contract.test.ts` 断言。
-- Root `README.md` "Monorepo 结构" tree 需要与 `MERISTEM-DEV.md` §1.2 同步对齐。
+- **RUNBOOK §5.1 去重**：`v0.2 NetBird Direction` 段落改为指向 `MNET-V02-RUNBOOK.md` §2 的
+  故障矩阵，不再复述；`Closed-Loop Failure and Recovery Semantics` 收敛为「权威来源 +
+  运维结论」形式，删除与 `SECURITY-MODEL.md` / `services/m-net.md` 重复的条文，但**保留运维
+  专属结论**（tunnel health 只经 node runtime-token 上报、PostgreSQL fact 解码失败的处置、
+  break-glass 30 分钟硬过期）。
+- **RUNBOOK §6.1 去重**：删掉重复的 `mnet-harness` 命令列表（同一组命令此前列了两遍：`bun run
+  mnet:harness:*` 与 `mnet-harness *`），命令集中为规范形式，完整分步流程指向
+  `M-NET-THREE-NODE-VALIDATION.md` §4–§5。
+- **READINESS-SUMMARY 移动**：`docs/production-readiness/READINESS-SUMMARY.md` ->
+  `docs/operations/READINESS-SUMMARY.md`（该文件此前**无任何入链**，原「会断开 README:249
+  链接」的顾虑不成立，README 中并无该链接）；`docs/README.md` 的 operations 行已补引；
+  其 gate 记录中过期的「5 条循环警告」已更新为「0 循环 + 规则提为 error」。
+- **结构树对齐**：`README.md`「Monorepo 结构」补全缺失的 services（m-deploy）与 packages
+  （auth/common/db/internal-http/nats-rpc/secrets/telemetry），docs 子目录同步为 operations /
+  releases；`MERISTEM-DEV.md` §1.2 的 Core 树改为分层后的实际形态（`storage/` 目录、
+  `routes/` 按域子目录）。
+- **`docs/` 保持独立**：`docs/releases/` 未被移动——其 release notes 内容被
+  `tests/contracts/v02-gate-split.contract.test.ts` 断言，移动只会增加风险而无收益。
 
-Reason deferred:
+Resolution evidence（2026-09-11 实测）:
 
-- `RUNBOOK.md`、`EVENT-CATALOG.md`、`POSTGRES-SCHEMA-MVP.md`、`REST-API-MVP.md`、`SECURITY-MODEL.md`、`CLI-COMMANDS.md`、`docs/services/m-cli.md`、`docs/services/m-deploy.md` 和 root `README.md` 均已在 WIP 中被修改；去重会将本次重构与 WIP 内容纠缠。
-
-Reopen trigger:
-
-- M-Deploy facade WIP 落地后。
+- `test:contracts` 全绿（含 `v02-gate-split.contract.test.ts`）。
+- 仓库内已无指向 `docs/production-readiness/` 的引用。
+- `README.md` 与 `MERISTEM-DEV.md §1.2` 的结构树与当前目录一致。
 
 ---
 
 ### DFW-034: apps/core/src/ 与 apps/core/src/routes/ 目录分层整合
 
-Status: deferred — WIP 文件阻塞。
+Status: **resolved（2026-09-11）**——按域分层已完成，两个目录均降到 flat-directory 阈值内。
 
 Owner: Core。
 
-Source: `apps/core/src/`（20 flat files）, `apps/core/src/routes/`（33 flat files）。
+Source: `apps/core/src/`（分层前 20 flat files）, `apps/core/src/routes/`（分层前 33 flat files）。
 
-Deferred work:
+已实施分层（纯搬迁，行为不变）:
 
-- `routes/` 33 个文件和 `src/` 20 个文件均超过 flat-directory 阈值。`services/m-net/src` 和 `services/m-ui-bff/src/routes` 已完成的分层模式应回应用到 Core。
+- 根目录 9 个 `storage-adapter*.ts` 收敛到 `src/storage/`；根文件 20 -> 11。
+- `routes/` 33 个文件按域收敛到 11 个子目录（identity / config / secrets / network /
+  node / log / policy / projection / service / health / facade）；routes 根平铺 33 -> 0。
+- 复用既有 `types/`、`schemas/`、`middleware/`、`adapters/`、`testing/` 子目录，未新建
+  catch-all 目录；入口 `app.ts` / `index.ts` / `public-types.ts` 保留在 `src/` 根。
+- 所有相对导入（含指向 `packages/` 的）按新深度重算；仓库外部导入点极少（仅 3 个测试文件
+  触碰 routes），无 path alias 变更。
 
-Reason deferred:
+Resolution evidence（2026-09-11 实测）:
 
-- 8 个 `apps/core` 文件为 WIP-dirty，包括 `app.ts`、`adapters.ts`、`types.ts`、`middleware/route-support.ts`——正是分层重写导入时必须修改的文件。
-
-Reopen trigger:
-
-- M-Deploy facade WIP 落地后。
+- typecheck / lint / depcruise（0 循环）/ contracts / failure-modes / integration 全绿。
+- 净改动仅为导入路径与随新位置的 import 排序，逐例核实无逻辑新增。
 
 ---
 
 ### DFW-035: 两个超尺寸文件无法拆分
 
-Status: deferred — 已登记到 `tests/contracts/file-size-budget.contract.test.ts` allowlist，WIP-BLOCKED 原因。
+Status: **resolved（2026-09-11）**——两个文件已拆分到 500 行内，allowlist 条目已移除。
 
 Owner: scripts / M-Deploy。
 
-Source: `scripts/v02-deploy-proof.ts`（1120 行）, `services/m-deploy/src/testing.ts`（602 行）。
+Source: `scripts/v02-deploy-proof.ts`（拆分前 1271 行）, `services/m-deploy/src/testing.ts`（拆分前 602 行）。
 
-Deferred work:
+已实施拆分（行为不变）:
 
-- 两个文件超出 500 行硬限制但因 WIP 修改无法拆分。
-- 当前已在 `file-size-budget.contract.test.ts` allowlist 中注册并标注 WIP-BLOCKED 原因。
+- `scripts/v02-deploy-proof.ts` 1271 -> 437 行，抽出三个共址模块：
+  - `v02-deploy-proof-types.ts`（143 行）：类型/端口契约。
+  - `v02-deploy-proof-support.ts`（365 行）：环境/进程工具、受管服务定义、`defaultDeps`、
+    `finalizeReport`。
+  - `v02-deploy-proof-context.ts`（415 行）：context 准备、基础设施与受管服务拉起。
+  - 主文件 re-export `DeployProofReport` 等公共类型，保持既有消费点（`mnet-v02-live-proof-*`）兼容。
+- `services/m-deploy/src/testing.ts` 602 -> 441 行，抽出 `testing-store.ts`（228 行）承载内存 store 端口。
+- 移除 `tests/contracts/file-size-budget.contract.test.ts` 中两条含过期 `WIP-BLOCKED` 理由的
+  allowlist 条目（该守卫要求 allowlist 是收缩棘轮——条目对应的文件已合规即必须移除）。
 
-Reason deferred:
+Resolution evidence（2026-09-11 实测）:
 
-- 两个文件均为 M-Deploy facade WIP 修改对象。
-
-Reopen trigger:
-
-- M-Deploy facade WIP 落地后；拆分文件并移除 allowlist 条目。
+- 全部拆出文件 < 500 行；`file-size-budget.contract.test.ts` 4/4 通过（含「收缩棘轮」与
+  「条目必须仍存在」两条守卫）。
+- typecheck / lint / depcruise（0 违规）/ contracts / failure-modes / integration 全绿。
 
 ---
 
 ### DFW-036: WIP 文件格式化漂移（发布阻塞项）
 
-Status: deferred — **release blocker**，`test:v02-gates` 无法通过。
+Status: **resolved（2026-09-11）**——原有 23 个 WIP 违规文件的格式化随 M-Deploy facade
+一起落地，`test:v02-gates` 的第一个 gate 已不再阻塞。
 
 Owner: M-Deploy facade feature owner。
 
 Source: `bun run format:check` output, `scripts/git-hooks/pre-push`。
 
-问题描述:
+问题描述（历史）:
 
 - `bun run format:check` 是 `scripts/git-hooks/pre-push` 和 `test:v02-gates` 链的**第一个** gate。HEAD 时报 106 个违规文件。
 - 其中 83 个已在清理通过中格式化（commits `5dc36d2` 和 `a70c0f5`，经 transpiler normalization 验证语义等价）。
-- 剩余 **23 个违规文件全部为 WIP 文件**：`apps/core/src/adapters/http-mdeploy-facade.ts`、`apps/core/src/routes/deploy-facade.ts`、`apps/m-cli/src/cli.ts`、`apps/m-cli/src/commands/deploy-*.ts`、`packages/contracts/src/routes/deploy.ts`、`packages/contracts/src/schemas/mdeploy-*.ts`、`packages/contracts/src/types/cli-client.ts`、`packages/db/src/seed.ts`、`scripts/local-stack-runtime.ts`、`scripts/v02-deploy-proof.ts`、`services/m-deploy/src/serve-local.ts`、`services/m-deploy/src/testing.ts`，以及 8 个新 `tests/` 文件。
+- 剩余 23 个违规文件全部为当时的 WIP 文件。
 
-精确修复方案:
+Resolution evidence（2026-09-11 实测）:
 
-- 在 M-Deploy facade feature 落地时，执行 `bunx biome format --write` 覆盖全部 23 个 WIP 文件。
-
-Reason deferred:
-
-- 格式化 WIP 文件会修改另一 agent 的 working tree。
+- `bun run format:check` → **exit 0，1038 个文件，0 违规**。
+- `test:v02-gates` 全链通过（exit 0）。
 
 Reopen trigger:
 
-- M-Deploy facade WIP 落地时，作为 landing 流程的一部分立即执行。**此项为发布阻塞项**——`test:v02-gates` 在此项解决前无法通过。
+- 无。若未来再次出现格式化漂移，作为新的 WIP 落地项处理，而不是重开本项。
 
 ---
 
 ### DFW-037: 已知合约测试间歇性失败（flake）
 
-Status: 持续观察——非阻塞，无代码修复需要。
+Status: obsolete（作为 deferred 工作项）——保留为观察记录，不构成待办。
 
 Owner: test infrastructure。
 
@@ -1354,7 +1463,12 @@ Source: `bun run test:contracts`。
 - 规划阶段发现一次间歇性失败：1156 pass / 1 fail → 连续三次 re-run 均 1157 / 0。
 - 清理通过中再次出现：`packet forwarding architecture guard` 测试 1158 pass / 2 fail → re-run 即 1160 / 0。
 - 无代码变更即恢复通过，确认为 flake 而非回归。
-- 当前健康基线：**1174 pass / 0 fail**（结构清理通过收束后）。
+
+基线更新（2026-09-12 复测，替代原记录的 1174 与 09-11 审计的 1249）:
+
+- **1252 pass / 0 fail across 156 files**（`bun run test:contracts`）。审查修复批次新增回归
+  测试后刷新。原 1174 记录已过期。
+- 本项已无可执行的工程动作，故标记 obsolete；仅保留以下操作建议。
 
 处理建议:
 
@@ -1363,51 +1477,78 @@ Source: `bun run test:contracts`。
 
 ---
 
-### DFW-038: services/m-net/src 115 个平铺文件的目录分层
+### DFW-038: services/m-net/src 120 个平铺文件的目录分层
 
-Status: deferred — 有硬前置条件，未满足前不得启动。
+Status: **resolved（2026-09-11）**——三项硬前置全部满足（DFW-041 已解决、M-Deploy facade
+WIP 已落地、`@m-net/*` path alias 已独立落地并通过全 gate 链），搬迁已完成。
 
 Owner: M-Net。
 
-Source: `services/m-net/src/`（115 个平铺 `.ts` 文件）。
+Source: `services/m-net/src/`（搬迁前 123 个平铺 `.ts` 文件，实测；登记表原记的 115/120 均已过期）。
+
+已实施搬迁（2026-09-11）:
+
+- 按登记表冻结的**六领域**切分（不再重新决策）：`profile/`(20)、`closed-loop/`(15)、
+  `migration/`(15)、`agent/`(20，含原观察到的 node 簇)、`forced-relay/`(8)、`data-plane/`(18，
+  复用既存目录)。96 个文件迁入，27 个横切模块留在 `src/` 根（`deps`/`clients`/`types`/
+  `shared`/`config`/`runtime`/`store-codecs`/`route-helpers`/`route-schemas`/
+  `event-log-factories`/`external-client-factories`/`readiness`/`ready-route`/`internal-routes`/
+  `policy-guard`/`suspended-operations`/`network-service`/`operational-*` 等），入口文件
+  `app`/`index`/`public-types`/`startup` 保留在 `src/` 根。
+- 未采用 `node/`/`global/`/`network/`/`operational/` 独立簇：`src/` 根保留 61 个 barrel 转发
+  文件被登记表明令禁止，而横切模块在六簇里无自然归属；`global-defaults-store*`（全局 profile
+  默认值与批量 switch）并入 `profile/`，`operational-read-model*` 与 `network-service` 属网络
+  读取/服务边界，留在根。
+- 外部导入点（63 个文件）改用 `@m-net/<cluster>/<name>.ts` 别名；路径字符串类引用
+  （spawn args / `Bun.file` / allowlist 的精确 `source:`）改为新的字面路径。实测量级高于登记表
+  记录的「70 文件 / 61 模块」。
+- **纯搬迁，零行为变更**：所有内容改动仅为导入说明符重写与随别名变化的 import 排序
+  （格式化器把部分长 import 拆成多行，故 numstat 有少量净增行，已逐例核实无逻辑新增）。
+
+Resolution evidence（2026-09-11 实测）:
+
+- `typecheck` 通过；`depcruise` 0 违规（774 模块 / 2727 依赖边，`no-circular-*` 保持 error）；
+  `test:contracts` 1252 / 0（2026-09-12 复测，09-11 实测为 1249）；`test:failure-modes` 335 / 0；
+  `test:integration` 98 / 0。
+- 新增 `tests/contracts/m-net-path-alias.contract.test.ts` 锁定别名在三个消费方
+  （Bun / tsc / depcruise）与边界守卫中的解析。
+
+保留（未搬迁）: `services/m-net/src/` 根仍有 27 个横切模块 + 6 个领域目录，属预期终态。
+
+Reopen trigger:
+
+- 无。若未来需要把横切模块进一步归类，应另开条目，而不是重开本项。
+
+---
+
+### DFW-038-original-notes: 搬迁前的问题描述（存档）
 
 问题描述:
 
-- `services/m-net/src/` 目前是仓库内最大的单层目录：115 个平铺 `.ts` 文件，仅有一个既存子目录 `data-plane/`（1 个文件）。
+- `services/m-net/src/` 是仓库内最大的单层目录，仅有一个既存子目录 `data-plane/`。
 - 命名已自然聚成领域簇：profile（15）、closed-loop（15）、migration（13）、agent（12）、node（8）、forced-relay（8）、data（5）、operational（4）、network（4）、global（4）。
 - 后缀同时聚成层次簇：workflow（11）、types（9）、support（9）、routes（9）、store（4）、runtime（4）。
 
 爆炸半径（已实测）:
 
-- **70 个仓库外部文件**从 `services/m-net/src/` 导入：`tests/contracts` 30、`tests/integration` 14、`tests/failure-modes` 9、`scripts/` 5、`tests/perf` 4、`tests/services/m-net` 3、`apps/core/src/adapters` 2、`tests/helpers`/`tests/e2e`/`tests/contracts/_helpers` 各 1。
-- **61 个 m-net 模块被外部引用**，全部为硬编码相对路径（形如 `from '../../services/m-net/src/profile-store.ts'`），仓库**没有配置任何 path alias**。
-- 引用最密集：`profile-store.ts`（25）、`suspended-operations.ts`（17）、`app.ts`（13）、`data-plane-store-memory.ts`（12）。
+- 仓库外部文件从 `services/m-net/src/` 导入，集中在 `tests/contracts`、`tests/integration`、
+  `tests/failure-modes`、`scripts/`、`tests/perf`、`tests/services/m-net`、
+  `apps/core/src/adapters` 等。
+- 全部为硬编码相对路径，搬迁前仓库没有配置任何 path alias。
+- 引用最密集：`profile-store.ts`、`suspended-operations.ts`、`app.ts`、`data-plane-store-memory.ts`。
 
-目标形态（已定档，执行时不再重新决策）:
+搬迁目标形态（当时定档）:
 
-- 采用**按领域（feature-based）**切分：`profile/`、`closed-loop/`、`migration/`、`agent/`、`forced-relay/`、`data-plane/`（复用既存目录）。**不采用**按层次（`domain/`/`store/`/`workflow/`）切分——层次切分会让同一领域的状态机、存储与工作流散落三处，反而加重跨领域耦合。
-- **不得**在 `src/` 根保留 61 个单文件 re-export barrel。用 61 个纯转发文件替换 115 个平铺文件是把问题换了个形状，不是解决问题。
-- 外部导入的迁移方式：先引入 path alias（如 `@m-net/`），再据此更新 70 个外部导入点。
-
-硬前置条件（全部满足前不得启动）:
-
-1. **DFW-041 先行**：`deps.ts` ⇄ `clients.ts` ⇄ `migration-engine*.ts` 的 hub 循环必须先做真正的依赖反转。在 hub 循环仍存在时划定目录边界，会把错误的边界固化进目录结构；而依赖反转的结果本身就会决定这些文件应该落在哪个领域目录下。
-2. **M-Deploy facade WIP 落地**：`services/m-net/src/store-codecs.ts` 当前处于 WIP 修改中，另有 78 个 WIP 文件在途。在此期间移动 m-net 文件必然与在途特性产生大范围冲突。
-3. **path alias 独立落地**：monorepo 级 tsconfig `paths` 变更属于独立结构改动，必须自带验证通过（typecheck ×3、lint、depcruise、全测试链），不得与文件搬迁混在同一次提交内。
-
-Reason deferred:
-
-- 前置条件 1 与 2 均未满足；在 hub 循环与在途 WIP 存在的前提下执行 115 文件搬迁，收益不足以抵偿回归与冲突风险。本次结构清理通过的高价值项（gate 链解锁、超尺寸文件拆分、文档归档）已全部落地并提交。
-
-Reopen trigger:
-
-- DFW-041 完成 **且** M-Deploy facade WIP 落地 **且** `@m-net/` path alias 已独立落地并通过全 gate 链后，方可启动本项。
-
----
+- 采用按领域（feature-based）切分：`profile/`、`closed-loop/`、`migration/`、`agent/`、`forced-relay/`、`data-plane/`。已按此执行。
+- 不在 `src/` 根保留单文件 re-export barrel。已遵守。
+- 外部导入先引入 path alias，再据此更新外部导入点。已执行。
 
 ---
 
 ### DFW-039: Real NetBird Infrastructure Viability Proof And Cross-Host Dataplane Verification
+
+Status: re-scoped-with-trigger —— 依赖运营商提供的真实 NetBird Signal/Relay/STUN 基础设施与
+跨主机网络，agent 不可完成；`Resolved now` 部分已落地，余下为运营商执行的验收步骤。
 
 Owner: M-Net / node-agent with ADR-N04.
 
@@ -1443,8 +1584,16 @@ Reason deferred:
   and NetBird artifacts outside this repository; per ADR-N04 they are an
   operator-executed acceptance step, not automatable in CI.
 
+Reopen trigger:
+
+- Operator provisions real NetBird Signal/Relay/STUN infrastructure and runs
+  `bun run mnet:v02:sidecar-proof` against it, then supplies cross-host
+  ICMP/NAT-traversal evidence from the multi-host harness.
 
 ### DFW-032: Same-Host Fleet Operator Tooling And Member Lifecycle Hygiene
+
+Status: partially resolved（2026-09-11，续 2026-09-13）——正确性缺陷（无效占位公钥、生产接线缺失、
+relay/空 map/锁泄漏）与 correlationId 透传已修复；剩余的 heartbeat 驱动自动清理仍 deferred。
 
 Owner: M-Net / node-agent.
 
@@ -1471,20 +1620,338 @@ Resolved now:
   `wg` interface + peers with real keys, and HTTP traffic across all tunnel
   pairs (stem↔stem, stem↔leaf, leaf↔leaf).
 
+Resolved now (2026-09-11, 续批):
+
+- Placeholder runtime keys eliminated: map materialization no longer derives or
+  persists a `bootstrap-<nodeId>` placeholder key. A member is rendered into peer
+  sets only when it holds a real registered runtime key (`keyId` not
+  `bootstrap-<nodeId>` and `status = active`); keyless members are quarantined
+  out of the rendered map instead of emitting keys `wg setconf` rejects.
+  Read-time detection plus an idempotent cleanup of historical placeholder rows
+  in `migrateMNetDataPlane` cover already-deployed data.
+- Fail-closed on an all-keyless member set: if NO member holds a runtime key,
+  materialization returns typed `409 network.no_runtime_keys` instead of
+  publishing a signed map with zero members (which would report enable success
+  while no node could establish a tunnel). Node key registration does not depend
+  on the map, so this does not deadlock first enable.
+- Relay selection now uses the **quarantined** rendered member set: a keyless
+  member can no longer be chosen as relay and written into `mnet_relay_assignments`,
+  the enable response, or the `mnet.relay.assigned` payload.
+- Enable-path operation lock is released on every failure return (previously only
+  the success path released it, so a failed enable blocked retries for the 15-min
+  TTL).
+- Deterministic key selection: `listByNode` now orders by `created_at desc`, so a
+  stale placeholder can no longer outrank a real key under non-deterministic row
+  order.
+- Production wiring fixed: `deleteNetwork` / `removeMember` /
+  `updateNetworkMetadata` / `refreshNetworkMap` were never injected in
+  `startup.ts`, so the internal routes returned `503 feature.unavailable` and the
+  Core DELETE/PATCH endpoints were unusable in a deployed service. All four are
+  now wired, with member removal re-materializing the signed map
+  (`network-map-refresh.ts`) and a last-member removal treated as a no-op.
+- Member removal no longer deletes the node-scoped sidecar desired config until
+  the node has left every network.
+
+Resolved now (2026-09-13):
+
+- End-to-end correlationId propagation for the M-Net network-mutation port family:
+  Core now sends `auth.correlationId` as `x-correlation-id` on the internal
+  member-removal port, M-Net extracts it via `correlationIdFromHeader`, and
+  `removeMember` threads it into the post-commit map refresh, so Core Audit and
+  the resulting `mnet.network_map.published.v0` event share one chain (the local
+  `crypto.randomUUID()` fallback remains for direct callers without a header).
+  The remaining network-mutation routes are covered by PR-B's event-intent rework.
+
 Still deferred:
 
-- Deleting/rotating memberships for nodes that died before leaving: stale
-  member rows keep old bootstrap placeholder keys in every re-rendered map
-  until an operator runs `network remove-member` per ghost; long-lived
-  deployments need automated re-render/purge when a node's heartbeat expires.
-- map render for members without a registered runtime key still bootstraps a
-  deterministic placeholder key (control-plane test affordance); production
-  should either reject or quarantine such members instead of emitting keys
-  that `wg setconf` rejects.
+- Automated re-render/purge driven by heartbeat expiry: ghost membership rows are
+  now harmless for map rendering (their purged/absent runtime key quarantines
+  them), but the membership-of-record row still needs an operator
+  `network remove-member` or a future approved lifecycle sweep. `offline` is
+  deliberately kept out of the map-exclusion seam because `listMembers` also
+  feeds operator listings, topology, and migration offline assessment.
 
 Reason deferred:
 
-- Both are operator-policy/lifecycle-hygiene work beyond the smoke scope; the
-  smoke achieved its goal (control plane + data plane verified for five real
-  agent containers), and the fixes above unblock real agent-mode fleets.
+- The remaining item is operator-policy/lifecycle-hygiene work beyond the smoke
+  scope; the correctness defects (invalid placeholder keys, dead endpoints) are
+  resolved above.
 
+
+---
+
+### DFW-043: Core Network-Lifecycle Event Outbox And Publisher Ownership
+
+Status: resolved（2026-09-13）——发布者归属迁至 M-Net，durable outbox + tombstone 落地，
+REST 语义变更按 MR-N01 记录。
+
+Owner: M-Net（变更与事件）；Core 保留授权、审计、Timeline。
+
+Source: `apps/core/src/routes/network/networks-support.ts`, `apps/core/src/routes/network/networks.ts`,
+`services/m-net/src/network-service.ts`, `docs/events/EVENT-CATALOG.md`,
+`docs/contracts/REST-API.md`, `docs/contracts/CONTRACT-VERSIONING.md`。
+
+问题描述（已修复）:
+
+- Core 的 `mnet.network.*` / `mnet.membership.*` 事件发布是「先提交后发布」的双写：变更在
+  M-Net 提交，事件在 Core 内联发布。发布失败时 Core 返回 typed 503，但**已提交的变更没有持久
+  补发路径**（除 DELETE 的幂等重放外），客户端不重试或 Core 在提交后崩溃时事件永久丢失。
+- 对照：M-Deploy（`event-outbox.ts`）与 M-Net closed-loop（`closed-loop-store-pg.ts`）都有
+  「变更 + event-intent 同事务提交」的持久 outbox，只有 Core 的网络生命周期没有。
+
+Resolved now（2026-09-13，ADR-N05）:
+
+- **发布者归属迁 M-Net**：`mnet.network.created.v0` / `mnet.membership.joined.v0` /
+  `mnet.network.deleted.v0` / `mnet.membership.removed.v0` 由 M-Net 发布，envelope
+  `source: "m-net"`；Core 的 `networks-support.ts` 删除 4 个内联 publish helper，
+  只保留审计（变更前 fail-closed）与 Timeline（变更后写，失败 warn）。
+- **durable outbox**：新表 `mnet_network_event_intents`（`network_id` 不设 FK）与
+  `mnet_network_tombstones`；`createNetwork` / `joinNetwork` / `deleteNetwork` / `removeMember`
+  在各自事务内写网络表 + event-intent（delete 额外写墓碑）。
+  `services/m-net/src/network-event-outbox.ts` 提供 pg/memory store 与
+  `dispatchPendingNetworkEvents`，`startup.ts` 加 30s 补发 sweep（对齐 closedLoop）。
+- **REST 语义变更**（无兼容窗口，v0.2 无外部部署用户，按 MR-N01 记录）：
+  「发布失败 → 503」→「变更成功 → 200，事件 at-least-once 异步补发」；
+  DELETE「`network.not_found` → 幂等 200」→「无行无墓碑 → 404；有墓碑 → 幂等 200」；
+  移除 `MNetNetworkDeletedPayload.replayed`（代码曾相对 EVENT-CATALOG 漂移，现统一为
+  `{ networkId }`）。
+- 文档同步：`EVENT-CATALOG.md`（4 个 publisher 改 M-Net、source 语义）、
+  `docs/services/core.md` §3、`docs/services/m-net.md` §3/§5、
+  `docs/security/SECURITY-MODEL.md`（审计/事件边界）、`docs/data/POSTGRES-SCHEMA.md`、
+  `docs/contracts/REST-API.md`、`docs/contracts/CONTRACT-VERSIONING.md` MR-N01。
+
+Verification:
+
+- `tests/contracts/core-network-lifecycle.contract.test.ts`：404 vs 墓碑幂等 200、
+  Core 不再内联发布、EventBus 故障不再把已提交删除翻成 503。
+- `services/m-net/src/network-service-event-intents.test.ts`：变更与 intent/墓碑同事务写入。
+- `services/m-net/src/network-event-outbox.test.ts`：at-least-once 投递、失败保留 pending +
+  lastError、读取/发布故障降级。
+- `tests/contracts/schema-coverage.drift.contract.test.ts`：M-Net 成为 4 个 subject 的
+  发布者（`createMNetNetworkEventIntent` 字面量 subject 扫描）。
+
+Reopen trigger:
+
+- 引入外部部署用户需要兼容窗口，或出现除 M-Net 之外的权威网络状态变更所有者时。
+
+---
+
+### DFW-044: M-Net Operator-Facing Ledger-Prune Endpoint
+
+Status: deferred — registered 2026-09-11 by the register audit. Not implemented.
+
+Owner: M-Net.
+
+Source: `docs/contracts/REST-API.md`（网络删除的「permanently undeletable in v0.2」consequence）,
+`services/m-net/src/network-service.ts`（`network.closed_loop_facts_present` 等留存台账门禁）。
+
+问题描述:
+
+- 删除网络时，closed-loop facts / profile-switch 成员关系 / 未终结挂起操作属于**留存台账**，
+  存在即 409 拒绝；REST-API.md 明确记载：一旦网络累积了这些引用，它在 v0.2 **永久不可删**，
+  因为没有面向运维的 ledger-prune 端点。
+
+Reason deferred:
+
+- 新增 prune 端点属新 REST 契约 + 权限/审计面，需要先更新契约文档与 SECURITY-MODEL；
+  超出本批最小正确性范围。
+
+Required before implementation:
+
+- 新 REST 契约 + `network:*` 权限族声明 + Audit 事实定义。
+- `docs/security/SECURITY-MODEL.md` 与 `docs/contracts/REST-API.md` 同步更新。
+- 明确 prune 的留存语义（哪些台账可销毁、是否需要双人审批）。
+- prune 必须**三表同清**：`mnet_profile_switch_batch_members` /
+  `mnet_profile_switch_results` / `mnet_profile_switch_snapshots`。deleteNetwork 的留存台账
+  门禁依赖「batch_members 行永不删除」的不变式（`network-service.test.ts` FK coverage guard
+  注释）；若 prune 只清 batch_members 而保留 results/snapshots，门禁会静默失效，后续
+  deleteNetwork 将以 FK 违例 500 收场（2026-09-12 审查注记）。
+
+Reopen trigger:
+
+- 运维需要删除已被留存台账门禁挡住的网络时。
+
+---
+
+### DFW-045: dependency-cruiser False-Green (Regression Guard)
+
+Status: **resolved（2026-09-11）**——根因已修复，本项保留为回归防护记录。
+
+Owner: CI / repo tooling。
+
+Source: `.dependency-cruiser.cjs`, `tests/contracts/dependency-cruiser-parse-coverage.contract.test.ts`,
+`package.json`（`typescript7` alias）。
+
+问题描述（根因）:
+
+- 本仓同时安装 `typescript@6.0.3` 与别名 `typescript7`（`npm:typescript@7.0.2`）。Bun 把真实包名
+  `typescript` 提升到 `.bun/node_modules` 并指向 7.0.2，超出 dependency-cruiser 声明的
+  `>=2.0.0 <7.0.0`，使其内置 tsc 转译器 `isAvailable()` 返回 false
+  （`src/extract/tsc/extract.mjs` 的 `shouldUse` 合取项）。于是 `.ts/.tsx/.d.ts` 全部不被解析，
+  退化为 acorn-loose 解析原始 TS：目录仍被巡到但**依赖边被丢弃**，`no-circular` 等规则静默失效。
+- 实测：修复前只巡到 133 模块 / 368 依赖边，619 个后端 `.ts` 中仅 5 个被巡到（且全在 m-ui）。
+
+已实施修复:
+
+- `.dependency-cruiser.cjs` 显式 `parser: 'swc'` + 新增 `@swc/core` devDependency（`>=1 <2`）。
+- 已知代价（注释记录）：swc 不产出 `type-only` 依赖类型标记。
+- 回退方案：移除 `typescript7` 别名、typecheck 改用 TS6。
+
+Resolution evidence（2026-09-11 实测）:
+
+- 修复后 774 模块 / 2727 依赖边，暴露的 18 条真实循环已由 DFW-040/041 全部清零。
+- 新增 `tests/contracts/dependency-cruiser-parse-coverage.contract.test.ts` 锁定依赖边数下限，
+  并含一个「种入循环必须被检出且退出码非零」的正断言，防止再次静默退化为假绿。
+
+---
+
+### DFW-046: Orphan Test Roots Not Typechecked
+
+Status: deferred — registered 2026-09-11 by batch B acceptance review.
+
+Owner: test infrastructure。
+
+Source: `tests/apps`, `tests/services`, `tests/packages`, `tests/playwright`（共约 380 个测试 + 3 个 Playwright smoke 文件）。
+
+问题描述:
+
+- 这三个测试根目录运行时会通过（`bun test` 全绿），但**不在 `tsconfig.json` 的 include 内**，
+  因此从不参与 `typecheck` 门禁。
+- 把它们加入 typecheck 会立即暴露既存类型错误（非本次 B 批次引入）：
+  `tests/apps/core/adapters-auth.test.ts`（泛型参数数量）、
+  `tests/apps/core/service-lifecycle.test.ts`（`CoreStorage` mock 缺 `revokeNodeCredential`、
+  `exactOptionalPropertyTypes`）、`tests/apps/m-ui/bff.test.ts`（`fetch` mock 缺 `preconnect`）、
+  `tests/packages/auth/auth.test.ts` 与 `tests/packages/telemetry/telemetry.test.ts`
+  （overload / `noUncheckedIndexedAccess`）等。
+- 2026-09-11 的 B 验收已把它们纳入**运行时** test gate（`test` 与 `test:v02-gates` 现包含
+  `tests/apps` / `tests/services` / `tests/packages` / `tests/guards`），堵住「测试不被运行」
+  的假绿；但仍未纳入类型门禁。
+- `tests/playwright`（Playwright browser smoke）同样不在任何 tsconfig include 内。
+  `tests/e2e` 则由独立的 `tsconfig.e2e.json`（`typecheck:e2e` 门禁）覆盖，**不属本条范围**
+  （2026-09-12 审查核实补登，避免按错误清单清债后门禁仍不绿）。
+
+Reason deferred:
+
+- 修复这批既存类型错误属独立工作，且需要逐个 test 决定是收紧 mock 类型还是放宽被测类型；
+  不应与结构重构批次混在一起。
+
+Reopen trigger:
+
+- 一次专门测试类型债清理排期到达时：逐个修正类型错误并把孤儿根目录（`tests/apps` /
+  `tests/services` / `tests/packages` / `tests/playwright`）加入类型门禁。
+
+---
+
+### DFW-047: node-agent Deep-Imports M-Net Data-Plane Constants
+
+Status: deferred — registered 2026-09-11 by the A/B/C final acceptance review. Debt, not a defect.
+
+Owner: M-Net / node-agent。
+
+Source: `services/node-agent/src/node-agent-map-enforcement.ts`（5 个 `@m-net/data-plane/*` 导入）、
+`services/node-agent/src/node-agent-local-apply.ts`（1 个）。
+
+问题描述:
+
+- node-agent 为共享数据面协议常量（`key-lifecycle`、`network-map-renderer/-signing/-types`、
+  `partition-state`）深层导入 m-net 内部模块，因此在 depcruise 规则
+  `no-cross-service-mnet-internals` 中被显式豁免（`from.pathNot: '^services/node-agent/src/'`）。
+- 这是 ADR-N04 下的真实共享协议面，但以「整服务豁免」实现，使该服务其余部分也失去边界约束；
+  且 m-net 内部模块的移动会连带打破 node-agent 的导入。
+
+Required before implementation:
+
+- 把共享的数据面协议常量/类型上提到 `packages/`（如 `packages/contracts` 或专用
+  data-plane-protocol 包），两侧都依赖该包，然后删除 node-agent 豁免。
+
+Reopen trigger:
+
+- 一次专门的数据面协议包抽取排期到达时；或 m-net 内部再需要移动/重组时。
+
+---
+
+### DFW-048: Local IAM Production Persistence / Wiring Gate
+
+Status: deferred — registered 2026-09-11 by the A/B/C final acceptance review.
+
+Owner: Core / M-UI BFF（DFW-027 生产身份轨道的验收条件）。
+
+Source: `packages/auth/src/local-iam.ts`, `packages/db/src/schema/identity.ts`,
+`services/m-ui-bff/src/index.ts`, `docs/data/STATE-MODEL.md`（§8 / §229）,
+`docs/security/SECURITY-MODEL.md`。
+
+问题描述:
+
+- `createLocalIamService` 目前**只有测试调用点**，principal/session 全部是进程内 Map；
+  `packages/db` 中没有 principal 表。
+- `services/m-ui-bff/src/index.ts` 构造 app 时**不传 `auth`**，故 `authMode` 回落到
+  `local-dev`；但 `STATE-MODEL.md` 与 `SECURITY-MODEL.md` 声明「PostgreSQL（本地 IAM）」是
+  身份权威源。
+- 本批修复的并发首登竞态（DFW-032 之外的 M-1）因此只在测试路径可达。单进程去重的天花板
+  （多实例/重启会分叉）已在 `local-iam.ts` 用 `ponytail:` 注释标注。
+
+Reason deferred:
+
+- 落库 + 生产接线属 DFW-027 生产身份轨道的范围，需先重开该 ADR/service 文档；不是一个
+  机械修补。
+
+Required before implementation:
+
+- 新增 principal/session 表，改用 `(oidc_issuer, oidc_subject)` UNIQUE + `INSERT ... ON CONFLICT`。
+- 把「本地 IAM 持有 principal 记录」写入 DFW-027 的**验收条件**，而非仅设计意图。
+- 在启用 `authMode: 'oidc'` 之前完成生产接线。
+
+Reopen trigger:
+
+- 启用生产 OIDC 登录（`authMode: 'oidc'`）之前必须满足。
+
+---
+
+### DFW-050: Network Event Outbox Delivery Concurrency, Retention, And Poison Intents
+
+Status: deferred — registered 2026-09-13 by ADR-N05 review follow-up.
+
+Owner: M-Net.
+
+Source: `services/m-net/src/data-plane/network-event-outbox.ts`,
+`services/m-net/src/startup.ts`, `docs/adr/ADR-N05-network-lifecycle-event-ownership.md`,
+`docs/data/POSTGRES-SCHEMA.md`。
+
+问题描述:
+
+- `mnet_network_event_intents` 与 `mnet_network_tombstones` 永不 GC（ADR-N05 有意为之：
+  tombstone 是 DELETE 幂等判据，intent 是 at-least-once 投递凭据）。当前无保留策略、
+  无归档、无容量上界。
+- 无死信路径：某条 intent 若永久投递失败（subject 拼写漂移、payload 无法被消费方解码），
+  会被永久重试，只有 `last_error` 与一行 stderr，无尝试计数、无退避、无告警。
+  变更提交后的内联投递已按 intentId 限定范围，因此毒 intent 不再拖累正常变更的请求延迟；
+  但 sweep 仍会对它每 30s 重试一次。
+- 投递无并发声明：`listPendingEventIntents` 不带 `SELECT ... FOR UPDATE SKIP LOCKED`，
+  `markEventIntentPublished` 也不带 `status = 'pending'` 守卫。因此**即使单副本**，内联投递
+  与其自身的 30s sweep 也可以在时间上重叠，对同一条 intent 各投递一次；多副本时每个副本
+  再各自叠加。重复投递在 at-least-once 语义内，但每次重试都会生成新的 envelope `id`
+  （`createEventEnvelope` 每次调用生成随机 id），消费方无法靠事件 id 去重，只能依赖领域键。
+- 无超时：dispatch 调用的 EventBus HTTP 边界（`packages/internal-http/src/index.ts`）只加
+  header，不设 deadline；EventBus 挂起时内联投递会拖住变更响应，直到该请求超时/放弃。
+
+Reason deferred:
+
+- 单实例 v0.2 下这些都不构成正确性缺陷：intent 量小、投递正常即出 pending 集、重复投递在
+  at-least-once 语义内，且内联投递已限定到本次变更的 intent，不再被积压放大。
+- 上线多副本（ADR-P04 Full-HA 拓扑）前必须处置并发声明，否则重复投递随副本数放大。
+
+Required before implementation:
+
+- 为投递增加 pending 声明（`FOR UPDATE SKIP LOCKED` 或 `status='pending'` 条件更新），使内联
+  投递与 sweep、以及多副本之间协作而非重复投递；`markEventIntentPublished` 以
+  `status='pending'` 为谓词。
+- 为 EventBus 投递设置 deadline/`AbortSignal`，避免上游挂起拖住变更响应。
+- 为持续失败的 intent 定义死信/告警路径（尝试计数 + 退避 + 上限后转死信并告警），
+  而不是无限重试。
+- 为 `published` intent 与 tombstone 定义保留策略（分区/归档），或显式记录「不 GC」的
+  容量假设与监控阈值。
+
+Reopen trigger:
+
+- M-Net 以多副本运行；或出现持续投递失败的 intent；或 outbox/tombstone 行数达到需运维
+  干预的量级。

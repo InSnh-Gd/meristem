@@ -21,7 +21,7 @@ The platform uses one PostgreSQL database. Services own table groups but do not 
 | Owner | Tables |
 |-------|--------|
 | Core | `nodes`, `node_credentials`, `node_join_tickets`, `service_definitions`, `tasks` (historical compatibility table), `actors`, `actor_tokens`, `actor_token_revocations` |
-| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations`, `mnet_global_defaults`, `mnet_profile_switch_operations`, `mnet_profile_switch_batches`, `mnet_profile_switch_batch_members`, `mnet_profile_switch_results`, `mnet_profile_switch_snapshots`, `mnet_profile_default_set_results`, `mnet_profile_disable_policies`, `mnet_profile_migrations`, `mnet_closed_loop_facts`, `mnet_network_map_renders`, `mnet_node_public_keys`, `mnet_tunnel_address_allocations`, `mnet_relay_assignments`, `mnet_data_plane_operation_locks`, `mnet_sidecar_desired_configs`, `mnet_partition_states` |
+| M-Net | `networks`, `network_memberships`, `mnet_profile_definitions`, `mnet_network_profile_states`, `mnet_profile_transitions`, `mnet_suspended_operations`, `mnet_global_defaults`, `mnet_profile_switch_operations`, `mnet_profile_switch_batches`, `mnet_profile_switch_batch_members`, `mnet_profile_switch_results`, `mnet_profile_switch_snapshots`, `mnet_profile_default_set_results`, `mnet_profile_disable_policies`, `mnet_profile_migrations`, `mnet_closed_loop_facts`, `mnet_network_event_intents`, `mnet_network_tombstones`, `mnet_network_map_renders`, `mnet_node_public_keys`, `mnet_tunnel_address_allocations`, `mnet_relay_assignments`, `mnet_data_plane_operation_locks`, `mnet_sidecar_desired_configs`, `mnet_partition_states` |
 | M-Task | `task_definitions`, `task_requests`, `task_transitions`, `task_results`, `task_cancellations`, `task_suspended_operations` |
 | M-Extension | `extension_definitions`, `extension_instances`, `extension_transitions` |
 | M-Policy | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `policy_decisions`, `policy_approvals`, `policy_approval_votes` |
@@ -462,6 +462,31 @@ Primary key: `(network_id, operation_id)`.
 | `updated_at` | timestamptz | UTC |
 
 Primary key: `(fact_kind, fact_id)`. Closed-loop mutations write fact rows and pending event intents in one transaction. Published intents remain as delivery evidence; pending intents are retried after production composition startup.
+
+#### `mnet_network_event_intents`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `intent_id` | text primary key | event-intent ID |
+| `subject` | text | versioned EventBus subject |
+| `payload` | jsonb | event payload |
+| `status` | text | `pending` or `published` |
+| `correlation_id` | text | caller correlation id, shared with Core Audit |
+| `network_id` | text | soft reference; deliberately NOT a `networks.id` foreign key |
+| `created_at` | timestamptz | UTC |
+| `published_at` | timestamptz nullable | UTC |
+| `last_error` | text nullable | last dispatch failure |
+
+Network-lifecycle mutations write the authoritative row change and this intent in one transaction; a sweep retries pending intents at least once (ADR-N05). `network_id` has no foreign key so a deleted network's event intent survives the row it describes, and rows are never garbage-collected.
+
+#### `mnet_network_tombstones`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `network_id` | text primary key | soft reference; never a `networks.id` foreign key |
+| `deleted_at` | timestamptz | UTC |
+
+Written inside the network-deletion transaction. It distinguishes "was deleted" from "never existed" for idempotent `DELETE` semantics and is never garbage-collected (ADR-N05).
 
 #### `mnet_network_map_renders`
 

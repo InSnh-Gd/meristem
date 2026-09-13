@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import {
-  renderNetworkMap,
-  renderNetworkMaps
-} from '../../services/m-net/src/network-map-renderer.ts'
-import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
+import { renderNetworkMap, renderNetworkMaps } from '@m-net/data-plane/network-map-renderer.ts'
+import { resolveNetworkMapSigningKeyMaterial } from '@m-net/data-plane/network-map-signing.ts'
 import type {
   NetworkMapMemberInput,
   NetworkMapRenderInput,
   RequestedAclRule
-} from '../../services/m-net/src/network-map-types.ts'
+} from '@m-net/data-plane/network-map-types.ts'
 
 const perfSigningKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })
 

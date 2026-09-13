@@ -11,7 +11,7 @@ import type {
   MDeployRollbackOperationResponseFromSchema
 } from '../../../../packages/contracts/src/index.ts'
 import type { Permission } from '../../../../packages/contracts/src/index.ts'
-import type { FacadeServiceResult } from '../routes/facade-support.ts'
+import type { FacadeServiceResult } from './facade-result.ts'
 
 /** M-Deploy facade 上下文只透传 actor、Bearer token 与关联 ID，与 facade-support 结构一致。 */
 export type MDeployFacadeContext = {

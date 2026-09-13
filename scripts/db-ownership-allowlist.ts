@@ -82,7 +82,7 @@ export const approvedCrossOwnerReads = [
     reason: 'Core auth reads RBAC membership tables as the approved local auth exception.'
   },
   {
-    source: 'services/m-net/src/agent-runtime-task-dispatch.ts',
+    source: 'services/m-net/src/agent/agent-runtime-task-dispatch.ts',
     tables: ['nodes'],
     reason: 'M-Net dispatch checks Core-owned node facts when delivering tasks.'
   },
@@ -97,7 +97,7 @@ export const approvedCrossOwnerReads = [
     reason: 'M-Net runtime mapping reuses Core-owned node row types.'
   },
   {
-    source: 'services/m-net/src/agent-runtime-session-lifecycle.ts',
+    source: 'services/m-net/src/agent/agent-runtime-session-lifecycle.ts',
     tables: ['nodes', 'nodeCredentials', 'nodeJoinTickets'],
     reason:
       'M-Net runtime session lifecycle redeems Core join tickets and updates node session facts.'

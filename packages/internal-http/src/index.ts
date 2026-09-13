@@ -30,6 +30,14 @@ export const internalServicePorts: Record<InternalServiceName, number> = {
 export const internalTokenHeaderName = 'x-meristem-internal-token'
 
 /**
+ * 调用链没有显式传入 correlationId 时在入口层补一个随机值，保证日志、审计与事件可串联。
+ * Core 入口与 M-Net 内部网络变更端口族共用同一语义，避免各服务各写一份。
+ */
+export function correlationIdFromHeader(header: string | undefined): string {
+  return header && header.length > 0 ? header : crypto.randomUUID()
+}
+
+/**
  * split-container 部署时每个内部服务的 URL 覆盖环境变量名。
  * 命名与 BFF/CLI 已有的 MERISTEM_*_URL 约定保持一致，避免同一服务出现两套覆盖变量。
  */

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { applyHeartbeat } from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
-import { projectNodeAgentSidecarStatus } from '../../services/m-net/src/closed-loop-workflow.ts'
-import { breakGlassFailClosed } from '../../services/m-net/src/mnet-dataplane-workflows.ts'
-import { shouldTransitionOffline } from '../../services/m-net/src/runtime.ts'
+import { applyHeartbeat } from '@m-net/agent/agent-runtime-session-lifecycle.ts'
+import { projectNodeAgentSidecarStatus } from '@m-net/closed-loop/closed-loop-workflow.ts'
+import { breakGlassFailClosed } from '@m-net/data-plane/mnet-dataplane-workflows.ts'
+import { shouldTransitionOffline } from '@m-net/runtime.ts'
 import { applySidecarDesiredState } from '../../services/node-agent/src/node-agent-sidecar-lifecycle.ts'
 import {
   completeNetBirdSecrets,

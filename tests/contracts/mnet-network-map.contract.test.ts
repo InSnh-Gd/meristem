@@ -1,10 +1,4 @@
 import { describe, expect, it } from 'bun:test'
-import * as Schema from 'effect/Schema'
-import {
-  type NetworkMapFromSchema as NetworkMap,
-  NetworkMapEnforcementDecisionSchema,
-  NetworkMapSchema
-} from '../../packages/contracts/src/schemas/mnet-profile.ts'
 import {
   DEFAULT_NETWORK_MAP_STALE_TTL_MS,
   decideNetworkMapEnforcement,
@@ -12,13 +6,19 @@ import {
   renderNetworkMapForNode,
   renderNetworkMaps,
   resolveNetworkMapStaleTtlMs
-} from '../../services/m-net/src/network-map-renderer.ts'
-import { resolveNetworkMapSigningKeyMaterial } from '../../services/m-net/src/network-map-signing.ts'
+} from '@m-net/data-plane/network-map-renderer.ts'
+import { resolveNetworkMapSigningKeyMaterial } from '@m-net/data-plane/network-map-signing.ts'
 import type {
   NetworkMapMemberInput,
   NetworkMapRenderInput,
   RequestedAclRule
-} from '../../services/m-net/src/network-map-types.ts'
+} from '@m-net/data-plane/network-map-types.ts'
+import * as Schema from 'effect/Schema'
+import {
+  type NetworkMapFromSchema as NetworkMap,
+  NetworkMapEnforcementDecisionSchema,
+  NetworkMapSchema
+} from '../../packages/contracts/src/schemas/mnet-profile.ts'
 
 const issuedAt = 1_800_000
 const signingKey = resolveNetworkMapSigningKeyMaterial({}, { allowTestDefaults: true })

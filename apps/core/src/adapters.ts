@@ -43,7 +43,11 @@ import {
   dependencyStateFromReady
 } from './adapters/service-lifecycle.ts'
 import { createConfigStateMachine } from './config-state-machine.ts'
-import { createDbStorage, createIdentityStore, createSecretRefStore } from './storage-adapter.ts'
+import {
+  createDbStorage,
+  createIdentityStore,
+  createSecretRefStore
+} from './storage/storage-adapter.ts'
 import type { CoreDeps } from './types.ts'
 
 export { createSessionAuthPort } from './adapters/auth.ts'
@@ -64,7 +68,7 @@ export { createHttpPolicyPort } from './adapters/http-policy.ts'
 export { createRpcEventPort, createRpcLogPort, createRpcPolicyPort } from './adapters/rpc-legacy.ts'
 export { createServiceLifecyclePort } from './adapters/service-lifecycle.ts'
 export { createConfigStateMachine } from './config-state-machine.ts'
-export { createDbStorage } from './storage-adapter.ts'
+export { createDbStorage } from './storage/storage-adapter.ts'
 
 export type CoreSecretStartupFailure = {
   code: 'core.secret_startup_failed'

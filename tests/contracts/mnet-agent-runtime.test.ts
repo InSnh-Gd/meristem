@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'bun:test'
-import { hashNodeToken } from '../../packages/auth/src/index.ts'
-import { err, ok } from '../../packages/common/src/result.ts'
-import type { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
 import {
   applyHeartbeat,
   type HeartbeatRuntimeContext,
   type RuntimeCredentialContext,
   validateNodeCredential
-} from '../../services/m-net/src/agent-runtime-session-lifecycle.ts'
+} from '@m-net/agent/agent-runtime-session-lifecycle.ts'
 import {
   buildJoinSessionUrl,
   deriveHeartbeatTransition,
   deriveRecoveryCompletionEvidence,
   joinTicketRedeemability,
   shouldTransitionOffline
-} from '../../services/m-net/src/runtime.ts'
+} from '@m-net/runtime.ts'
+import { hashNodeToken } from '../../packages/auth/src/index.ts'
+import { err, ok } from '../../packages/common/src/result.ts'
+import type { nodeCredentials, nodes } from '../../packages/db/src/schema.ts'
 
 type NodeRow = typeof nodes.$inferSelect
 type NodeCredentialRow = typeof nodeCredentials.$inferSelect

@@ -31,6 +31,9 @@ import { migrateServices } from './migrate-services.ts'
 // create table if not exists mnet_partition_states
 // create table if not exists mnet_closed_loop_facts
 // create index if not exists mnet_closed_loop_facts_network_kind_idx
+// create table if not exists mnet_network_event_intents
+// create index if not exists mnet_network_event_intents_status_idx
+// create table if not exists mnet_network_tombstones
 
 const sql = createSqlClient()
 

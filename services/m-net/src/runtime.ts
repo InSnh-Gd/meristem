@@ -7,7 +7,7 @@ import type {
 import {
   isHeartbeatSuppressedByNodeControl,
   isOfflineTransitionSuppressedByNodeControl
-} from './node-control-state-machine.ts'
+} from './agent/node-control-state-machine.ts'
 
 export type RuntimeNodeSnapshot = {
   id: string

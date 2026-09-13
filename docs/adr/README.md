@@ -20,6 +20,7 @@
 | [ADR-N02](ADR-N02-m-net-cn-profile.md) | M-Net CN 区域网络 Profile | Accepted (data-plane scope superseded by ADR-N03; control-plane profile lifecycle active) | 区域网络 Profile |
 | [ADR-N03](ADR-N03-m-net-production-data-plane.md) | M-Net Production Data-Plane | Accepted (data-plane scope superseded by ADR-N04) | M-Net 数据面范围授权和 Sidecar 代理定义（wstunnel 旧版路径） |
 | [ADR-N04](ADR-N04-netbird-runtime-integration.md) | NetBird Runtime Gate and License Posture | Accepted | v0.2 NetBird 数据面运行时方向、license 合规与 viability gate |
+| [ADR-N05](ADR-N05-network-lifecycle-event-ownership.md) | Network-Lifecycle Event Ownership And Durable Outbox | Accepted | 「变更 => 事件」单一所有者 / outbox 原子提交 / REST 语义变更 |
 | [ADR-T01](ADR-T01-m-task-canonical-service.md) | M-Task 规范任务服务 | Accepted | 任务服务边界 |
 | [ADR-U01](ADR-U01-sdui-runtime-renderer-migration.md) | SDUI Runtime Renderer Migration Path | Proposed | SDUI v0.3 runtime rendering contract migration path（不授权实现） |
 | [ADR-U02](ADR-U02-plugin-ui-sandbox-security-model.md) | Plugin UI Sandbox And Security Model | Proposed | plugin UI sandbox / security / contract model（不授权实现） |

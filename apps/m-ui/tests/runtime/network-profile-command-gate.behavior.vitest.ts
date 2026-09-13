@@ -100,8 +100,8 @@ async function selectTargetNetwork(select: HTMLSelectElement) {
   // 而 Svelte 5 的 bind:value 在 change 时读取 querySelector(':checked')，
   // 因此先显式选中目标 option 再派发 change。
   const option = select.querySelector('option[value="net-cn-001"]') as HTMLOptionElement | null
-  expect(option).toBeTruthy()
-  option!.selected = true
+  if (!option) throw new Error('option net-cn-001 missing from profile select')
+  option.selected = true
   await fireEvent.change(select)
 }
 

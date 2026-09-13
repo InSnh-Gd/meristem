@@ -23,7 +23,7 @@ ADR-N03 授权了 M-Net 生产数据面的架构范围，但其数据面路径�
 - 通过 NetBird Relay 服务进行中继转发（NAT 穿透失败时）
 - 通过 NetBird STUN 服务进行 NAT 类型检测
 
-NetBird 客户端 sidecar 的进程管理、配置注入、健康探测和崩溃恢复由 node-agent 通过 `services/node-agent/src/node-agent-sidecar-lifecycle.ts` 中的 `applySidecarDesiredState()` 统一执行。M-Net 控制平面通过 `services/m-net/src/netbird-adapter.ts` 中的 `createNetBirdAdapter()` 将 profile 契约翻译为 node-agent sidecar 期望态。
+NetBird 客户端 sidecar 的进程管理、配置注入、健康探测和崩溃恢复由 node-agent 通过 `services/node-agent/src/node-agent-sidecar-lifecycle.ts` 中的 `applySidecarDesiredState()` 统一执行。M-Net 控制平面通过 `services/m-net/src/data-plane/netbird-adapter.ts` 中的 `createNetBirdAdapter()` 将 profile 契约翻译为 node-agent sidecar 期望态。
 
 ### 2. 排除 NetBird Management / Dashboard
 
@@ -36,7 +36,7 @@ NetBird 客户端 sidecar 的进程管理、配置注入、健康探测和崩溃
 - **NetBird 审计/日志**：M-Log 是唯一的审计事实记录系统；NetBird 客户端日志仅作为 node-agent `log.forward` 的 Full Log 来源之一，不形成独立的审计链。
 - **NetBird 账户模型**：节点身份由 Meristem Core 管理；NetBird 不持有独立的账户/用户/组织模型。
 
-`services/m-net/src/netbird-adapter.ts` 中的 `validateResolvedConfig()` 函数已内置运行时守卫：若 NetBird 控制面配置中检测到 `management`、`dashboard`、`acl`、`acls` 字段，适配器拒绝输出 sidecar 期望态，返回 `netbird.config.forbidden_management_plane`。
+`services/m-net/src/data-plane/netbird-adapter.ts` 中的 `validateResolvedConfig()` 函数已内置运行时守卫：若 NetBird 控制面配置中检测到 `management`、`dashboard`、`acl`、`acls` 字段，适配器拒绝输出 sidecar 期望态，返回 `netbird.config.forbidden_management_plane`。
 
 ### 3. Meristem 保留管理权威
 

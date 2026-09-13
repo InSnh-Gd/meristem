@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test'
+import type { createMNetApp, MNetAppDeps, MNetServiceError, MNetServiceResult } from '@m-net/app.ts'
+import type { MNetApp as PublicMNetApp } from '@m-net/public-types.ts'
 import type { Result } from '../../packages/common/src/result.ts'
 import type {
   ActorId,
@@ -32,13 +34,6 @@ import type {
   SearchDeps
 } from '../../services/m-log/src/app.ts'
 import type { LogApp as PublicLogApp } from '../../services/m-log/src/public-types.ts'
-import type {
-  createMNetApp,
-  MNetAppDeps,
-  MNetServiceError,
-  MNetServiceResult
-} from '../../services/m-net/src/app.ts'
-import type { MNetApp as PublicMNetApp } from '../../services/m-net/src/public-types.ts'
 import type {
   createMTaskApp,
   MTaskCreateInput,

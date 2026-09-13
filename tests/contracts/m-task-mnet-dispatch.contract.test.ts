@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
+import { createMNetApp } from '@m-net/app.ts'
+import type { MNetAppDeps } from '@m-net/deps.ts'
+import type { ActorId } from '../../packages/contracts/src/index.ts'
 import { internalTokenHeaderName } from '../../packages/internal-http/src/index.ts'
-import { createMNetApp } from '../../services/m-net/src/app.ts'
-import type { MNetAppDeps } from '../../services/m-net/src/deps.ts'
 import { createMTaskApp } from '../../services/m-task/src/app.ts'
 import { createHttpMNetTaskDeliveryPort } from '../../services/m-task/src/mnet-delivery-port.ts'
 import { createInMemoryMTaskDeps } from '../../services/m-task/src/testing.ts'
-import type { ActorId } from '../../packages/contracts/src/index.ts'
 
 type LocalFetchApp = {
   handle(request: Request): Response | Promise<Response>

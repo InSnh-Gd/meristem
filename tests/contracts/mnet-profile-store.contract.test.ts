@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import {
-  createInMemoryProfileStore,
-  type ProfileStore
-} from '../../services/m-net/src/profile-store.ts'
+import { createInMemoryProfileStore, type ProfileStore } from '@m-net/profile/profile-store.ts'
 import {
   createInMemorySuspendedOperationStore,
   type SuspendedOperationStore
-} from '../../services/m-net/src/suspended-operations.ts'
+} from '@m-net/suspended-operations.ts'
 
 describe('M-Net in-memory profile store', () => {
   let store: ProfileStore

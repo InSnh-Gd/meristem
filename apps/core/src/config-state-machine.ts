@@ -1,6 +1,6 @@
 import { err, ok } from '../../../packages/common/src/result.ts'
 import type { MeristemDb } from '../../../packages/db/src/client.ts'
-import { createConfigStore } from './storage-adapter.ts'
+import { createConfigStore } from './storage/storage-adapter.ts'
 import type { ConfigPort, ServiceError } from './types.ts'
 
 type ConfigStatus = 'draft' | 'validated' | 'published' | 'applied' | 'failed' | 'rolled_back'
